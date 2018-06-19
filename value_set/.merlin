@@ -1,0 +1,16 @@
+PKG core_kernel
+PKG bap
+PKG ocamlgraph
+PKG oUnit
+
+FLG -short-paths
+FLG -w +a
+
+B _build
+B _build/lib
+B _build/plugin
+B _build/unit-tests
+
+S lib
+S plugin
+S unit-tests

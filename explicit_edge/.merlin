@@ -1,0 +1,12 @@
+PKG core_kernel
+PKG bap
+PKG ocamlgraph
+PKG cbat-value-set
+
+FLG -short-paths
+FLG -w +a
+
+B _build
+B _build/plugin
+
+S plugin

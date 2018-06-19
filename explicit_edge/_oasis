@@ -1,0 +1,19 @@
+OASISFormat: 0.4
+OcamlVersion: >= 4.04.1
+Name:        cbat-explicit-edge
+Version:     0.0.1
+Synopsis:    A library and plugin for BAP to perform value-set analysis on
+  binaries.
+Authors:     Dustin Jamner, The Charles Stark Draper Laboratory, Inc
+License:     PROP
+Plugins:     META (0.4)
+
+
+
+Library "cbat-plugin-explicit-edge"
+  Path:       plugin/
+  BuildTools: ocamlbuild
+  Modules:    Cbat_explicit_edge_plugin
+  FindlibName:  cbat-plugin-explicit-edge
+  BuildDepends: bap (>= 1.5.0), core_kernel, cbat-value-set
+  XMETADescription: make indirect jumps direct when possible to facilitate CFG analysis.
