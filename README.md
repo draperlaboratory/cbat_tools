@@ -62,3 +62,9 @@ Running the Passes
 The plugins respectively define the `value-set` and `explicit-edge` BAP passes.
 To run a pass in BAP, see `bap --help` or [the value-set README](./value_set/README.md)
 and [the explicit-edge README](./explicit_edge/README.md).
+
+
+Disclaimer
+-------------------
+This work is sponsored by ONR/NAWC Contract N6833518C0107.  Its content does not necessarily reflect the position or policy of the US Government and no official endorsement should be inferred.
+
