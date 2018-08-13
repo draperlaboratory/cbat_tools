@@ -329,9 +329,19 @@ let equal (p1 : t) (p2 : t) : bool =
 
 let unwrap (p : t) : t =
   let open Monads.Std.Monad.Option.Syntax in
-  Option.value ~default:(top (bitwidth p)) begin
+  Option.value ~default:(bottom (bitwidth p)) begin
     min_elem p >>= fun base ->
     max_elem p >>= fun e ->
+    let step = p.step in
+    let cardn = cardn_from_bounds base step e in
+    !!{base; step; cardn}
+  end
+
+let unwrap_signed (p : t) : t =
+  let open Monads.Std.Monad.Option.Syntax in
+  Option.value ~default:(top (bitwidth p)) begin
+    min_elem_signed p >>= fun base ->
+    max_elem_signed p >>= fun e ->
     let step = p.step in
     let cardn = cardn_from_bounds base step e in
     !!{base; step; cardn}
@@ -808,7 +818,9 @@ let lshift (p1 : t) (p2 : t) : t =
     !!(create base ~step ~cardn)
   end
 
+(* Note, this function only accepts CLPs that are the same bitwidth. *)
 let rshift_step rshift ~p1 ~p2 ~e2 ~sz1 ~sz2 =
+  assert(sz1 = sz2);
   let _, b1twos = factor_2s p1.base in
   let _, s1twos = factor_2s p1.step in
   let s1_divisible = W.(>=) (W.of_int s1twos ~width:sz1) e2 in
@@ -821,10 +833,11 @@ let rshift_step rshift ~p1 ~p2 ~e2 ~sz1 ~sz2 =
       (rshift p1.base @@ e2)
   else W.one sz1
 
-(* Note: this operation accepts inputs of different sizes as per the BAP IR *)
+(* Note: [p1] and [p2] must have the same bitwidth, since this function
+   depends on the [rshift_step] function above. *)
 let rshift (p1 : t) (p2 : t) : t =
   let sz1 = bitwidth p1 in
-  let sz2 = bitwidth p1 in
+  let sz2 = bitwidth p2 in
   let p1 = unwrap @@ canonize p1 in
   let p2 = unwrap @@ canonize p2 in
   let open Monads.Std.Monad.Option.Syntax in
@@ -840,13 +853,55 @@ let rshift (p1 : t) (p2 : t) : t =
       !!(create base ~step ~cardn)
   end
 
-(* TODO: implement roughly as per the SWEET paper (compare to above)
-   using rshift_step and cardn_from_bounds
-*)
-(* Note: this operation accepts inputs of different sizes as per the BAP IR *)
-let arshift (p1 : t) (_ : t) : t =
+(* Note: [p1] and [p2] must have the same bitwidth, since this function
+   depends on the [rshift_step] function above.
+
+   Note also that the SWEET paper's algorithm for arshift is incorrect.
+   To compute the new [n] (cardinality) on p. 26, it has this condition:
+
+   - [if b1 >= c1[n1 - 1]]
+
+   We have altered that condition to this:
+
+   - [if 0 >= c1[n1 - 1]]
+
+   *)
+let arshift (p1 : t) (p2 : t) : t =
   let sz1 = bitwidth p1 in
-  not_implemented ~top:(top sz1) "Clp arithmetic right-shift"
+  let sz2 = bitwidth p2 in
+  let zero = W.zero sz1 in
+  let p1 = unwrap_signed @@ canonize p1 in
+  let p2 = unwrap @@ canonize p2 in
+  let open Monads.Std.Monad.Option.Syntax in
+  Option.value ~default:(bottom sz1) begin
+
+    finite_end p1 >>= fun e1 ->
+    finite_end p2 >>= fun e2 ->
+
+    if W.is_one p1.cardn && W.is_one p2.cardn
+    then
+      let base = W.arshift (W.signed p1.base) p2.base in
+      !!(create base ~width:sz1)
+    else
+
+      let base =
+        if W.(>=) (W.signed p1.base) zero
+        then W.arshift (W.signed p1.base) e2
+        else W.arshift (W.signed p1.base) p2.base
+        in
+
+      let step = rshift_step W.arshift ~p1 ~p2 ~e2 ~sz1 ~sz2 in
+
+      let new_end =
+        if W.(>=) (W.signed e1) zero
+        then W.arshift (W.signed e1) p2.base
+        else W.arshift (W.signed e1) e2
+        in
+      let cardn = cardn_from_bounds base step new_end in
+
+      !!(create base ~step ~cardn)
+
+  end
 
 (* helper function; splits a CLP into two segments: one that contains all
    points from the base up to n inclusive and another that contains the rest.

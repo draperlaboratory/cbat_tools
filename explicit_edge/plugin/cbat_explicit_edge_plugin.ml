@@ -68,7 +68,9 @@ let add_edges (prog : program term) (s : sub term) (postcondition : AI.t) (b : b
           (* TODO: this cond is computed twice; fix *)
           let cond = specialize_cond (Jmp.cond j) e w in
           let new_j = concrete_jump Jmp.create_goto s (Jmp.cond j) e w in
-          if not @@ List.mem !conds cond ~equal:Bap.Std.Exp.equal then begin
+          if not @@ List.mem !conds cond ~equal:Bap.Std.Exp.equal
+          (* TODO: this fix should not be necessary; investigate further *)
+          && not (Bap.Std.Exp.equal e (Bil.Int w)) then begin
             Blk.Builder.add_jmp jump_builder new_j;
             edges_added := EdgesAdded;
             conds := cond::!conds;

@@ -57,6 +57,68 @@ struct
       end
     end test_clps_64
 
+  let test_min_max_elem_signed ctxt =
+
+    let make_clp w b s c =
+      let b' = W.of_int b ~width:(w + 1) in
+      let s' = W.of_int s ~width:(w + 1) in
+      let c' = W.of_int c ~width:(w + 1) in
+      Clp.create ~width:w ~step:s' ~cardn:c' b'
+      in
+
+    let clps = [
+      (3, 0, 1, 8); (4, 0, 1, 16); (4, 0, 2, 8); (32, 2, 7, 50); (60, 0, 100, 1000);
+      (3, -4, 1, 8); (3, -4, 2, 4); (16, -128, 3, 50); (62, -2000, 157, 1000);] 
+      in
+
+    (* Go through each CLP, and for each one, check that each element in the CLP is:
+       - not greater than the maximum signed element
+       - not less than the minimum signed element *)
+    List.iter
+      begin fun (w, b, s, c) ->
+
+        let clp = make_clp w b s c in
+        let clp_str = Printf.sprintf "CLP-%d(%d, %d, %d)" w b s c in
+
+        let p = Conv.of_clp clp in
+
+        let open Monads.Std.Monad.Option.Syntax in
+        Option.value ~default:() begin
+
+          WordSet.min_elem_signed p >>= fun min_e ->
+          WordSet.max_elem_signed p >>= fun max_e ->
+
+          List.iter
+            begin fun wd ->
+
+              let wd_int = W.to_int_exn wd in
+              let wd_int_s = W.to_int_exn (W.signed wd) in
+              let min_e_int = W.to_int_exn min_e in
+              let min_e_int_s = W.to_int_exn (W.signed min_e) in
+              let max_e_int = W.to_int_exn max_e in
+              let max_e_int_s = W.to_int_exn (W.signed max_e) in
+
+              let msg = 
+                Printf.sprintf 
+                "%s: Elem %d (%d) is less than the signed min elem %d (%d)" 
+                clp_str wd_int wd_int_s min_e_int min_e_int_s 
+                in
+              assert_bool msg (W.(<=) (W.signed min_e) (W.signed wd));
+
+              let msg = 
+                Printf.sprintf 
+                "%s: Elem %d (%d) is greater than the signed max elem %d (%d)" 
+                clp_str wd_int wd_int_s max_e_int max_e_int_s 
+                in
+              assert_bool msg (W.(>=) (W.signed max_e) (W.signed wd))
+
+            end
+            (WordSet.iter p);
+
+          !!()
+        end
+
+      end clps
 
   let testUnion _ =
     let wd = W.of_int ~width:32 in
@@ -101,9 +163,6 @@ struct
     let addr_both = WordSet.union addr1 addr2 in
     let addr_both_expected = create ~width:64 (wd 0x4000e0) ~step:(wd 0x26) ~cardn:(wd 2) in
     assert_equal ~cmp:WordSet.equal addr_both addr_both_expected
-
-
-
 
   let testAdd =
     let wd = W.of_int ~width:32 in
@@ -714,72 +773,602 @@ struct
     |> Seq.fold ~init:[] ~f:List.append
     |> List.map (fun t -> "test lshift">::t)
 
-  let test_min_max_elem_signed ctxt =
+
+
+  let test_rshift =
+    let printer = Format.asprintf "%a" WordSet.pp in
 
     let make_clp w b s c =
-      let b' = W.of_int b ~width:(w + 1) in
-      let s' = W.of_int s ~width:(w + 1) in
-      let c' = W.of_int c ~width:(w + 1) in
+      let b' = W.of_int b ~width:w in
+      let s' = W.of_int s ~width:w in
+      let c' = W.of_int c ~width:w in
       Clp.create ~width:w ~step:s' ~cardn:c' b'
       in
 
-    let clps = [
-      (3, 0, 1, 8); (4, 0, 1, 16); (4, 0, 2, 8); (32, 2, 7, 50); (60, 0, 100, 1000);
-      (3, -4, 1, 8); (3, -4, 2, 4); (16, -128, 3, 50); (62, -2000, 157, 1000);] 
+    (* If either CLP is bottom, [rshift] should return
+       bottom with the bitwidth of the first CLP (clp1). *)
+    let test_bottoms clp1 clp2 _ =
+      let btm = Conv.of_clp (Clp.bottom (Clp.bitwidth clp1)) in
+      let p1 = Conv.of_clp clp1 in
+      let p2 = Conv.of_clp clp2 in
+      let res = WordSet.rshift p1 p2 in
+      assert_equal ~printer ~cmp:(WordSet.equal) btm res
       in
 
-    (* Go through each CLP, and for each one, check that each element in the CLP is:
-       - not greater than the maximum signed element
-       - not less than the minimum signed element *)
-    List.iter
-      begin fun (w, b, s, c) ->
+    let bottoms = [
+      (make_clp 3 0 0 0, make_clp 3 0 0 0);
+      (Clp.bottom 3, Clp.bottom 3);
+      (Clp.bottom 8, Clp.bottom 16);
+      (Clp.bottom 16, Clp.bottom 3);
+      (Clp.bottom 3, make_clp 3 0 1 7);
+      (make_clp 8 2 3 7, Clp.bottom 4);
+      ]
+      in
 
-        let clp = make_clp w b s c in
-        let clp_str = Printf.sprintf "CLP-%d(%d, %d, %d)" w b s c in
+    let bottom_tests = 
+      List.map
+        (fun (t1, t2) -> "Test rshift bottom">::(test_bottoms t1 t2)) 
+        bottoms
+      in
+      
+    (* If both CLPs are singletons, [rshift] should return
+       a singleton whose base is clp1.base >> clp2.base. *)
+    let test_singletons clp1 clp2 _ =
+      let b1 = Option.value_exn (Clp.min_elem clp1) in
+      let b2 = Option.value_exn (Clp.min_elem clp2) in
+      let shifted_val = W.rshift b1 b2 in
+      let width = Clp.bitwidth clp1 in
+      let expected_clp = 
+        Clp.create ~width ~step:(W.zero width) ~cardn:(W.one width) shifted_val in
+      let exp = Conv.of_clp expected_clp in
+      let p1 = Conv.of_clp clp1 in
+      let p2 = Conv.of_clp clp2 in
+      let res = WordSet.rshift p1 p2 in
+      assert_equal ~printer ~cmp:WordSet.equal exp res
+      in
 
-        let p = Conv.of_clp clp in
+    let singletons = [
+      (make_clp 3 0 0 1, make_clp 3 0 0 1);
+      (make_clp 3 1 0 1, make_clp 3 0 0 1);
+      (make_clp 8 20 0 1, make_clp 3 0 0 1);
+      (make_clp 8 64 0 1, make_clp 32 2 0 1);]
+      in
 
-        let open Monads.Std.Monad.Option.Syntax in
-        Option.value ~default:() begin
+    let singleton_tests =
+      List.map
+        (fun (t1, t2) -> "Test rshift singletons">::(test_singletons t1 t2))
+        singletons
+      in
 
-          WordSet.min_elem_signed p >>= fun min_e ->
-          WordSet.max_elem_signed p >>= fun max_e ->
+    (* A right shift m >> n is equivalent to m / 2^n.
+       So CLP1 >> CLP2 should be roughly equivalent to
+       CLP1 / {2^i : i in CLP2}. 
+       But we can't divide by zero, so we need to
+       replace 2^i with 1 if 2^i is a 0, since:
+       if m = 0, n >> m is equivalent to n, and
+       if m = 1, n / m is equivalent to n.
+       So the real equivalence that we want is:
+       CLP1 >> CLP2 should be equivalent to
+       CLP1 / {1 if 2^i == 0 else 2^i : i in CLP2}.
+       *)
+    let test_others l (width, b, s, n) _ =
 
-          List.iter
-            begin fun wd ->
+      let sq = Seq.of_list l in
+      let clp = make_clp width b s n in
+      let p = Conv.of_clp clp in
 
-              let wd_int = W.to_int_exn wd in
-              let wd_int_s = W.to_int_exn (W.signed wd) in
-              let min_e_int = W.to_int_exn min_e in
-              let min_e_int_s = W.to_int_exn (W.signed min_e) in
-              let max_e_int = W.to_int_exn max_e in
-              let max_e_int_s = W.to_int_exn (W.signed max_e) in
+      let divby = 
+        Seq.map sq ~f:(fun i -> W.of_int ~width (1 lsl i))
+        |> Seq.map ~f:(fun i -> if W.is_zero i then (W.one width) else i)
+        |> Seq.to_list
+	|> WordSet.of_list ~width in
+      let div_res = WordSet.div p divby in
 
-              let msg = 
-                Printf.sprintf 
-                "%s: Elem %d (%d) is less than the signed min elem %d (%d)" 
-                clp_str wd_int wd_int_s min_e_int min_e_int_s 
-                in
-              assert_bool msg (W.(<=) (W.signed min_e) (W.signed wd));
+      let shiftby = 
+        Seq.map sq ~f:(W.of_int ~width)
+        |> Seq.to_list
+	|> WordSet.of_list ~width in
+      let res = WordSet.rshift p shiftby in
 
-              let msg = 
-                Printf.sprintf 
-                "%s: Elem %d (%d) is greater than the signed max elem %d (%d)" 
-                clp_str wd_int wd_int_s max_e_int max_e_int_s 
-                in
-              assert_bool msg (W.(>=) (W.signed max_e) (W.signed wd))
+      assert_equal ~printer ~cmp:WordSet.precedes res div_res
+      in
 
-            end
-            (WordSet.iter p);
+    let other_clps = [
+      ([0; 2; 4; 6;], (3, 0, 1, 2));
+      ([16; 32; 48; 64], (8, 0, 4, 13));
+      ([2; 3; 4; 5; 6; 7; 8], (9, 0, 4, 24));
+      ([10; 12; 14; 16; 18], (16, 5, 15, 30));
+      ([100; 200; 300; 400; 500; 600; 700], (32, 0, 60, 100000))]
+      in
 
-          !!()
-        end
+    let other_tests =
+      List.map
+        (fun (t1, t2) -> "Test rshift for other CLPs">::(test_others t1 t2))
+        other_clps
+      in
 
-      end clps
+    List.flatten [bottom_tests; singleton_tests; other_tests]
+
+  (** Checks that [WordSet.arshift] correctly handles cases
+      where the CLPs are bottom or singletons. *)
+  let test_arshift_bottom_and_singletons =
+    let printer = Format.asprintf "%a" WordSet.pp in
+
+    let make_clp w b s c =
+      let b' = W.of_int b ~width:w in
+      let s' = W.of_int s ~width:w in
+      let c' = W.of_int c ~width:w in
+      Clp.create ~width:w ~step:s' ~cardn:c' b'
+      in
+
+    (* If either CLP is bottom, [arshift] should return
+       bottom with the bitwidth of the first CLP (clp1). *)
+    let test_bottoms clp1 clp2 _ =
+      let btm = Conv.of_clp (Clp.bottom (Clp.bitwidth clp1)) in
+      let p1 = Conv.of_clp clp1 in
+      let p2 = Conv.of_clp clp2 in
+      let res = WordSet.arshift p1 p2 in
+      assert_equal ~printer ~cmp:WordSet.equal btm res
+      in
+
+    let bottoms = [
+      (make_clp 3 0 0 0, make_clp 3 0 0 0);
+      (Clp.bottom 3, Clp.bottom 3);
+      (Clp.bottom 8, Clp.bottom 16);
+      (Clp.bottom 16, Clp.bottom 3);
+      (make_clp 8 (-2) 3 7, Clp.bottom 4);
+      ]
+      in
+
+    let bottom_tests = 
+      List.map
+        (fun (t1, t2) -> "Test arshift bottom">::(test_bottoms t1 t2)) 
+        bottoms
+      in
+
+    (* If both CLPs are singletons, [arshift] should return
+       a singleton whose base is clp1.base >> clp2.base. *)
+    let test_singletons clp1 clp2 _ =
+      let b1 = Option.value_exn (Clp.min_elem clp1) in
+      let b2 = Option.value_exn (Clp.min_elem clp2) in
+      let shifted_val = W.arshift b1 b2 in
+      let width = Clp.bitwidth clp1 in
+      let expected_clp = 
+        Clp.create ~width ~step:(W.zero width) ~cardn:(W.one width) shifted_val in
+      let exp = Conv.of_clp expected_clp in
+      let p1 = Conv.of_clp clp1 in
+      let p2 = Conv.of_clp clp2 in
+      let res = WordSet.arshift p1 p2 in
+      assert_equal ~printer ~cmp:WordSet.equal exp res
+      in
+
+    let singletons = [
+      (make_clp 3 0 0 1, make_clp 3 0 0 1);
+      (make_clp 3 1 0 1, make_clp 3 0 0 1);
+      (make_clp 8 (-20) 0 1, make_clp 3 0 0 1);
+      (make_clp 8 (-64) 0 1, make_clp 32 2 0 1);]
+      in
+
+    let singleton_tests =
+      List.map
+        (fun (t1, t2) -> "Test arshift singletons">::(test_singletons t1 t2))
+        singletons
+      in
+
+    List.flatten [bottom_tests; singleton_tests]
+
+  (** The following function checks that [WordSet.arshift] handles
+       other cases (i.e., non-bottom/non-singleton cases) correctly.
+      
+      The strategy is to construct actual concrete CLPs (composed
+      of integers) along with the abstract CLPs (composed of bitvectors).
+      Then check that the two match up in the relevant ways:
+      
+      - The bases should be the same.
+      - The concrete cardinality should be >= the abstract cardinality.
+      - The concrete CLP should be a subset of the abstract CLP.
+      Note that OCaml doesn't handle [m asr n] if [n >= 64] in a
+      straightforward way, so for some concrete CLP calculations,
+      we convert the integers to BAP bitvectors to do the calculations
+      before converting them back to integers. For final comparison. *)
+  let test_arshift =
+
+    let make_clp w b s c =
+      let b' = W.of_int b ~width:w in
+      let s' = W.of_int s ~width:w in
+      let c' = W.of_int c ~width:w in
+      Clp.create ~width:w ~step:s' ~cardn:c' b'
+      in
+
+    let word_exn w =
+      match w with
+      | None -> failwith "No bitvector/word (one was expected)."
+      | Some w -> w
+      in
+
+    let list_of_bits w =
+      let wdth = Bitvector.bitwidth w in
+      let range = Seq.range 0 wdth |> Seq.to_list in
+      let bits =
+        List.map
+        (fun i ->
+	  let bit = Bitvector.extract_exn ~hi:i ~lo:i w in
+	  Bitvector.to_int_exn bit)
+	range
+	in
+      List.rev bits
+      in	
+
+    let word_to_string ?signed:(s=false) w =
+      let bits_list = list_of_bits w in
+      let bits_list_str = List.map (Printf.sprintf "%d") bits_list in
+      let wdth = Bitvector.bitwidth w in
+      let wdth_str = Printf.sprintf ":%d" wdth in
+      let int_value =
+        if s = true then Bitvector.to_int_exn (W.signed w)
+        else Bitvector.to_int_exn w
+	in
+      let int_value_str = Printf.sprintf "(%d)" int_value in
+      let bits_str = "0b" :: bits_list_str in
+      let result = List.append bits_str [wdth_str; int_value_str] in
+      String.concat "" result
+      in
+
+    let rec word_list_to_string ?acc:(acc="") l =
+      match l with
+      | [] -> acc
+      | hd :: tl ->
+        let w = word_to_string hd ~signed:true in
+        let new_acc = Printf.sprintf "%s %s" w acc in
+        word_list_to_string ~acc:new_acc tl
+      in
+
+    let clp_to_word_list clp =
+      let clp_list = WordSet.iter clp in
+      let clp_sorted =
+        List.sort
+        (fun x y -> if W.(<) (W.signed x) (W.signed y) then 1 else (-1))
+	clp_list
+	in
+      clp_sorted
+      in
+
+    let cardn_of_word_list word_list =
+      let sz = W.bitwidth (List.hd word_list) in
+      let num_elems = List.length word_list in
+      W.of_int num_elems ~width:sz
+      in
+
+    let rec ints_to_string ?acc:(acc="") l =
+      match l with
+      | [] -> acc
+      | hd :: tl ->
+        let new_acc = Printf.sprintf "%d %s" hd acc in
+        ints_to_string ~acc:new_acc tl
+      in
+
+    let clp_of_ints b s n =
+      let l = Seq.range 0 n |> Seq.to_list in
+      let result = List.map (fun i -> b + (s * i)) l in
+      List.rev (List.sort compare result)
+      in
+
+    let product l1 l2 =
+      List.concat (List.map (fun e -> List.map (fun e' -> (e,e')) l2) l1)
+      in
+  
+    let arshift_ints clp1 clp2 =
+      let prod = product clp1 clp2 in
+      let result = 
+        List.map 
+        (fun (a, b) -> 
+          let a' = W.of_int a ~width:64 in
+          let b' = W.of_int b ~width:64 in
+          let c' = W.arshift (W.signed a') b' in
+          W.to_int_exn (W.signed c'))
+        prod
+        in
+      List.rev (List.sort_uniq compare result)
+      in
+
+    let end_of_ints l = List.nth l 0 in
+    let base_of_ints l = List.nth (List.rev l) 0 in
+    let cardn_of_ints l = List.length l in
+
+    let test_base_ints b1 b2 b_res end2 msg =
+      let zero = W.of_int 0 ~width:64 in
+      let b1' = W.of_int b1 ~width:64 in
+      let b2' = W.of_int b2 ~width:64 in
+      let end2' = W.of_int end2 ~width:64 in
+      let b' = 
+        if W.(>=) (W.signed b1') zero 
+        then W.arshift (W.signed b1') end2'
+        else W.arshift (W.signed b1') b2'
+        in
+      let b = W.to_int_exn (W.signed b') in
+      let msg' =
+        Printf.sprintf "Expected int base '%d'. Got '%d'.\n%s"
+        b b_res msg
+        in
+      assert_bool msg' (b_res = b)
+      in
+
+    let test_base_clps b1 b2 b_res end2 msg =
+      let wdth = W.bitwidth b1 in
+      let b =
+        if W.(>=) (W.signed b1) (W.zero wdth)
+        then W.arshift (W.signed b1) (W.signed end2)
+        else W.arshift (W.signed b1) (W.signed b2)
+        in
+      let msg' =
+        Printf.sprintf "Expected CLP base '%s'. Got '%s'.\n%s"
+        (word_to_string b ~signed:true) (word_to_string b_res ~signed:true) msg
+        in
+      assert_bool msg' (W.(=) b_res b)
+      in
+
+    let test_cardn_ints s b2 b_res end1 end2 n_res msg =
+      let zero = W.of_int 0 ~width:64 in
+      let one = W.of_int 1 ~width:64 in
+      let s' = W.of_int s ~width:64 in
+      let b2' = W.of_int b2 ~width:64 in
+      let b_res' = W.of_int b_res ~width:64 in
+      let end1' = W.of_int end1 ~width:64 in
+      let end2' = W.of_int end2 ~width:64 in
+      let n' =
+        if W.(>=) (W.signed end1') zero
+        then
+          let x = W.arshift (W.signed end1') b2' in
+          let y = W.sub (W.signed x) (W.signed b_res') in
+          let z = W.div y s' in
+          W.add z one
+        else
+          let x = W.arshift (W.signed end1') end2' in
+          let y = W.sub (W.signed x) (W.signed b_res') in
+          let z = W.div y s' in
+          W.add z one
+        in
+      let n = W.to_int_exn n' in
+      let msg' =
+        Printf.sprintf "Actual int cardn '%d' not less than computed '%d'.\n%s"
+        n_res n msg
+        in
+      assert_bool msg' (n_res <= n)
+      in
+
+    let test_cardn_clps s b2 b_res end1 end2 n_res msg =
+      let wdth = W.bitwidth end1 in
+      let new_end =
+        if W.(>=) (W.signed end1) (W.zero wdth)
+        then W.arshift (W.signed end1) b2
+	else W.arshift (W.signed end1) end2
+	in
+      let n =
+	let rebased_end = W.sub (W.signed new_end) (W.signed b_res) in
+	let num_elems = W.div rebased_end s in
+	W.add num_elems (W.one wdth)
+	in
+      let msg' =
+        Printf.sprintf "Actual CLP cardn '%s' not less than computed '%s'.\n%s"
+        (word_to_string n_res) (word_to_string n) msg
+        in
+      assert_bool msg' (W.(<=) n_res n)
+      in
+
+    let test_ints_subset_of_clp width int_res res msg =
+      let ints_clp =
+        List.map (W.of_int ~width) int_res
+	|> WordSet.of_list ~width
+        in
+      let msg' =
+        Printf.sprintf "Integer CLP not a subset of the computed CLP.\n%s" msg
+        in
+      assert_bool msg' (WordSet.precedes ints_clp res)
+      in
+
+    let test_shift (w1, b1, s1, n1) (w2, b2, s2, n2) _ =
+
+      let int_clp1 = clp_of_ints b1 s1 n1 in
+      let int_clp2 = clp_of_ints b2 s2 n2 in
+      let int_res = arshift_ints int_clp1 int_clp2 in
+
+      let int_clp1_str = ints_to_string int_clp1 in
+      let int_clp2_str = ints_to_string int_clp2 in
+      let int_res_str = ints_to_string int_res in
+
+      let int_end1 = end_of_ints int_clp1 in
+      let int_end2 = end_of_ints int_clp2 in
+      let int_end_res = end_of_ints int_res in
+
+      let int_b_res = base_of_ints int_res in
+      let int_n_res = cardn_of_ints int_res in
+
+      let int_s = 1 in
+      let s = Word.one w1 in
+
+      let real_clp1 = make_clp w1 b1 s1 n1 in
+      let real_clp2 = make_clp w2 b2 s2 n2 in
+      let clp1 = Conv.of_clp real_clp1 in
+      let clp2 = Conv.of_clp real_clp2 in
+      let res = WordSet.arshift clp1 clp2 in
+
+      let clp1_list = clp_to_word_list clp1 in
+      let clp2_list = clp_to_word_list clp2 in
+      let res_list = clp_to_word_list res in
+
+      let clp1_str = word_list_to_string clp1_list in
+      let clp2_str = word_list_to_string clp2_list in
+      let res_str = word_list_to_string res_list in
+
+      let b1_word = W.of_int b1 ~width:w1 in
+      let b2_word = W.of_int b2 ~width:w2 in
+
+      let end1 = word_exn (WordSet.max_elem_signed clp1) in
+      let end2 = word_exn (WordSet.max_elem_signed clp2) in
+      let end_res = word_exn (WordSet.max_elem_signed res) in
+
+      let b_res = word_exn (WordSet.min_elem_signed res) in
+      let n_res = cardn_of_word_list res_list in
+
+      let msg =
+        String.concat "\n" [
+	  Printf.sprintf "Int CLP 1: %s" int_clp1_str;
+	  Printf.sprintf "Int CLP 2: %s" int_clp2_str;
+	  Printf.sprintf "Int Result: %s" int_res_str;
+	  Printf.sprintf "End of Int CLP 1: %d" int_end1;
+	  Printf.sprintf "End of Int CLP 2: %d" int_end2;
+	  Printf.sprintf "End of Int Result: %d" int_end_res;
+	  Printf.sprintf "Base of Int Result: %d" int_b_res;
+	  Printf.sprintf "Cardn of Int Result: %d" int_n_res;
+	  Printf.sprintf "CLP 1: %s" clp1_str;
+	  Printf.sprintf "CLP 2: %s" clp2_str;
+	  Printf.sprintf "CLP Result: %s" res_str;
+	  Printf.sprintf "End of CLP 1: %s" (word_to_string end1 ~signed:true);
+	  Printf.sprintf "End of CLP 2: %s" (word_to_string end2);
+	  Printf.sprintf "End of CLP Result: %s" (word_to_string end_res ~signed:true);
+	  Printf.sprintf "Base of CLP Result: %s" (word_to_string b_res ~signed:true);
+          Printf.sprintf "Cardn of CLP Result: %s" (word_to_string n_res);
+	]
+	in
+
+      test_base_ints b1 b2 int_b_res int_end2 msg;
+      test_base_clps b1_word b2_word b_res end2 msg;
+
+      test_cardn_ints int_s b2 int_b_res int_end1 int_end2 int_n_res msg;
+      test_cardn_clps s b2_word b_res end1 end2 n_res msg;
+
+      test_ints_subset_of_clp w1 int_res res msg
+      in
+
+    (* Note: [arshift] can only shift CLPs that are the same bitwidth,
+       as in the following examples. *)
+    let clps = [
+      ((3, (-4), 2, 4), (3, 0, 1, 2));
+      ((8, 5, 5, 10), (8, 3, 1, 11));
+      ((7, (-50), 3, 10), (7, 2, 2, 4));
+      ((8, (-24), 4, 13), (8, 10, 16, 4));
+      ((32, (-5000), 1099, 25), (32, 5000, 1099, 50));
+      ] in
+
+    let tests =
+      List.map
+        (fun (clp1, clp2) -> "Test arshift">::(test_shift clp1 clp2))
+        clps
+      in
+	
+    List.flatten [tests]
+
+  (** The SWEET paper's algorithm for arithmetic shift is incorrect.
+      To compute [n], the SWEET paper has this condition:
+      - [if b1 >= c1[n1 - 1]]
+      We have changed it to this:
+      - [if 0 >= c1[n1 - 1]]
+      The following function checks that this revised algorithm
+      does what we expect. 
+      To keep things simple, this function constructs small, concrete 
+      integer CLPs (no bitvectors), and then it confirms that the
+      algorithm computes the correct base and cardinality. *)
+  let test_arshift_math =
+
+    let rec ints_to_string ?acc:(acc="") l =
+      match l with
+      | [] -> acc
+      | hd :: tl ->
+        let new_acc = Printf.sprintf "%d %s" hd acc in
+        ints_to_string ~acc:new_acc tl
+      in
+	
+    let clp_of_ints b s n =
+      let l = Seq.range 0 n |> Seq.to_list in
+      let result = List.map (fun i -> b + (s * i)) l in
+      List.rev (List.sort compare result)
+      in
+
+    let product l1 l2 =
+      List.concat (List.map (fun e -> List.map (fun e' -> (e,e')) l2) l1)
+      in
+  
+    let arshift_ints clp1 clp2 =
+      let prod = product clp1 clp2 in
+      let result = List.map (fun (a, b) -> a asr b) prod in
+      List.rev (List.sort_uniq compare result)
+      in
+
+    let end_of_ints l = List.nth l 0 in
+    let base_of_ints l = List.nth (List.rev l) 0 in
+    let cardn_of_ints l = List.length l in
+
+    let test_base b1 b2 b_res end2 msg =
+      let b = 
+        if b1 >= 0 then b1 asr end2
+        else b1 asr b2
+        in
+      let msg' =
+        Printf.sprintf "Expected base '%d'. Got '%d'.\n%s" b b_res msg
+        in
+      assert_bool msg' (b_res = b)
+      in
+
+    let test_cardn s b2 b_res end1 end2 n_res msg =
+      let n =
+        if end1 >= 0 then (((end1 asr b2) - b_res) / s) + 1
+        else (((end1 asr end2) - b_res) / s) + 1
+        in
+      let msg' =
+        Printf.sprintf "Actual cardn '%d' not less than computed '%d'.\n%s"
+        n_res n msg
+        in
+      assert_bool msg' (n_res <= n)
+      in
+
+    let test_shift (w1, b1, s1, n1) (w2, b2, s2, n2) _ =
+
+      let clp1 = clp_of_ints b1 s1 n1 in
+      let clp2 = clp_of_ints b2 s2 n2 in
+      let res = arshift_ints clp1 clp2 in
+
+      let clp1_str = ints_to_string clp1 in
+      let clp2_str = ints_to_string clp2 in
+      let res_str = ints_to_string res in
+
+      let end1 = end_of_ints clp1 in
+      let end2 = end_of_ints clp2 in
+      let end_res = end_of_ints res in
+
+      let b_res = base_of_ints res in
+      let n_res = cardn_of_ints res in
+
+      let s = 1 in
+
+      let msg = 
+        Printf.sprintf 
+          "CLP1: %s\nCLP2: %s\nResult: %s\nEnd 1: %d\nEnd 2: %d\nEnd Res: %d\nBase res: %d" 
+          clp1_str clp2_str res_str end1 end2 end_res b_res
+        in
+
+      test_base b1 b2 b_res end2 msg;
+      test_cardn s b2 b_res end1 end2 n_res msg
+      in
+  
+    let clps = [
+      ((3, (-4), 2, 4), (3, 0, 1, 2));
+      ((8, 5, 5, 20), (5, 2, 1, 7));
+      ((6, (-50), 3, 10), (7, 2, 2, 4));
+      ((8, (-24), 4, 13), (16, 10, 16, 4));
+      ] in
+
+    let tests =
+      List.map
+        (fun (clp1, clp2) -> "Test arshift">::(test_shift clp1 clp2))
+        clps
+      in
+	
+    List.flatten [tests]
 
   let all_tests = "WordSet tests">:::[
       "test creation via 'of_list'">::test_of_list;
       "test min_elem and max_elem functions">::test_min_max_elem;
+      "test min_ and max_elem_signed">::test_min_max_elem_signed;
       "test word-set union">::testUnion;
       "test word-set intersection">:::testIntersect;
       "test word-set addition">:::testAdd;
@@ -794,7 +1383,11 @@ struct
       "test word-set concat">:::testConcat;
       "test word-set splits_by">:::test_splits_by;
       "test left shift">:::test_lshift;
-      "test min_ and max_elem_signed">::test_min_max_elem_signed;
+      "test right shift">:::test_rshift;
+      "test arith shift on bottom and singletons">:::test_arshift_bottom_and_singletons;
+      "test arith shift">:::test_arshift;
+      "test arith shift math">:::test_arshift_math;
     ]
 
 end
+

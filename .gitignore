@@ -1,0 +1,14 @@
+/**/_build
+/**/_tags
+/**/META
+/**/setup.log
+/**/setup.data
+/**/setup.ml
+myocamlbuild.ml
+*.mldylib
+*.mllib
+*.plugin
+*.cmi
+*.cmo
+*.native
+oUnit-All*

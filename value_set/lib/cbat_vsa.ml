@@ -11,11 +11,50 @@ module WordSet = Cbat_clp_set_composite
 module Mem = Cbat_ai_memmap
 module Word_ops = Cbat_word_ops
 module Utils = Cbat_vsa_utils
+module Back_edges = Cbat_back_edges
 
 (* Set up BAP to tag blocks with their preconditions *)
 let precond = Value.Tag.register (module AI)
     ~name:"vsa precondition"
     ~uuid:"650594fc-0c9d-46d1-b391-8193357b537d"
+
+(* a tag used in the analysis to indicate when to
+   widen a precondition state *)
+let do_widen = Value.Tag.register (module Unit)
+    ~name:"widen state on recompute"
+    ~uuid:"a8050d49-f451-4684-afbd-97c013dd8e4d"
+
+let clear_do_widen (s : sub term) : sub term =
+  Term.map blk_t s ~f:begin fun blk ->
+    Term.del_attr blk do_widen
+  end
+
+let jmp_target (j : jmp term) : tid option =
+  let mlbl = match Jmp.kind j with
+    | Call c -> Some (Call.target c)
+    | Goto lbl
+    | Ret lbl -> Some lbl
+    | Int _ -> None in
+  Option.bind mlbl ~f:begin fun lbl ->
+    match lbl with
+    | Direct tid -> Some tid
+    | Indirect _ -> None
+  end
+
+let label_widening_points (sub : sub term) : sub term =
+  let open Monads.Std.Monad.Option.Syntax in
+  Term.enum blk_t sub
+  |> Seq.concat_map ~f:(Term.enum jmp_t)
+  |> Seq.fold ~init:sub ~f:begin fun sub jmp ->
+    if Term.has_attr jmp Back_edges.back_edge then
+      Option.value ~default:sub begin
+        Term.get_attr jmp Back_edges.back_edge >>= fun () ->
+        jmp_target jmp >>= fun tid ->
+        let set_do_widen blk = Term.set_attr blk do_widen () in
+        !!(Term.change blk_t sub tid (Option.map ~f:set_do_widen))
+      end
+    else sub
+  end
 
 type wordset = WordSet.t
 
@@ -33,7 +72,6 @@ let denote_binop (op : Bil.binop) : wordset -> wordset -> wordset =
   let wordset_of_bool b = if b then btrue else bfalse in
   let bool_top = WordSet.top 1 in
   let bool_bottom = WordSet.bottom 1 in
-  let top p _ = WordSet.top (WordSet.bitwidth p) in
   match op with
   | Bil.PLUS -> WordSet.add
   | Bil.MINUS -> WordSet.sub
@@ -307,7 +345,7 @@ let denote_jump (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
   |> reachable_jumps env
   |> Seq.map ~f:begin fun jmp ->
     let inspect_call c =
-      Printf.printf "//Assuming a well-formed call-return control flow";
+      Format.printf "//Assuming a well-formed call-return control flow@.";
       match Call.return c with
         | None -> AI.bottom
         | Some (Direct tid) when not (target = tid) -> AI.bottom
@@ -390,6 +428,8 @@ let rec static_graph_vsa (stack : tid list) (ctx : Program.t) (s : Sub.t) (init 
           denote_block (denote_call (Term.tid sub::stack)) ctx ~source precond ~target
         end
   in
+  let s = Back_edges.label_back_edges s in
+  let s = label_widening_points s in
   let cfg = Sub.to_graph s in
   (* We compute the least upper bound of our abstract representation  on the
      input graph by starting from a sound approximation for all nodes (top)
@@ -406,11 +446,15 @@ let rec static_graph_vsa (stack : tid list) (ctx : Program.t) (s : Sub.t) (init 
   *)
   Cbat_contextual_fixpoint.fixpoint (module CFG) ~init:init ~equal:AI.equal ~merge:AI.join
     ~f:(denote_block (denote_call stack) ctx) cfg
-    (* TODO: TEMP; find a way to catch backedges *)
     (* NOTE: correct behavior of the step function depends on BAP PR#802,
        which was merged into master on 3/27/2018
     *)
-    ~step:(fun i _ -> if i > 10 then AI.widen_join else fun _ x' -> x')
+    ~step:(fun i n ->
+        let mblk = Term.find blk_t s n in
+        let should_widen : bool =
+          Option.value_map ~default:false mblk
+            ~f:(fun blk -> Term.has_attr blk do_widen) in
+        if i > 10 && should_widen then AI.widen_join else fun _ x' -> x')
 
 let load (sub : sub term) : vsa_sol option =
   let open Monads.Std.Monad.Option.Syntax in

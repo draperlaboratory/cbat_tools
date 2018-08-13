@@ -22,7 +22,8 @@ Library "cbat-value-set"
                    Cbat_lattice_intf,
                    Cbat_map_lattice,
                    Cbat_wordset_intf,
-                   Cbat_fin_set
+                   Cbat_fin_set,
+                   Cbat_back_edges
   FindlibName:     cbat-value-set
   BuildDepends:    bap (>= 1.5.0),
                    core_kernel,
