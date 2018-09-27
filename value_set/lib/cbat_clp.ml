@@ -811,24 +811,27 @@ let lshift (p1 : t) (p2 : t) : t =
     finite_end p1 >>= fun e1 ->
     min_elem p2 >>= fun min_p2 ->
     max_elem p2 >>= fun max_p2 ->
-    assert(W.(<) max_p2 (W.of_int sz1 ~width:(W.bitwidth max_p2)));
-    let max_p2_int = W.to_int_exn max_p2 in
-    let base = W.lshift p1.base min_p2 in
-    let step = if is_one p2.cardn
-      then W.lshift p1.step min_p2
-      else W.lshift (bounded_gcd p1.base p1.step) min_p2 in
-    let e_no_wrap = lshift_exact e1 max_p2_int in
-    let e_width = W.bitwidth e_no_wrap in
-    (* same as cardn_from_bounds, but adapted to e_no_wrap's bitwidth *)
-    let cardn = if W.is_zero step then W.one 1 else
-        let base_ext = W.extract_exn ~hi:(e_width - 1) base in
-        let step_ext = W.extract_exn ~hi:(e_width - 1) step in
-        let div_by_step = W.div (W.sub e_no_wrap base_ext) step_ext in
-        (* extract adds an extra bit at the high end so that
-           the call to succ never wraps to 0.
-        *)
-        W.succ (W.extract_exn ~hi:e_width div_by_step) in
-    !!(create base ~step ~cardn)
+    if W.(>=) max_p2 (W.of_int sz1 ~width:(W.bitwidth max_p2)) then
+      let msg = "During lshift, maximum element of CLP2 is >= CLP1's width" in
+      !!(not_implemented ~top:(top sz1) msg)
+    else
+      let max_p2_int = W.to_int_exn max_p2 in
+      let base = W.lshift p1.base min_p2 in
+      let step = if is_one p2.cardn
+        then W.lshift p1.step min_p2
+        else W.lshift (bounded_gcd p1.base p1.step) min_p2 in
+      let e_no_wrap = lshift_exact e1 max_p2_int in
+      let e_width = W.bitwidth e_no_wrap in
+      (* same as cardn_from_bounds, but adapted to e_no_wrap's bitwidth *)
+      let cardn = if W.is_zero step then W.one 1 else
+          let base_ext = W.extract_exn ~hi:(e_width - 1) base in
+          let step_ext = W.extract_exn ~hi:(e_width - 1) step in
+          let div_by_step = W.div (W.sub e_no_wrap base_ext) step_ext in
+          (* extract adds an extra bit at the high end so that
+             the call to succ never wraps to 0.
+          *)
+          W.succ (W.extract_exn ~hi:e_width div_by_step) in
+      !!(create base ~step ~cardn)
   end
 
 (* Note, this function only accepts CLPs that are the same bitwidth. *)
