@@ -83,7 +83,7 @@ let add_edges (prog : program term) (s : sub term) (postcondition : AI.t) (b : b
       let targets = Utils.exn_on_err @@ Vsa.denote_imm_exp e postcondition in
       let cardn = Clp.cardinality targets in
       if cardn > Word.of_int !Utils.max_edge_explosion ~width:(Word.bitwidth cardn)
-      then Printf.printf "//Edge transform produced edge explosion@."
+      then Printf.printf "//Edge transform produced edge explosion (>%d)@.\n" !Utils.max_edge_explosion
       else List.iter (Clp.iter targets) ~f:begin fun w ->
           (* TODO: this cond is computed twice; fix *)
           let cond = specialize_cond (Jmp.cond j) e w in
@@ -160,7 +160,8 @@ let recompute_vsa prog sub : sub term =
     |> Term.set_attr blk Vsa.precond
   end
 
-let main (sub_name : string option) (proj : project) : project =
+let main (sub_name : string option) (max_edges : int) (proj : project) : project =
+  Utils.max_edge_explosion := max_edges;
   let perform_step (proj : project) : project * is_done =
     let prog = Project.program proj in
     Term.enum sub_t prog
@@ -185,10 +186,12 @@ let main (sub_name : string option) (proj : project) : project =
 module Cmdline = struct
   open Config
   let sub = param (some string) "sub" ~doc:"Name of subroutine to transform"
+  let max_num_edges = param int "max-num-edges" ~default:10
+      ~doc:"Max number of edges to add at any point (default 10)"
 
   let () = when_ready (fun {get=(!!)} ->
       (* We depend on value-set so that its settings affect this plugin *)
-      Project.register_pass ~deps:["value-set"] (main !!sub))
+      Project.register_pass ~deps:["value-set"] (main !!sub !!max_num_edges))
 
   let () = manpage [
       `S "DESCRIPTION";
