@@ -7,7 +7,7 @@ build: setup.ml setup.data
 doc: setup.ml setup.data build
 	$(SETUP) -doc $(DOCFLAGS)
 
-test: setup.ml setup.data build
+test: setup-tests build
 	$(SETUP) -test $(TESTFLAGS)
 
 
@@ -31,6 +31,9 @@ clean: setup.ml
 distclean: setup.ml
 	$(SETUP) -distclean $(DISTCLEANFLAGS)
 
+setup-tests: setup.ml
+	$(SETUP) -configure --enable-tests $(CONFIGUREFLAGS)
+
 setup.data: setup.ml
 	$(SETUP) -configure $(CONFIGUREFLAGS)
 
@@ -40,7 +43,7 @@ configure: setup.ml
 setup.ml:
 	oasis setup
 
-.PHONY: build doc test all install uninstall reinstall clean distclean configure plugin
+.PHONY: build doc test all install uninstall reinstall clean distclean configure plugin setup-tests
 
 OCI=ocp-indent
 

@@ -1,5 +1,5 @@
 OASISFormat: 0.4
-OcamlVersion: >= 4.04.1
+OcamlVersion: >= 4.03.0
 Name:        cbat-explicit-edge
 Version:     0.0.1
 Synopsis:    A library and plugin for BAP to perform value-set analysis on
