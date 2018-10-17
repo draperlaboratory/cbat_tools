@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 4a309fbd4f9251b120744e02a84bc6d0)
-version = "0.0.1"
+# DO NOT EDIT (digest: 9675bb2e79b10fbd48bd198e22fa13fe)
+version = "0.1"
 description =
 "A library and plugin for BAP to perform value-set analysis on binaries."
 requires = "bap core_kernel cbat-value-set oUnit"

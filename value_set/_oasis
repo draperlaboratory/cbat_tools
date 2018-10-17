@@ -1,7 +1,7 @@
 OASISFormat: 0.4
 OcamlVersion: >= 4.03.0
 Name:        cbat-value-set
-Version:     0.0.1
+Version:     0.1
 Synopsis:    A library and plugin for BAP to perform value-set analysis on
   binaries.
 Authors:     Dustin Jamner, The Charles Stark Draper Laboratory, Inc.
