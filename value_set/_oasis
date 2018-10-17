@@ -1,5 +1,5 @@
 OASISFormat: 0.4
-OcamlVersion: >= 4.04.1
+OcamlVersion: >= 4.03.0
 Name:        cbat-value-set
 Version:     0.0.1
 Synopsis:    A library and plugin for BAP to perform value-set analysis on
@@ -44,6 +44,7 @@ Library "cbat-plugin-value-set"
 
 Library test-suite
   Path:           unit-tests/
+  Build$:         flag(tests)
   BuildTools:     ocamlbuild
   BuildDepends:   bap (>= 1.5.0), core_kernel, cbat-value-set, oUnit (>= 2.0.0)
   Install:        false
@@ -55,6 +56,7 @@ Library test-suite
 
 Executable test
   Path:           unit-tests/
+  Build$:         flag(tests)
   BuildTools:     ocamlbuild
   MainIs:         test.ml
   BuildDepends:   bap (>= 1.5.0), core_kernel, cbat-value-set, test-suite
@@ -63,4 +65,5 @@ Executable test
 
 Test unit_tests
      TestTools: test
+     Run$: flag(tests)
      Command: $test -display true
