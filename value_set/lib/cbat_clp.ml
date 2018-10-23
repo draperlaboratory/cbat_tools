@@ -1094,7 +1094,8 @@ let div (p1 : t) (p2 : t) : t =
     min_elem p2 >>= fun min_e2 ->
     max_elem p1 >>= fun max_e1 ->
     max_elem p2 >>= fun max_e2 ->
-    if elem (W.zero width) p2 then not_implemented "Clp division by zero"
+    if elem (W.zero width) p2 then
+      not_implemented ~top:(!!(top width)) "Clp division by zero"
     else
       let base = W.div min_e1 max_e2 in
       let e = W.div max_e1 min_e2 in
@@ -1120,7 +1121,8 @@ let sdiv (p1 : t) (p2 : t) : t =
     min_elem p2 >>= fun min_e2 ->
     max_elem p1 >>= fun max_e1 ->
     max_elem p2 >>= fun max_e2 ->
-    if elem (W.zero width) p2 then not_implemented "Clp division by zero"
+    if elem (W.zero width) p2 then
+      not_implemented ~top:(!!(top width)) "Clp division by zero"
     else if W.is_one (cardinality p1) &&
             W.is_one (cardinality p2)
     then !!(singleton (wsdiv p1.base p2.base))
