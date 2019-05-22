@@ -25,8 +25,8 @@ Library "cbat-value-set"
                    Cbat_fin_set,
                    Cbat_back_edges
   FindlibName:     cbat-value-set
-  BuildDepends:    bap (>= 1.5.0),
-                   core_kernel,
+  BuildDepends:    bap (>= 1.6.0),
+                   core_kernel (>= v0.11.1),
                    ppx_deriving,
                    ppx_bin_prot,
                    ppx_sexp_conv,
@@ -59,7 +59,7 @@ Executable test
   Build$:         flag(tests)
   BuildTools:     ocamlbuild
   MainIs:         test.ml
-  BuildDepends:   bap (>= 1.5.0), core_kernel, cbat-value-set, test-suite
+  BuildDepends:   bap (>= 1.6.0), core_kernel (>= v0.11.1), cbat-value-set, test-suite
   Install:        false
   CompiledObject: best
 

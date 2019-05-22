@@ -13,7 +13,7 @@
 
 include Bap.Std
 module W = Word
-module Option = Core_kernel.Std.Option
+module Option = Core_kernel.Option
 open Cbat_vsa_utils
 
 (* Computes w1 * w2 at the sum of their bitwidths. This ensures that

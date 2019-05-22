@@ -11,12 +11,12 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open !Core_kernel.Std
+open !Core_kernel
 include Bap.Std
 
 module Fn = Core_kernel.Fn
-module Sexp = Core_kernel.Std.Sexp
-module Option = Core_kernel.Std.Option
+module Sexp = Core_kernel.Sexp
+module Option = Core_kernel.Option
 module Or_error = Core_kernel.Or_error
 module Result = Core_kernel.Result
 module Binable = Core_kernel.Binable

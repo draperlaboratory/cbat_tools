@@ -15,7 +15,7 @@ open Bap.Std
 include Cbat_vsa_utils
 
 module W = Word
-module Option = Core_kernel.Std.Option
+module Option = Core_kernel.Option
 module Sexp = Core_kernel.Sexp
 module List = Core_kernel.List
 
@@ -1056,7 +1056,7 @@ let of_list ~width l : t =
   let open Monads.Std.Monad.Option.Syntax in
   Option.value ~default:(bottom width) begin
     let l = List.map l ~f:(W.extract_exn ~hi:(width - 1) ~lo:0) in
-    let l = List.sort ~cmp:W.compare l in
+    let l = List.sort ~compare:W.compare l in
     let diff_list = List.map2_exn l (rotate_list l) ~f:W.sub in
     let idx, _, step = List.foldi diff_list ~init:(0, W.zero width, W.zero width)
         ~f:(fun i (idx, diff, step) d ->

@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-include Core_kernel.Std
+include Core_kernel
 open Bap.Std
 open Graphlib.Std
 open Cbat_vsa_utils
@@ -411,10 +411,10 @@ let default_entry () : AI.t =
    Assumes that the inputs can be any valid values for their types.
  *)
 let init_sol ?entry (sub : sub term) =
-  let empty_map = Map.empty ~comparator:Tid.comparator in
+  let empty_map = Tid.Map.empty in
   let msb = Term.first blk_t sub in
   let entry_state = Option.value ~default:(default_entry ()) entry in
-  let set_init sb = Map.add empty_map ~key:(Term.tid sb) ~data:entry_state in
+  let set_init sb = Map.set empty_map ~key:(Term.tid sb) ~data:entry_state in
   let base_map = Option.value_map ~default:empty_map ~f:set_init msb in
   (* Other than the first block, we assume that other blocks can only be
      reached via flow in the CFG. If the CFG is partial, this will produce
@@ -475,6 +475,6 @@ let load (sub : sub term) : vsa_sol option =
   |> Seq.delayed_fold ~init:Tid.Map.empty
     ~f:begin fun sol blk ~k ->
       Term.get_attr blk precond >>= fun ai ->
-      k @@ Tid.Map.add sol ~key:(Term.tid blk) ~data:ai
+      k @@ Tid.Map.set sol ~key:(Term.tid blk) ~data:ai
     end
     ~finish:(fun m -> !!(Solution.create m AI.bottom))

@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open Core_kernel.Std
+open Core_kernel
 open Bap.Std
 
 (* An (indexed) Map lattice represents the lifting of an (indexed) complete
