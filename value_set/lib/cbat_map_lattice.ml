@@ -11,11 +11,11 @@
 (*                                                                         *)
 (***************************************************************************)
 
-module Map = Core_kernel.Std.Map
-module Option = Core_kernel.Std.Option
+module Map = Core_kernel.Map
+module Option = Core_kernel.Option
 module Sexp = Core_kernel.Sexp
 module Sexpable = Core_kernel.Sexpable
-module Fn = Core_kernel.Std.Fn
+module Fn = Core_kernel.Fn
 module Value = Bap.Std.Value
 module Lattice = Cbat_lattice_intf
 module BL = Lattice.BoolLattice
@@ -151,7 +151,7 @@ module Make_indexed_from_map
   let op_add op (m : map) ~key:key ~data:data : t =
     let idx = L.get_idx data in
     let old_data = Option.value ~default:(L.top idx) (Map.find m key) in
-    Option.return @@ Map.add m ~key ~data:(op data old_data)
+    Option.return @@ Map.set m ~key ~data:(op data old_data)
 
   let lift_add op : t -> key:Key.t -> data:Val.t -> t =
     let default = fun ~key:_ ~data:_ -> None in

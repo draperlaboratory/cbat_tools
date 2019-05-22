@@ -130,7 +130,7 @@ let splits_by (s, _ : t) (w : word) : bool =
     | _, [] -> []
     | e1::l1', e2::l2' -> f e1 e2 :: (map2_shortest ~f l1' l2') in
   let elems = WSet.elements s
-              |> List.sort ~cmp:Word.compare in
+              |> List.sort ~compare:Word.compare in
   let open Monads.Std.Monad.Option.Syntax in
   Option.value ~default:true begin
     List.tl elems >>| fun tl ->

@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open !Core_kernel.Std
+open !Core_kernel
 open OUnit2
 
 module Lattice = Cbat_lattice_intf
@@ -102,7 +102,7 @@ let test_add_find_k k _ =
 let test_add_find : test list =
   List.range (-100) 100
   |> List.map ~f:test_add_find_k
-  |> List.map ~f:(test_case)
+  |> List.map ~f:(test_case ?length:None)
 
 
 let all_tests =

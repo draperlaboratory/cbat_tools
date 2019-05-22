@@ -60,7 +60,7 @@ let fin_set_size = ref 10
 (* implements integer division rounding upwards *)
 let cdiv (x : int) (y : int) : int = (x - 1)/y + 1
 
-open !Core_kernel.Std
+open !Core_kernel
 open Bap.Std
 
 let exn_on_err : ('a, Type.error) Result.t -> 'a = function

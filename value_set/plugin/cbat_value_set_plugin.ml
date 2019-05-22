@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-include Core_kernel.Std
+include Core_kernel
 open Bap.Std
 open Graphlib.Std
 include Self()

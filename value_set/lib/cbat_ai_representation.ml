@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open !Core_kernel.Std
+open !Core_kernel
 include Bap.Std
 include Cbat_vsa_utils
 module MapLattice = Cbat_map_lattice

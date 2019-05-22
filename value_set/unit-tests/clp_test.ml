@@ -15,8 +15,8 @@ include Bap.Std
 open OUnit2
 open Cbat_word_ops
 open Test_utils
-module Option = Core_kernel.Std.Option
-module Fn = Core_kernel.Std.Fn
+module Option = Core_kernel.Option
+module Fn = Core_kernel.Fn
 
 
 module W = Word
