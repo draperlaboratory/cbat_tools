@@ -1,0 +1,11 @@
+S ./wp.ml
+S ./tests
+
+PKG bap
+PKG core
+PKG z3
+PKG oUnit
+PKG bap_wp
+
+B _build/
+B _build/tests

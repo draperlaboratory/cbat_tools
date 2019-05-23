@@ -1,0 +1,24 @@
+opam-version: "2.0"
+name: "bap_wp"
+version: "0.1"
+synopsis: "A weakest-precondition analysis library"
+description: """
+A weakest-precondition analysis library for use with BAP.
+"""
+maintainer: "Draper Laboratory"
+authors: [
+  "Cody Roux <croux@draper.com>"
+  "Chloe Fortuna <cfortuna@draper.com>"
+  "Chris Casinghino <ccasinghino@draper.com>"
+  "JT Paasch <jpaasch@draper.com>"
+]
+license: "MIT"
+homepage: "https://github.com/draperlaboratory/CBAT-internal"
+bug-reports: "https://github.com/draperlaboratory/CBAT-internal"
+dev-repo: "git+https://github.com/draperlaboratory/CBAT-internal"
+depends: [
+  "bap" {>= "1.6"}
+  "core" {>= "0.11"}
+  "z3" {>= "4.8.4"}
+  "ounit"
+]
