@@ -1,0 +1,4 @@
+(library
+  (name bap_wp)
+  (public_name bap_wp)
+  (libraries bap z3 oUnit))
