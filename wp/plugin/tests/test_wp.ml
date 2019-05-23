@@ -16,7 +16,7 @@ open OUnit2
 
 (* To run these tests: `make test` in wp directory *)
 
-let bin_dir = "../../resources/sample_binaries"
+let bin_dir = "./resources/sample_binaries"
 
 let is_z3_result (res : string) : bool =
   match res with
@@ -80,23 +80,18 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
     (fun ctxt -> assert_command ~backtrace:true ~ctxt "rm" ["-f"; elf_name])
 
 let suite = [
-  "Equiv Null Check" >:: test_compare_elf "equiv_null_check" "SAT!";
-  "Equiv Argc" >:: test_compare_elf "equiv_argc" "SAT!";
-  "Diff Ret Val" >:: test_compare_elf "diff_ret_val" "SAT!";
-  "Diff Pointer Val" >:: test_compare_elf "diff_pointer_val" "SAT!";
-  "Switch Case Assignments" >:: test_compare_elf "switch_case_assignments" "SAT!"
-    ~func:"process_status";
-  "Switch Cases" >:: test_compare_elf "switch_cases" "SAT!"
-    ~func:"process_message" ~check_calls:true;
-  "Remove Stack Protector" >:: test_compare_elf "no_stack_protection" "SAT!";
-  "Simple WP" >:: test_single_elf "simple_wp" "main" "SAT!";
-  "Verifier Assume SAT" >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
-  "Verifier Assume UNSAT" >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
-  "Verifier Nondet" >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
-  "Function Call" >:: test_single_elf "function_call" "main" "SAT!"
-    ~inline:true;
-  "Nested Function Calls" >:: test_single_elf "nested_function_calls" "main" "SAT!"
-    ~inline:true;
-  "User Defined Postcondition" >:: test_single_elf "return_argc" "main" "SAT!"
-    ~post:"(assert (= RAX0 #x0000000000000000))";
+  "Equiv Null Check"           >:: test_compare_elf "equiv_null_check" "SAT!";
+  "Equiv Argc"                 >:: test_compare_elf "equiv_argc" "SAT!";
+  "Diff Ret Val"               >:: test_compare_elf "diff_ret_val" "SAT!";
+  "Diff Pointer Val"           >:: test_compare_elf "diff_pointer_val" "SAT!";
+  "Switch Case Assignments"    >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
+  "Switch Cases"               >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
+  "Remove Stack Protector"     >:: test_compare_elf "no_stack_protection" "SAT!";
+  "Simple WP"                  >:: test_single_elf "simple_wp" "main" "SAT!";
+  "Verifier Assume SAT"        >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
+  "Verifier Assume UNSAT"      >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
+  "Verifier Nondet"            >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
+  "Function Call"              >:: test_single_elf "function_call" "main" "SAT!" ~inline:true;
+  "Nested Function Calls"      >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:true;
+  "User Defined Postcondition" >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
 ]
