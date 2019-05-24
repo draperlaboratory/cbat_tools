@@ -1,5 +1,5 @@
-SAMPLE_BIN_DIR := ../../resources/sample_binaries
-SAVE_PROJECT_DIR := ../save_project
+SAMPLE_BIN_DIR := ../resources/sample_binaries
+SAVE_PROJECT_DIR := ./save_project
 API_PATH := $(shell bap --api-list-paths)
 
 .PHONY: all

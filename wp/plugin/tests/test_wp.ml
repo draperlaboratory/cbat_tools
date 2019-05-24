@@ -16,7 +16,7 @@ open OUnit2
 
 (* To run these tests: `make test` in wp directory *)
 
-let bin_dir = "./resources/sample_binaries"
+let bin_dir = "../resources/sample_binaries"
 
 let is_z3_result (res : string) : bool =
   match res with
