@@ -1,19 +1,21 @@
-SAMPLE_BIN_DIR := ../resources/sample_binaries
-SAVE_PROJECT_DIR := ./save_project
-API_PATH := $(shell bap --api-list-paths)
+PASS_NAME = wp
+
+SAMPLE_BIN_DIR = ../resources/sample_binaries
+SAVE_PROJECT_DIR = ./save_project
+API_PATH = $(shell bap --api-list-paths)
 
 .PHONY: all
 
-all: wp.plugin
+all: install
 
-wp.byte: wp.ml
-	ocamlbuild -use-ocamlfind -pkgs 'bap,z3,bap_wp' -tag 'warn(A-48-44),debug,thread' wp.byte
+build: $(PASS_NAME).ml
+	ocamlbuild -use-ocamlfind -pkgs 'bap,z3,bap_wp' -tag 'warn(A-48-44),debug,thread' $(PASS_NAME).byte
 
-wp.plugin: wp.ml verifier
-	bapbuild -use-ocamlfind -pkgs 'z3,bap_wp' -tag 'warn(A-48-44)' wp.plugin
-	bapbundle install wp.plugin
+install: $(PASS_NAME).ml verifier
+	bapbuild -use-ocamlfind -pkgs 'z3,bap_wp' -tag 'warn(A-48-44)' $(PASS_NAME).plugin
+	bapbundle install $(PASS_NAME).plugin
 
-test: wp.plugin save_project dummy
+test: install save_project dummy
 	ocamlbuild -r -use-ocamlfind -pkgs 'bap,z3,bap_wp,oUnit' -tag 'warn(A-48-44),debug,thread' -I tests test.byte
 	ocamlrun test.byte -runner sequential
 
@@ -28,7 +30,7 @@ dummy:
 
 clean:
 	$(MAKE) -C $(SAMPLE_BIN_DIR)/dummy clean
-	bapbundle remove wp.plugin
+	bapbundle remove $(PASS_NAME).plugin
 	bapbuild -clean
 	rm -f *.plugin
 	rm -rf _build
