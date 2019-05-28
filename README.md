@@ -20,12 +20,18 @@ iterating edge insertion with updating the value-set results.
 Contents
 ---------------------
 
-This project consists of a value-set style analysis (VSA) and a CFG edge reconstruction
+This project consists of
+
+- A value-set style analysis (VSA) and a CFG edge reconstruction
 algorithm based on it. The analysis uses circular linear progressions\[[1][1]\]\[[2][2]\] to
 represent sets of bitvectors. Small sets are represented exactly to increase precision,
 e.g. in the case where a jump target can be one of three locations. The analysis handles
 all conversion between different representations internally and exposes a generic interface
 for sets of words.
+
+- A weakest-precondition computation (WP), which verifies intra-procedural properties specified
+using first-order logic, and resolved using the Z3 theorem prover. See the [readme](https://github.com/draperlaboratory/cbat_tools/tree/master/wp/plugin) for the plugin
+for more details.
 
 The edge reconstruction algorithm simply calls the VSA, inserts known
 edges, and iterates this to a fixed point. Note that the edge reconstruction algorthim
