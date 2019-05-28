@@ -67,8 +67,7 @@ Once BAP and `ppx_deriving` are installed, the script `build_both.sh` should bui
 Running the Passes
 ---------------------
 The plugins respectively define the `value-set` and `explicit-edge` BAP passes.
-To run a pass in BAP, see `bap --help` or [the value-set README](./value_set/README.md)
-and [the explicit-edge README](./explicit_edge/README.md).
+To run a pass in BAP, see `bap --help` or [the value-set README](./value_set/README.md), [the explicit-edge README](./explicit_edge/README.md) or the [wp README](./wp/plugin/README.md).
 
 
 Disclaimer
