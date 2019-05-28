@@ -54,9 +54,10 @@ is the only viable target of the jump.
 
 Build
 ------------------
-These plugins are built using OASIS.
-Make sure to have OPAM and OASIS installed before building (OASIS can be installed via `opam install oasis`).
-These plugins also require version 1.5.0 of BAP (currently the GitHub master branch).
+These plugins are built using OASIS and dune.
+Make sure to have OPAM and OASIS installed before building (OASIS can be installed via `opam install oasis`),
+and similarly for dune.
+These plugins also require version 1.6.0 of BAP (currently the default on opam).
 For difficulties installing BAP, see the BAP build instructions.
 The package `ppx_deriving` is also required for the value-set plugin.
 To install, run `opam install ppx_deriving`.
