@@ -1,3 +1,5 @@
+PASS_NAME=save_project
+
 $(PASS_NAME).plugin: $(PASS_NAME).ml
 	bapbuild $(PASS_NAME).plugin
 	bapbundle install $(PASS_NAME).plugin
