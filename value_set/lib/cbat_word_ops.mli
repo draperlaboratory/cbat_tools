@@ -1,6 +1,6 @@
 (***************************************************************************)
 (*                                                                         *)
-(*  Copyright (C) 2018 The Charles Stark Draper Laboratory, Inc.           *)
+(*  Copyright (C) 2018/2019 The Charles Stark Draper Laboratory, Inc.      *)
 (*                                                                         *)
 (*  This file is provided under the license found in the LICENSE file in   *)
 (*  the top-level directory of this project.                               *)
