@@ -234,6 +234,9 @@ To find the precondition of a subroutine:
 
     bap /path/to/exec --pass=wp \
       [--wp-function=function_name] \
+      [--wp-inline=bool] \
+      [--wp-postcond=smt-lib-string] \
+      [--wp-num-unroll=int] \
       [--log-dir=directory]
 
 To compare two binaries:
@@ -244,6 +247,8 @@ To compare two binaries:
       --wp-file2=/path/to/main2.bpj \
       [--wp-function=function_name] \
       [--wp-check-calls=bool] \
+      [--wp-inline=bool] \
+      [--wp-num-unroll=int] \
       [--log-dir=directory]
 
 The various options are:
@@ -272,6 +277,8 @@ The various options are:
   [smt-lib2] format. At the moment, the names of variables
   representing memory and registers are a bit magical, so consider
   this to be an experimental feature.
+- `--wp-num-unroll=num`. If present, replaces the default number of
+  times to unroll each loop. The number of loop unrollings is 5 by default.
 
 ## C checking API
 

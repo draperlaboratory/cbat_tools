@@ -79,6 +79,18 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
   with_bracket_chdir test_ctx target
     (fun ctxt -> assert_command ~backtrace:true ~ctxt "rm" ["-f"; elf_name])
 
+let test_update_num_unroll (new_unroll : int option) (test_ctx : test_ctxt) : unit =
+  let original = !Wp.Pre.num_unroll in
+  Wp.update_default_num_unroll new_unroll;
+  let updated = !Wp.Pre.num_unroll in
+  match new_unroll with
+  | Some n ->
+    let fail_msg = Printf.sprintf "num_unroll was not updated from %d to %d" original n in
+    assert_bool fail_msg (original <> updated)
+  | None ->
+    let fail_msg = Printf.sprintf "Num unroll was updated from %d but should have been unchanged" original in
+    assert_equal ~ctxt:test_ctx ~cmp:Int.equal ~msg:fail_msg updated original
+
 let suite = [
   "Equiv Null Check"           >:: test_compare_elf "equiv_null_check" "SAT!";
   "Equiv Argc"                 >:: test_compare_elf "equiv_argc" "SAT!";
@@ -94,4 +106,6 @@ let suite = [
   "Function Call"              >:: test_single_elf "function_call" "main" "SAT!" ~inline:true;
   "Nested Function Calls"      >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:true;
   "User Defined Postcondition" >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
+  "Update Number of Unrolls"   >:: test_update_num_unroll (Some 3);
+  "Original Number of Unrolls" >:: test_update_num_unroll None;
 ]

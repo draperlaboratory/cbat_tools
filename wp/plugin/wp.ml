@@ -27,6 +27,11 @@ let find_func (subs : Sub.t Seq.t) (func : string) : Sub.t =
   | None -> raise (Missing_function func)
   | Some f -> f
 
+let update_default_num_unroll (num_unroll : int option) : unit =
+  match num_unroll with
+  | Some n -> Pre.num_unroll := n
+  | None -> ()
+
 let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string) ~inline:(inline : bool) ~post_cond:(post_cond : string)
   : Env.z3_expr =
@@ -97,15 +102,17 @@ let compare_projs (file1: string) (file2 : string)
 
 let main (file1 : string) (file2 : string)
     ~func:(func : string)
-    ~check_calls:check_calls
-    ~compare:compare
-    ~inline:inline
-    ~post_cond:post_cond
+    ~check_calls:(check_calls : bool)
+    ~compare:(compare : bool)
+    ~inline:(inline : bool)
+    ~post_cond:(post_cond : string)
+    ~num_unroll:(num_unroll : int option)
     (proj : project) : unit =
   Log.start ~logdir:"/dev/stdout" ();
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let solver = Z3.Solver.mk_simple_solver ctx in
+  update_default_num_unroll num_unroll;
   let pre =
     if compare then
       compare_projs file1 file2 var_gen ctx ~func:func ~check_calls:check_calls ~inline:inline
@@ -132,6 +139,8 @@ module Cmdline = struct
       ~default:false
   let post_cond = param string "postcond" ~doc:"Post condition in SMT-LIB format"
       ~default:""
+  let num_unroll = param (some int) "num-unroll" ~doc:"Amount of times to unroll each loop"
+      ~default:None
 
   let () = when_ready (fun {get=(!!)} ->
       Project.register_pass' @@
@@ -141,6 +150,7 @@ module Cmdline = struct
         ~compare:!!compare
         ~inline:!!inline
         ~post_cond:!!post_cond
+        ~num_unroll:!!num_unroll
     )
 
   let () = manpage [
