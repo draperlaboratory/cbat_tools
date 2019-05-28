@@ -11,4 +11,6 @@ myocamlbuild.ml
 *.cmi
 *.cmo
 *.native
+*.byte
+*.bpj
 oUnit-All*

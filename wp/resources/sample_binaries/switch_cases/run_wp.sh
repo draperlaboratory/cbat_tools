@@ -2,6 +2,9 @@ set -x
 
 dummy_dir=../dummy
 
+compile () {
+  make
+}
 
 run () {
   bap $dummy_dir/hello_world.out --pass=wp \
@@ -12,4 +15,4 @@ run () {
     --wp-check-calls=true
 }
 
-run
+compile && run

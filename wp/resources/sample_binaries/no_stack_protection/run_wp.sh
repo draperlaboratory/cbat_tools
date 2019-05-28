@@ -3,7 +3,6 @@ set -x
 dummy_dir=../dummy
 
 compile () {
-  make -C $dummy_dir                &&
   make
 }
 

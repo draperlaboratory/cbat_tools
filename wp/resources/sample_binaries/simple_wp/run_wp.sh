@@ -1,7 +1,7 @@
 set -x
 
 compile () {
-    make
+  make
 }
 
 run () {
