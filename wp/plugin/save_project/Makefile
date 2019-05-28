@@ -1,11 +1,17 @@
-PASS_NAME=save_project
+PASS_NAME = save_project
 
-$(PASS_NAME).plugin: $(PASS_NAME).ml
+.PHONY: all
+
+all: install
+
+build: $(PASS_NAME).ml
+	ocamlbuild -use-ocamlfind -pkg 'bap' $(PASS_NAME).byte
+
+install: $(PASS_NAME).ml
 	bapbuild $(PASS_NAME).plugin
 	bapbundle install $(PASS_NAME).plugin
 
-all: $(PASS_NAME).plugin
-	echo $(PASS_NAME)
-
 clean:
-	rm -rf _build $(PASS_NAME).plugin
+	bapbundle remove $(PASS_NAME).plugin
+	bapbuild -clean
+	rm -rf _build $(PASS_NAME).byte $(PASS_NAME).plugin
