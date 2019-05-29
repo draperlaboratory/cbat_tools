@@ -634,6 +634,53 @@ let collect_non_null_expr (env : Env.t) (exp : Exp.t) : Env.z3_expr list =
   in
   visitor#visit_exp exp []
 
+let jmp_spec_reach (m : bool Tid.Map.t) : Env.jmp_spec =
+  let is_goto jmp = match Jmp.kind jmp with Goto _ -> true | _ -> false in
+  Tid.Map.fold m ~init:jmp_spec_default
+    ~f:(fun ~key ~data spec ->
+        fun env post tid jmp ->
+          if Tid.(key <> tid) || not (is_goto jmp) then
+            spec env post tid jmp
+          else
+            begin
+              match Jmp.kind jmp with
+              | Goto l ->
+                begin
+                  match l with
+                  | Direct tid ->
+                    debug "Goto direct label: %s%!" (Label.to_string l);
+                    let l_pre =
+                      match Env.get_precondition env tid with
+                      | Some pre -> pre
+                      (* We always hit this point when finish a loop unrolling *)
+                      | None ->
+                        info "Precondition for node %s not found!" (Tid.to_string tid);
+                        post
+                    in
+                    let ctx = Env.get_context env in
+                    let cond = Jmp.cond jmp in
+                    let cond_val, assume, vcs = exp_to_z3 cond env in
+                    debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
+                      (Expr.to_string cond_val) (List.to_string ~f:Expr.to_string vcs)
+                      (List.to_string ~f:Expr.to_string assume);
+                    let cond_size = BV.get_size (Expr.get_sort cond_val) in
+                    let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
+                    (* let ite = Bool.mk_ite ctx (Bool.mk_not ctx false_cond) l_pre post in *)
+                    let constr = if data then
+                        [Bool.mk_not ctx false_cond; l_pre]
+                      else
+                        [false_cond; post]
+                    in    
+                    let post = Bool.mk_and ctx (constr @ vcs) in
+                    if List.is_empty assume then Some post else
+                      Some (Bool.mk_implies ctx (Bool.mk_and ctx assume) post)
+                  | Indirect _ ->
+                    warning "Making an indirect jump, using the default postcondition!\n%!";
+                    Some post
+                end
+              | _ -> assert false
+            end)
+
 (* This adds a non-null condition for every memory reference in the term *)
 let non_null_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
