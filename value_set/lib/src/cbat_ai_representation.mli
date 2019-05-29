@@ -11,7 +11,6 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open Core_kernel
 open Bap.Std
 
 module WordSet = Cbat_clp_set_composite

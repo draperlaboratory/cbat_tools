@@ -13,6 +13,7 @@
 
 include Bap.Std
 open OUnit2
+open Cbat_value_set
 open Cbat_word_ops
 open Test_utils
 module Option = Core_kernel.Option

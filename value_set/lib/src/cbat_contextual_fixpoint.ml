@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open Core_kernel.Std
+open Core_kernel
 open Graphlib.Std
 
 let sol_map ~(f : 'd -> 'a) s : ('n, 'a) Solution.t =

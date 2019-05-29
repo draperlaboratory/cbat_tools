@@ -11,8 +11,6 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open Bap.Std
-
 type t
 
 include Cbat_wordset_intf.S with type t := t
