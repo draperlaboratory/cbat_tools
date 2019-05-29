@@ -4,15 +4,15 @@ SAMPLE_BIN_DIR = ../resources/sample_binaries
 SAVE_PROJECT_DIR = ./save_project
 API_PATH = $(shell bap --api-list-paths)
 
-.PHONY: all
+.PHONY: all build install clean verifier save_project
 
 all: install
 
 build: $(PASS_NAME).ml
-	ocamlbuild -use-ocamlfind -pkgs 'bap,z3,bap_wp' -tag 'warn(A-48-44),debug,thread' $(PASS_NAME).byte
-
-install: $(PASS_NAME).ml verifier
 	bapbuild -use-ocamlfind -pkgs 'z3,bap_wp' -tag 'warn(A-48-44)' $(PASS_NAME).plugin
+
+install: build verifier save_project
+	bapbundle update -desc 'Computes the weakest precondition of a subroutine given a postcondition' $(PASS_NAME).plugin
 	bapbundle install $(PASS_NAME).plugin
 
 test: install save_project dummy
@@ -29,7 +29,8 @@ dummy:
 	$(MAKE) -C $(SAMPLE_BIN_DIR)/dummy
 
 clean:
-	$(MAKE) -C $(SAMPLE_BIN_DIR)/dummy clean
+	$(MAKE) -C $(SAMPLE_BIN_DIR)/dummy $@
+	$(MAKE) -C $(SAVE_PROJECT_DIR) $@
 	bapbundle remove $(PASS_NAME).plugin
 	bapbuild -clean
 	rm -f *.plugin

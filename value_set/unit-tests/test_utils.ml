@@ -12,6 +12,7 @@
 (***************************************************************************)
 
 include Bap.Std
+open Cbat_value_set
 
 module W = Word
 module Clp = Cbat_clp

@@ -11,8 +11,6 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open Bap.Std
-
 (**
    This module implements CLP-sets, as described (under the name "strided interval sets") in
    "(State of) The Art of War: Offensive Techniques in Binary Analysis"

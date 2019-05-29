@@ -13,6 +13,7 @@
 
 open !Core_kernel
 open OUnit2
+open Cbat_value_set
 
 module Lattice = Cbat_lattice_intf
 

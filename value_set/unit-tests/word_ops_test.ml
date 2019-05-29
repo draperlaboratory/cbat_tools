@@ -15,6 +15,8 @@ include Bap.Std
 
 open OUnit2
 
+open Cbat_value_set
+
 module W = Word
 
 open Cbat_word_ops

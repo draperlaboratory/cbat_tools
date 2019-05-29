@@ -11,6 +11,8 @@
 (*                                                                         *)
 (***************************************************************************)
 
+open Cbat_value_set
+
 val print : string -> unit
 val test_ppf : Format.formatter
 

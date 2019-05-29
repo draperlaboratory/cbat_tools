@@ -12,6 +12,7 @@
 (***************************************************************************)
 
 open OUnit2;;
+open Cbat_value_set
 
 module ClpSet = Cbat_clp_set_composite;;
 module TestComposite = Clp_test.Make(ClpSet)(ClpSet);;

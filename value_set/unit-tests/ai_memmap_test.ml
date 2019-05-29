@@ -14,6 +14,7 @@
 include Bap.Std
 open Test_utils
 open OUnit2
+open Cbat_value_set
 module Mem = Cbat_ai_memmap
 (* TODO: functorize/rename *)
 module Clp = Cbat_clp_set_composite

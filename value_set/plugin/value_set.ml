@@ -14,6 +14,7 @@
 include Core_kernel
 open Bap.Std
 open Graphlib.Std
+open Cbat_value_set
 include Self()
 include Cbat_vsa_utils
 
@@ -67,8 +68,8 @@ module Cmdline = struct
   let () = manpage [
       `S "DESCRIPTION";
       `P
-        "Performs value-set analysis. This helps make control flow
-    explicit as well as providing information about the possible
+        "Performs value-set analysis. This helps make control flow \
+    explicit as well as providing information about the possible \
     values of program variables"
     ]
 end

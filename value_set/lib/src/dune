@@ -1,0 +1,11 @@
+(library
+  (name cbat_value_set)
+  (public_name cbat_value_set)
+  (libraries bap)
+  (preprocess
+    (pps
+      ppx_deriving
+      ppx_bin_prot
+      ppx_sexp_conv
+      ppx_compare
+      ppx_fields_conv)))

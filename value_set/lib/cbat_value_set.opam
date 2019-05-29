@@ -1,0 +1,24 @@
+opam-version: "2.0"
+name: "cbat_value_set"
+version: "0.1"
+synopsis: "A value-set analysis library"
+description: """
+A value-set analysis library for use with BAP.
+"""
+maintainer: "Draper Laboratory"
+authors: [
+  "Dustin Jamner, The Charles Stark Draper Laboratory, Inc."
+]
+license: "MIT"
+homepage: "https://github.com/draperlaboratory/cbat_tools"
+bug-reports: "https://github.com/draperlaboratory/cbat_tools"
+dev-repo: "git+https://github.com/draperlaboratory/cbat_tools"
+depends: [
+  "bap" {>= "1.6"}
+  "core" {>= "0.11"}
+  "ppx_deriving"
+  "ppx_bin_prot"
+  "ppx_sexp_conv"
+  "ppx_compare"
+  "ppx_fields_conv"
+]

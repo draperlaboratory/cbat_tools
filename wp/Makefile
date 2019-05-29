@@ -1,12 +1,10 @@
 BAP_WP = lib/bap_wp
-SAVE_PROJECT = plugin/save_project
 WP = plugin
 
 .PHONY: install doc test clean reinstall
 
 install:
 	$(MAKE) -C $(BAP_WP) $@.local
-	$(MAKE) -C $(SAVE_PROJECT) $@
 	$(MAKE) -C $(WP) $@
 
 doc:
@@ -18,10 +16,6 @@ test: install
 
 clean:
 	$(MAKE) -C $(WP) $@
-	$(MAKE) -C $(SAVE_PROJECT) $@
 	$(MAKE) -C $(BAP_WP) $@.local
 
-reinstall:
-	$(MAKE) clean
-	$(MAKE) install
-
+reinstall: clean install
