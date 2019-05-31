@@ -1,6 +1,6 @@
 CBAT_VALUE_SET = lib
 PLUGIN = plugin
-TESTS = unit-tests
+TESTS = unit_tests
 
 .PHONY: install doc test clean reinstall
 
