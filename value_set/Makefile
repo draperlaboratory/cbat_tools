@@ -4,6 +4,8 @@ TESTS = unit_tests
 
 .PHONY: install doc test clean reinstall
 
+all: install
+
 install:
 	$(MAKE) -C $(CBAT_VALUE_SET) $@.local
 	$(MAKE) -C $(PLUGIN) $@

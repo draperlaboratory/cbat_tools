@@ -4,13 +4,13 @@ PKG ocamlgraph
 PKG oUnit
 
 FLG -short-paths
-FLG -w +a
+FLG -w
 
 B _build
 B _build/lib
 B _build/plugin
-B _build/unit-tests
+B _build/unit_tests
 
 S lib
 S plugin
-S unit-tests
+S unit_tests

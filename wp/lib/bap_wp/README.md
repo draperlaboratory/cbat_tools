@@ -17,7 +17,7 @@ Before installing `bap_wp`, the following requirements must be met:
   (confirm with `ocamlfind query oUnit`) and it must be available
   to `opam` under the name `ounit` (confirm with `opam show ounit`).
 * Dune 1.6+ must be available. Confirm with `dune --version`.
-* To Build the documentation, you need odoc 1.4.0, which can also be
+* To build the documentation, you need odoc 1.4.0, which can also be
   installed with `opam install odoc`.
 
 

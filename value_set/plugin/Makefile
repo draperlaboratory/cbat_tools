@@ -4,7 +4,7 @@ PASS_NAME = value_set
 
 all: install
 
-build: $(PASS_NAME).ml
+build:
 	bapbuild -use-ocamlfind -pkg 'cbat_value_set' -tag 'warn(A-48-44)' $(PASS_NAME).plugin
 
 install: build

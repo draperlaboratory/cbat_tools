@@ -6,12 +6,29 @@ sufficiently small number.
 
 Build
 --------------
-This plugin is built using OASIS. Make sure to have OPAM and OASIS installed
-before building. This plugin also requires version 1.5.0 of BAP (currently
-the GitHub [master branch](https://github.com/BinaryAnalysisPlatform/bap)).
-For difficulties installing BAP, see the BAP build instructions. Once BAP
-is installed, running `make` should build the plugin. Running `make reinstall`
-should replace the current install (if any) and register the plugin with BAP.
+### Prerequisites
+
+Before installing `value_set`, the following requirements must be met:
+
+* BAP 1.6+ must be available. Confirm with `bap --version`.
+* core 0.11+ must be available. Confirm with `ocamlfind query core`.
+* ppx\_deriving must be available. Confirm with `ocamlfind query ppx_deriving`
+* cbat\_value\_set must be available. Confirm with `ocamlfind query cbat_value_set`
+* Dune 1.6+ must be available. Confirm with `dune --version`.
+
+### Installation
+
+To build and install the plugin:
+
+    make
+
+To uninstall and clean:
+
+    make clean
+
+To remove any current installation of the plugin and reinstall:
+
+    make reinstall
 
 Flags
 --------------
@@ -20,7 +37,7 @@ since running this pass will first run a value-set pass.
 
 - `sub`: The name of the subroutine to transform. If not provided, the transform
   will run on all subroutines. Note that this differs from the `--value-set-sub`
-  flag since the VSA will still be run o nthe whole program and the whole program
+  flag since the VSA will still be run on the whole program and the whole program
   will be returned, rather than a single subroutine.
 
 

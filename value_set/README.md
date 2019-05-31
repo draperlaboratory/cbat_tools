@@ -4,15 +4,46 @@ It uses circular linear progressions to abstract over sets of possible values.
 
 Build
 --------------
-This plugin is built using OASIS. Make sure to have OPAM and OASIS installed
-before building (OASIS can be installed via `opam install oasis`).
-This plugin also requires version 1.5.0 of BAP (currently
-the GitHub [master branch](https://github.com/BinaryAnalysisPlatform/bap)).
-For difficulties installing BAP, see the BAP build instructions. The package
-`ppx_deriving` is also required for this plugin. To install, run
-`opam install ppx_deriving` Once BAP and `ppx_deriving` are installed, running 
-`make` from the `value_set` directory should build the plugin. Running `make reinstall`
-should replace the current install (if any) and register the plugin with BAP.
+
+### Prerequisites
+
+Before installing `value_set`, the following requirements must be met:
+
+* BAP 1.6+ must be available. Confirm with `bap --version`.
+* core 0.11+ must be available. Confirm with `ocamlfind query core`.
+* ppx\_deriving must be available. Confirm with `ocamlfind query ppx_deriving`
+* oUnit must be available to `findlib` under the name `oUnit`
+  (confirm with `ocamlfind query oUnit`) and it must be available
+  to `opam` under the name `ounit` (confirm with `opam show ounit`).
+* Dune 1.6+ must be available. Confirm with `dune --version`.
+* To build the documentation, you need odoc 1.4.0, which can also be
+  installed with `opam install odoc`.
+
+### Installation
+
+To build and install the plugin:
+
+    make
+
+To uninstall and clean:
+
+    make clean
+
+To remove any current installation of the plugin and reinstall:
+
+    make reinstall
+
+### Testing
+
+To run unit tests:
+
+    make test
+
+### Documentation
+
+To build documentation on the library:
+
+    make doc
 
 Flags
 --------------

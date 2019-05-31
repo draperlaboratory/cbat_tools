@@ -16,3 +16,5 @@ clean:
 	bapbuild -clean
 	rm -f *.plugin
 	rm -rf _build
+
+reinstall: clean install
