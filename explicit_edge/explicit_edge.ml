@@ -17,10 +17,11 @@
    where possible. It does this by replacing each indirect jump with a
    sequence of conditional direct jumps when the possible targets can be
    reduced to a sufficiently small number. *)
-     
-open !Core_kernel.Std
+
+open !Core_kernel
 open Bap.Std
 open Graphlib.Std
+open Cbat_value_set
 include Self()
 
 module AI = Cbat_ai_representation
@@ -166,7 +167,6 @@ let main (sub_name : string option) (max_edges : int) (proj : project) : project
     let prog = Project.program proj in
     Term.enum sub_t prog
     |> Seq.fold ~init:(prog, Done) ~f:begin fun (prog, done_) sub ->
-      let open Monads.Std.Monad.Option.Syntax in
       let sname = Sub.name sub in
       if Option.value ~default:sname sub_name = sname then
         let sol = Option.value_exn ~message:"VSA not stored!" (Vsa.load sub) in

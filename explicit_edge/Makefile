@@ -1,55 +1,18 @@
-SETUP = ocaml setup.ml
+PASS_NAME = explicit_edge
 
-build: setup.ml setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+.PHONY: all build install clean
 
-doc: setup.ml setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+all: install
 
-test: setup.ml setup.data build
-	$(SETUP) -test $(TESTFLAGS)
+build:
+	bapbuild -pkg 'cbat_value_set' -tag 'warn(A-48-44)' $(PASS_NAME).plugin
 
+install: build
+	bapbundle update -desc 'Performs value-set analysis on binaries' $(PASS_NAME).plugin
+	bapbundle install $(PASS_NAME).plugin
 
-install: setup.ml setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
-	make plugin
-
-uninstall: setup.ml setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
-
-plugin: setup.ml
-	make -C plugin
-
-reinstall: setup.ml
-	make uninstall;
-	make install
-
-clean: setup.ml
-	$(SETUP) -clean $(CLEANFLAGS)
-
-distclean: setup.ml
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
-
-setup.data: setup.ml
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-configure: setup.ml
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-setup.ml:
-	oasis setup
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure plugin
-
-OCI=ocp-indent
-
-.PHONY: check
-check: check-ocp-indent
-
-.PHONY: check-ocp-indent
-check-ocp-indent: *.ml
-	for mlfile in $^; do $(OCI) $$mlfile | diff - $$mlfile; done
-
-.PHONY: auto-ocp-indent
-auto-ocp-indent: *.ml
-	for mlfile in $^; do $(OCI) -i $$mlfile; done
+clean:
+	bapbundle remove $(PASS_NAME).plugin
+	bapbuild -clean
+	rm -f *.plugin
+	rm -rf _build
