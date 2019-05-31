@@ -8,7 +8,7 @@ API_PATH = $(shell bap --api-list-paths)
 
 all: install
 
-build: $(PASS_NAME).ml
+build:
 	bapbuild -use-ocamlfind -pkgs 'z3,bap_wp' -tag 'warn(A-48-44)' $(PASS_NAME).plugin
 
 install: build verifier save_project

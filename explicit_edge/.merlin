@@ -1,10 +1,10 @@
 PKG core_kernel
 PKG bap
 PKG ocamlgraph
-PKG cbat-value-set
+PKG cbat_value_set
 
 FLG -short-paths
-FLG -w +a
+FLG -w
 
 B _build
 B _build/plugin

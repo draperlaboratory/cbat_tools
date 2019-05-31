@@ -68,7 +68,7 @@ reach the `assert(0)` statement on line 7 of the source.
 
 Changing line 6 to
 ```
-if(argc != 3)
+if((argc == 3) && (argc != 3))
 ```
 
 results in

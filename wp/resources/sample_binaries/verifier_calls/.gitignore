@@ -1,0 +1,3 @@
+verifier_assume_sat
+verifier_assume_unsat
+verifier_nondet
