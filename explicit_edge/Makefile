@@ -5,7 +5,7 @@ PASS_NAME = explicit_edge
 all: install
 
 build:
-	bapbuild -pkg 'cbat_value_set' -tag 'warn(A-48-44)' $(PASS_NAME).plugin
+	bapbuild -use-ocamlfind -pkg 'cbat_value_set' -tag 'warn(A-48-44)' $(PASS_NAME).plugin
 
 install: build
 	bapbundle update -desc 'Performs value-set analysis on binaries' $(PASS_NAME).plugin
