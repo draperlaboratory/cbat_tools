@@ -61,7 +61,7 @@ Build
 Each plugin has a set of requirements needed before building. More info can be found in:
 - [the value-set README](./value_set/README.md#build),
 - [the explicit-edge README](./explicit_edge/README.md#build), or
-- [the wp README](./wp/plugin/README.md#invocation#buildinstalltest).
+- [the wp README](./wp/plugin/README.md#buildinstalltest).
 
 Note that `explicit-edge` requires the `cbat_value_set` library installed in `value-set`.
 
