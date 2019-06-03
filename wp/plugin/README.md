@@ -66,19 +66,6 @@ Given that the `argc` argument is kept in the `RDI` register on
 `X86_64` architectures, this give us possible input register values to
 reach the `assert(0)` statement on line 7 of the source.
 
-Changing line 6 to
-```
-if((argc == 3) && (argc != 3))
-```
-
-results in
-
-```
-UNSAT!
-```
-
-Meaning there is no way to reach the `assert(0)` statement.
-
 -------
 
 A more sophisticated example involves comparing two different
@@ -225,6 +212,53 @@ case NAV:
 And a similar invocation of bap will indeed give `UNSAT`, meaning that
 the return values are always identical for identical inputs.
 
+This plugin can also be used to provide supplementary information to go
+with outputs from current binary diffing tools to not only identify 
+code reuse between binaries but also understand the implications and causes 
+of their contrasting nuances.
+
+Binary diffing is the primary technique for identifying code reuse, which is
+used heavily in disciplines such as malware attribution, software plagiarism
+identification, and patch identification. 
+
+Current binary diffing tools only provide clues as to what is changed, but not
+why or how the changes manifest. For example, [Diaphora](https://github.com/joxeankoret/diaphora)
+gives users percentage scores on how closely functions between binaries match as
+well as how closely the basic blocks within a function matches. Those details
+are helpful to identify what is changed, but most of the time, users want to
+know more than that. 
+
+For malware attribution and software plagiarism identification, users will want 
+to also know if the detected similarties are authentics. False positive 
+identifications are not uncommon. Multiple functions can make very similar 
+control-flow and instructions distribution. For authenticity, we have to manually 
+check the disassembly to see if the similarities are out of sheet luck, 
+compiler-specific patterns, or if it is legitimate case of malware belonging to
+same family or software plagiarism.
+
+For patch identification, we might not only want to identify the specific patch but also
+the specific bug or vulnerability that warrent the patch.
+
+For all 3 cases, a certain level of program understanding is required. With just the current
+binary diffing tools, the final stretch of program understanding to reach the desired
+goal is left to the end users. But supplemented with the wp plugin, the final stretch is
+simplified and achieved quicker.
+
+Below is an image showing Diaphora's diffing output for the `process_status`
+function: 
+
+!(Process status diff)[../resources/images/process_status_diff.png]
+
+It highlights in red the basic block that differs between the two similar
+functions. But if users want to understand the implications and what causes the change, 
+they will have to manually reason about the surrounding basic blocks, or at
+worst reason about the function's inter-procedural dependencies like callers and callees.
+This pass assists users in reasoning the causes and implications by providing register states
+that lead to the disparating behaviors. The outputted register states will
+help answer the 'cause' question. And with 'cause' question answered, we can narrow
+the scope of the code we need to analyze to understand the implications of the
+disparating changes since we can be confident that nothing else is causing
+those changes.
 
 ## Invocation
 
