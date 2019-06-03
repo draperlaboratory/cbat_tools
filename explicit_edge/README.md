@@ -8,7 +8,7 @@ Build
 --------------
 ### Prerequisites
 
-Before installing `value_set`, the following requirements must be met:
+Before installing `explicit_edge`, the following requirements must be met:
 
 * BAP 1.6+ must be available. Confirm with `bap --version`.
 * core 0.11+ must be available. Confirm with `ocamlfind query core`.
