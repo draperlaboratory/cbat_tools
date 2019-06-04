@@ -25,6 +25,19 @@ module StringMap = String.Map
 
 type z3_expr = Expr.expr
 
+type goal = { goal_name : string; goal_val : z3_expr }
+
+let goal_to_string g = g.goal_name ^ (Expr.to_string g.goal_val)
+
+type constr = Goal of goal | ITE of z3_expr * constr * constr | Clause of constr list * constr list
+
+let rec constr_to_string c =
+  match c with
+  | Goal g -> goal_to_string g
+  | ITE (e, c1, c2) -> Printf.sprintf "ITE(%s, %s, %s)" (Expr.to_string e) (constr_to_string c1) (constr_to_string c2)
+  | Clause (hyps, concs) -> Printf.sprintf "%s => %s"
+                              (List.to_string ~f:constr_to_string hyps) (List.to_string ~f:constr_to_string concs)
+
 type var_gen = int ref
 
 type t = {
@@ -32,7 +45,7 @@ type t = {
   var_gen : var_gen;
   subs : Sub.t Seq.t;
   var_map : z3_expr EnvMap.t;
-  precond_map : z3_expr TidMap.t;
+  precond_map : constr TidMap.t;
   fun_name_tid : Tid.t StringMap.t;
   call_map : string TidMap.t;
   sub_handler : fun_spec TidMap.t;
@@ -43,7 +56,7 @@ type t = {
 }
 
 and fun_spec_type =
-  | Summary of (t -> z3_expr -> Tid.t -> z3_expr)
+  | Summary of (t -> constr -> Tid.t -> constr)
   | Inline
 
 and fun_spec = {
@@ -51,17 +64,17 @@ and fun_spec = {
   spec : fun_spec_type
 }
 
-and jmp_spec = t -> z3_expr -> Tid.t -> Jmp.t -> z3_expr option
+and jmp_spec = t -> constr -> Tid.t -> Jmp.t -> constr option
 
-and int_spec = t -> z3_expr -> int -> z3_expr
+and int_spec = t -> constr -> int -> constr
 
 and loop_handler = {
   (* Updates the environment with the preconditions computed by
      the loop handling procedure for the appropriate blocks *)
-  handle : t -> z3_expr -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
+  handle : t -> constr -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
 }
 
-and cond_type = Verify of z3_expr | Assume of z3_expr
+and cond_type = Verify of goal | Assume of goal
 
 and exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 
@@ -101,7 +114,7 @@ let init_sub_handler (subs : Sub.t Seq.t)
    It will be substituted by the actual visit_sub function at the
    point of definition. This is used to simulate "open recursion".  *)
 let wp_rec_call :
-  (t -> z3_expr -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
+  (t -> constr -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
   ref (fun _ _ ~start:_ _ -> assert false)
 
 let init_loop_unfold (num_unroll : int) : loop_handler =
@@ -165,15 +178,15 @@ let env_to_string (env : t) : string =
     (map_seq_printer Var.to_string Expr.to_string) var_list
     (map_seq_printer Tid.to_string (fun s -> s.spec_name)) sub_list
     (map_seq_printer Tid.to_string ident) call_list
-    (map_seq_printer Tid.to_string Expr.to_string) precond_list
+    (map_seq_printer Tid.to_string constr_to_string) precond_list
 
 let add_var (env : t) (v : Var.t) (x : z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
 
-let add_precond (env : t) (tid : Tid.t) (p : z3_expr) : t =
+let add_precond (env : t) (tid : Tid.t) (p : constr) : t =
   { env with precond_map = TidMap.set env.precond_map ~key:tid ~data:p }
 
-let mk_exp_conds (env : t) (e : exp) : z3_expr list * z3_expr list =
+let mk_exp_conds (env : t) (e : exp) : goal list * goal list =
   let { exp_conds; _ } = env in
   let conds = List.map exp_conds ~f:(fun gen -> gen env e) in
   let conds = List.filter_opt conds in
@@ -195,7 +208,7 @@ let get_var_map (env : t) : z3_expr EnvMap.t =
 let get_var (env : t) (var : Var.t) : z3_expr option =
   EnvMap.find env.var_map var
 
-let get_precondition (env : t) (tid : Tid.t) : z3_expr option =
+let get_precondition (env : t) (tid : Tid.t) : constr option =
   if not (TidMap.mem env.precond_map tid) then
     warning "Precondition for block %s not found!%!" (Tid.to_string tid);
   TidMap.find env.precond_map tid
@@ -218,9 +231,19 @@ let get_int_handler (env : t) : int_spec =
   env.int_handler
 
 let get_loop_handler (env : t) :
-  t -> z3_expr -> start:Graphs.Ir.Edge.node -> Graphs.Ir.t -> t =
+  t -> constr -> start:Graphs.Ir.Edge.node -> Graphs.Ir.t -> t =
   env.loop_handler.handle
 
-let fold_fun_tids (env : t) ~init:(init : z3_expr)
-    ~f:(f : key:string -> data:Tid.t -> z3_expr -> z3_expr) : z3_expr =
+let fold_fun_tids (env : t) ~init:(init : constr)
+    ~f:(f : key:string -> data:Tid.t -> constr -> constr) : constr =
   StringMap.fold env.fun_name_tid ~init:init ~f:f
+
+(* This needs to be evaluated in the same context as was used to create the root goals *)
+let rec eval_constr (ctx : Z3.context) (constr : constr) : z3_expr =
+  match constr with
+  | Goal { goal_val = v; _ } -> v
+  | ITE (e, c1, c2) -> Z3.Boolean.mk_ite ctx e (eval_constr ctx c1) (eval_constr ctx c2)
+  | Clause (hyps, concs) ->
+    let hyps_expr  = hyps |> List.map ~f:(eval_constr ctx) |> Z3.Boolean.mk_and ctx in
+    let concs_expr = concs |> List.map ~f:(eval_constr ctx) |> Z3.Boolean.mk_and ctx in
+    Z3.Boolean.mk_implies ctx hyps_expr concs_expr
