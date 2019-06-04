@@ -227,7 +227,7 @@ the return values are always identical for identical inputs.
 
 This plugin can also supplement current binary diffing tools to not 
 only identify code reuse between binaries but also understand the 
-implications and causes of their nuances.
+implications and causes of their nuanced differences in behavior.
 
 Binary diffing is the primary technique for identifying code reuse, 
 which is heavily used in disciplines such as malware attribution, 
@@ -245,7 +245,7 @@ For malware attribution and software plagiarism identification, users
 will want to also know if the detected similarities are authentic. 
 False positive identifications are not uncommon. Multiple functions 
 can have similar control-flow structure and instructions distribution. 
-For authenticity, we have to check the disassembly to see if the 
+For authenticity, we have to check the disassembly to see whether the 
 similarities are out of sheer luck, compiler-specific patterns, or 
 if it is actually legitimate.
 
