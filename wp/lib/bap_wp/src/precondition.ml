@@ -78,10 +78,10 @@ type args = {
 (* Placeholder for inlining function calls, which will be substituted with [visit_sub]
    at its point of definition. *)
 let inline_func :
-  (Env.z3_expr -> Env.t -> Tid.t -> Env.z3_expr * Env.t) ref =
+  (Env.constr -> Env.t -> Tid.t -> Env.constr * Env.t) ref =
   ref (fun _ _ _ -> assert false)
 
-let lookup_sub (label : Label.t) (post : Env.z3_expr) (env : Env.t) : Env.z3_expr =
+let lookup_sub (label : Label.t) (post : Env.constr) (env : Env.t) : Env.constr =
   match label with
   | Direct tid ->
     begin
@@ -174,11 +174,12 @@ let bv_to_bool (bv : Env.z3_expr) (ctx : Z3.context) (width : int) : Env.z3_expr
   let zero = z3_expr_zero ctx width in
   Bool.mk_not ctx (Bool.mk_eq ctx bv zero)
 
-let set_fun_called (post : Env.z3_expr) (env : Env.t) (tid : Tid.t) : Env.z3_expr =
+let set_fun_called (post : Env.constr) (env : Env.t) (tid : Tid.t) : Env.constr =
   let ctx = Env.get_context env in
   let fun_name = Bool.mk_const_s ctx (Env.get_called env tid |>
                                       Option.value_exn ?here:None ?error:None ?message:None) in
-  Z3.Expr.substitute_one post fun_name (Bool.mk_true ctx)
+  assert false
+  (* FIXME Z3.Expr.substitute_one post fun_name (Bool.mk_true ctx) *)
 
 let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -187,7 +188,9 @@ let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
     let open Env in
     Some {
       spec_name = "spec_verifier_error";
-      spec = Summary (fun env _ _ -> Bool.mk_false (Env.get_context env))
+      spec = Summary (fun env _ _ ->
+        Env.mk_constr
+          (Env.mk_goal "assert_fail" (Bool.mk_false (Env.get_context env))))
     }
   else
     None
@@ -213,7 +216,8 @@ let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
              let z3_v = Env.get_var env v
                         |> Option.value ~default:(var_to_z3 ctx v) in
              let size = BV.get_size (Expr.get_sort z3_v) in
-             Bool.mk_implies ctx (bv_to_bool z3_v ctx size) post)
+             let assumption = Env.mk_constr (Env.mk_goal "assumption" (bv_to_bool z3_v ctx size)) in
+             Env.mk_clause [assumption] [post])
     }
   else
     None
@@ -239,7 +243,8 @@ let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
              let z3_v = Env.get_var env v
                         |> Option.value ~default:(var_to_z3 ctx v) in
              let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ v) in
-             Z3.Expr.substitute_one post z3_v fresh)
+             assert false)
+             (* FIXME Z3.Expr.substitute_one post z3_v fresh) *)
     }
   else
     None
@@ -269,7 +274,8 @@ let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
                      (z3_v, fresh)
                    ) in
              let (subs_from, subs_to) = chaos |> Seq.to_list |> List.unzip in
-             Z3.Expr.substitute post subs_from subs_to)
+             assert false)
+             (* FIXME Z3.Expr.substitute post subs_from subs_to) *)
     }
   else
     None
@@ -295,7 +301,8 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
              let z3_v = Env.get_var env rax
                         |> Option.value ~default:(var_to_z3 ctx rax) in
              let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ rax) in
-             Z3.Expr.substitute_one post z3_v fresh)
+             assert false)
+             (* FIXME Z3.Expr.substitute_one post z3_v fresh) *)
     }
   else
     None
@@ -383,7 +390,7 @@ let word_to_z3 (ctx : Z3.context) (w : Word.t) : Env.z3_expr =
   let s = Format.flush_str_formatter () in
   BV.mk_numeral ctx s (Word.bitwidth w)
 
-let exp_to_z3 (exp : Exp.t) (env : Env.t) : Env.z3_expr * Env.z3_expr list * Env.z3_expr list =
+let exp_to_z3 (exp : Exp.t) (env : Env.t) : Env.z3_expr * Env.goal list * Env.goal list =
   let ctx = Env.get_context env in
   let read_from_env env v =
     match Env.get_var env v with
@@ -464,7 +471,7 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Env.z3_expr * Env.z3_expr list * Env
   let assume, verify = Env.mk_exp_conds env exp in
   exp_to_z3_body exp env, assume, verify
 
-let visit_jmp (env : Env.t) (post : Env.z3_expr) (jmp : Jmp.t) : Env.z3_expr =
+let visit_jmp (env : Env.t) (post : Env.constr) (jmp : Jmp.t) : Env.constr =
   let jmp_spec = Env.get_jmp_handler env in
   match jmp_spec env post (Term.tid jmp) jmp with
   | Some pre -> pre
@@ -488,11 +495,13 @@ let visit_jmp (env : Env.t) (post : Env.z3_expr) (jmp : Jmp.t) : Env.z3_expr =
             let cond = Jmp.cond jmp in
             let cond_val, assume, vcs = exp_to_z3 cond env in
             debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
-              (Expr.to_string cond_val) (List.to_string ~f:Expr.to_string vcs)
-              (List.to_string ~f:Expr.to_string assume);
+              (Expr.to_string cond_val) (List.to_string
+                ~f:(fun vc -> Env.get_goal_val vc |> Expr.to_string) vcs)
+              (List.to_string
+                ~f:(fun a -> Env.get_goal_val a |>Expr.to_string) assume);
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
-            let ite = Bool.mk_ite ctx (Bool.mk_not ctx false_cond) l_pre post in
+            let ite = Env.mk_ite (Bool.mk_not ctx false_cond) l_pre post in
             let post = Bool.mk_and ctx (ite::vcs) in
             if List.is_empty assume then post else
               Bool.mk_implies ctx (Bool.mk_and ctx assume) post
