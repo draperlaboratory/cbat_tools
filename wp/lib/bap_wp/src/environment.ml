@@ -82,6 +82,24 @@ let mk_ctx () : Z3.context = Z3.mk_context []
 
 let mk_var_gen () : int ref = ref 0
 
+let mk_goal (name : string) (value : z3_expr) : goal =
+  { goal_name = name; goal_val = value }
+
+let get_goal_name (g : goal) : string =
+  g.goal_name
+
+let get_goal_val (g : goal) : z3_expr =
+  g.goal_val
+
+let mk_constr (g : goal) : constr =
+  Goal g
+
+let mk_ite (cond : z3_expr) (t : constr) (f : constr) : constr =
+  ITE (cond, t, f)
+
+let mk_clause (hyp: constr list) (concl : constr list) : constr =
+  Clause (hyp, concl)
+
 let init_fun_name (subs : Sub.t Seq.t) : Tid.t StringMap.t =
   Seq.fold subs ~init:StringMap.empty
     ~f:(fun map sub ->
