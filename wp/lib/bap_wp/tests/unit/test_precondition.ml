@@ -19,6 +19,7 @@ open Bil_to_bir
 
 module Pre = Precondition
 module Comp = Compare
+module Constr = Constraint
 module Env = Environment
 module Bool = Z3.Boolean
 module Expr = Z3.Expr
@@ -65,13 +66,13 @@ let mk_sub ?tid:(tid = Tid.create ()) ?args:(args = []) ?name:(name = "")
 
 let mk_z3_expr e env = let e, _, _ = Pre.exp_to_z3 e env in e
 
-let format_log_error (body : string) (pre : Env.constr) (post : Env.constr) : string =
+let format_log_error (body : string) (pre : Constr.t) (post : Constr.t) : string =
   Format.asprintf "Post:\n%a\n\nAnalyzing:\n%sPre:\n%a\n"
-    Env.pp_constr post body Env.pp_constr pre
+    Constr.pp_constr post body Constr.pp_constr pre
 
-let format_cmp_error (body1 : string) (body2 : string) (pre : Env.constr) : string =
+let format_cmp_error (body1 : string) (body2 : string) (pre : Constr.t) : string =
   Format.asprintf "Comparing:\n%s\nand\n\n%s\nCompare_prop:\n%a\n"
-    body1 body2 Env.pp_constr pre
+    body1 body2 Constr.pp_constr pre
 
 let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     (exp : 'a) (real : 'a) : unit =
@@ -81,9 +82,9 @@ let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     | Some model -> Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model)
 
 let assert_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (formatter : string)
-    (pre : Env.constr) (expected : Z3.Solver.status) : unit =
+    (pre : Constr.t) (expected : Z3.Solver.status) : unit =
   let solver = Z3.Solver.mk_simple_solver z3_ctx in
-  let pre = Env.eval_constr z3_ctx pre in
+  let pre = Constr.eval pre z3_ctx in
   let is_correct = Bool.mk_implies z3_ctx pre (Bool.mk_false z3_ctx) in
   let result = Z3.Solver.check solver [is_correct] in
   assert_equal ~ctxt:test_ctx
@@ -100,7 +101,7 @@ let test_empty_block (test_ctx : test_ctxt) : unit =
   let var_gen = Env.mk_var_gen () in
   let env = Pre.mk_default_env ctx var_gen in
   let block = Blk.create () in
-  let post = Bool.mk_true ctx |> Env.mk_goal "true" |> Env.mk_constr in
+  let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
   assert_z3_result test_ctx ctx fmtr pre Z3.Solver.UNSATISFIABLE
@@ -115,8 +116,8 @@ let test_assign_1 (test_ctx : test_ctxt) : unit =
   let e = Bil.binop Bil.plus (Bil.var x) one in
   let block = Blk.create () |> mk_def y e in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (mk_z3_expr e env)
-             |> Env.mk_goal "y = x + 1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x + 1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -132,8 +133,8 @@ let test_assign_2 (test_ctx : test_ctxt) : unit =
   let e = Bil.binop Bil.plus (Bil.var x) one in
   let block = Blk.create () |> mk_def y e in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -153,8 +154,8 @@ let test_assign_3 (test_ctx : test_ctxt) : unit =
               |> mk_def x e
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (mk_z3_expr e' env)
-             |> Env.mk_goal "y = x - 1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x - 1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -177,8 +178,8 @@ let test_phi_1 (test_ctx : test_ctxt) : unit =
   let x1_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (Pre.var_to_z3 ctx x1) in
   let x2_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (Pre.var_to_z3 ctx x2) in
   let post = Bool.mk_or ctx [x1_exp; x2_exp]
-             |> Env.mk_goal "x = x1 || x = x2"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x = x1 || x = x2"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -200,8 +201,8 @@ let test_read_write_1 (test_ctx : test_ctxt) : unit =
               |> mk_def y load
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -223,8 +224,8 @@ let test_read_write_2 (test_ctx : test_ctxt) : unit =
               |> mk_def y load
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -246,8 +247,8 @@ let test_read_write_3 (test_ctx : test_ctxt) : unit =
               |> mk_def y load
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -269,8 +270,8 @@ let test_read_write_4 (test_ctx : test_ctxt) : unit =
               |> mk_def y load
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -292,8 +293,8 @@ let test_bit_shift_1 (test_ctx : test_ctxt) : unit =
               |> mk_def y rshift
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -315,8 +316,8 @@ let test_bit_shift_2 (test_ctx : test_ctxt) : unit =
               |> mk_def y rshift
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -338,8 +339,8 @@ let test_bit_ashift_1 (test_ctx : test_ctxt) : unit =
               |> mk_def y rshift
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -361,8 +362,8 @@ let test_bit_ashift_2 (test_ctx : test_ctxt) : unit =
               |> mk_def y rshift
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -383,8 +384,8 @@ let test_ite_assign_1 (test_ctx : test_ctxt) : unit =
               |> mk_def y ite
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
-             |> Env.mk_goal "y = x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "y = x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
   let fmtr = format_log_error (Blk.to_string block) pre post in
@@ -457,8 +458,8 @@ let test_subroutine_1 (test_ctx : test_ctxt) : unit =
   let high  = BV.mk_sle ctx diff (BV.mk_numeral ctx "1" 32) in
   let low = BV.mk_sle ctx (BV.mk_numeral ctx "-1" 32) diff in
   let post = Bool.mk_and ctx [low; high]
-             |> Env.mk_goal "-1 <= z - x && z - x <= 1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "-1 <= z - x && z - x <= 1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -489,8 +490,8 @@ let test_subroutine_1_2 (test_ctx : test_ctxt) : unit =
      (with the "base names" x, y, z)*)
   let post = Pre.mk_smtlib2_post env
       "(assert (and (bvsle (bvsub z0 x0) #x00000001) (bvsle #xffffffff (bvsub z0 x0))))"
-             |> Env.mk_goal "z - x <= 1 && -1 <= z - x"
-             |> Env.mk_constr
+             |> Constr.mk_goal "z - x <= 1 && -1 <= z - x"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -536,8 +537,8 @@ let test_subroutine_2 (test_ctx : test_ctxt) : unit =
   let high  = BV.mk_sle ctx diff (BV.mk_numeral ctx "1" 32) in
   let low = BV.mk_sle ctx (BV.mk_numeral ctx "-1" 32) diff in
   let post = Bool.mk_and ctx [low; high]
-             |> Env.mk_goal "x4 - x1 <= 1 && -1 <= x4 - x1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x4 - x1 <= 1 && -1 <= x4 - x1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -561,8 +562,8 @@ let test_subroutine_3 (test_ctx : test_ctxt) : unit =
   let y_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (Pre.var_to_z3 ctx y) in
   let z_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (Pre.var_to_z3 ctx z) in
   let post = Bool.mk_or ctx [y_exp; z_exp]
-             |> Env.mk_goal "x = y || x = z"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x = y || x = z"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -593,8 +594,8 @@ let test_subroutine_4 (test_ctx : test_ctxt) : unit =
   let y_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx w) (Pre.var_to_z3 ctx y) in
   let z_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx w) (Pre.var_to_z3 ctx z) in
   let post = Bool.mk_or ctx [y_exp; z_exp]
-             |> Env.mk_goal "x = y || w = z"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x = y || w = z"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -621,8 +622,8 @@ let test_subroutine_5 (test_ctx : test_ctxt) : unit =
   let blk3 = blk3 |> mk_def z (Bil.var x) in
   let sub = mk_sub [blk1; blk2; blk3] in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx z) (mk_z3_expr e' env)
-             |> Env.mk_goal "z = y + 1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "z = y + 1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -643,8 +644,8 @@ let test_subroutine_6 (test_ctx : test_ctxt) : unit =
   let subs = Seq.of_list [sub; sub_assert] in
   let env = Pre.mk_default_env ~subs ctx var_gen in
   let post = Bool.mk_true ctx
-             |> Env.mk_goal "true"
-             |> Env.mk_constr
+             |> Constr.mk_goal "true"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -659,8 +660,8 @@ let test_subroutine_7 (test_ctx : test_ctxt) : unit =
   let subs = Seq.singleton assert_sub in
   let env = Pre.mk_default_env ~subs ctx var_gen in
   let post = Bool.mk_true ctx
-             |> Env.mk_goal "true"
-             |> Env.mk_constr
+             |> Constr.mk_goal "true"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -687,8 +688,8 @@ let test_call_1 (test_ctx : test_ctxt) : unit =
   let env = Pre.mk_default_env ctx var_gen
       ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_eq ctx (mk_z3_expr (Bil.var ret_var) env) (mk_z3_expr zero env)
-             |> Env.mk_goal "ret = 0"
-             |> Env.mk_constr
+             |> Constr.mk_goal "ret = 0"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error (Sub.to_string main_sub) pre post in
@@ -714,8 +715,8 @@ let test_call_2 (test_ctx : test_ctxt) : unit =
   let main_sub = mk_sub [blk2; blk3] in
   let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_const_s ctx "called_test_sub1"
-             |> Env.mk_goal "called_test_sub1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "called_test_sub1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error (Sub.to_string main_sub) pre post in
@@ -737,8 +738,8 @@ let test_call_3 (test_ctx : test_ctxt) : unit =
   let main_sub = mk_sub [blk2; blk3] in
   let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_const_s ctx "called_test_sub1"
-             |> Env.mk_goal "called_test_sub1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "called_test_sub1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error (Sub.to_string main_sub) pre post in
@@ -758,8 +759,8 @@ let test_call_4 (test_ctx : test_ctxt) : unit =
   let main_sub = mk_sub [blk2; blk3] in
   let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_const_s ctx "called_test_sub1"
-             |> Env.mk_goal "called_test_sub1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "called_test_sub1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error (Sub.to_string main_sub) pre post in
@@ -785,8 +786,8 @@ let test_call_5 (test_ctx : test_ctxt) : unit =
   let main_sub = mk_sub [start_body; blk2; blk3] in
   let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_eq ctx (Bool.mk_true ctx) (Bool.mk_const_s ctx "called_test_sub1")
-             |> Env.mk_goal "called_test_sub1"
-             |> Env.mk_constr
+             |> Constr.mk_goal "called_test_sub1"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error (Sub.to_string main_sub) pre post in
@@ -819,8 +820,8 @@ let test_call_6 (test_ctx : test_ctxt) : unit =
   let sub2_called = Option.value_exn (sub2_tid |> Env.get_called env) in
   let post =
     Bool.mk_or ctx [Bool.mk_const_s ctx sub1_called; Bool.mk_const_s ctx sub2_called]
-    |> Env.mk_goal "sub1_called || sub2_called"
-    |> Env.mk_constr
+    |> Constr.mk_goal "sub1_called || sub2_called"
+    |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error (Sub.to_string main_sub) pre post in
@@ -854,8 +855,8 @@ let test_call_7 (test_ctx : test_ctxt) : unit =
   let post = Bool.mk_and ctx [
       Bool.mk_eq ctx (mk_z3_expr Bil.(var x + one) env) (mk_z3_expr (Bil.var z) env);
       Bool.mk_const_s ctx sub_called]
-             |> Env.mk_goal "x + 1 = z && sub_called"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x + 1 = z && sub_called"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error ((Sub.to_string main_sub) ^ (Sub.to_string call_sub))
@@ -890,8 +891,8 @@ let test_call_8 (test_ctx : test_ctxt) : unit =
   let post = Bool.mk_and ctx [
       Bool.mk_eq ctx (mk_z3_expr Bil.(var x + one) env) (mk_z3_expr (Bil.var z) env);
       Bool.mk_const_s ctx sub_called]
-             |> Env.mk_goal "x + 1 = z && sub_called"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x + 1 = z && sub_called"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error ((Sub.to_string main_sub) ^ (Sub.to_string call_sub))
@@ -934,8 +935,8 @@ let test_call_9 (test_ctx : test_ctxt) : unit =
       Bool.mk_eq ctx (mk_z3_expr Bil.(var x + two) env) (mk_z3_expr (Bil.var z) env);
       Bool.mk_const_s ctx sub1_called;
       Bool.mk_const_s ctx sub2_called]
-             |> Env.mk_goal "x + 2 = z && sub1_called && sub2_called"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x + 2 = z && sub1_called && sub2_called"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error
@@ -957,8 +958,8 @@ let test_int_1 (test_ctx : test_ctxt) : unit =
   let main_sub = mk_sub [blk1; blk2] in
   let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub]) in
   let post = Bool.mk_eq ctx (mk_z3_expr (Bil.var ret_var) env) (mk_z3_expr zero env)
-             |> Env.mk_goal "ret = 0"
-             |> Env.mk_constr
+             |> Constr.mk_goal "ret = 0"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = format_log_error (Sub.to_string main_sub) pre post in
@@ -1299,8 +1300,8 @@ let test_loop_1 (test_ctx : test_ctxt) : unit =
   in
 
   let post = Bool.mk_eq ctx (mk_z3_expr x_y env) (mk_z3_expr a_b env)
-             |> Env.mk_goal "x + y = a + b"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x + y = a + b"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -1326,8 +1327,8 @@ let test_loop_2 (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (BV.mk_numeral ctx "5" 32)
-             |> Env.mk_goal "x = 5"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x = 5"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -1353,8 +1354,8 @@ let test_loop_3 (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
   let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (BV.mk_numeral ctx "7" 32)
-             |> Env.mk_goal "x = 7"
-             |> Env.mk_constr
+             |> Constr.mk_goal "x = 7"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -1401,8 +1402,8 @@ let test_exp_cond_1 (test_ctx : test_ctxt) : unit =
   let load = Bil.load ~mem:(Bil.var mem) ~addr:(Bil.var addr) BigEndian `r8 in
   let blk = blk |> mk_def x load in
   let post = Bool.mk_true ctx
-             |> Env.mk_goal "true"
-             |> Env.mk_constr
+             |> Constr.mk_goal "true"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post blk in
   let fmtr = format_log_error (Blk.to_string blk) pre post in
@@ -1422,8 +1423,8 @@ let test_exp_cond_2 (test_ctx : test_ctxt) : unit =
             |> mk_def addr (Bil.int @@ Word.of_int 0x40000000 ~width:32)
             |> mk_def x load in
   let post = Bool.mk_true ctx
-             |> Env.mk_goal "true"
-             |> Env.mk_constr
+             |> Constr.mk_goal "true"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post blk in
   let fmtr = format_log_error (Blk.to_string blk) pre post in
@@ -1438,8 +1439,8 @@ let test_subroutine_8 (test_ctx : test_ctxt) : unit =
   let read = Bil.(load ~mem:(var mem) ~addr:(var loc) LittleEndian `r32) in
   let sub = Bil.([if_ (read = i32 12)[][]]) |> bil_to_sub in
   let post = Bool.mk_distinct ctx [(Pre.var_to_z3 ctx loc); (BV.mk_numeral ctx "0" 32)]
-             |> Env.mk_goal "loc <> 0"
-             |> Env.mk_constr
+             |> Constr.mk_goal "loc <> 0"
+             |> Constr.mk_constr
   in
   let pre, _ = Pre. visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in
@@ -1519,21 +1520,21 @@ let test_branches_1 (test_ctx : test_ctxt) : unit =
       | Goto (Direct tid) -> Option.value (Env.get_precondition env tid) ~default:post
       | _ -> assert false
     in
-    let true_constr = Bool.mk_true ctx |> Env.mk_goal "true" |> Env.mk_constr in
-    let false_constr = Bool.mk_false ctx |> Env.mk_goal "false" |> Env.mk_constr in
+    let true_constr = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+    let false_constr = Bool.mk_false ctx |> Constr.mk_goal "false" |> Constr.mk_constr in
     if Tid.equal tid (branch_tid cond_x) then
-      Some (Env.mk_ite tid (branch_cond cond_x) branch_pre true_constr)
+      Some (Constr.mk_ite tid (branch_cond cond_x) branch_pre true_constr)
     else if Tid.equal tid (branch_tid cond_y) then
-      Some (Env.mk_ite tid (branch_cond cond_y) branch_pre true_constr)
+      Some (Constr.mk_ite tid (branch_cond cond_y) branch_pre true_constr)
     else if Tid.equal tid (branch_tid cond_z) then
-      Some (Env.mk_ite tid (branch_cond cond_z) false_constr true_constr)
+      Some (Constr.mk_ite tid (branch_cond cond_z) false_constr true_constr)
     else
       None
   in
   let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
   let post  = Bool.mk_true ctx
-              |> Env.mk_goal "true"
-              |> Env.mk_constr
+              |> Constr.mk_goal "true"
+              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in

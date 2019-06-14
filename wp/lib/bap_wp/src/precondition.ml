@@ -22,6 +22,7 @@ module BV = Z3.BitVector
 module Bool = Z3.Boolean
 module Array = Z3.Z3Array
 module Env = Environment
+module Constr = Constraint
 
 exception Not_implemented of string
 
@@ -78,10 +79,10 @@ type args = {
 (* Placeholder for inlining function calls, which will be substituted with [visit_sub]
    at its point of definition. *)
 let inline_func :
-  (Env.constr -> Env.t -> Tid.t -> Env.constr * Env.t) ref =
+  (Constr.t -> Env.t -> Tid.t -> Constr.t * Env.t) ref =
   ref (fun _ _ _ -> assert false)
 
-let lookup_sub (label : Label.t) (post : Env.constr) (env : Env.t) : Env.constr =
+let lookup_sub (label : Label.t) (post : Constr.t) (env : Env.t) : Constr.t =
   match label with
   | Direct tid ->
     begin
@@ -174,11 +175,11 @@ let bv_to_bool (bv : Env.z3_expr) (ctx : Z3.context) (width : int) : Env.z3_expr
   let zero = z3_expr_zero ctx width in
   Bool.mk_not ctx (Bool.mk_eq ctx bv zero)
 
-let set_fun_called (post : Env.constr) (env : Env.t) (tid : Tid.t) : Env.constr =
+let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
   let ctx = Env.get_context env in
   let fun_name = Bool.mk_const_s ctx (Env.get_called env tid |>
                                       Option.value_exn ?here:None ?error:None ?message:None) in
-  Env.substitute_one post fun_name (Bool.mk_true ctx)
+  Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
 let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -190,8 +191,8 @@ let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
       spec = Summary (fun env _ _ ->
           Env.get_context env
           |> Bool.mk_false
-          |> Env.mk_goal "assert_fail"
-          |> Env.mk_constr)
+          |> Constr.mk_goal "assert_fail"
+          |> Constr.mk_constr)
     }
   else
     None
@@ -218,10 +219,10 @@ let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
                         |> Option.value ~default:(var_to_z3 ctx v) in
              let size = BV.get_size (Expr.get_sort z3_v) in
              let assumption = bv_to_bool z3_v ctx size
-                              |> Env.mk_goal "assumption"
-                              |> Env.mk_constr
+                              |> Constr.mk_goal "assumption"
+                              |> Constr.mk_constr
              in
-             Env.mk_clause [assumption] [post])
+             Constr.mk_clause [assumption] [post])
     }
   else
     None
@@ -247,7 +248,7 @@ let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
              let z3_v = Env.get_var env v
                         |> Option.value ~default:(var_to_z3 ctx v) in
              let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ v) in
-             Env.substitute_one post z3_v fresh)
+             Constr.substitute_one post z3_v fresh)
     }
   else
     None
@@ -277,7 +278,7 @@ let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
                      (z3_v, fresh)
                    ) in
              let (subs_from, subs_to) = chaos |> Seq.to_list |> List.unzip in
-             Env.substitute post subs_from subs_to)
+             Constr.substitute post subs_from subs_to)
     }
   else
     None
@@ -303,7 +304,7 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
              let z3_v = Env.get_var env rax
                         |> Option.value ~default:(var_to_z3 ctx rax) in
              let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ rax) in
-             Env.substitute_one post z3_v fresh)
+             Constr.substitute_one post z3_v fresh)
     }
   else
     None
@@ -391,7 +392,7 @@ let word_to_z3 (ctx : Z3.context) (w : Word.t) : Env.z3_expr =
   let s = Format.flush_str_formatter () in
   BV.mk_numeral ctx s (Word.bitwidth w)
 
-let exp_to_z3 (exp : Exp.t) (env : Env.t) : Env.z3_expr * Env.constr list * Env.constr list =
+let exp_to_z3 (exp : Exp.t) (env : Env.t) : Env.z3_expr * Constr.t list * Constr.t list =
   let ctx = Env.get_context env in
   let read_from_env env v =
     match Env.get_var env v with
@@ -470,11 +471,11 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Env.z3_expr * Env.constr list * Env.
       BV.mk_concat ctx w1_val w2_val
   in
   let a, v = Env.mk_exp_conds env exp in
-  let assume = List.map a ~f:Env.mk_constr in
-  let verify = List.map v ~f:Env.mk_constr in
+  let assume = List.map a ~f:Constr.mk_constr in
+  let verify = List.map v ~f:Constr.mk_constr in
   exp_to_z3_body exp env, assume, verify
 
-let visit_jmp (env : Env.t) (post : Env.constr) (jmp : Jmp.t) : Env.constr =
+let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t =
   let jmp_spec = Env.get_jmp_handler env in
   match jmp_spec env post (Term.tid jmp) jmp with
   | Some pre -> pre
@@ -498,13 +499,13 @@ let visit_jmp (env : Env.t) (post : Env.constr) (jmp : Jmp.t) : Env.constr =
             let cond = Jmp.cond jmp in
             let cond_val, assume, vcs = exp_to_z3 cond env in
             debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
-              (Expr.to_string cond_val) (List.to_string ~f:Env.constr_to_string vcs)
-              (List.to_string ~f:Env.constr_to_string assume);
+              (Expr.to_string cond_val) (List.to_string ~f:Constr.to_string vcs)
+              (List.to_string ~f:Constr.to_string assume);
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
-            let ite = Env.mk_ite (Term.tid jmp) (Bool.mk_not ctx false_cond) l_pre post in
+            let ite = Constr.mk_ite (Term.tid jmp) (Bool.mk_not ctx false_cond) l_pre post in
             let post = ite::vcs in
-            Env.mk_clause assume post
+            Constr.mk_clause assume post
           (* TODO: evaluate the indirect jump and
              enumerate the possible concrete values, relate to tids
              (probably tough...) *)
@@ -543,7 +544,7 @@ let visit_jmp (env : Env.t) (post : Env.constr) (jmp : Jmp.t) : Env.constr =
         handler env ret_pre i
     end
 
-let visit_elt (env : Env.t) (post : Env.constr) (elt : Blk.elt) : Env.constr * Env.t =
+let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t =
   match elt with
   | `Def def ->
     let ctx = Env.get_context env in
@@ -554,21 +555,21 @@ let visit_elt (env : Env.t) (post : Env.constr) (elt : Blk.elt) : Env.constr * E
     let post = post::vcs in
     (* Here we add the assumptions as a hypothesis if there
        are any. *)
-    let post = Env.mk_clause assume post in
+    let post = Constr.mk_clause assume post in
     let typ_size t = match t with
       | Bil.Types.Imm n -> n
       | Bil.Types.Mem (_, s) -> Size.in_bits s in
     debug "Visiting def:\nlhs = %s : <%d>    rhs = %s : <%d>%!"
       (Expr.to_string z3_var) (var |> Var.typ |> typ_size)
       (Expr.to_string rhs_exp) (rhs |> Type.infer_exn |> typ_size);
-    Env.substitute_one post z3_var rhs_exp, Env.add_var env var z3_var
+    Constr.substitute_one post z3_var rhs_exp, Env.add_var env var z3_var
   | `Jmp jmp ->
     visit_jmp env post jmp, env
   | `Phi _ ->
     error "We do not currently handle Phi nodes.\n%!";
     raise (Not_implemented "visit_elt: case `Phi(phi) not implemented")
 
-let visit_block (env : Env.t) (post : Env.constr) (blk : Blk.t) : Env.constr * Env.t =
+let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t =
   debug "Visiting block:\n%s%!" (Blk.to_string blk);
   let compute_pre b =
     Seq.fold b ~init:(post, env) ~f:(fun (pre, env) a -> visit_elt env pre a)
@@ -576,15 +577,15 @@ let visit_block (env : Env.t) (post : Env.constr) (blk : Blk.t) : Env.constr * E
   let pre, env = blk |> Blk.elts ~rev:true |> compute_pre in
   (pre, Env.add_precond env (Term.tid blk) pre)
 
-let visit_graph (env : Env.t) (post : Env.constr)
-    ~start:start (g : Graphs.Ir.t) : Env.constr * Env.t =
+let visit_graph (env : Env.t) (post : Constr.t)
+    ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
   let module G = Graphlib.Std.Graphlib in
   let leave_node _ n (_, env) =
     let b = Graphs.Ir.Node.label n in
     visit_block env post b in
   (* This function is the identity on forward & cross edges, and
      invokes loop handling code on back edges *)
-  let enter_edge kind e ((post, env) as p) : Env.constr * Env.t =
+  let enter_edge kind e ((post, env) as p) : Constr.t * Env.t =
     match kind with
     | `Back ->
       begin
@@ -604,7 +605,7 @@ let visit_graph (env : Env.t) (post : Env.constr)
 let _ = Env.wp_rec_call :=
     fun env post ~start g -> visit_graph env post ~start g |> snd
 
-let visit_sub (env : Env.t) (post : Env.constr) (sub : Sub.t) : Env.constr * Env.t =
+let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   debug "Visiting sub:\n%s%!" (Sub.to_string sub);
   let cfg = Sub.to_cfg sub in
   let start = Term.first blk_t sub
@@ -668,18 +669,18 @@ let jmp_spec_reach (m : bool Tid.Map.t) : Env.jmp_spec =
                     let cond = Jmp.cond jmp in
                     let cond_val, assume, vcs = exp_to_z3 cond env in
                     debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
-                      (Expr.to_string cond_val) (List.to_string ~f:Env.constr_to_string vcs)
-                      (List.to_string ~f:Env.constr_to_string assume);
+                      (Expr.to_string cond_val) (List.to_string ~f:Constr.to_string vcs)
+                      (List.to_string ~f:Constr.to_string assume);
                     let cond_size = BV.get_size (Expr.get_sort cond_val) in
                     let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
                     let constr = if data then
-                        [Env.mk_constr (Env.mk_goal "not_false_cond"
-                                          (Bool.mk_not ctx false_cond)); l_pre]
+                        [Constr.mk_constr (Constr.mk_goal "not_false_cond"
+                                             (Bool.mk_not ctx false_cond)); l_pre]
                       else
-                        [Env.mk_constr (Env.mk_goal "false_cond" false_cond); post]
+                        [Constr.mk_constr (Constr.mk_goal "false_cond" false_cond); post]
                     in
                     let post = constr @ vcs in
-                    Some (Env.mk_clause assume post)
+                    Some (Constr.mk_clause assume post)
                   | Indirect _ ->
                     warning "Making an indirect jump, using the default postcondition!\n%!";
                     Some post
@@ -694,7 +695,7 @@ let non_null_vc : Env.exp_cond = fun env exp ->
   if List.is_empty conds then
     None
   else
-    Some (Verify (Env.mk_goal "verify" (Bool.mk_and ctx conds)))
+    Some (Verify (Constr.mk_goal "verify" (Bool.mk_and ctx conds)))
 
 let non_null_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -702,7 +703,7 @@ let non_null_assert : Env.exp_cond = fun env exp ->
   if List.is_empty conds then
     None
   else
-    Some (Assume (Env.mk_goal "assume" (Bool.mk_and ctx conds)))
+    Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
 
 let mk_smtlib2_post (env : Env.t) (smt_post : string) : Env.z3_expr =
   let ctx = Env.get_context env in

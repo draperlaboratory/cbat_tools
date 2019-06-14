@@ -25,30 +25,14 @@
 
 module EnvMap = Bap.Std.Var.Map
 
+module Constr = Constraint
+
 (** The state type which is maintained when creating preconditions. It contains, among
     other things, summaries for subroutines, the associations between BIR variables
     and Z3 constants, and preconditions for already visited blocks, if relevant. *)
 type t
 
 type z3_expr = Z3.Expr.expr
-
-type goal
-
-val mk_goal : string -> z3_expr -> goal
-
-val goal_to_string : goal -> string
-
-type constr
-
-val constr_to_string : constr -> string
-
-val pp_constr : Format.formatter -> constr -> unit
-
-val mk_constr : goal -> constr
-
-val mk_ite : Bap.Std.Tid.t -> z3_expr -> constr -> constr -> constr
-
-val mk_clause : constr list -> constr list -> constr
 
 (** This type is used to create fresh variables when needed.
     It's internals should be irrelevant. *)
@@ -58,7 +42,7 @@ type var_gen
     precondition based off a summary or by inlining the function and
     visiting it with {!Precondition.visit_sub}. *)
 type fun_spec_type =
-  | Summary of (t -> constr -> Bap.Std.Tid.t -> constr)
+  | Summary of (t -> Constr.t -> Bap.Std.Tid.t -> Constr.t)
   | Inline
 
 (** Type that specifies what rules should be used when calculating
@@ -69,21 +53,21 @@ type fun_spec = {
 }
 
 (** Type that specifies what rules should be used when visiting a jump in a BIR program. *)
-type jmp_spec = t -> constr -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> constr option
+type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> Constr.t option
 
 (** Type that specifies what rules should be used when calculating
     the precondition of an interrupt. *)
-type int_spec = t -> constr -> int -> constr
+type int_spec = t -> Constr.t -> int -> Constr.t
 
 (** The loop handling procedure for the appropriate blocks. *)
 type loop_handler = {
-  handle : t -> constr -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
+  handle : t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
 }
 
 (** Conditions generated when exploring an expression: if it is a [Verify],
     this represents an additional proof obligation, an [Assume]
     represents an assumption, typically about the definedness of the expression. *)
-type cond_type = Verify of goal | Assume of goal
+type cond_type = Verify of Constr.goal | Assume of Constr.goal
 
 (** Type that generates a Verification Condition on encountering a given pattern,
     typically a correctness constraint, like no overflow or no null dereference. *)
@@ -120,18 +104,18 @@ val get_fresh : ?name:string -> var_gen -> string
 (** A reference to {!Precondition.visit_sub} that is needed in the
     loop handler of the environment simulating "open recursion". *)
 val wp_rec_call :
-  (t -> constr -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t) ref
+  (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t) ref
 
 (** Add a new binding to the environment for a bap variable to a Z3 expression,
     typically a constant. *)
 val add_var : t -> Bap.Std.Var.t -> z3_expr -> t
 
 (** Add a precondition to be associated to a block b to the environment. *)
-val add_precond : t -> Bap.Std.Tid.t -> constr -> t
+val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
 
 (** Creates a verifier checker for a {!z3_expr}, returning first the assumptions, then the
     VCs. *)
-val mk_exp_conds : t -> Bap.Std.Exp.t -> goal list * goal list
+val mk_exp_conds : t -> Bap.Std.Exp.t -> Constr.goal list * Constr.goal list
 
 (** Obtains the Z3 context within a given environment. *)
 val get_context : t -> Z3.context
@@ -150,7 +134,7 @@ val get_var : t -> Bap.Std.Var.t -> z3_expr option
 
 (** Look up the precondition for a given block in the environment. Currently returns
     True if the block is not yet visited. *)
-val get_precondition : t -> Bap.Std.Tid.t -> constr option
+val get_precondition : t -> Bap.Std.Tid.t -> Constr.t option
 
 (** Finds the tid of a function in the environment. *)
 val get_fun_name_tid : t -> string -> Bap.Std.Tid.t option
@@ -173,15 +157,9 @@ val get_int_handler : t -> int_spec
 (** Finds the {!loop_handler} that is used to unroll loops when it is visited in
     the BIR program. *)
 val get_loop_handler :
-  t -> (t -> constr -> start:Bap.Std.Graphs.Ir.Edge.node -> Bap.Std.Graphs.Ir.t -> t)
+  t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Edge.node -> Bap.Std.Graphs.Ir.t -> t)
 
 (** Performs a fold on the map of of function names to tids to generate a
     {!z3_expr}. *)
 val fold_fun_tids :
   t -> init:'a -> f:(key:string -> data:Bap.Std.Tid.t -> 'a -> 'a) -> 'a
-
-val eval_constr : Z3.context -> constr -> z3_expr
-
-val substitute : constr -> z3_expr list -> z3_expr list -> constr
-
-val substitute_one : constr -> z3_expr -> z3_expr -> constr
