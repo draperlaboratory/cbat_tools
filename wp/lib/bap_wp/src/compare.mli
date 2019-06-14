@@ -37,7 +37,7 @@ val compare_blocks
   -> output:Bap.Std.Var.Set.t
   -> original:(Bap.Std.Blk.t * Env.t)
   -> modified:(Bap.Std.Blk.t * Env.t)
-  -> Env.z3_expr * Env.t
+  -> Env.constr * Env.t
 
 (** Compare two subroutines by composition for equality of return
     values:
@@ -51,7 +51,7 @@ val compare_subs_eq
   -> output:Bap.Std.Var.Set.t
   -> original:(Bap.Std.Sub.t * Env.t)
   -> modified:(Bap.Std.Sub.t * Env.t)
-  -> Env.z3_expr * Env.t
+  -> Env.constr * Env.t
 
 (** Compare two subroutines by composition for an empty postcondition:
 
@@ -61,7 +61,7 @@ val compare_subs_eq
 val compare_subs_empty
   :  original:(Bap.Std.Sub.t * Env.t)
   -> modified:(Bap.Std.Sub.t * Env.t)
-  -> Env.z3_expr * Env.t
+  -> Env.constr * Env.t
 
 (** Compare two subroutines by composition for an empty
     postcondition:
@@ -74,7 +74,7 @@ val compare_subs_empty_post
   :  input:Bap.Std.Var.Set.t
   -> original:(Bap.Std.Sub.t * Env.t)
   -> modified:(Bap.Std.Sub.t * Env.t)
-  -> Env.z3_expr * Env.t
+  -> Env.constr * Env.t
 
 (** Compare two subroutines by composition for conservation of function calls:
 
@@ -85,4 +85,4 @@ val compare_subs_empty_post
 val compare_subs_fun
   :  original:(Bap.Std.Sub.t * Env.t)
   -> modified:(Bap.Std.Sub.t * Env.t)
-  -> Env.z3_expr * Env.t
+  -> Env.constr * Env.t

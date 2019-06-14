@@ -27,9 +27,9 @@ module BV = Z3.BitVector
 
 let mk_z3_expr e env = let e_val, _, _ = Pre.exp_to_z3 e env in e_val
 
-let format_log_error (body : string) (pre : Env.z3_expr) (post : Env.z3_expr) : string =
-  Printf.sprintf "Post:\n%s\n\nAnalyzing:\n%sPre:\n%s\n"
-    (Expr.to_string post) body (Expr.to_string (Expr.simplify pre None))
+let format_log_error (body : string) (pre : Env.constr) (post : Env.constr) : string =
+  Format.asprintf "Post:\n%a\n\nAnalyzing:\n%sPre:\n%a\n"
+    Env.pp_constr post body Env.pp_constr pre
 
 let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     (exp : 'a) (real : 'a) : unit =
@@ -39,8 +39,9 @@ let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     | Some model -> Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model)
 
 let time_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (formatter : string)
-    (pre : Env.z3_expr) (expected : Z3.Solver.status) : float =
+    (pre : Env.constr) (expected : Z3.Solver.status) : float =
   let solver = Z3.Solver.mk_simple_solver z3_ctx in
+  let pre = Env.eval_constr z3_ctx pre in
   let is_correct = Bool.mk_implies z3_ctx pre (Bool.mk_false z3_ctx) in
   let start_time = Sys.time () in
   let result = Z3.Solver.check solver [is_correct] in
@@ -96,20 +97,23 @@ let test_nested_ifs (test_ctx : test_ctxt) : unit =
       in
       Seq.find_mapi (branch_info sub)
         ~f:(fun i (t, cond) ->
+            let true_constr = Bool.mk_true ctx |> Env.mk_goal "true" |> Env.mk_constr in
+            let false_constr = Bool.mk_false ctx |> Env.mk_goal "false" |> Env.mk_constr in
             if t = tid then begin
               (* The first branch in the seq is the innermost in the nest. *)
               if i = 0 then
-                Some (Bool.mk_ite ctx (cond_to_z3 cond env)
-                        (Bool.mk_false ctx) (Bool.mk_true ctx))
+                Some (Env.mk_ite tid (cond_to_z3 cond env) false_constr true_constr)
               else
-                Some (Bool.mk_ite ctx (cond_to_z3 cond env)
-                        branch_pre (Bool.mk_true ctx))
+                Some (Env.mk_ite tid (cond_to_z3 cond env) branch_pre true_constr)
             end
             else
               None)
     in
     let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
-    let post  = Bool.mk_true ctx in
+    let post  = Bool.mk_true ctx
+                |> Env.mk_goal "true"
+                |> Env.mk_constr
+    in
     let pre, _ = Pre.visit_sub env post sub in
     let fmtr = format_log_error (Sub.to_string sub) pre post in
     time_z3_result test_ctx ctx fmtr pre Z3.Solver.SATISFIABLE
@@ -121,7 +125,10 @@ let test_nested_ifs (test_ctx : test_ctxt) : unit =
     let assert_sub, assert_expr = Bil_to_bir.mk_assert_fail () in
     let sub = nest_ifs var_gen depth [Bil.jmp assert_expr] |> bil_to_sub in
     let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [sub; assert_sub]) in
-    let post  = Bool.mk_true ctx in
+    let post  = Bool.mk_true ctx
+                |> Env.mk_goal "true"
+                |> Env.mk_constr
+    in
     let pre, _ = Pre.visit_sub env post sub in
     let fmtr = format_log_error (Sub.to_string sub) pre post in
     time_z3_result test_ctx ctx fmtr pre Z3.Solver.SATISFIABLE
