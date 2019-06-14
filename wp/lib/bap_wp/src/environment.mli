@@ -34,7 +34,21 @@ type z3_expr = Z3.Expr.expr
 
 type goal
 
+val mk_goal : string -> z3_expr -> goal
+
+val goal_to_string : goal -> string
+
 type constr
+
+val constr_to_string : constr -> string
+
+val pp_constr : Format.formatter -> constr -> unit
+
+val mk_constr : goal -> constr
+
+val mk_ite : Bap.Std.Tid.t -> z3_expr -> constr -> constr -> constr
+
+val mk_clause : constr list -> constr list -> constr
 
 (** This type is used to create fresh variables when needed.
     It's internals should be irrelevant. *)
@@ -100,18 +114,6 @@ val mk_ctx : unit -> Z3.context
     will be distinct. *)
 val mk_var_gen : unit -> var_gen
 
-val mk_goal : string -> z3_expr -> goal
-
-val get_goal_name : goal -> string
-
-val get_goal_val : goal -> z3_expr
-
-val mk_constr : goal -> constr
-
-val mk_ite : z3_expr -> constr -> constr -> constr
-
-val mk_clause : constr list -> constr list -> constr
-
 (** Get a fresh variable name, possibly prefixed by a given [name] string. *)
 val get_fresh : ?name:string -> var_gen -> string
 
@@ -176,5 +178,10 @@ val get_loop_handler :
 (** Performs a fold on the map of of function names to tids to generate a
     {!z3_expr}. *)
 val fold_fun_tids :
-  t -> init:constr -> f:(key:string -> data:Bap.Std.Tid.t -> constr -> constr) ->
-  constr
+  t -> init:'a -> f:(key:string -> data:Bap.Std.Tid.t -> 'a -> 'a) -> 'a
+
+val eval_constr : Z3.context -> constr -> z3_expr
+
+val substitute : constr -> z3_expr list -> z3_expr list -> constr
+
+val substitute_one : constr -> z3_expr -> z3_expr -> constr
