@@ -26,10 +26,10 @@ module Constr = Constraint
 
 exception Not_implemented of string
 
-let z3_expr_zero (ctx : Z3.context) (size : int) : Env.z3_expr = BV.mk_numeral ctx "0" size
-let z3_expr_one (ctx : Z3.context) (size : int) : Env.z3_expr = BV.mk_numeral ctx "1" size
+let z3_expr_zero (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "0" size
+let z3_expr_one (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "1" size
 
-let binop (ctx : Z3.context) (b : binop) : Env.z3_expr -> Env.z3_expr -> Env.z3_expr =
+let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr =
   let open Bap.Std.Bil.Types in
   let zero = z3_expr_zero ctx 1 in
   let one = z3_expr_one ctx 1 in
@@ -54,13 +54,13 @@ let binop (ctx : Z3.context) (b : binop) : Env.z3_expr -> Env.z3_expr -> Env.z3_
   | SLT -> fun x y -> Bool.mk_ite ctx (BV.mk_slt ctx x y) one zero
   | SLE -> fun x y -> Bool.mk_ite ctx (BV.mk_sle ctx x y) one zero
 
-let unop (ctx : Z3.context) (u : unop) : Env.z3_expr -> Env.z3_expr =
+let unop (ctx : Z3.context) (u : unop) : Constr.z3_expr -> Constr.z3_expr =
   let open Bap.Std.Bil.Types in
   match u with
   | NEG -> BV.mk_neg ctx
   | NOT -> BV.mk_not ctx
 
-let cast (ctx : Z3.context) (cst : cast) (i : int) (x : Env.z3_expr) : Env.z3_expr =
+let cast (ctx : Z3.context) (cst : cast) (i : int) (x : Constr.z3_expr) : Constr.z3_expr =
   assert (i > 0);
   let size = x |> Expr.get_sort |> BV.get_size in
   let open Bap.Std.Bil.Types in
@@ -97,7 +97,7 @@ let lookup_sub (label : Label.t) (post : Constr.t) (env : Env.t) : Constr.t =
    * figure out how to handle this case *)
   | Indirect _ -> post
 
-let mk_z3_expr (ctx : Z3.context) ~name:(name : string) ~typ:(typ : Type.t) : Env.z3_expr =
+let mk_z3_expr (ctx : Z3.context) ~name:(name : string) ~typ:(typ : Type.t) : Constr.z3_expr =
   match typ with
   | Type.Imm size -> BV.mk_const_s ctx name size
   | Type.Mem (i_size, w_size) ->
@@ -106,8 +106,8 @@ let mk_z3_expr (ctx : Z3.context) ~name:(name : string) ~typ:(typ : Type.t) : En
     let w_sort = BV.mk_sort ctx (Size.in_bits w_size) in
     Array.mk_const_s ctx name i_sort w_sort
 
-let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Env.z3_expr)
-    ~addr:(addr : Env.z3_expr) (endian : Bap.Std.endian) : Env.z3_expr =
+let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Constr.z3_expr)
+    ~addr:(addr : Constr.z3_expr) (endian : Bap.Std.endian) : Constr.z3_expr =
   assert (Array.is_array mem && mem |> Expr.get_sort
                                 |> Array.get_range
                                 |> Z3.Sort.get_sort_kind |> (fun s -> s = Z3enums.BV_SORT));
@@ -132,8 +132,8 @@ let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Env.z3_expr)
   List.reduce_exn read_sorted ~f:(BV.mk_concat ctx)
 
 let store_z3_mem (ctx : Z3.context) ~word_size:word_size
-    ~mem:(mem : Env.z3_expr) ~addr:(addr : Env.z3_expr) ~content:(e : Env.z3_expr)
-    (endian : Bap.Std.endian) : Env.z3_expr =
+    ~mem:(mem : Constr.z3_expr) ~addr:(addr : Constr.z3_expr) ~content:(e : Constr.z3_expr)
+    (endian : Bap.Std.endian) : Constr.z3_expr =
   assert (Array.is_array mem && mem |> Expr.get_sort
                                 |> Array.get_range
                                 |> Z3.Sort.get_sort_kind |> (fun s -> s = Z3enums.BV_SORT));
@@ -162,16 +162,16 @@ let store_z3_mem (ctx : Z3.context) ~word_size:word_size
   debug "Creating store on Mem<%d,%d>, with target Imm<%d>%!" addr_size m_size word_size;
   store nums_to_write first_loc addr mem
 
-let new_z3_expr ?name:(name = "fresh_") (env: Env.t) (typ : Type.t) : Env.z3_expr =
+let new_z3_expr ?name:(name = "fresh_") (env: Env.t) (typ : Type.t) : Constr.z3_expr =
   let ctx = Env.get_context env in
   let var_seed = Env.get_var_gen env in
   mk_z3_expr ctx ~name:(Env.get_fresh ~name:name var_seed) ~typ:typ
 
-let var_to_z3 (ctx : Z3.context) (v : Var.t) : Env.z3_expr =
+let var_to_z3 (ctx : Z3.context) (v : Var.t) : Constr.z3_expr =
   let full_name = Var.name v ^ (string_of_int (Var.index v)) in
   mk_z3_expr ctx ~name:full_name ~typ:(Var.typ v)
 
-let bv_to_bool (bv : Env.z3_expr) (ctx : Z3.context) (width : int) : Env.z3_expr =
+let bv_to_bool (bv : Constr.z3_expr) (ctx : Z3.context) (width : int) : Constr.z3_expr =
   let zero = z3_expr_zero ctx width in
   Bool.mk_not ctx (Bool.mk_eq ctx bv zero)
 
@@ -386,13 +386,13 @@ let get_output_vars (sub : Sub.t) : Var.Set.t =
   let args = sub_args sub in
   Var.Set.union args.outputs args.both
 
-let word_to_z3 (ctx : Z3.context) (w : Word.t) : Env.z3_expr =
+let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in
   Word.pp_dec fmt w;
   let s = Format.flush_str_formatter () in
   BV.mk_numeral ctx s (Word.bitwidth w)
 
-let exp_to_z3 (exp : Exp.t) (env : Env.t) : Env.z3_expr * Constr.t list * Constr.t list =
+let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Constr.t list * Constr.t list =
   let ctx = Env.get_context env in
   let read_from_env env v =
     match Env.get_var env v with
@@ -622,11 +622,11 @@ let _  = inline_func :=
       let post = set_fun_called post env tid in
       visit_sub env post target_sub
 
-let collect_non_null_expr (env : Env.t) (exp : Exp.t) : Env.z3_expr list =
+let collect_non_null_expr (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   let ctx = Env.get_context env in
   let visitor =
     begin
-      object inherit [Env.z3_expr list] Exp.visitor
+      object inherit [Constr.z3_expr list] Exp.visitor
         method! visit_load ~mem:_ ~addr:addr _ _ conds =
           let width = match Type.infer_exn addr with
             | Imm n -> n
@@ -705,7 +705,7 @@ let non_null_assert : Env.exp_cond = fun env exp ->
   else
     Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
 
-let mk_smtlib2_post (env : Env.t) (smt_post : string) : Env.z3_expr =
+let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
   let ctx = Env.get_context env in
   let sort_symbols = [] in
   let sorts = [] in
@@ -734,9 +734,12 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Env.z3_expr =
       fun_symbols
       fun_decls
   in
-  asts |> Z3.AST.ASTVector.to_expr_list |> Bool.mk_and ctx
+  let goals =
+    List.map (Z3.AST.ASTVector.to_expr_list asts)
+      ~f:(fun e -> e |> Constr.mk_goal "expr" |> Constr.mk_constr) in
+  Constr.mk_clause [] goals
 
-let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Env.z3_expr)
+let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.z3_expr)
   : Z3.Solver.status =
   let is_correct = Bool.mk_implies ctx pre (Bool.mk_false ctx) in
   Z3.Solver.check solver [is_correct]
@@ -751,8 +754,8 @@ let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status) : unit 
     Printf.printf "\nSAT!\n%!";
     Printf.printf "Model:\n%s\n%!" (Z3.Model.to_string model)
 
-let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Env.z3_expr)
-    ~pre:(pre : Env.z3_expr) : Z3.Solver.status =
+let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
+    ~pre:(pre : Constr.z3_expr) : Z3.Solver.status =
   let model = Z3.Solver.get_model solver
               |> Option.value_exn ?here:None ?error:None ?message:None in
   let value = Option.value_exn (Z3.Model.eval model var true) in

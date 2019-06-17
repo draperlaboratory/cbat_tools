@@ -24,15 +24,13 @@ module EnvMap = Var.Map
 module TidMap = Tid.Map
 module StringMap = String.Map
 
-type z3_expr = Expr.expr
-
 type var_gen = int ref
 
 type t = {
   ctx : Z3.context;
   var_gen : var_gen;
   subs : Sub.t Seq.t;
-  var_map : z3_expr EnvMap.t;
+  var_map : Constr.z3_expr EnvMap.t;
   precond_map : Constr.t TidMap.t;
   fun_name_tid : Tid.t StringMap.t;
   call_map : string TidMap.t;
@@ -168,7 +166,7 @@ let env_to_string (env : t) : string =
     (map_seq_printer Tid.to_string ident) call_list
     (map_seq_printer Tid.to_string Constr.to_string) precond_list
 
-let add_var (env : t) (v : Var.t) (x : z3_expr) : t =
+let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
 
 let add_precond (env : t) (tid : Tid.t) (p : Constr.t) : t =
@@ -190,10 +188,10 @@ let get_var_gen (env : t) : var_gen =
 let get_subs (env : t) : Sub.t Seq.t =
   env.subs
 
-let get_var_map (env : t) : z3_expr EnvMap.t =
+let get_var_map (env : t) : Constr.z3_expr EnvMap.t =
   env.var_map
 
-let get_var (env : t) (var : Var.t) : z3_expr option =
+let get_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.var_map var
 
 let get_precondition (env : t) (tid : Tid.t) : Constr.t option =

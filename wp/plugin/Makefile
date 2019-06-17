@@ -17,7 +17,7 @@ install: build verifier save_project
 
 test: install save_project dummy
 	ocamlbuild -r -use-ocamlfind -pkgs 'bap,z3,bap_wp,oUnit' -tag 'warn(A-48-44),debug,thread' -I tests test.byte
-	ocamlrun test.byte -runner sequential
+	ocamlrun test.byte
 
 verifier:
 	cp api/c/cbat.h $(API_PATH)/c/cbat.h
