@@ -490,8 +490,6 @@ let test_subroutine_1_2 (test_ctx : test_ctxt) : unit =
      (with the "base names" x, y, z)*)
   let post = Pre.mk_smtlib2_post env
       "(assert (and (bvsle (bvsub z0 x0) #x00000001) (bvsle #xffffffff (bvsub z0 x0))))"
-             |> Constr.mk_goal "z - x <= 1 && -1 <= z - x"
-             |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
   let fmtr = format_log_error (Sub.to_string sub) pre post in

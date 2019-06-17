@@ -81,7 +81,7 @@ let branch_info (sub : Sub.t) : (Tid.t * Exp.t) Seq.t =
       ~f:(fun j -> not (Exp.equal (Jmp.cond j) (Bil.int @@ Word.one 1))) in
   Seq.map conditional_jumps ~f:(fun j -> (Term.tid j, Jmp.cond j))
 
-let cond_to_z3 (cond : Exp.t) (env : Env.t) : Env.z3_expr =
+let cond_to_z3 (cond : Exp.t) (env : Env.t) : Constr.z3_expr =
   Pre.bv_to_bool (mk_z3_expr cond env) (Env.get_context env) 1
 
 let test_nested_ifs (test_ctx : test_ctxt) : unit =

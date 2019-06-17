@@ -19,6 +19,7 @@ include Self()
 module Comp = Compare
 module Pre = Precondition
 module Env = Environment
+module Constr = Constraint
 
 exception Missing_function of string
 
@@ -34,7 +35,7 @@ let update_default_num_unroll (num_unroll : int option) : unit =
 
 let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string) ~inline:(inline : bool) ~post_cond:(post_cond : string)
-  : Env.z3_expr =
+  : Constr.t =
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func subs func in
   let env =
@@ -43,29 +44,28 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     else
       Pre.mk_default_env ctx var_gen ~subs
   in
+  let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let post =
     if String.(post_cond = "") then
-      Pre.Bool.mk_true ctx
+      true_constr
     else
       begin
         (* call visit sub with a dummy postcondition to fill the
            environment with variables *)
         let _, env =
-          let dummy_post = Pre.Bool.mk_true ctx in
-          Pre.visit_sub env dummy_post main_sub
+          Pre.visit_sub env true_constr main_sub
         in
         Pre.mk_smtlib2_post env post_cond
       end
   in
   let pre, _ = Pre.visit_sub env post main_sub in
-  let pre' = Pre.Expr.simplify pre None in
-  Printf.printf "\nSub:\n%s\nPre:\n%s\n= %s\n%!"
-    (Sub.to_string main_sub) (Pre.Expr.to_string pre) (Pre.Expr.to_string pre');
-  pre'
+  Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
+    (Sub.to_string main_sub) Constr.pp_constr pre;
+  pre
 
 let compare_projs (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context) ~func:(func : string)
-    ~check_calls:(check_calls : bool) ~inline:(inline : bool) : Env.z3_expr =
+    ~check_calls:(check_calls : bool) ~inline:(inline : bool) : Constr.t =
   let proj1 = In_channel.with_file file1 ~f:(Project.Io.load) in
   let proj2 = In_channel.with_file file2 ~f:(Project.Io.load) in
   let subs1 = proj1 |> Project.program |> Term.enum sub_t in
@@ -98,7 +98,7 @@ let compare_projs (file1: string) (file2 : string)
   in
   Printf.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
     (Sub.to_string main_sub1) (Sub.to_string main_sub2);
-  Pre.Expr.simplify pre None
+  pre
 
 let main (file1 : string) (file2 : string)
     ~func:(func : string)
@@ -119,7 +119,8 @@ let main (file1 : string) (file2 : string)
     else
       analyze_proj proj var_gen ctx ~func:func ~inline:inline ~post_cond:post_cond
   in
-  let result = Pre.check solver ctx pre in
+  let pre' = Constr.eval pre ctx in
+  let result = Pre.check solver ctx pre' in
   Pre.print_result solver result
 
 module Cmdline = struct

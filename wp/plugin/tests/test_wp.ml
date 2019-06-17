@@ -53,8 +53,7 @@ let test_compare_elf (elf_dir : string) (expected : string) ?func:(func = "main"
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
-    ~backtrace:true ~ctxt:test_ctx "bap" args;
-  assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target; "clean"]
+    ~backtrace:true ~ctxt:test_ctx "bap" args
 
 let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
     ?func:(func = "main")
@@ -75,9 +74,7 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target; elf_name];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
-    ~backtrace:true ~ctxt:test_ctx "bap" args;
-  with_bracket_chdir test_ctx target
-    (fun ctxt -> assert_command ~backtrace:true ~ctxt "rm" ["-f"; elf_name])
+    ~backtrace:true ~ctxt:test_ctx "bap" args
 
 let test_update_num_unroll (new_unroll : int option) (test_ctx : test_ctxt) : unit =
   let original = !Wp.Pre.num_unroll in

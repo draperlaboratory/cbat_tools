@@ -32,8 +32,6 @@ module Constr = Constraint
     and Z3 constants, and preconditions for already visited blocks, if relevant. *)
 type t
 
-type z3_expr = Z3.Expr.expr
-
 (** This type is used to create fresh variables when needed.
     It's internals should be irrelevant. *)
 type var_gen
@@ -108,12 +106,12 @@ val wp_rec_call :
 
 (** Add a new binding to the environment for a bap variable to a Z3 expression,
     typically a constant. *)
-val add_var : t -> Bap.Std.Var.t -> z3_expr -> t
+val add_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
 
 (** Add a precondition to be associated to a block b to the environment. *)
 val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
 
-(** Creates a verifier checker for a {!z3_expr}, returning first the assumptions, then the
+(** Creates a verifier checker for a {!Constr.z3_expr}, returning first the assumptions, then the
     VCs. *)
 val mk_exp_conds : t -> Bap.Std.Exp.t -> Constr.goal list * Constr.goal list
 
@@ -127,10 +125,10 @@ val get_var_gen : t -> var_gen
 val get_subs : t -> Bap.Std.Sub.t Bap.Std.Seq.t
 
 (** Obtains the var_map containing a mapping of BIR variables to Z3 variables. *)
-val get_var_map : t -> z3_expr EnvMap.t
+val get_var_map : t -> Constr.z3_expr EnvMap.t
 
 (** Look up the Z3 variable that represents a BIR variable. *)
-val get_var : t -> Bap.Std.Var.t -> z3_expr option
+val get_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
 (** Look up the precondition for a given block in the environment. Currently returns
     True if the block is not yet visited. *)
@@ -160,6 +158,6 @@ val get_loop_handler :
   t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Edge.node -> Bap.Std.Graphs.Ir.t -> t)
 
 (** Performs a fold on the map of of function names to tids to generate a
-    {!z3_expr}. *)
+    {!Constr.z3_expr}. *)
 val fold_fun_tids :
   t -> init:'a -> f:(key:string -> data:Bap.Std.Tid.t -> 'a -> 'a) -> 'a
