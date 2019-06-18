@@ -120,7 +120,7 @@ val spec_default : Env.fun_spec
 (** The default jmp spec for handling branches in a BIR program. *)
 val jmp_spec_default : Env.jmp_spec
 
-(** A jump spec that generates constraints for reaching a program point, 
+(** A jump spec that generates constraints for reaching a program point,
     according to a map specifying whether a jump was taken or not. *)
 val jmp_spec_reach : bool Bap.Std.Tid.Map.t -> Env.jmp_spec
 

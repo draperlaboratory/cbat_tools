@@ -54,7 +54,9 @@ let map_to_eqs (ctx : Z3.context) (m : var Var.Map.t) : Constr.t list =
   List.map pairs ~f:(fun (v1, v2) ->
       let var1 = Pre.var_to_z3 ctx v1 in
       let var2 = Pre.var_to_z3 ctx v2 in
-      Bool.mk_eq ctx var1 var2 |> Constr.mk_goal "eq" |> Constr.mk_constr)
+      Bool.mk_eq ctx var1 var2
+      |> Constr.mk_goal (Format.sprintf "%s = %s" (Expr.to_string var1) (Expr.to_string var2))
+      |> Constr.mk_constr)
 
 let compare_blocks
     ~input:(input : Var.Set.t)
@@ -175,12 +177,12 @@ let compare_subs_fun
         ~f:(fun ~key:f ~data:_ goal ->
             let f_not_called_original =
               Bool.mk_not ctx (mk_is_fun_called env1 f)
-              |> Constr.mk_goal "not_called_original"
+              |> Constr.mk_goal (Format.sprintf "%s not called in original" f)
               |> Constr.mk_constr
             in
             let f_not_called_modified =
               Bool.mk_not ctx (mk_is_fun_called env2 f)
-              |> Constr.mk_goal "not_called_modified"
+              |> Constr.mk_goal (Format.sprintf "%s not called in modified" f)
               |> Constr.mk_constr
             in
             let clause = Constr.mk_clause [f_not_called_original] [f_not_called_modified] in
@@ -197,7 +199,7 @@ let compare_subs_fun
         ~f:(fun ~key:f ~data:_ hyp ->
             let f_not_called_modified =
               Bool.mk_not ctx (mk_is_fun_called env2 f)
-              |> Constr.mk_goal "f_not_called"
+              |> Constr.mk_goal (Format.sprintf "%s not called in modified" f)
               |> Constr.mk_constr
             in
             f_not_called_modified::hyp

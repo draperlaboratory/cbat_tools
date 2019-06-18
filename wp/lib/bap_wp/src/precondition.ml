@@ -218,9 +218,10 @@ let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
              let z3_v = Env.get_var env v
                         |> Option.value ~default:(var_to_z3 ctx v) in
              let size = BV.get_size (Expr.get_sort z3_v) in
-             let assumption = bv_to_bool z3_v ctx size
-                              |> Constr.mk_goal "assumption"
-                              |> Constr.mk_constr
+             let assumption =
+               bv_to_bool z3_v ctx size
+               |> Constr.mk_goal (Format.sprintf "assume %s" (Expr.to_string z3_v))
+               |> Constr.mk_constr
              in
              Constr.mk_clause [assumption] [post])
     }
@@ -674,10 +675,15 @@ let jmp_spec_reach (m : bool Tid.Map.t) : Env.jmp_spec =
                     let cond_size = BV.get_size (Expr.get_sort cond_val) in
                     let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
                     let constr = if data then
-                        [Constr.mk_constr (Constr.mk_goal "not_false_cond"
-                                             (Bool.mk_not ctx false_cond)); l_pre]
+                        [Bool.mk_not ctx false_cond
+                         |> Constr.mk_goal (Expr.to_string cond_val)
+                         |> Constr.mk_constr;
+                         l_pre]
                       else
-                        [Constr.mk_constr (Constr.mk_goal "false_cond" false_cond); post]
+                        [false_cond
+                         |> Constr.mk_goal (Expr.to_string false_cond)
+                         |> Constr.mk_constr;
+                         post]
                     in
                     let post = constr @ vcs in
                     Some (Constr.mk_clause assume post)
@@ -734,9 +740,12 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
       fun_symbols
       fun_decls
   in
-  let goals =
-    List.map (Z3.AST.ASTVector.to_expr_list asts)
-      ~f:(fun e -> e |> Constr.mk_goal "expr" |> Constr.mk_constr) in
+  let goals = List.map (Z3.AST.ASTVector.to_expr_list asts)
+      ~f:(fun e ->
+          e
+          |> Constr.mk_goal (Expr.to_string e)
+          |> Constr.mk_constr)
+  in
   Constr.mk_clause [] goals
 
 let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.z3_expr)
@@ -746,13 +755,13 @@ let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.z3_expr)
 
 let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status) : unit =
   match status with
-  | Z3.Solver.UNSATISFIABLE -> Printf.printf "\nUNSAT!\n%!"
-  | Z3.Solver.UNKNOWN -> Printf.printf "\nUNKNOWN!\n%!"
+  | Z3.Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
+  | Z3.Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
   | Z3.Solver.SATISFIABLE ->
     let model = Z3.Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
-    Printf.printf "\nSAT!\n%!";
-    Printf.printf "Model:\n%s\n%!" (Z3.Model.to_string model)
+    Format.printf "\nSAT!\n%!";
+    Format.printf "Model:\n%s\n%!" (Z3.Model.to_string model)
 
 let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
     ~pre:(pre : Constr.z3_expr) : Z3.Solver.status =

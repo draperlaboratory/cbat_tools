@@ -45,7 +45,7 @@ let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
   match constr with
   | Goal g -> Format.fprintf ch "%s" (goal_to_string g)
   | ITE (tid, e, c1, c2) ->
-    Format.fprintf ch "ITE(%s, %s, %a, %a)"
+    Format.fprintf ch "ITE(%s, %s, @[<v 2>%a@], @[<v 2>%a@])"
       (Tid.to_string tid) (Expr.to_string e) pp_constr c1 pp_constr c2
   | Clause (hyps, concs) ->
     Format.fprintf ch "(";
