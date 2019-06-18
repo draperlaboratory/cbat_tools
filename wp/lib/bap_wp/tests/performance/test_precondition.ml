@@ -140,7 +140,7 @@ let test_nested_ifs (test_ctx : test_ctxt) : unit =
     let fmtr = format_log_error (Sub.to_string sub) pre post in
     time_z3_result test_ctx ctx fmtr pre Z3.Solver.SATISFIABLE
   in
-  Printf.printf "\nTime with hooks:    %f\nTime without hooks: %f\n%!"
+  Format.printf "\nTime with hooks:    %f\nTime without hooks: %f\n%!"
     time_with_hooks time_without_hooks
 
 let suite = [

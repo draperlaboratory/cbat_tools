@@ -41,15 +41,15 @@ let check_result (stream : char Stream.t) (expected : string) (test_ctx : test_c
 
 let test_compare_elf (elf_dir : string) (expected : string) ?func:(func = "main")
     ?check_calls:(check_calls = false) (test_ctx : test_ctxt) : unit =
-  let target = Printf.sprintf "%s/%s" bin_dir elf_dir in
+  let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let args =
-    [ Printf.sprintf "%s/dummy/hello_world.out" bin_dir;
-      Printf.sprintf "--pass=%s" "wp";
-      Printf.sprintf "--wp-compare=%b" true;
-      Printf.sprintf "--wp-file1=%s/main_1.bpj" target;
-      Printf.sprintf "--wp-file2=%s/main_2.bpj" target;
-      Printf.sprintf "--wp-function=%s" func;
-      Printf.sprintf "--wp-check-calls=%b" check_calls;
+    [ Format.sprintf "%s/dummy/hello_world.out" bin_dir;
+      Format.sprintf "--pass=%s" "wp";
+      Format.sprintf "--wp-compare=%b" true;
+      Format.sprintf "--wp-file1=%s/main_1.bpj" target;
+      Format.sprintf "--wp-file2=%s/main_2.bpj" target;
+      Format.sprintf "--wp-function=%s" func;
+      Format.sprintf "--wp-check-calls=%b" check_calls;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
@@ -62,15 +62,15 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
     ?post:(post = "")
     (test_ctx : test_ctxt)
   : unit =
-  let target = Printf.sprintf "%s/%s" bin_dir elf_dir in
+  let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let args =
-    [ Printf.sprintf "%s/%s" target elf_name;
-      Printf.sprintf "--pass=%s" "wp";
-      Printf.sprintf "--wp-compare=%b" false;
-      Printf.sprintf "--wp-function=%s" func;
-      Printf.sprintf "--wp-check-calls=%b" check_calls;
-      Printf.sprintf "--wp-inline=%b" inline;
-      Printf.sprintf "--wp-postcond=%s" post;
+    [ Format.sprintf "%s/%s" target elf_name;
+      Format.sprintf "--pass=%s" "wp";
+      Format.sprintf "--wp-compare=%b" false;
+      Format.sprintf "--wp-function=%s" func;
+      Format.sprintf "--wp-check-calls=%b" check_calls;
+      Format.sprintf "--wp-inline=%b" inline;
+      Format.sprintf "--wp-postcond=%s" post;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target; elf_name];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
@@ -82,10 +82,10 @@ let test_update_num_unroll (new_unroll : int option) (test_ctx : test_ctxt) : un
   let updated = !Wp.Pre.num_unroll in
   match new_unroll with
   | Some n ->
-    let fail_msg = Printf.sprintf "num_unroll was not updated from %d to %d" original n in
+    let fail_msg = Format.sprintf "num_unroll was not updated from %d to %d" original n in
     assert_bool fail_msg (original <> updated)
   | None ->
-    let fail_msg = Printf.sprintf "Num unroll was updated from %d but should have been unchanged" original in
+    let fail_msg = Format.sprintf "Num unroll was updated from %d but should have been unchanged" original in
     assert_equal ~ctxt:test_ctx ~cmp:Int.equal ~msg:fail_msg updated original
 
 let suite = [

@@ -96,7 +96,7 @@ let compare_projs (file1: string) (file2 : string)
       Comp.compare_subs_eq ~input:input_vars ~output:output_vars
         ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
   in
-  Printf.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
+  Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
     (Sub.to_string main_sub1) (Sub.to_string main_sub2);
   pre
 
