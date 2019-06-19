@@ -21,10 +21,16 @@ type z3_expr = Expr.expr
 type goal = { goal_name : string; goal_val : z3_expr }
 
 let goal_to_string (g : goal) : string =
-  Format.asprintf "%s: %s%!" g.goal_name (Expr.to_string g.goal_val)
+  Format.asprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
 
 let mk_goal (name : string) (value : z3_expr) : goal =
   { goal_name = name; goal_val = value }
+
+let get_goal_name (g : goal) : string =
+  g.goal_name
+
+let get_goal_val (g : goal) : z3_expr =
+  g.goal_val
 
 type t =
   | Goal of goal
@@ -75,9 +81,9 @@ let rec eval (constr : t) (ctx : Z3.context) : z3_expr =
 
 let rec substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t =
   match constr with
-  | Goal g -> Goal { g with goal_val = Z3.Expr.substitute g.goal_val olds news }
+  | Goal g -> Goal { g with goal_val = Expr.substitute g.goal_val olds news }
   | ITE (tid, e, c1, c2) ->
-    let e' = Z3.Expr.substitute e olds news in
+    let e' = Expr.substitute e olds news in
     let c1' = substitute c1 olds news in
     let c2' = substitute c2 olds news in
     ITE (tid, e', c1', c2')
@@ -88,3 +94,24 @@ let rec substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t 
 
 let substitute_one (constr : t) (old_exp : z3_expr) (new_exp : z3_expr) : t =
   substitute constr [old_exp] [new_exp]
+
+let rec get_violated_goals (constr : t) (model : Z3.Model.model) (ctx : Z3.context)
+  : goal list =
+  match constr with
+  | Goal g ->
+    let goal_res = Option.value_exn (Z3.Model.eval model g.goal_val true) in
+    if Z3.Boolean.is_false goal_res then [g] else []
+  | ITE (_, cond, c1, c2) ->
+    let cond_res = Option.value_exn (Z3.Model.eval model cond true) in
+    if Z3.Boolean.is_true cond_res then
+      get_violated_goals c1 model ctx
+    else
+      get_violated_goals c2 model ctx
+  | Clause (hyps, concs) ->
+    let hyps_expr = hyps |> List.map ~f:(fun h -> eval h ctx) |> Z3.Boolean.mk_and ctx in
+    let hyps_res = Option.value_exn (Z3.Model.eval model hyps_expr true) in
+    if Z3.Boolean.is_false hyps_res then
+      []
+    else
+      List.fold concs ~init:[]
+        ~f:(fun accum c -> (get_violated_goals c model ctx) @ accum)

@@ -203,11 +203,11 @@ val visit_block : Env.t -> Constr.t -> Bap.Std.Blk.t -> Constr.t * Env.t
 val visit_sub : Env.t -> Constr.t -> Bap.Std.Sub.t -> Constr.t * Env.t
 
 (** Checks to see if the precondition of a BIR program is [SAT], [UNSAT], or [UNKNOWN]. *)
-val check : Z3.Solver.solver -> Z3.context -> Constr.z3_expr -> Z3.Solver.status
+val check : Z3.Solver.solver -> Z3.context -> Constr.t -> Z3.Solver.status
 
 (** Prints out the result from check, and if the result is [SAT], generate a model that
     represents the registers and memory values that lead to a specific program state. *)
-val print_result : Z3.Solver.solver -> Z3.Solver.status -> unit
+val print_result : Z3.Solver.solver -> Z3.Solver.status -> Constr.t -> Z3.context -> unit
 
 (** Adds a constraint to the Z3 solver in which var does not equal its value from
     the original Z3 model, then runs the Z3 solver again.
@@ -218,5 +218,5 @@ val exclude
   :  Z3.Solver.solver
   -> Z3.context
   -> var:Constr.z3_expr
-  -> pre:Constr.z3_expr
+  -> pre:Constr.t
   -> Z3.Solver.status

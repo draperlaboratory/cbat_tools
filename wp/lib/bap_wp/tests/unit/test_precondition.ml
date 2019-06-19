@@ -84,9 +84,7 @@ let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
 let assert_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (formatter : string)
     (pre : Constr.t) (expected : Z3.Solver.status) : unit =
   let solver = Z3.Solver.mk_simple_solver z3_ctx in
-  let pre = Constr.eval pre z3_ctx in
-  let is_correct = Bool.mk_implies z3_ctx pre (Bool.mk_false z3_ctx) in
-  let result = Z3.Solver.check solver [is_correct] in
+  let result = Pre.check solver z3_ctx pre in
   assert_equal ~ctxt:test_ctx
     ~printer:Z3.Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->
@@ -1544,7 +1542,10 @@ let test_exclude_1 (test_ctx : test_ctxt) : unit =
   let solver = Z3.Solver.mk_simple_solver ctx in
   let var = BV.mk_const_s ctx "x" 32 in
   let value = BV.mk_numeral ctx "0" 32 in
-  let pre = Bool.mk_eq ctx var value in
+  let pre = Bool.mk_eq ctx var value
+            |> Constr.mk_goal "x = 0"
+            |> Constr.mk_constr
+  in
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
     Z3.Solver.SATISFIABLE (Pre.check solver ctx pre);
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status

@@ -748,23 +748,29 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
   in
   Constr.mk_clause [] goals
 
-let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.z3_expr)
+let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.t)
   : Z3.Solver.status =
-  let is_correct = Bool.mk_implies ctx pre (Bool.mk_false ctx) in
+  let pre' = Constr.eval pre ctx in
+  let is_correct = Bool.mk_implies ctx pre' (Bool.mk_false ctx) in
   Z3.Solver.check solver [is_correct]
 
-let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status) : unit =
+let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
+    (goals: Constr.t) (ctx : Z3.context) : unit =
   match status with
   | Z3.Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
   | Z3.Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
   | Z3.Solver.SATISFIABLE ->
     let model = Z3.Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
+    let violated_goals = Constr.get_violated_goals goals model ctx in
     Format.printf "\nSAT!\n%!";
-    Format.printf "Model:\n%s\n%!" (Z3.Model.to_string model)
+    Format.printf "\nModel:\n%s\n%!" (Z3.Model.to_string model);
+    Format.printf "\nViolated goals:\n%!";
+    List.iter violated_goals ~f:(fun g ->
+        Format.printf "%s\n%!" (Constr.goal_to_string g))
 
 let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
-    ~pre:(pre : Constr.z3_expr) : Z3.Solver.status =
+    ~pre:(pre : Constr.t) : Z3.Solver.status =
   let model = Z3.Solver.get_model solver
               |> Option.value_exn ?here:None ?error:None ?message:None in
   let value = Option.value_exn (Z3.Model.eval model var true) in
