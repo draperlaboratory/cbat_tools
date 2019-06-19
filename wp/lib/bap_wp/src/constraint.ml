@@ -51,7 +51,7 @@ let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
   match constr with
   | Goal g -> Format.fprintf ch "%s" (goal_to_string g)
   | ITE (tid, e, c1, c2) ->
-    Format.fprintf ch "ITE(%s, %s, @[<v 2>%a@], @[<v 2>%a@])"
+    Format.fprintf ch "ITE(%s, %s, %a, %a)"
       (Tid.to_string tid) (Expr.to_string e) pp_constr c1 pp_constr c2
   | Clause (hyps, concs) ->
     Format.fprintf ch "(";
@@ -108,9 +108,12 @@ let rec get_violated_goals (constr : t) (model : Z3.Model.model) (ctx : Z3.conte
     else
       get_violated_goals c2 model ctx
   | Clause (hyps, concs) ->
-    let hyps_expr = hyps |> List.map ~f:(fun h -> eval h ctx) |> Z3.Boolean.mk_and ctx in
-    let hyps_res = Option.value_exn (Z3.Model.eval model hyps_expr true) in
-    if Z3.Boolean.is_false hyps_res then
+    let hyps_false = List.exists hyps
+        ~f:(fun h -> Z3.Model.eval model (eval h ctx) true
+                     |> Option.value_exn ?here:None ?error:None ?message:None
+                     |> Z3.Boolean.is_false)
+    in
+    if hyps_false then
       []
     else
       List.fold concs ~init:[]

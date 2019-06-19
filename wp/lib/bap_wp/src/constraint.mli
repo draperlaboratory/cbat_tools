@@ -44,25 +44,30 @@ type t
 type goal
 
 (** [mk_goal name e] creates a goal using a Z3 boolean expression and
-   a name. *)
+    a name. *)
 val mk_goal : string -> z3_expr -> goal
 
+(** Creates a string representation of a goal. *)
 val goal_to_string : goal -> string
 
+(** Obtains a goal's tagged name. *)
 val get_goal_name : goal -> string
 
+(** Obtains the [z3_expr] representing the value of the goal. *)
 val get_goal_val : goal -> z3_expr
 
+(** Creates a string representation of a constraint. *)
 val to_string : t -> string
 
+(** Pretty prints a constraint. *)
 val pp_constr : Format.formatter -> t -> unit
 
 (** Creates a constraint made of a single goal. *)
 val mk_constr : goal -> t
 
 (** [mk_ite tid e lc rc] creates an if-then-else constraint
-   representing a branch at [tid] with constraint [e], which has
-   the constraints [lc] if [e] is true and [rc] otherwise. *)
+    representing a branch at [tid] with constraint [e], which has
+    the constraints [lc] if [e] is true and [rc] otherwise. *)
 val mk_ite : Bap.Std.Tid.t -> z3_expr -> t -> t -> t
 
 (** [mk_clause [a1;...,an] [v1;...;vm]] creates the constraint
@@ -70,16 +75,18 @@ val mk_ite : Bap.Std.Tid.t -> z3_expr -> t -> t -> t
 val mk_clause : t list -> t list -> t
 
 (** [eval c ctx] evaluates the constraint [c] to a Z3 expression,
-   using the standard Z3 encoding of if-then-else and clauses. *)
+    using the standard Z3 encoding of if-then-else and clauses. *)
 val eval : t -> Z3.context -> z3_expr
 
 (** [substitute c [e1;...;e_n] [d1;...;d_n]] substitutes each
-   occurence in [c] of the Z3 expression [ei] with the expression
-   [di]. This is used extensively in the weakest precondition
-   calculus. *)
+    occurence in [c] of the Z3 expression [ei] with the expression
+    [di]. This is used extensively in the weakest precondition
+    calculus. *)
 val substitute : t -> z3_expr list -> z3_expr list -> t
 
 (** [substitute_one c e d] is equivalent to [substitute c [e] [d]]. *)
 val substitute_one : t -> z3_expr -> z3_expr -> t
 
+(* Obtains a list of goals that have been violated given the values from
+   a Z3 model. *)
 val get_violated_goals : t -> Z3.Model.model -> Z3.context -> goal list
