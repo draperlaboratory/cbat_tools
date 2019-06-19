@@ -16,6 +16,7 @@ open OUnit2
 let suite =
   "Unit Tests" >::: [
     "Precondition" >::: Test_precondition.suite;
+    "Constraint"   >::: Test_constraint.suite;
   ]
 
 let _ = run_test_tt_main suite

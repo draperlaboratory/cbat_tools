@@ -49,6 +49,10 @@ val mk_goal : string -> z3_expr -> goal
 
 val goal_to_string : goal -> string
 
+val get_goal_name : goal -> string
+
+val get_goal_val : goal -> z3_expr
+
 val to_string : t -> string
 
 val pp_constr : Format.formatter -> t -> unit
@@ -77,3 +81,5 @@ val substitute : t -> z3_expr list -> z3_expr list -> t
 
 (** [substitute_one c e d] is equivalent to [substitute c [e] [d]]. *)
 val substitute_one : t -> z3_expr -> z3_expr -> t
+
+val get_violated_goals : t -> Z3.Model.model -> Z3.context -> goal list

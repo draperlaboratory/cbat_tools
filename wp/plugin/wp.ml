@@ -119,9 +119,8 @@ let main (file1 : string) (file2 : string)
     else
       analyze_proj proj var_gen ctx ~func:func ~inline:inline ~post_cond:post_cond
   in
-  let pre' = Constr.eval pre ctx in
-  let result = Pre.check solver ctx pre' in
-  Pre.print_result solver result
+  let result = Pre.check solver ctx pre in
+  Pre.print_result solver result pre ctx
 
 module Cmdline = struct
   open Config
