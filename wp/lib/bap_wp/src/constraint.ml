@@ -95,7 +95,7 @@ let rec substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t 
 let substitute_one (constr : t) (old_exp : z3_expr) (new_exp : z3_expr) : t =
   substitute constr [old_exp] [new_exp]
 
-let rec get_violated_goals (constr : t) (model : Z3.Model.model) (ctx : Z3.context)
+let rec get_refuted_goals (constr : t) (model : Z3.Model.model) (ctx : Z3.context)
   : goal list =
   match constr with
   | Goal g ->
@@ -104,9 +104,9 @@ let rec get_violated_goals (constr : t) (model : Z3.Model.model) (ctx : Z3.conte
   | ITE (_, cond, c1, c2) ->
     let cond_res = Option.value_exn (Z3.Model.eval model cond true) in
     if Z3.Boolean.is_true cond_res then
-      get_violated_goals c1 model ctx
+      get_refuted_goals c1 model ctx
     else
-      get_violated_goals c2 model ctx
+      get_refuted_goals c2 model ctx
   | Clause (hyps, concs) ->
     let hyps_false = List.exists hyps
         ~f:(fun h -> Z3.Model.eval model (eval h ctx) true
@@ -117,4 +117,4 @@ let rec get_violated_goals (constr : t) (model : Z3.Model.model) (ctx : Z3.conte
       []
     else
       List.fold concs ~init:[]
-        ~f:(fun accum c -> (get_violated_goals c model ctx) @ accum)
+        ~f:(fun accum c -> (get_refuted_goals c model ctx) @ accum)

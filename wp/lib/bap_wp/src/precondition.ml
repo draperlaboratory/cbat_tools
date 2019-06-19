@@ -762,11 +762,11 @@ let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
   | Z3.Solver.SATISFIABLE ->
     let model = Z3.Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
-    let violated_goals = Constr.get_violated_goals goals model ctx in
+    let refuted_goals = Constr.get_refuted_goals goals model ctx in
     Format.printf "\nSAT!\n%!";
     Format.printf "\nModel:\n%s\n%!" (Z3.Model.to_string model);
-    Format.printf "\nViolated goals:\n%!";
-    List.iter violated_goals ~f:(fun g ->
+    Format.printf "\nRefuted goals:\n%!";
+    List.iter refuted_goals ~f:(fun g ->
         Format.printf "%s\n%!" (Constr.goal_to_string g))
 
 let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
