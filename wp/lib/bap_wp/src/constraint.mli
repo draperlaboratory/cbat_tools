@@ -87,6 +87,6 @@ val substitute : t -> z3_expr list -> z3_expr list -> t
 (** [substitute_one c e d] is equivalent to [substitute c [e] [d]]. *)
 val substitute_one : t -> z3_expr -> z3_expr -> t
 
-(* Obtains a list of goals that have been refuted given the values from
+(** Obtains a list of goals that have been refuted given the values from
    a Z3 model. *)
 val get_refuted_goals : t -> Z3.Model.model -> Z3.context -> goal list
