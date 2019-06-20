@@ -18,6 +18,8 @@ module Expr = Z3.Expr
 
 type z3_expr = Expr.expr
 
+type path = bool Bap.Std.Tid.Map.t
+
 type goal = { goal_name : string; goal_val : z3_expr }
 
 let goal_to_string (g : goal) : string =
@@ -95,26 +97,33 @@ let rec substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t 
 let substitute_one (constr : t) (old_exp : z3_expr) (new_exp : z3_expr) : t =
   substitute constr [old_exp] [new_exp]
 
-let rec get_refuted_goals (constr : t) (model : Z3.Model.model) (ctx : Z3.context)
-  : goal list =
-  match constr with
-  | Goal g ->
-    let goal_res = Option.value_exn (Z3.Model.eval model g.goal_val true) in
-    if Z3.Boolean.is_false goal_res then [g] else []
-  | ITE (_, cond, c1, c2) ->
-    let cond_res = Option.value_exn (Z3.Model.eval model cond true) in
-    if Z3.Boolean.is_true cond_res then
-      get_refuted_goals c1 model ctx
-    else
-      get_refuted_goals c2 model ctx
-  | Clause (hyps, concs) ->
-    let hyps_false = List.exists hyps
-        ~f:(fun h -> Z3.Model.eval model (eval h ctx) true
-                     |> Option.value_exn ?here:None ?error:None ?message:None
-                     |> Z3.Boolean.is_false)
-    in
-    if hyps_false then
-      []
-    else
-      List.fold concs ~init:[]
-        ~f:(fun accum c -> (get_refuted_goals c model ctx) @ accum)
+let get_refuted_goals_and_paths (constr : t) (model : Z3.Model.model) (ctx : Z3.context)
+  : (goal * path) seq =
+  let rec worker (constr : t) (current_path : path) : (goal * path) seq =
+    match constr with
+    | Goal g ->
+      let goal_res = Option.value_exn (Z3.Model.eval model g.goal_val true) in
+      if Z3.Boolean.is_false goal_res then Seq.singleton (g, current_path) else Seq.empty
+    | ITE (tid, cond, c1, c2) ->
+      let cond_res = Option.value_exn (Z3.Model.eval model cond true) in
+      if Z3.Boolean.is_true cond_res then
+        worker c1 (Tid.Map.set current_path ~key:tid ~data:true)
+      else
+        worker c2 (Tid.Map.set current_path ~key:tid ~data:false)
+    | Clause (hyps, concs) ->
+      let hyps_false = List.exists hyps
+          ~f:(fun h -> Z3.Model.eval model (eval h ctx) true
+                       |> Option.value_exn ?here:None ?error:None ?message:None
+                       |> Z3.Boolean.is_false)
+      in
+      if hyps_false then
+        Seq.empty
+      else
+        List.fold concs ~init:Seq.empty
+          ~f:(fun accum c -> Seq.append (worker c current_path) accum)
+  in
+  worker constr Tid.Map.empty
+
+let get_refuted_goals (constr : t) (model : Z3.Model.model) (ctx : Z3.context)
+  : goal seq =
+  Seq.map (get_refuted_goals_and_paths constr model ctx) ~f:(fun (g,_) -> g)
