@@ -44,7 +44,7 @@ let test_get_refuted_goals (test_ctx : test_ctxt) : unit =
   let model = Z3.Solver.get_model solver
               |> Option.value_exn ?here:None ?error:None ?message:None in
   let goals = Constr.get_refuted_goals clause model ctx in
-  List.iter goals ~f:(fun g ->
+  Sequence.iter goals ~f:(fun g ->
       assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
         (Bool.mk_eq ctx x two) (Constr.get_goal_val g))
 

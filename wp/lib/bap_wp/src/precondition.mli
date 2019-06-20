@@ -122,7 +122,7 @@ val jmp_spec_default : Env.jmp_spec
 
 (** A jump spec that generates constraints for reaching a program point,
     according to a map specifying whether a jump was taken or not. *)
-val jmp_spec_reach : bool Bap.Std.Tid.Map.t -> Env.jmp_spec
+val jmp_spec_reach : Constr.path -> Env.jmp_spec
 
 (** The default interrupt spec for handling interrupts in a BIR program. *)
 val int_spec_default : Env.int_spec

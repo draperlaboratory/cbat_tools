@@ -766,7 +766,7 @@ let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
     Format.printf "\nSAT!\n%!";
     Format.printf "\nModel:\n%s\n%!" (Z3.Model.to_string model);
     Format.printf "\nRefuted goals:\n%!";
-    List.iter refuted_goals ~f:(fun g ->
+    Seq.iter refuted_goals ~f:(fun g ->
         Format.printf "%s\n%!" (Constr.goal_to_string g))
 
 let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)

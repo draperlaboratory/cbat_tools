@@ -43,6 +43,10 @@ type t
 (** A goal is simply a Z3 (boolean) expression tagged with a name. *)
 type goal
 
+(** A path tracks an execution path by mapping [tid]s of branches to a
+    boolean, which marks whether the path was taken or not. *)
+type path = bool Bap.Std.Tid.Map.t
+
 (** [mk_goal name e] creates a goal using a Z3 boolean expression and
     a name. *)
 val mk_goal : string -> z3_expr -> goal
@@ -87,6 +91,10 @@ val substitute : t -> z3_expr list -> z3_expr list -> t
 (** [substitute_one c e d] is equivalent to [substitute c [e] [d]]. *)
 val substitute_one : t -> z3_expr -> z3_expr -> t
 
-(** Obtains a list of goals that have been refuted given the values from
-   a Z3 model. *)
-val get_refuted_goals : t -> Z3.Model.model -> Z3.context -> goal list
+(** Obtains a list of pairs of goals and a path to that goal that have
+    been refuted by a Z3 model. *)
+val get_refuted_goals_and_paths : t -> Z3.Model.model -> Z3.context
+  -> (goal * path) Core_kernel.Sequence.t
+
+(** Obtains a list of goals that have been refuted by a Z3 model. *)
+val get_refuted_goals : t -> Z3.Model.model -> Z3.context -> goal Core_kernel.Sequence.t
