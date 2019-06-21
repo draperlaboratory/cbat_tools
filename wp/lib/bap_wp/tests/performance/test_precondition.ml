@@ -28,10 +28,6 @@ module BV = Z3.BitVector
 
 let mk_z3_expr e env = let e_val, _, _, _ = Pre.exp_to_z3 e env in e_val
 
-let format_log_error (body : string) (pre : Constr.t) (post : Constr.t) : string =
-  Format.asprintf "Post:\n%a\n\nAnalyzing:\n%sPre:\n%a\n"
-    Constr.pp_constr post body Constr.pp_constr pre
-
 let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     (exp : 'a) (real : 'a) : unit =
   if real = exp || real = Z3.Solver.UNSATISFIABLE then () else
@@ -39,18 +35,17 @@ let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     | None -> ()
     | Some model -> Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model)
 
-let time_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (formatter : string)
-    (pre : Constr.t) (expected : Z3.Solver.status) : float =
+let time_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : Sub.t)
+    (post : Constr.t) (pre : Constr.t) (expected : Z3.Solver.status) : float =
   let solver = Z3.Solver.mk_simple_solver z3_ctx in
-  let pre = Constr.eval pre z3_ctx in
-  let is_correct = Bool.mk_implies z3_ctx pre (Bool.mk_false z3_ctx) in
   let start_time = Sys.time () in
-  let result = Z3.Solver.check solver [is_correct] in
+  let result = Pre.check solver z3_ctx pre in
   let end_time = Sys.time () in
   assert_equal ~ctxt:test_ctx
     ~printer:Z3.Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->
-        Format.fprintf ff "\n\n%s\n%!" formatter;
+        Format.fprintf ff "\n\nPost:\n%a\n\nAnalyzing:\n%sPre:\n%a\n\n%!"
+          Constr.pp_constr post (Sub.to_string body) Constr.pp_constr pre;
         print_z3_model ff solver exp real)
     expected result;
   end_time -. start_time
@@ -85,7 +80,7 @@ let cond_to_z3 (cond : Exp.t) (env : Env.t) : Constr.z3_expr =
   Pre.bv_to_bool (mk_z3_expr cond env) (Env.get_context env) 1
 
 let test_nested_ifs (test_ctx : test_ctxt) : unit =
-  let depth = 1000 in
+  let depth = 200 in
   let time_with_hooks =
     let ctx = Env.mk_ctx () in
     let var_gen = Env.mk_var_gen () in
@@ -122,8 +117,7 @@ let test_nested_ifs (test_ctx : test_ctxt) : unit =
                 |> Constr.mk_constr
     in
     let pre, _ = Pre.visit_sub env post sub in
-    let fmtr = format_log_error (Sub.to_string sub) pre post in
-    time_z3_result test_ctx ctx fmtr pre Z3.Solver.SATISFIABLE
+    time_z3_result test_ctx ctx sub post pre Z3.Solver.SATISFIABLE
   in
 
   let time_without_hooks =
@@ -137,8 +131,7 @@ let test_nested_ifs (test_ctx : test_ctxt) : unit =
                 |> Constr.mk_constr
     in
     let pre, _ = Pre.visit_sub env post sub in
-    let fmtr = format_log_error (Sub.to_string sub) pre post in
-    time_z3_result test_ctx ctx fmtr pre Z3.Solver.SATISFIABLE
+    time_z3_result test_ctx ctx sub post pre Z3.Solver.SATISFIABLE
   in
   Format.printf "\nTime with hooks:    %f\nTime without hooks: %f\n%!"
     time_with_hooks time_without_hooks
