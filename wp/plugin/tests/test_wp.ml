@@ -101,6 +101,8 @@ let suite = [
   "Verifier Assume UNSAT"      >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
   "Verifier Nondet"            >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
   "Function Call"              >:: test_single_elf "function_call" "main" "SAT!" ~inline:true;
+  "Function Specs"             >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:true;
+  "Function Specs"             >:: test_single_elf "function_spec" "main" "SAT!" ~inline:false;
   "Nested Function Calls"      >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:true;
   "User Defined Postcondition" >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
   "Update Number of Unrolls"   >:: test_update_num_unroll (Some 3);
