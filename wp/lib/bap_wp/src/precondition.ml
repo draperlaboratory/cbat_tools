@@ -275,7 +275,8 @@ let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
                      let v = Var.Set.choose_exn vars in
                      let z3_v = Env.get_var env v
                                 |> Option.value ~default:(var_to_z3 ctx v) in
-                     let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ v) in
+                     let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
+                     let fresh = new_z3_expr env ~name:name (Var.typ v) in
                      (z3_v, fresh)
                    ) in
              let (subs_from, subs_to) = chaos |> Seq.to_list |> List.unzip in
@@ -304,7 +305,8 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              let z3_v = Env.get_var env rax
                         |> Option.value ~default:(var_to_z3 ctx rax) in
-             let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ rax) in
+             let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
+             let fresh = new_z3_expr env ~name:name (Var.typ rax) in
              Constr.substitute_one post z3_v fresh)
     }
   else
