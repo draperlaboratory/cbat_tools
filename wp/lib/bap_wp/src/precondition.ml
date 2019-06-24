@@ -292,7 +292,10 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
     |> Seq.map ~f:(fun b -> Term.enum def_t b)
     |> Seq.concat
   in
-  let is_rax def = Var.to_string (Def.lhs def) = "RAX" in
+  let is_rax def =
+    let reg = Var.to_string (Def.lhs def) in
+    reg = "RAX" || reg = "EAX"
+  in
   if Seq.exists (defs sub) ~f:is_rax then
     (* RAX is a register that is used in the subroutine *)
     let open Env in
@@ -375,7 +378,9 @@ let sub_args (sub : Sub.t) : args =
   else if spec_rax_out sub <> None then
     (* The subroutine uses RAX as an output register if RAX is defined on the LHS in the sub *)
     let defs = Term.enum blk_t sub |> Seq.map ~f:(fun b -> Term.enum def_t b) |> Seq.concat in
-    match Seq.find defs ~f:(fun d -> Var.to_string (Def.lhs d) = "RAX") with
+    match Seq.find defs ~f:(fun d ->
+        let reg = Var.to_string (Def.lhs d) in
+        reg = "RAX" || reg = "EAX") with
     | Some r -> { new_args with outputs = Var.Set.union new_args.outputs (Var.Set.singleton @@ Def.lhs r) }
     | None -> new_args
   else
