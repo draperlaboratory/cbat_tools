@@ -14,7 +14,7 @@ install.local: build
 	dune install
 	opam pin add -y .
 
-test: test.unit
+test: test.unit test.performance
 
 test.unit:
 	dune runtest tests/unit
