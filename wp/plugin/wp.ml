@@ -73,10 +73,10 @@ let compare_projs (file1: string) (file2 : string)
   let main_sub1 = find_func subs1 func in
   let main_sub2 = find_func subs2 func in
   (* BUG??: Sub.free_vars only returns a non-empty var set on the SSA form of a sub *)
-  let input_vars = Var.Set.union
-      (Pre.get_vars main_sub1) (Pre.get_vars main_sub2) in
   let output_vars = Var.Set.union
       (Pre.get_output_vars main_sub1) (Pre.get_output_vars main_sub2) in
+  let input_vars = Var.Set.union_list
+      [Pre.get_vars main_sub1; Pre.get_vars main_sub2; output_vars] in
   let varset_to_string vs =
     vs |> Var.Set.to_sequence |> Seq.to_list |> List.to_string ~f:Var.to_string in
   debug "Input: %s%!" (varset_to_string input_vars);
