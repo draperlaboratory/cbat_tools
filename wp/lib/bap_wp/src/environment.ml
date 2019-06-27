@@ -27,6 +27,7 @@ module StringMap = String.Map
 type var_gen = int ref
 
 type t = {
+  freshen : bool;
   ctx : Z3.context;
   var_gen : var_gen;
   subs : Sub.t Seq.t;
@@ -42,7 +43,7 @@ type t = {
 }
 
 and fun_spec_type =
-  | Summary of (t -> Constr.t -> Tid.t -> Constr.t)
+  | Summary of (t -> Constr.t -> Tid.t -> Constr.t * t)
   | Inline
 
 and fun_spec = {
@@ -50,9 +51,9 @@ and fun_spec = {
   spec : fun_spec_type
 }
 
-and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> Constr.t option
+and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option
 
-and int_spec = t -> Constr.t -> int -> Constr.t
+and int_spec = t -> Constr.t -> int -> Constr.t * t
 
 and loop_handler = {
   (* Updates the environment with the preconditions computed by
@@ -68,6 +69,15 @@ let mk_ctx () : Z3.context = Z3.mk_context []
 
 let mk_var_gen () : int ref = ref 0
 
+let mk_z3_expr (ctx : Z3.context) ~name:(name : string) ~typ:(typ : Type.t) : Constr.z3_expr =
+  match typ with
+  | Type.Imm size -> Z3.BitVector.mk_const_s ctx name size
+  | Type.Mem (i_size, w_size) ->
+    debug "Creating memory Mem<%d,%d>%!" (Size.in_bits i_size) (Size.in_bits w_size);
+    let i_sort = Z3.BitVector.mk_sort ctx (Size.in_bits i_size) in
+    let w_sort = Z3.BitVector.mk_sort ctx (Size.in_bits w_size) in
+    Z3.Z3Array.mk_const_s ctx name i_sort w_sort
+
 let init_fun_name (subs : Sub.t Seq.t) : Tid.t StringMap.t =
   Seq.fold subs ~init:StringMap.empty
     ~f:(fun map sub ->
@@ -76,6 +86,11 @@ let init_fun_name (subs : Sub.t Seq.t) : Tid.t StringMap.t =
 let get_fresh ?name:(n = "fresh_") (var_seed : var_gen) : string =
   incr var_seed;
   n ^ (string_of_int !var_seed)
+
+let new_z3_expr ?name:(name = "fresh_") (env: t) (typ : Type.t) : Constr.z3_expr =
+  let ctx = env.ctx in
+  let var_seed = env.var_gen in
+  mk_z3_expr ctx ~name:(get_fresh ~name:name var_seed) ~typ:typ
 
 let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t) : string TidMap.t =
   Seq.fold subs ~init:TidMap.empty
@@ -130,6 +145,7 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
 let mk_env
     ?subs:(subs = Seq.empty)
     ?exp_conds:(exp_conds = [])
+    ?freshen_vars:(freshen = false)
     ~specs:(specs : (Sub.t -> fun_spec option) list)
     ~default_spec:(default_spec : fun_spec)
     ~jmp_spec:(jmp_spec : jmp_spec)
@@ -139,6 +155,7 @@ let mk_env
     (var_gen : var_gen)
   : t =
   {
+    freshen = freshen;
     ctx = ctx;
     var_gen = var_gen;
     subs = subs;
@@ -166,6 +183,8 @@ let env_to_string (env : t) : string =
     (map_seq_printer Tid.to_string ident) call_list
     (map_seq_printer Tid.to_string Constr.to_string) precond_list
 
+let set_freshen (env : t)(freshen : bool) = { env with freshen = freshen }
+
 let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
 
@@ -191,8 +210,20 @@ let get_subs (env : t) : Sub.t Seq.t =
 let get_var_map (env : t) : Constr.z3_expr EnvMap.t =
   env.var_map
 
-let get_var (env : t) (var : Var.t) : Constr.z3_expr option =
-  EnvMap.find env.var_map var
+let get_var (env : t) (var : Var.t) : Constr.z3_expr * t =
+  let mv = EnvMap.find env.var_map var in
+  match mv with
+  | Some v -> v, env
+  | None ->
+    let typ = Var.typ var in
+    let full_name = Var.name var ^ (string_of_int (Var.index var)) in
+    if env.freshen then
+      let v = new_z3_expr ~name:full_name env typ in
+      v, add_var env var v
+    else
+      let ctx = env.ctx in
+      let v = mk_z3_expr ctx ~name:full_name ~typ:typ in
+      v, add_var env var v
 
 let get_precondition (env : t) (tid : Tid.t) : Constr.t option =
   if not (TidMap.mem env.precond_map tid) then

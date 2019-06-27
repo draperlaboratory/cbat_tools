@@ -64,7 +64,9 @@ let mk_sub ?tid:(tid = Tid.create ()) ?args:(args = []) ?name:(name = "")
   List.iter args ~f:(Sub.Builder.add_arg blk_build);
   Sub.Builder.result blk_build
 
-let mk_z3_expr e env = let e, _, _ = Pre.exp_to_z3 e env in e
+let mk_z3_expr env e = let e, _, _, _ = Pre.exp_to_z3 e env in e
+
+let mk_z3_var env v = fst (Env.get_var env v)
 
 let format_log_error (body : string) (pre : Constr.t) (post : Constr.t) : string =
   Format.asprintf "Post:\n%a\n\nAnalyzing:\n%sPre:\n%a\n"
@@ -113,7 +115,7 @@ let test_assign_1 (test_ctx : test_ctxt) : unit =
   let x = Var.create "x" reg32_t in
   let e = Bil.binop Bil.plus (Bil.var x) one in
   let block = Blk.create () |> mk_def y e in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (mk_z3_expr e env)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_expr env e)
              |> Constr.mk_goal "y = x + 1"
              |> Constr.mk_constr
   in
@@ -130,7 +132,7 @@ let test_assign_2 (test_ctx : test_ctxt) : unit =
   let x = Var.create "x" reg32_t in
   let e = Bil.binop Bil.plus (Bil.var x) one in
   let block = Blk.create () |> mk_def y e in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -151,7 +153,7 @@ let test_assign_3 (test_ctx : test_ctxt) : unit =
               |> mk_def y (Bil.var x)
               |> mk_def x e
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (mk_z3_expr e' env)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_expr env e')
              |> Constr.mk_goal "y = x - 1"
              |> Constr.mk_constr
   in
@@ -173,8 +175,8 @@ let test_phi_1 (test_ctx : test_ctxt) : unit =
   let x2 = Var.create "x2" reg32_t in
   let phi_x = Phi.of_list x [(l1_tid, Bil.var x1); (l2_tid, Bil.var x2)] in
   let block = Blk.create () |> mk_phi phi_x in
-  let x1_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (Pre.var_to_z3 ctx x1) in
-  let x2_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (Pre.var_to_z3 ctx x2) in
+  let x1_exp = Bool.mk_eq ctx (mk_z3_var env x) (mk_z3_var env x1) in
+  let x2_exp = Bool.mk_eq ctx (mk_z3_var env x) (mk_z3_var env x2) in
   let post = Bool.mk_or ctx [x1_exp; x2_exp]
              |> Constr.mk_goal "x = x1 || x = x2"
              |> Constr.mk_constr
@@ -198,7 +200,7 @@ let test_read_write_1 (test_ctx : test_ctxt) : unit =
               |> mk_def mem store
               |> mk_def y load
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -221,7 +223,7 @@ let test_read_write_2 (test_ctx : test_ctxt) : unit =
               |> mk_def mem store
               |> mk_def y load
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -244,7 +246,7 @@ let test_read_write_3 (test_ctx : test_ctxt) : unit =
               |> mk_def mem store
               |> mk_def y load
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -267,7 +269,7 @@ let test_read_write_4 (test_ctx : test_ctxt) : unit =
               |> mk_def mem store
               |> mk_def y load
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -290,7 +292,7 @@ let test_bit_shift_1 (test_ctx : test_ctxt) : unit =
               |> mk_def y lshift
               |> mk_def y rshift
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -313,7 +315,7 @@ let test_bit_shift_2 (test_ctx : test_ctxt) : unit =
               |> mk_def y lshift
               |> mk_def y rshift
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -336,7 +338,7 @@ let test_bit_ashift_1 (test_ctx : test_ctxt) : unit =
               |> mk_def y lshift
               |> mk_def y rshift
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -359,7 +361,7 @@ let test_bit_ashift_2 (test_ctx : test_ctxt) : unit =
               |> mk_def y lshift
               |> mk_def y rshift
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -381,7 +383,7 @@ let test_ite_assign_1 (test_ctx : test_ctxt) : unit =
   let block = Blk.create ()
               |> mk_def y ite
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx y) (Pre.var_to_z3 ctx x)
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (mk_z3_var env x)
              |> Constr.mk_goal "y = x"
              |> Constr.mk_constr
   in
@@ -452,7 +454,7 @@ let test_subroutine_1 (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
 
-  let diff = mk_z3_expr Bil.((var z) - (var x)) env in
+  let diff = mk_z3_expr env Bil.((var z) - (var x)) in
   let high  = BV.mk_sle ctx diff (BV.mk_numeral ctx "1" 32) in
   let low = BV.mk_sle ctx (BV.mk_numeral ctx "-1" 32) diff in
   let post = Bool.mk_and ctx [low; high]
@@ -481,9 +483,9 @@ let test_subroutine_1_2 (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
   (* We have to manually add the names x, y, z to the environment *)
-  let env = Env.add_var env x (Pre.var_to_z3 ctx x) in
-  let env = Env.add_var env y (Pre.var_to_z3 ctx y) in
-  let env = Env.add_var env z (Pre.var_to_z3 ctx z) in
+  let env = Env.add_var env x (mk_z3_var env x) in
+  let env = Env.add_var env y (mk_z3_var env y) in
+  let env = Env.add_var env z (mk_z3_var env z) in
   (* The names x0, y0 and z0 are magical, as they are generated by BAP
      (with the "base names" x, y, z)*)
   let post = Pre.mk_smtlib2_post env
@@ -529,7 +531,7 @@ let test_subroutine_2 (test_ctx : test_ctxt) : unit =
   in
   let blk4 = blk4 |> mk_phi phi_x in
   let sub = mk_sub [blk1; blk2; blk3; blk4] in
-  let diff = mk_z3_expr (Bil.binop Bil.minus (Bil.var x4) (Bil.var x1)) env in
+  let diff = mk_z3_expr env (Bil.binop Bil.minus (Bil.var x4) (Bil.var x1)) in
   let high  = BV.mk_sle ctx diff (BV.mk_numeral ctx "1" 32) in
   let low = BV.mk_sle ctx (BV.mk_numeral ctx "-1" 32) diff in
   let post = Bool.mk_and ctx [low; high]
@@ -555,8 +557,8 @@ let test_subroutine_3 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let y_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (Pre.var_to_z3 ctx y) in
-  let z_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (Pre.var_to_z3 ctx z) in
+  let y_exp = Bool.mk_eq ctx (mk_z3_var env x) (mk_z3_var env y) in
+  let z_exp = Bool.mk_eq ctx (mk_z3_var env x) (mk_z3_var env z) in
   let post = Bool.mk_or ctx [y_exp; z_exp]
              |> Constr.mk_goal "x = y || x = z"
              |> Constr.mk_constr
@@ -587,8 +589,8 @@ let test_subroutine_4 (test_ctx : test_ctxt) : unit =
   in
   let blk3 = blk3 |> mk_def w (Bil.var x) in
   let sub = mk_sub [blk1; blk2; blk3] in
-  let y_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx w) (Pre.var_to_z3 ctx y) in
-  let z_exp = Bool.mk_eq ctx (Pre.var_to_z3 ctx w) (Pre.var_to_z3 ctx z) in
+  let y_exp = Bool.mk_eq ctx (mk_z3_var env w) (mk_z3_var env y) in
+  let z_exp = Bool.mk_eq ctx (mk_z3_var env w) (mk_z3_var env z) in
   let post = Bool.mk_or ctx [y_exp; z_exp]
              |> Constr.mk_goal "x = y || w = z"
              |> Constr.mk_constr
@@ -617,7 +619,7 @@ let test_subroutine_5 (test_ctx : test_ctxt) : unit =
   let blk2 = blk2 |> mk_def x e |> mk_jmp blk3 in
   let blk3 = blk3 |> mk_def z (Bil.var x) in
   let sub = mk_sub [blk1; blk2; blk3] in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx z) (mk_z3_expr e' env)
+  let post = Bool.mk_eq ctx (mk_z3_var env z) (mk_z3_expr env e')
              |> Constr.mk_goal "z = y + 1"
              |> Constr.mk_constr
   in
@@ -683,7 +685,7 @@ let test_call_1 (test_ctx : test_ctxt) : unit =
   let main_sub = mk_sub [blk2; blk3] in
   let env = Pre.mk_default_env ctx var_gen
       ~subs:(Seq.of_list [call_body; main_sub]) in
-  let post = Bool.mk_eq ctx (mk_z3_expr (Bil.var ret_var) env) (mk_z3_expr zero env)
+  let post = Bool.mk_eq ctx (mk_z3_expr env (Bil.var ret_var)) (mk_z3_expr env zero)
              |> Constr.mk_goal "ret = 0"
              |> Constr.mk_constr
   in
@@ -849,7 +851,7 @@ let test_call_7 (test_ctx : test_ctxt) : unit =
   let env = Pre.mk_inline_env ctx var_gen ~subs:(Seq.of_list [main_sub; call_sub]) in
   let sub_called = Option.value_exn (call_tid |> Env.get_called env) in
   let post = Bool.mk_and ctx [
-      Bool.mk_eq ctx (mk_z3_expr Bil.(var x + one) env) (mk_z3_expr (Bil.var z) env);
+      Bool.mk_eq ctx (mk_z3_expr env Bil.(var x + one)) (mk_z3_expr env (Bil.var z));
       Bool.mk_const_s ctx sub_called]
              |> Constr.mk_goal "x + 1 = z && sub_called"
              |> Constr.mk_constr
@@ -885,7 +887,7 @@ let test_call_8 (test_ctx : test_ctxt) : unit =
   let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub; call_sub]) in
   let sub_called = Option.value_exn (call_tid |> Env.get_called env) in
   let post = Bool.mk_and ctx [
-      Bool.mk_eq ctx (mk_z3_expr Bil.(var x + one) env) (mk_z3_expr (Bil.var z) env);
+      Bool.mk_eq ctx (mk_z3_expr env Bil.(var x + one)) (mk_z3_expr env (Bil.var z));
       Bool.mk_const_s ctx sub_called]
              |> Constr.mk_goal "x + 1 = z && sub_called"
              |> Constr.mk_constr
@@ -928,7 +930,7 @@ let test_call_9 (test_ctx : test_ctxt) : unit =
   let sub1_called = Option.value_exn (call1_tid |> Env.get_called env) in
   let sub2_called = Option.value_exn (call2_tid |> Env.get_called env) in
   let post = Bool.mk_and ctx [
-      Bool.mk_eq ctx (mk_z3_expr Bil.(var x + two) env) (mk_z3_expr (Bil.var z) env);
+      Bool.mk_eq ctx (mk_z3_expr env Bil.(var x + two)) (mk_z3_expr env (Bil.var z));
       Bool.mk_const_s ctx sub1_called;
       Bool.mk_const_s ctx sub2_called]
              |> Constr.mk_goal "x + 2 = z && sub1_called && sub2_called"
@@ -953,7 +955,7 @@ let test_int_1 (test_ctx : test_ctxt) : unit =
   in
   let main_sub = mk_sub [blk1; blk2] in
   let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub]) in
-  let post = Bool.mk_eq ctx (mk_z3_expr (Bil.var ret_var) env) (mk_z3_expr zero env)
+  let post = Bool.mk_eq ctx (mk_z3_expr env (Bil.var ret_var)) (mk_z3_expr env zero)
              |> Constr.mk_goal "ret = 0"
              |> Constr.mk_constr
   in
@@ -1295,7 +1297,7 @@ let test_loop_1 (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
 
-  let post = Bool.mk_eq ctx (mk_z3_expr x_y env) (mk_z3_expr a_b env)
+  let post = Bool.mk_eq ctx (mk_z3_expr env x_y) (mk_z3_expr env a_b)
              |> Constr.mk_goal "x + y = a + b"
              |> Constr.mk_constr
   in
@@ -1322,7 +1324,7 @@ let test_loop_2 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (BV.mk_numeral ctx "5" 32)
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
              |> Constr.mk_goal "x = 5"
              |> Constr.mk_constr
   in
@@ -1349,7 +1351,7 @@ let test_loop_3 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let post = Bool.mk_eq ctx (Pre.var_to_z3 ctx x) (BV.mk_numeral ctx "7" 32)
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "7" 32)
              |> Constr.mk_goal "x = 7"
              |> Constr.mk_constr
   in
@@ -1373,8 +1375,8 @@ let test_cast (width_orig : int) (width_cast : int) (value : int)
   let env = Pre.mk_default_env ctx var_gen in
   let bil_var = Bil.int @@ Word.of_int value ~width:width_orig in
   let bil_cast = Bil.cast cast width_cast bil_var in
-  let z3_var = Expr.simplify (mk_z3_expr bil_var env) None in
-  let z3_cast = Expr.simplify (mk_z3_expr bil_cast env) None in
+  let z3_var = Expr.simplify (mk_z3_expr env bil_var) None in
+  let z3_cast = Expr.simplify (mk_z3_expr env bil_cast) None in
   let sort_var = Expr.get_sort z3_var in
   let sort_cast = Expr.get_sort z3_cast in
   let bil_var' = eval_to_int bil_var in
@@ -1434,7 +1436,7 @@ let test_subroutine_8 (test_ctx : test_ctxt) : unit =
   let loc = Var.create "loc" reg32_t in
   let read = Bil.(load ~mem:(var mem) ~addr:(var loc) LittleEndian `r32) in
   let sub = Bil.([if_ (read = i32 12)[][]]) |> bil_to_sub in
-  let post = Bool.mk_distinct ctx [(Pre.var_to_z3 ctx loc); (BV.mk_numeral ctx "0" 32)]
+  let post = Bool.mk_distinct ctx [(mk_z3_var env loc); (BV.mk_numeral ctx "0" 32)]
              |> Constr.mk_goal "loc <> 0"
              |> Constr.mk_constr
   in
@@ -1510,7 +1512,7 @@ let test_branches_1 (test_ctx : test_ctxt) : unit =
   let jmp_spec = fun env post tid jmp ->
     let branch_tid cond =
       Term.tid (Seq.find_exn jumps ~f:(fun j -> Exp.equal (Jmp.cond j) cond)) in
-    let branch_cond cond = Pre.bv_to_bool (mk_z3_expr cond env) ctx 1 in
+    let branch_cond cond = Pre.bv_to_bool (mk_z3_expr env cond) ctx 1 in
     let branch_pre =
       match Jmp.kind jmp with
       | Goto (Direct tid) -> Option.value (Env.get_precondition env tid) ~default:post
@@ -1519,11 +1521,11 @@ let test_branches_1 (test_ctx : test_ctxt) : unit =
     let true_constr = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
     let false_constr = Bool.mk_false ctx |> Constr.mk_goal "false" |> Constr.mk_constr in
     if Tid.equal tid (branch_tid cond_x) then
-      Some (Constr.mk_ite tid (branch_cond cond_x) branch_pre true_constr)
+      Some (Constr.mk_ite tid (branch_cond cond_x) branch_pre true_constr, env)
     else if Tid.equal tid (branch_tid cond_y) then
-      Some (Constr.mk_ite tid (branch_cond cond_y) branch_pre true_constr)
+      Some (Constr.mk_ite tid (branch_cond cond_y) branch_pre true_constr, env)
     else if Tid.equal tid (branch_tid cond_z) then
-      Some (Constr.mk_ite tid (branch_cond cond_z) false_constr true_constr)
+      Some (Constr.mk_ite tid (branch_cond cond_z) false_constr true_constr, env)
     else
       None
   in
@@ -1563,112 +1565,112 @@ let test_exclude_1 (test_ctx : test_ctxt) : unit =
 
 
 let suite = [
-  "Empty Block" >:: test_empty_block;
-  "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
-  "Assign SSA block: y = x+1; Post: y == x" >:: test_assign_2;
-  "Assign SSA block: y = x; x = x+1; Post: y == x-1" >:: test_assign_3;
-  "Read/Write Little Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_1;
-  "Read/Write Big Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_2;
-  "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_3;
-  "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_4;
-  "Bit Shifting Logical: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_1;
-  "Bit Shifting Logical Overflow: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_2;
-  "Bit Shifting Arithmetic: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_1;
-  "Bit Shifting Arithmetic Overflow: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_2;
-  "Ite Assign: y = if x < 0x40 then x << 2 ~>> 2 else x" >:: test_ite_assign_1;
-
-  "Compare z := x + y; and x := x + 1; y := y - 1; z := x + y;" >:: test_block_pair_1;
-  "Compare z := x; and y := x; z := y;" >:: test_block_pair_2;
-
-  "Subroutine: \n\
-   bl: when x < 0xA goto b2; goto b3; \n\
-   b2: y = x+1; goto b4; \n\
-   b3: y = x-1; goto b4; \n\
-   b4: z = y;" >:: test_subroutine_1;
-  "Subroutine: \n\
-   bl: when x < 0xA goto b2; goto b3; \n\
-   b2: y = x+1; goto b4; \n\
-   b3: y = x-1; goto b4; \n\
-   b4: z = y; \n \
-   but using the smt-lib parser for the postcondition" >:: test_subroutine_1_2;
-  "Ends with two blocks: \n\
-   b1: when x < 0 goto b2; goto b3; \n\
-   b2: x = y; \n\
-   b3: x = z;" >:: test_subroutine_3;
-  "Starts with two blocks: \n\
-   b1: x = y; goto b3; \n\
-   b2: x = z; goto b3; \n\
-   b3: w = x;" >:: test_subroutine_4;
-  "Call function: \n\
-   b1: x = y; call b4 with return b2; \n\
-   b2: x = x + 1; goto b3 \n\
-   b3: z = x; \n\
-   b4: noop;" >:: test_subroutine_5;
-  "Assert fail label: \n\
-   b1: call @__assert_fail with return b2; \n\
-   b2: noop;" >:: test_subroutine_6;
-  "Assert fail BIL: \n\
-   b1: call @__assert_fail with no return; \
-  " >:: test_subroutine_7;
-  "Assert loc <> 0:\n\
-   if mem[loc] = 12 then else; \
-   //using the \"assume non-null\" generator" >:: test_subroutine_8;
-  "Call fail: \n\
-  " >:: test_call_1;
-  "Call vars with spec_arg_terms: \n\
-  " >:: test_call_2;
-  "Call vars with spec_rax_out: \n\
-  " >:: test_call_3;
-  "Call vars with spec_default: \n\
-  " >:: test_call_4;
-  "Call vars: fun not called: \n\
-  " >:: test_call_5;
-  "Call vars with branches: \n\
-  " >:: test_call_6;
-  "Test call with function inlining UNSAT: \n\
-  " >:: test_call_7;
-  "Test call with disabling function inlining SAT: \n\
-  " >:: test_call_8;
-  "Test call with nested function inlining SAT: \n\
-  " >:: test_call_9;
-  "Interrupt 0x0: \n\
-  " >:: test_int_1;
-  "Loop: \n\
-   b1: x = a; y = b; goto b2; \n\
-   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
-   b3:" >:: test_loop_1;
-  "Loop: \n\
-   b1: x = 0; y = 5; goto b2; \n\
-   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
-   b3:" >:: test_loop_2;
-  "Loop: \n\
-   b1: x = 0; y = 6; goto b2; \n\
-   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
-   b3:" >:: test_loop_3;
-  "Read NULL; SAT:\n\
-   x = mem[addr];" >:: test_exp_cond_1;
-  "Read NULL; UNSAT:\n\
-   addr = 0x40000000;\
-   x = mem[addr];" >:: test_exp_cond_2;
-
-  "Remove dead assignments" >:: test_sub_pair_1;
-  "Remove needed assignments" >:: test_sub_pair_2;
+  (* "Empty Block" >:: test_empty_block;
+   * "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
+   * "Assign SSA block: y = x+1; Post: y == x" >:: test_assign_2;
+   * "Assign SSA block: y = x; x = x+1; Post: y == x-1" >:: test_assign_3;
+   * "Read/Write Little Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_1;
+   * "Read/Write Big Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_2;
+   * "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_3;
+   * "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_4;
+   * "Bit Shifting Logical: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_1;
+   * "Bit Shifting Logical Overflow: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_2;
+   * "Bit Shifting Arithmetic: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_1;
+   * "Bit Shifting Arithmetic Overflow: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_2;
+   * "Ite Assign: y = if x < 0x40 then x << 2 ~>> 2 else x" >:: test_ite_assign_1;
+   *
+   * "Compare z := x + y; and x := x + 1; y := y - 1; z := x + y;" >:: test_block_pair_1;
+   * "Compare z := x; and y := x; z := y;" >:: test_block_pair_2;
+   *
+   * "Subroutine: \n\
+   *  bl: when x < 0xA goto b2; goto b3; \n\
+   *  b2: y = x+1; goto b4; \n\
+   *  b3: y = x-1; goto b4; \n\
+   *  b4: z = y;" >:: test_subroutine_1;
+   * "Subroutine: \n\
+   *  bl: when x < 0xA goto b2; goto b3; \n\
+   *  b2: y = x+1; goto b4; \n\
+   *  b3: y = x-1; goto b4; \n\
+   *  b4: z = y; \n \
+   *  but using the smt-lib parser for the postcondition" >:: test_subroutine_1_2;
+   * "Ends with two blocks: \n\
+   *  b1: when x < 0 goto b2; goto b3; \n\
+   *  b2: x = y; \n\
+   *  b3: x = z;" >:: test_subroutine_3;
+   * "Starts with two blocks: \n\
+   *  b1: x = y; goto b3; \n\
+   *  b2: x = z; goto b3; \n\
+   *  b3: w = x;" >:: test_subroutine_4;
+   * "Call function: \n\
+   *  b1: x = y; call b4 with return b2; \n\
+   *  b2: x = x + 1; goto b3 \n\
+   *  b3: z = x; \n\
+   *  b4: noop;" >:: test_subroutine_5;
+   * "Assert fail label: \n\
+   *  b1: call @__assert_fail with return b2; \n\
+   *  b2: noop;" >:: test_subroutine_6;
+   * "Assert fail BIL: \n\
+   *  b1: call @__assert_fail with no return; \
+   * " >:: test_subroutine_7;
+   * "Assert loc <> 0:\n\
+   *  if mem[loc] = 12 then else; \
+   *  //using the \"assume non-null\" generator" >:: test_subroutine_8;
+   * "Call fail: \n\
+   * " >:: test_call_1;
+   * "Call vars with spec_arg_terms: \n\
+   * " >:: test_call_2;
+   * "Call vars with spec_rax_out: \n\
+   * " >:: test_call_3;
+   * "Call vars with spec_default: \n\
+   * " >:: test_call_4;
+   * "Call vars: fun not called: \n\
+   * " >:: test_call_5;
+   * "Call vars with branches: \n\
+   * " >:: test_call_6;
+   * "Test call with function inlining UNSAT: \n\
+   * " >:: test_call_7;
+   * "Test call with disabling function inlining SAT: \n\
+   * " >:: test_call_8;
+   * "Test call with nested function inlining SAT: \n\
+   * " >:: test_call_9;
+   * "Interrupt 0x0: \n\
+   * " >:: test_int_1;
+   * "Loop: \n\
+   *  b1: x = a; y = b; goto b2; \n\
+   *  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   *  b3:" >:: test_loop_1;
+   * "Loop: \n\
+   *  b1: x = 0; y = 5; goto b2; \n\
+   *  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   *  b3:" >:: test_loop_2;
+   * "Loop: \n\
+   *  b1: x = 0; y = 6; goto b2; \n\
+   *  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   *  b3:" >:: test_loop_3;
+   * "Read NULL; SAT:\n\
+   *  x = mem[addr];" >:: test_exp_cond_1;
+   * "Read NULL; UNSAT:\n\
+   *  addr = 0x40000000;\
+   *  x = mem[addr];" >:: test_exp_cond_2;
+   *
+   * "Remove dead assignments" >:: test_sub_pair_1;
+   * "Remove needed assignments" >:: test_sub_pair_2; *)
   "Arithmetic across different blocks" >:: test_sub_pair_3;
-  "Squashing assignments" >:: test_sub_pair_4;
-  "Jump to opposite block" >:: test_sub_pair_5;
-  "Same subroutines" >:: test_sub_pair_fun_1;
-  "Fun called in modified sub" >:: test_sub_pair_fun_2;
-  "Branches with fun calls" >:: test_sub_pair_fun_3;
-  "Fun called in branch" >:: test_sub_pair_fun_4;
-  "Assert in original, VC in modified UNSAT" >:: test_sub_pair_6;
-  "Assert in original, VC in modified SAT" >:: test_sub_pair_7;
-
-  "Signed: Bitwidth 3 -> 8; Value 6 -> -2" >:: test_cast 3 8 6 Bil.SIGNED;
-  "Unsigned: Bitwidth 3 -> 8; Value 6 -> 6" >:: test_cast 3 8 6 Bil.UNSIGNED;
-  "High: Bitwidth 8 -> 5; Value: 238 -> 29" >:: test_cast 8 5 238 Bil.HIGH;
-  "Low: Bitwidth 8 -> 5; Value: 238 -> 14" >:: test_cast 8 5 238 Bil.LOW;
-
-  "Test branches" >:: test_branches_1;
-
-  "Test exclude" >:: test_exclude_1;
+  (* "Squashing assignments" >:: test_sub_pair_4;
+   * "Jump to opposite block" >:: test_sub_pair_5;
+   * "Same subroutines" >:: test_sub_pair_fun_1;
+   * "Fun called in modified sub" >:: test_sub_pair_fun_2;
+   * "Branches with fun calls" >:: test_sub_pair_fun_3;
+   * "Fun called in branch" >:: test_sub_pair_fun_4;
+   * "Assert in original, VC in modified UNSAT" >:: test_sub_pair_6;
+   * "Assert in original, VC in modified SAT" >:: test_sub_pair_7;
+   *
+   * "Signed: Bitwidth 3 -> 8; Value 6 -> -2" >:: test_cast 3 8 6 Bil.SIGNED;
+   * "Unsigned: Bitwidth 3 -> 8; Value 6 -> 6" >:: test_cast 3 8 6 Bil.UNSIGNED;
+   * "High: Bitwidth 8 -> 5; Value: 238 -> 29" >:: test_cast 8 5 238 Bil.HIGH;
+   * "Low: Bitwidth 8 -> 5; Value: 238 -> 14" >:: test_cast 8 5 238 Bil.LOW;
+   *
+   * "Test branches" >:: test_branches_1;
+   *
+   * "Test exclude" >:: test_exclude_1; *)
 ]

@@ -22,41 +22,20 @@ module Env = Environment
 module Pre = Precondition
 module Constr = Constraint
 
-
-type rename_map = var Var.Map.t
-
-let mk_rename_map (vars : Var.Set.t) : rename_map =
-  let freshen v = Var.create ~is_virtual:(Var.is_virtual v) ~fresh:true
-      (Var.name v) (Var.typ v) in
-  Var.Set.fold vars ~init:Var.Map.empty
-    ~f:(fun vm v -> Var.Map.set vm ~key:v ~data:(freshen v))
-
-let freshen_block (rename_map : var Var.Map.t) (blk : Blk.t) : Blk.t =
-  (* Rename all the variables in blk *)
-  let subst_exp m e =
-    let vs = Var.Map.keys m in
-    List.fold vs ~init:e
-      ~f:(fun e v -> Exp.substitute (Bil.var v) (Var.Map.find m v |>
-                                                 Option.value ~default:v
-                                                 |> Bil.var)
-             e)
-  in
-  let subst_exps m b = Blk.map_exp b ~f:(fun e -> subst_exp m e) in
-  let subst_vars m b = Blk.map_lhs b ~f:(fun v -> Var.Map.find m v |> Option.value ~default:v) in
-  let subst_all m b = b |> subst_exps m |> subst_vars m in
-  blk |> subst_all rename_map
-
-let freshen_sub (rename_map : var Var.Map.t) (sub : Sub.t) : Sub.t =
-  Term.map blk_t sub ~f:(freshen_block rename_map)
-
-let map_to_eqs (ctx : Z3.context) (m : var Var.Map.t) : Constr.t list =
-  let pairs = Var.Map.to_alist m in
-  List.map pairs ~f:(fun (v1, v2) ->
-      let var1 = Pre.var_to_z3 ctx v1 in
-      let var2 = Pre.var_to_z3 ctx v2 in
-      Bool.mk_eq ctx var1 var2
-      |> Constr.mk_goal (Format.sprintf "%s = %s" (Expr.to_string var1) (Expr.to_string var2))
-      |> Constr.mk_constr)
+(* We return an updated pair of environments here, since if we are generating
+   fresh variables, we want to keep those same fresh names in the analysis *)
+let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list * Env.t * Env.t =
+  let ctx = Env.get_context env1 in
+  Var.Set.fold vars ~init:([], env1, env2)
+    ~f:(fun (eqs, env1, env2) v ->
+        let var1, env1 = Env.get_var env1 v in
+        let var2, env2 = Env.get_var env2 v in
+        let eq = Bool.mk_eq ctx var1 var2
+                 |> Constr.mk_goal
+                   (Format.sprintf "%s = %s" (Expr.to_string var1) (Expr.to_string var2))
+                 |> Constr.mk_constr
+        in (eq::eqs, env1, env2)
+      )
 
 let compare_blocks
     ~input:(input : Var.Set.t)
@@ -64,24 +43,21 @@ let compare_blocks
     ~original:(blk1, env1 : Blk.t * Env.t)
     ~modified:(blk2, env2 : Blk.t * Env.t)
   : Constr.t * Env.t =
-  let ctx = Env.get_context env1 in
-  let rename_map = mk_rename_map (Var.Set.union input output) in
-  let blk2 = freshen_block rename_map blk2 in
-  let input_map = Var.Map.filteri rename_map
-      ~f:(fun ~key:v ~data:_ -> Var.Set.mem input v) in
-  let output_map = Var.Map.filteri rename_map
-      ~f:(fun ~key:v ~data:_ -> Var.Set.mem output v) in
-  let output_eq = Constr.mk_clause [] (map_to_eqs ctx output_map) in
-  let input_eq = map_to_eqs ctx input_map in
+  (* We only freshen variables in blk2, leaving those of blk1 with
+     their original names. *)
+  let env2 = Env.set_freshen env2 true in
+  let output_eq_list, env1, env2 = set_to_eqs env1 env2 output in
+  let output_eq = Constr.mk_clause [] output_eq_list in
+  let input_eq_list, env1, env2 = set_to_eqs env1 env2 input in
   let pre1, _ = Pre.visit_block env1 output_eq blk1 in
   let pre2, _ = Pre.visit_block env2 pre1 blk2 in
-  let goal = Constr.mk_clause input_eq [pre2] in
+  let goal = Constr.mk_clause input_eq_list [pre2] in
   goal, env2
 
 (* The type of functions that generate a postcondition or hypothesis for comparative
-   analysis. *)
+   analysis. Also updates the environments as needed. *)
 type comparator = original:(Sub.t * Env.t) -> modified:(Sub.t * Env.t) ->
-  rename_map:(var Var.Map.t) -> Constr.t
+  rename_set:Var.Set.t -> Constr.t * Env.t * Env.t
 
 (* A generic function for generating a predicate that compares two subroutines.
    Takes as input a postcondition generator, and a hypothesis generator.
@@ -93,16 +69,17 @@ let compare_subs
     ~original:(sub1, env1 : Sub.t * Env.t)
     ~modified:(sub2, env2 : Sub.t * Env.t)
   : Constr.t * Env.t =
+  let env2 = Env.set_freshen env2 true in
   let vars = Var.Set.union
       (Pre.get_vars sub1) (Pre.get_vars sub2) in
-  let rename_map = mk_rename_map vars in
-  let sub2 = freshen_sub rename_map sub2 in
-  let post = postcond ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_map:rename_map in
+  let post, env1, env2 =
+    postcond ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
   info "\nPostcondition:\n%s\n%!" (Constr.to_string post);
+  let hyps, env1, env2 =
+    hyps ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
+  info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
   let pre_mod, _ = Pre.visit_sub env2 post sub2 in
   let pre_combined, _ = Pre.visit_sub env1 pre_mod sub1 in
-  let hyps = hyps ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_map:rename_map in
-  info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
   let goal = Constr.mk_clause [hyps] [pre_combined] in
   goal, env2
 
@@ -110,28 +87,27 @@ let compare_subs_empty
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
   : Constr.t * Env.t =
-  let postcond ~original:(_, env) ~modified:_ ~rename_map:_ =
-    let ctx = Env.get_context env in
-    Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr
+  let postcond ~original:(_, env1) ~modified:(_,env2) ~rename_set:_ =
+    let ctx = Env.get_context env1 in
+    let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+    post, env1, env2
   in
   let hyps = postcond in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
 
 let compare_subs_empty_post
-    ~input:(input : Var.Set.t)
+    ~input:(_ : Var.Set.t)
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
   : Constr.t * Env.t =
-  let postcond ~original:(_, env) ~modified:_ ~rename_map:_ =
-    let ctx = Env.get_context env in
-    Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr
+  let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    let ctx = Env.get_context env1 in
+    let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+    post, env1, env2
   in
-  let hyps ~original:(_, env) ~modified:_ ~rename_map =
-    let ctx = Env.get_context env in
-    let input_map = Var.Map.filteri rename_map
-        ~f:(fun ~key:v ~data:_ -> Var.Set.mem input v)
-    in
-    Constr.mk_clause [] (map_to_eqs ctx input_map)
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
+    Constr.mk_clause [] pre_eqs, env1, env2
   in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
 
@@ -141,19 +117,13 @@ let compare_subs_eq
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
   : Constr.t * Env.t =
-  let postcond ~original:(_, env) ~modified:_ ~rename_map =
-    let ctx = Env.get_context env in
-    let output_map = Var.Map.filteri rename_map
-        ~f:(fun ~key:v ~data:_ -> Var.Set.mem output v)
-    in
-    Constr.mk_clause [] (map_to_eqs ctx output_map)
+  let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    let post_eqs, env1, env2 = set_to_eqs env1 env2 output in
+    Constr.mk_clause [] post_eqs, env1, env2
   in
-  let hyps ~original:(_, env) ~modified:_ ~rename_map =
-    let ctx = Env.get_context env in
-    let input_map = Var.Map.filteri rename_map
-        ~f:(fun ~key:v ~data:_ -> Var.Set.mem input v)
-    in
-    Constr.mk_clause [] (map_to_eqs ctx input_map)
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
+    Constr.mk_clause [] pre_eqs, env1, env2
   in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
 
@@ -169,18 +139,20 @@ let compare_subs_fun
     | None -> Bool.mk_false ctx
     | Some c_f -> Bool.mk_const_s ctx c_f
   in
-  let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_map:_ =
+  let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let ctx = Env.get_context env1 in
     (* Create the goal /\_f Called_f_original => Called_f_modified *)
     let no_additional_calls =
       Env.fold_fun_tids env1 ~init:[]
         ~f:(fun ~key:f ~data:_ goal ->
             let f_not_called_original =
+              (* TODO: update the context with this? *)
               Bool.mk_not ctx (mk_is_fun_called env1 f)
               |> Constr.mk_goal (Format.sprintf "%s not called in original" f)
               |> Constr.mk_constr
             in
             let f_not_called_modified =
+              (* TODO: same thing? *)
               Bool.mk_not ctx (mk_is_fun_called env2 f)
               |> Constr.mk_goal (Format.sprintf "%s not called in modified" f)
               |> Constr.mk_constr
@@ -189,9 +161,9 @@ let compare_subs_fun
             clause::goal
           )
     in
-    Constr.mk_clause [] no_additional_calls
+    Constr.mk_clause [] no_additional_calls, env1, env2
   in
-  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_map =
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
     let ctx = Env.get_context env1 in
     (* Create the hypothesis /\_f !Called_f_modified *)
     let modified_not_called =
@@ -205,7 +177,7 @@ let compare_subs_fun
             f_not_called_modified::hyp
           )
     in
-    let eqs = map_to_eqs ctx rename_map in
-    Constr.mk_clause [] (eqs @ modified_not_called)
+    let eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
+    Constr.mk_clause [] (eqs @ modified_not_called), env1, env2
   in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
