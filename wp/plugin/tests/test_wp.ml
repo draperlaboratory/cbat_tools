@@ -39,8 +39,12 @@ let check_result (stream : char Stream.t) (expected : string) (test_ctx : test_c
       | chr -> Buffer.add_char buff chr)
     stream
 
-let test_compare_elf (elf_dir : string) (expected : string) ?func:(func = "main")
-    ?check_calls:(check_calls = false) ?inline:(inline = false) (test_ctx : test_ctxt) : unit =
+let test_compare_elf (elf_dir : string) (expected : string)
+    ?func:(func = "main")
+    ?check_calls:(check_calls = false)
+    ?inline:(inline = false)
+    (test_ctx : test_ctxt)
+  : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let args =
     [ Format.sprintf "%s/dummy/hello_world.out" bin_dir;
@@ -98,6 +102,7 @@ let suite = [
   "Switch Cases"               >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
   "Remove Stack Protector"     >:: test_compare_elf "no_stack_protection" "SAT!";
   "Caller-saved registers"     >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:true;
+  "Pop RSP in Summary"         >:: test_compare_elf "retrowrite_stub" "UNSAT!";
   "Simple WP"                  >:: test_single_elf "simple_wp" "main" "SAT!";
   "Verifier Assume SAT"        >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
   "Verifier Assume UNSAT"      >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
