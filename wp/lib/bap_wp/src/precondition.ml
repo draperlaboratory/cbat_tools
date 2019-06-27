@@ -155,228 +155,6 @@ let bv_to_bool (bv : Constr.z3_expr) (ctx : Z3.context) (width : int) : Constr.z
   let zero = z3_expr_zero ctx width in
   Bool.mk_not ctx (Bool.mk_eq ctx bv zero)
 
-let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
-  let ctx = Env.get_context env in
-  let fun_name = Bool.mk_const_s ctx (Env.get_called env tid |>
-                                      Option.value_exn ?here:None ?error:None ?message:None) in
-  Constr.substitute_one post fun_name (Bool.mk_true ctx)
-
-let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
-  let name = Sub.name sub in
-  if name = "__VERIFIER_error" ||
-     name = "__assert_fail" then
-    let open Env in
-    Some {
-      spec_name = "spec_verifier_error";
-      spec = Summary (fun env _ _ ->
-          let pre =
-            Env.get_context env
-            |> Bool.mk_false
-            |> Constr.mk_goal "assert_fail"
-            |> Constr.mk_constr
-          in
-          pre, env
-        )
-    }
-  else
-    None
-
-let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
-  if Sub.name sub = "__VERIFIER_assume" then
-    let open Env in
-    Some {
-      spec_name = "spec_verifier_assume";
-      spec = Summary
-          (fun env post tid ->
-             let ctx = Env.get_context env in
-             let post = set_fun_called post env tid in
-             let args = Term.enum arg_t sub in
-             let input =
-               match Seq.find args
-                       ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.In ||
-                                    Bap.Std.Arg.intent a = Some Bap.Std.Both) with
-               | Some i -> i
-               | None -> failwith "Verifier headerfile must be specified with --api-path" in
-             let vars = input |> Bap.Std.Arg.rhs |> Exp.free_vars in
-             let v = Var.Set.choose_exn vars in
-             let z3_v, env = Env.get_var env v in
-             let size = BV.get_size (Expr.get_sort z3_v) in
-             let assumption =
-               bv_to_bool z3_v ctx size
-               |> Constr.mk_goal (Format.sprintf "assume %s" (Expr.to_string z3_v))
-               |> Constr.mk_constr
-             in
-             Constr.mk_clause [assumption] [post], env)
-    }
-  else
-    None
-
-let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
-  if String.is_prefix (Sub.name sub) ~prefix:"__VERIFIER_nondet_" then
-    let open Env in
-    Some {
-      spec_name = "spec_verifier_nondet";
-      spec = Summary
-          (fun env post tid ->
-             let post = set_fun_called post env tid in
-             let args = Term.enum arg_t sub in
-             let output =
-               match Seq.find args
-                       ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
-                                    Bap.Std.Arg.intent a = Some Bap.Std.Both) with
-               | Some o -> o
-               | None -> failwith "Verifier headerfile must be specified with --api-path" in
-             let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
-             let v = Var.Set.choose_exn vars in
-             let z3_v, env = Env.get_var env v in
-             let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ v) in
-             Constr.substitute_one post z3_v fresh, env)
-    }
-  else
-    None
-
-let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
-  if Term.first arg_t sub <> None then
-    let open Env in
-    Some {
-      spec_name = "spec_arg_terms";
-      spec = Summary
-          (fun env post tid ->
-             let post = set_fun_called post env tid in
-             let args = Term.enum arg_t sub in
-             let outs = Seq.filter args
-                 ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
-                              Bap.Std.Arg.intent a = Some Bap.Std.Both) in
-             (* Build an association list*)
-             let chaos = Seq.map outs
-                 ~f:(fun a ->
-                     let vars = a |> Bap.Std.Arg.rhs |> Exp.free_vars in
-                     assert (Var.Set.length vars = 1);
-                     let v = Var.Set.choose_exn vars in
-                     let z3_v, env = Env.get_var env v in
-                     let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
-                     let fresh = new_z3_expr env ~name:name (Var.typ v) in
-                     (z3_v, fresh)
-                   ) in
-             let (subs_from, subs_to) = chaos |> Seq.to_list |> List.unzip in
-             Constr.substitute post subs_from subs_to, env)
-    }
-  else
-    None
-
-let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
-  (* If the architecture is x86_64, the calling convention uses RAX as the output value. *)
-  let defs sub =
-    Term.enum blk_t sub
-    |> Seq.map ~f:(fun b -> Term.enum def_t b)
-    |> Seq.concat
-  in
-  let is_rax def =
-    let reg = Var.to_string (Def.lhs def) in
-    reg = "RAX" || reg = "EAX"
-  in
-  if Seq.exists (defs sub) ~f:is_rax then
-    (* RAX is a register that is used in the subroutine *)
-    let open Env in
-    Some {
-      spec_name = "spec_rax_out";
-      spec = Summary
-          (fun env post tid ->
-             let post = set_fun_called post env tid in
-             let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
-             let z3_v, env = Env.get_var env rax in
-             let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
-             let fresh = new_z3_expr env ~name:name (Var.typ rax) in
-             Constr.substitute_one post z3_v fresh, env)
-    }
-  else
-    None
-
-let spec_default : Env.fun_spec =
-  let open Env in
-  {
-    spec_name = "spec_default";
-    spec = Summary (fun env post tid -> set_fun_called post env tid, env)
-  }
-
-let spec_inline : Env.fun_spec =
-  let open Env in
-  {
-    spec_name = "spec_inline";
-    spec = Inline
-  }
-
-let jmp_spec_default : Env.jmp_spec =
-  fun _ _ _ _ -> None
-
-let int_spec_default : Env.int_spec =
-  fun env post _ ->
-  error "Currently we do not handle system calls%!";
-  post, env
-
-let num_unroll : int ref = ref 5
-
-let mk_default_env
-    ?jmp_spec:(jmp_spec = jmp_spec_default)
-    ?subs:(subs = Seq.empty)
-    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
-    ?exp_conds:(exp_conds = [])
-    (ctx : Z3.context)
-    (var_gen : Env.var_gen)
-  : Env.t =
-  let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
-               spec_arg_terms; spec_rax_out] in
-  Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
-    ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds
-
-let mk_inline_env
-    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
-    ?exp_conds:(exp_conds = [])
-    ~subs:(subs : Sub.t Seq.t)
-    (ctx : Z3.context)
-    (var_gen : Env.var_gen)
-  : Env.t =
-  let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet] in
-  Env.mk_env ctx var_gen ~specs ~default_spec:spec_inline
-    ~jmp_spec:jmp_spec_default ~int_spec:int_spec_default ~subs
-    ~num_loop_unroll ~exp_conds
-
-let sub_args (sub : Sub.t) : args =
-  let new_args = { inputs = Var.Set.empty; outputs = Var.Set.empty; both = Var.Set.empty } in
-  if spec_arg_terms sub <> None then
-    (* The subroutine has arg_t terms that we can iterate over to find the input/output args *)
-    Seq.fold (Term.enum arg_t sub) ~init:new_args
-      ~f:(fun args a ->
-          match Bap.Std.Arg.intent a, Exp.free_vars (Bap.Std.Arg.rhs a) with
-          | Some In, v -> { args with inputs = Var.Set.union args.inputs v }
-          | Some Out, v -> { args with outputs = Var.Set.union args.outputs v }
-          | Some Both, v -> { args with both = Var.Set.union args.both v }
-          | None, _ -> args)
-  else if spec_rax_out sub <> None then
-    (* The subroutine uses RAX as an output register if RAX is defined on the LHS in the sub *)
-    let defs = Term.enum blk_t sub |> Seq.map ~f:(fun b -> Term.enum def_t b) |> Seq.concat in
-    match Seq.find defs ~f:(fun d ->
-        let reg = Var.to_string (Def.lhs d) in
-        reg = "RAX" || reg = "EAX") with
-    | Some r -> { new_args with outputs = Var.Set.union new_args.outputs (Var.Set.singleton @@ Def.lhs r) }
-    | None -> new_args
-  else
-    begin
-      (* Default case: We are generating a trivial sub compare in this case *)
-      warning "Input and output variables for %s are empty%!" (Sub.name sub);
-      new_args
-    end
-
-let get_output_vars (sub : Sub.t) : Var.Set.t =
-  let args = sub_args sub in
-  Var.Set.union args.outputs args.both
-
-let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
-  let fmt = Format.str_formatter in
-  Word.pp_dec fmt w;
-  let s = Format.flush_str_formatter () in
-  BV.mk_numeral ctx s (Word.bitwidth w)
-
 let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Constr.t list * Constr.t list * Env.t =
   let ctx = Env.get_context env in
   let open Bap.Std.Bil.Types in
@@ -458,6 +236,274 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Constr.t list * Con
   let verify = List.map v ~f:Constr.mk_constr in
   let z3_exp, new_env = exp_to_z3_body exp env in
   z3_exp, assume, verify, new_env
+
+let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
+  let ctx = Env.get_context env in
+  let fun_name = Bool.mk_const_s ctx (Env.get_called env tid |>
+                                      Option.value_exn ?here:None ?error:None ?message:None) in
+  Constr.substitute_one post fun_name (Bool.mk_true ctx)
+
+let increment_stack_ptr (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
+  let subs = Env.get_subs env in
+  let target_sub = Seq.find_exn subs ~f:(fun s -> (Term.tid s) = tid) in
+  let blks = Term.to_sequence blk_t target_sub in
+  let ret_block =
+    Seq.find blks ~f:(fun b ->
+        let jmps = Term.to_sequence jmp_t b in
+        Seq.exists jmps ~f:(fun j ->
+            match Jmp.kind j with
+            | Ret _ -> true
+            | _ -> false))
+  in
+  match ret_block with
+  | None ->
+    warning "Target sub %s: %s has no return" (Tid.to_string tid) (Sub.name target_sub);
+    post
+  | Some blk ->
+    (* FIXME: We are assuming that the stack pointer is RSP here. *)
+    let rsp = Var.create "RSP" reg64_t in
+    let z3_rsp, env = Env.get_var env rsp in
+    let defs = Term.to_sequence def_t blk in
+    Seq.fold defs ~init:post ~f:(fun offset def ->
+        (* Looks for instructions in the form RSP := RSP + offset *)
+        if Var.equal (Def.lhs def) rsp then begin
+          match (Def.rhs def) with
+          | BinOp (PLUS, e1, Bil.Types.Int _) ->
+            if Exp.equal e1 (Bil.var rsp) then
+              let off, _, _, _ = exp_to_z3 (Def.rhs def) env in
+              Constr.substitute_one offset z3_rsp off
+            else offset
+          | BinOp (MINUS, e1, Bil.Types.Int w) ->
+            if Exp.equal e1 (Bil.var rsp) then begin
+              warning "RSP is being decremented by %s" (Word.to_string w) ;
+              let off, _, _, _ = exp_to_z3 (Def.rhs def) env in
+              Constr.substitute_one offset z3_rsp off
+            end else offset
+          | _ -> offset
+        end else
+          offset)
+
+let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
+  let name = Sub.name sub in
+  if name = "__VERIFIER_error" ||
+     name = "__assert_fail" then
+    let open Env in
+    Some {
+      spec_name = "spec_verifier_error";
+      spec = Summary (fun env _ _ ->
+          let pre =
+            Env.get_context env
+            |> Bool.mk_false
+            |> Constr.mk_goal "assert_fail"
+            |> Constr.mk_constr
+          in
+          pre, env
+        )
+    }
+  else
+    None
+
+let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
+  if Sub.name sub = "__VERIFIER_assume" then
+    let open Env in
+    Some {
+      spec_name = "spec_verifier_assume";
+      spec = Summary
+          (fun env post tid ->
+             let ctx = Env.get_context env in
+             let post = set_fun_called post env tid in
+             let post = increment_stack_ptr post env tid in
+             let args = Term.enum arg_t sub in
+             let input =
+               match Seq.find args
+                       ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.In ||
+                                    Bap.Std.Arg.intent a = Some Bap.Std.Both) with
+               | Some i -> i
+               | None -> failwith "Verifier headerfile must be specified with --api-path" in
+             let vars = input |> Bap.Std.Arg.rhs |> Exp.free_vars in
+             let v = Var.Set.choose_exn vars in
+             let z3_v, env = Env.get_var env v in
+             let size = BV.get_size (Expr.get_sort z3_v) in
+             let assumption =
+               bv_to_bool z3_v ctx size
+               |> Constr.mk_goal (Format.sprintf "assume %s" (Expr.to_string z3_v))
+               |> Constr.mk_constr
+             in
+             Constr.mk_clause [assumption] [post], env)
+    }
+  else
+    None
+
+let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
+  if String.is_prefix (Sub.name sub) ~prefix:"__VERIFIER_nondet_" then
+    let open Env in
+    Some {
+      spec_name = "spec_verifier_nondet";
+      spec = Summary
+          (fun env post tid ->
+             let post = set_fun_called post env tid in
+             let post = increment_stack_ptr post env tid in
+             let args = Term.enum arg_t sub in
+             let output =
+               match Seq.find args
+                       ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
+                                    Bap.Std.Arg.intent a = Some Bap.Std.Both) with
+               | Some o -> o
+               | None -> failwith "Verifier headerfile must be specified with --api-path" in
+             let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
+             let v = Var.Set.choose_exn vars in
+             let z3_v, env = Env.get_var env v in
+             let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ v) in
+             Constr.substitute_one post z3_v fresh, env)
+    }
+  else
+    None
+
+let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
+  if Term.first arg_t sub <> None then
+    let open Env in
+    Some {
+      spec_name = "spec_arg_terms";
+      spec = Summary
+          (fun env post tid ->
+             let post = set_fun_called post env tid in
+             let post = increment_stack_ptr post env tid in
+             let args = Term.enum arg_t sub in
+             let outs = Seq.filter args
+                 ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
+                              Bap.Std.Arg.intent a = Some Bap.Std.Both) in
+             (* Build an association list*)
+             let chaos = Seq.map outs
+                 ~f:(fun a ->
+                     let vars = a |> Bap.Std.Arg.rhs |> Exp.free_vars in
+                     assert (Var.Set.length vars = 1);
+                     let v = Var.Set.choose_exn vars in
+                     let z3_v, env = Env.get_var env v in
+                     let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
+                     let fresh = new_z3_expr env ~name:name (Var.typ v) in
+                     (z3_v, fresh)
+                   ) in
+             let (subs_from, subs_to) = chaos |> Seq.to_list |> List.unzip in
+             Constr.substitute post subs_from subs_to, env)
+    }
+  else
+    None
+
+let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
+  (* If the architecture is x86_64, the calling convention uses RAX as the output value. *)
+  let defs sub =
+    Term.enum blk_t sub
+    |> Seq.map ~f:(fun b -> Term.enum def_t b)
+    |> Seq.concat
+  in
+  let is_rax def =
+    let reg = Var.to_string (Def.lhs def) in
+    reg = "RAX" || reg = "EAX"
+  in
+  if Seq.exists (defs sub) ~f:is_rax then
+    (* RAX is a register that is used in the subroutine *)
+    let open Env in
+    Some {
+      spec_name = "spec_rax_out";
+      spec = Summary
+          (fun env post tid ->
+             let post = set_fun_called post env tid in
+             let post = increment_stack_ptr post env tid in
+             let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
+             let z3_v, env = Env.get_var env rax in
+             let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
+             let fresh = new_z3_expr env ~name:name (Var.typ rax) in
+             Constr.substitute_one post z3_v fresh, env)
+    }
+  else
+    None
+
+let spec_default : Env.fun_spec =
+  let open Env in
+  {
+    spec_name = "spec_default";
+    spec = Summary (fun env post tid ->
+        let post = set_fun_called post env tid in
+        increment_stack_ptr post env tid, env)
+  }
+
+let spec_inline : Env.fun_spec =
+  let open Env in
+  {
+    spec_name = "spec_inline";
+    spec = Inline
+  }
+
+let jmp_spec_default : Env.jmp_spec =
+  fun _ _ _ _ -> None
+
+let int_spec_default : Env.int_spec =
+  fun env post _ ->
+  error "Currently we do not handle system calls%!";
+  post, env
+
+let num_unroll : int ref = ref 5
+
+let mk_default_env
+    ?jmp_spec:(jmp_spec = jmp_spec_default)
+    ?subs:(subs = Seq.empty)
+    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
+    ?exp_conds:(exp_conds = [])
+    (ctx : Z3.context)
+    (var_gen : Env.var_gen)
+  : Env.t =
+  let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
+               spec_arg_terms; spec_rax_out] in
+  Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
+    ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds
+
+let mk_inline_env
+    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
+    ?exp_conds:(exp_conds = [])
+    ~subs:(subs : Sub.t Seq.t)
+    (ctx : Z3.context)
+    (var_gen : Env.var_gen)
+  : Env.t =
+  let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet] in
+  Env.mk_env ctx var_gen ~specs ~default_spec:spec_inline
+    ~jmp_spec:jmp_spec_default ~int_spec:int_spec_default ~subs
+    ~num_loop_unroll ~exp_conds
+
+let sub_args (sub : Sub.t) : args =
+  let new_args = { inputs = Var.Set.empty; outputs = Var.Set.empty; both = Var.Set.empty } in
+  if spec_arg_terms sub <> None then
+    (* The subroutine has arg_t terms that we can iterate over to find the input/output args *)
+    Seq.fold (Term.enum arg_t sub) ~init:new_args
+      ~f:(fun args a ->
+          match Bap.Std.Arg.intent a, Exp.free_vars (Bap.Std.Arg.rhs a) with
+          | Some In, v -> { args with inputs = Var.Set.union args.inputs v }
+          | Some Out, v -> { args with outputs = Var.Set.union args.outputs v }
+          | Some Both, v -> { args with both = Var.Set.union args.both v }
+          | None, _ -> args)
+  else if spec_rax_out sub <> None then
+    (* The subroutine uses RAX as an output register if RAX is defined on the LHS in the sub *)
+    let defs = Term.enum blk_t sub |> Seq.map ~f:(fun b -> Term.enum def_t b) |> Seq.concat in
+    match Seq.find defs ~f:(fun d ->
+        let reg = Var.to_string (Def.lhs d) in
+        reg = "RAX" || reg = "EAX") with
+    | Some r -> { new_args with outputs = Var.Set.union new_args.outputs (Var.Set.singleton @@ Def.lhs r) }
+    | None -> new_args
+  else
+    begin
+      (* Default case: We are generating a trivial sub compare in this case *)
+      warning "Input and output variables for %s are empty%!" (Sub.name sub);
+      new_args
+    end
+
+let get_output_vars (sub : Sub.t) : Var.Set.t =
+  let args = sub_args sub in
+  Var.Set.union args.outputs args.both
+
+let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
+  let fmt = Format.str_formatter in
+  Word.pp_dec fmt w;
+  let s = Format.flush_str_formatter () in
+  BV.mk_numeral ctx s (Word.bitwidth w)
 
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
   let jmp_spec = Env.get_jmp_handler env in

@@ -15,7 +15,7 @@ install: build verifier save_project
 	bapbundle update -desc 'Computes the weakest precondition of a subroutine given a postcondition' $(PASS_NAME).plugin
 	bapbundle install $(PASS_NAME).plugin
 
-test: install save_project dummy
+test: install save_project
 	ocamlbuild -r -use-ocamlfind -pkgs 'bap,z3,bap_wp,oUnit' -tag 'warn(A-48-44),debug,thread' -I tests test.byte
 	ocamlrun test.byte
 
@@ -29,7 +29,6 @@ dummy:
 	$(MAKE) -C $(SAMPLE_BIN_DIR)/dummy
 
 clean:
-	$(MAKE) -C $(SAMPLE_BIN_DIR)/dummy $@
 	$(MAKE) -C $(SAVE_PROJECT_DIR) $@
 	bapbundle remove $(PASS_NAME).plugin
 	bapbuild -clean
