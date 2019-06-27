@@ -40,7 +40,7 @@ type var_gen
     precondition based off a summary or by inlining the function and
     visiting it with {!Precondition.visit_sub}. *)
 type fun_spec_type =
-  | Summary of (t -> Constr.t -> Bap.Std.Tid.t -> Constr.t)
+  | Summary of (t -> Constr.t -> Bap.Std.Tid.t -> Constr.t * t)
   | Inline
 
 (** Type that specifies what rules should be used when calculating
@@ -51,11 +51,11 @@ type fun_spec = {
 }
 
 (** Type that specifies what rules should be used when visiting a jump in a BIR program. *)
-type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> Constr.t option
+type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> (Constr.t * t) option
 
 (** Type that specifies what rules should be used when calculating
     the precondition of an interrupt. *)
-type int_spec = t -> Constr.t -> int -> Constr.t
+type int_spec = t -> Constr.t -> int -> Constr.t * t
 
 (** The loop handling procedure for the appropriate blocks. *)
 type loop_handler = {
@@ -76,6 +76,7 @@ type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 val mk_env
   :  ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
   -> ?exp_conds:exp_cond list
+  -> ?freshen_vars:bool
   -> specs:(Bap.Std.Sub.t -> fun_spec option) list
   -> default_spec:fun_spec
   -> jmp_spec:jmp_spec
@@ -98,6 +99,10 @@ val mk_var_gen : unit -> var_gen
 
 (** Get a fresh variable name, possibly prefixed by a given [name] string. *)
 val get_fresh : ?name:string -> var_gen -> string
+
+(** Set variable freshening, which will cause constraint generation to
+    create fresh variables. *)
+val set_freshen : t -> bool -> t
 
 (** A reference to {!Precondition.visit_sub} that is needed in the
     loop handler of the environment simulating "open recursion". *)
@@ -128,7 +133,7 @@ val get_subs : t -> Bap.Std.Sub.t Bap.Std.Seq.t
 val get_var_map : t -> Constr.z3_expr EnvMap.t
 
 (** Look up the Z3 variable that represents a BIR variable. *)
-val get_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
+val get_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
 
 (** Look up the precondition for a given block in the environment. Currently returns
     True if the block is not yet visited. *)
@@ -161,3 +166,19 @@ val get_loop_handler :
     {!Constr.z3_expr}. *)
 val fold_fun_tids :
   t -> init:'a -> f:(key:string -> data:Bap.Std.Tid.t -> 'a -> 'a) -> 'a
+
+(*-------- Z3 constant creation utilities ----------*)
+
+(** Create a constant Z3 expression of a type that corresponds to a bap type, where
+    the correspondence is as follows:
+
+    - BitVector of width [w] -> BitVector of width [w]
+    - Memory value with address size [a] and word size [w] ->
+        Functional array from BitVector [a] to BitVector [w]. *)
+val mk_z3_expr : Z3.context -> name:string -> typ:Bap.Std.Type.t -> Constr.z3_expr
+
+(** Create a Z3 constant of the appropriate name and type, but ensure that the
+    constant is "fresh" with the {!Environment.var_gen}. *)
+val new_z3_expr : ?name:string -> t -> Bap.Std.Type.t -> Constr.z3_expr
+
+(*---------------------------------------------------*)
