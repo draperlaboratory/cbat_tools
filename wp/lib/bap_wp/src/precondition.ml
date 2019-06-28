@@ -280,11 +280,11 @@ let get_stack_ptr_offsets (sub : Sub.t) : Exp.t list =
           offsets)
 
 let increment_stack_ptr (post : Constr.t) (env : Env.t) (offsets : Exp.t list)
-  : Constr.t =
+  : Constr.t * Env.t =
   let rsp, _ = Env.get_var env (Var.create "RSP" reg64_t) in
-  List.fold offsets ~init:post ~f:(fun p off ->
-      let z3_off, _, _, _ = exp_to_z3 off env in
-      Constr.substitute_one p rsp z3_off)
+  List.fold offsets ~init:(post, env) ~f:(fun (p, e) off ->
+      let z3_off, _, _, env = exp_to_z3 off e in
+      Constr.substitute_one p rsp z3_off, env)
 
 let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -316,7 +316,7 @@ let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
           (fun env post tid ->
              let ctx = Env.get_context env in
              let post = set_fun_called post env tid in
-             let post = increment_stack_ptr post env offsets in
+             let post, env = increment_stack_ptr post env offsets in
              let args = Term.enum arg_t sub in
              let input =
                match Seq.find args
@@ -347,7 +347,7 @@ let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post = increment_stack_ptr post env offsets in
+             let post, env = increment_stack_ptr post env offsets in
              let args = Term.enum arg_t sub in
              let output =
                match Seq.find args
@@ -373,7 +373,7 @@ let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post = increment_stack_ptr post env offsets in
+             let post, env = increment_stack_ptr post env offsets in
              let args = Term.enum arg_t sub in
              let outs = Seq.filter args
                  ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
@@ -415,7 +415,7 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post = increment_stack_ptr post env offsets in
+             let post, env = increment_stack_ptr post env offsets in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              let z3_v, env = Env.get_var env rax in
              let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
@@ -432,7 +432,7 @@ let spec_default (sub : Sub.t) : Env.fun_spec =
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
         let post = set_fun_called post env tid in
-        increment_stack_ptr post env offsets, env)
+        increment_stack_ptr post env offsets)
   }
 
 let spec_inline (_ : Sub.t) : Env.fun_spec =
