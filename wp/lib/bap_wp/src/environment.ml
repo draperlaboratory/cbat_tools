@@ -100,12 +100,12 @@ let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t) : string TidMap.t =
 
 let init_sub_handler (subs : Sub.t Seq.t)
     ~specs:(specs : (Sub.t -> fun_spec option) list)
-    ~default_spec:(default_spec : fun_spec) : fun_spec TidMap.t =
+    ~default_spec:(default_spec : Sub.t -> fun_spec) : fun_spec TidMap.t =
   Seq.fold subs ~init:TidMap.empty
     ~f:(fun map sub ->
         let spec = List.find_map specs ~f:(fun creator -> creator sub)
-                   |> Option.value ~default:default_spec in
-        info "%s: %s%!" (Sub.name sub) spec.spec_name;
+                   |> Option.value ~default:(default_spec sub) in
+        debug "%s: %s%!" (Sub.name sub) spec.spec_name;
         TidMap.set map ~key:(Term.tid sub) ~data:spec)
 
 (* FIXME: this is something of a hack: we use a function ref as a
@@ -147,7 +147,7 @@ let mk_env
     ?exp_conds:(exp_conds = [])
     ?freshen_vars:(freshen = false)
     ~specs:(specs : (Sub.t -> fun_spec option) list)
-    ~default_spec:(default_spec : fun_spec)
+    ~default_spec:(default_spec : Sub.t -> fun_spec)
     ~jmp_spec:(jmp_spec : jmp_spec)
     ~int_spec:(int_spec : int_spec)
     ~num_loop_unroll:(num_loop_unroll : int)

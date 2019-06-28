@@ -100,7 +100,7 @@ val word_to_z3 : Z3.context -> Bap.Std.Word.t -> Constr.z3_expr
 val exp_to_z3 : Bap.Std.exp -> Env.t -> Constr.z3_expr * Constr.t list * Constr.t list * Env.t
 
 (** The default spec used when mapping subroutines to their preconditions. *)
-val spec_default : Env.fun_spec
+val spec_default : Bap.Std.Sub.t -> Env.fun_spec
 
 (** The default jmp spec for handling branches in a BIR program. *)
 val jmp_spec_default : Env.jmp_spec

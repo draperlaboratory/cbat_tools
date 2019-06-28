@@ -243,10 +243,8 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
                                       Option.value_exn ?here:None ?error:None ?message:None) in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
-let increment_stack_ptr (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
-  let subs = Env.get_subs env in
-  let target_sub = Seq.find_exn subs ~f:(fun s -> (Term.tid s) = tid) in
-  let blks = Term.to_sequence blk_t target_sub in
+let get_stack_ptr_offsets (sub : Sub.t) : Exp.t list =
+  let blks = Term.to_sequence blk_t sub in
   let ret_block =
     Seq.find blks ~f:(fun b ->
         let jmps = Term.to_sequence jmp_t b in
@@ -257,31 +255,36 @@ let increment_stack_ptr (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t
   in
   match ret_block with
   | None ->
-    warning "Target sub %s: %s has no return" (Tid.to_string tid) (Sub.name target_sub);
-    post
+    warning "Sub %s has no return" (Sub.name sub);
+    []
   | Some blk ->
     (* FIXME: We are assuming that the stack pointer is RSP here. *)
     let rsp = Var.create "RSP" reg64_t in
-    let z3_rsp, env = Env.get_var env rsp in
     let defs = Term.to_sequence def_t blk in
-    Seq.fold defs ~init:post ~f:(fun offset def ->
-        (* Looks for instructions in the form RSP := RSP + offset *)
+    Seq.fold defs ~init:[] ~f:(fun offsets def ->
+        (* Looks for instructions in the form RSP := RSP +/- offset *)
         if Var.equal (Def.lhs def) rsp then begin
-          match (Def.rhs def) with
-          | BinOp (PLUS, e1, Bil.Types.Int _) ->
-            if Exp.equal e1 (Bil.var rsp) then
-              let off, _, _, _ = exp_to_z3 (Def.rhs def) env in
-              Constr.substitute_one offset z3_rsp off
-            else offset
-          | BinOp (MINUS, e1, Bil.Types.Int w) ->
-            if Exp.equal e1 (Bil.var rsp) then begin
+          let rhs = Def.rhs def in
+          match rhs with
+          | BinOp (PLUS, Var v, Int _) ->
+            if Var.equal v rsp then
+              rhs :: offsets
+            else offsets
+          | BinOp (MINUS, Var v, Bil.Types.Int w) ->
+            if Var.equal v rsp then begin
               warning "RSP is being decremented by %s" (Word.to_string w) ;
-              let off, _, _, _ = exp_to_z3 (Def.rhs def) env in
-              Constr.substitute_one offset z3_rsp off
-            end else offset
-          | _ -> offset
+              rhs :: offsets
+            end else offsets
+          | _ -> offsets
         end else
-          offset)
+          offsets)
+
+let increment_stack_ptr (post : Constr.t) (env : Env.t) (offsets : Exp.t list)
+  : Constr.t =
+  let rsp, _ = Env.get_var env (Var.create "RSP" reg64_t) in
+  List.fold offsets ~init:post ~f:(fun p off ->
+      let z3_off, _, _, _ = exp_to_z3 off env in
+      Constr.substitute_one p rsp z3_off)
 
 let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -305,6 +308,7 @@ let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
 
 let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
   if Sub.name sub = "__VERIFIER_assume" then
+    let offsets = get_stack_ptr_offsets sub in
     let open Env in
     Some {
       spec_name = "spec_verifier_assume";
@@ -312,7 +316,7 @@ let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
           (fun env post tid ->
              let ctx = Env.get_context env in
              let post = set_fun_called post env tid in
-             let post = increment_stack_ptr post env tid in
+             let post = increment_stack_ptr post env offsets in
              let args = Term.enum arg_t sub in
              let input =
                match Seq.find args
@@ -336,13 +340,14 @@ let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
 
 let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
   if String.is_prefix (Sub.name sub) ~prefix:"__VERIFIER_nondet_" then
+    let offsets = get_stack_ptr_offsets sub in
     let open Env in
     Some {
       spec_name = "spec_verifier_nondet";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post = increment_stack_ptr post env tid in
+             let post = increment_stack_ptr post env offsets in
              let args = Term.enum arg_t sub in
              let output =
                match Seq.find args
@@ -361,13 +366,14 @@ let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
 
 let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
   if Term.first arg_t sub <> None then
+    let offsets = get_stack_ptr_offsets sub in
     let open Env in
     Some {
       spec_name = "spec_arg_terms";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post = increment_stack_ptr post env tid in
+             let post = increment_stack_ptr post env offsets in
              let args = Term.enum arg_t sub in
              let outs = Seq.filter args
                  ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
@@ -402,13 +408,14 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
   in
   if Seq.exists (defs sub) ~f:is_rax then
     (* RAX is a register that is used in the subroutine *)
+    let offsets = get_stack_ptr_offsets sub in
     let open Env in
     Some {
       spec_name = "spec_rax_out";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post = increment_stack_ptr post env tid in
+             let post = increment_stack_ptr post env offsets in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              let z3_v, env = Env.get_var env rax in
              let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
@@ -418,16 +425,17 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
   else
     None
 
-let spec_default : Env.fun_spec =
+let spec_default (sub : Sub.t) : Env.fun_spec =
+  let offsets = get_stack_ptr_offsets sub in
   let open Env in
   {
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
         let post = set_fun_called post env tid in
-        increment_stack_ptr post env tid, env)
+        increment_stack_ptr post env offsets, env)
   }
 
-let spec_inline : Env.fun_spec =
+let spec_inline (_ : Sub.t) : Env.fun_spec =
   let open Env in
   {
     spec_name = "spec_inline";
