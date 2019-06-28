@@ -78,7 +78,7 @@ val mk_env
   -> ?exp_conds:exp_cond list
   -> ?freshen_vars:bool
   -> specs:(Bap.Std.Sub.t -> fun_spec option) list
-  -> default_spec:fun_spec
+  -> default_spec:(Bap.Std.Sub.t -> fun_spec)
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
   -> num_loop_unroll:int
