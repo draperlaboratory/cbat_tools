@@ -40,7 +40,7 @@ let check_result (stream : char Stream.t) (expected : string) (test_ctx : test_c
     stream
 
 let test_compare_elf (elf_dir : string) (expected : string) ?func:(func = "main")
-    ?check_calls:(check_calls = false) (test_ctx : test_ctxt) : unit =
+    ?check_calls:(check_calls = false) ?inline:(inline = false) (test_ctx : test_ctxt) : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let args =
     [ Format.sprintf "%s/dummy/hello_world.out" bin_dir;
@@ -50,6 +50,7 @@ let test_compare_elf (elf_dir : string) (expected : string) ?func:(func = "main"
       Format.sprintf "--wp-file2=%s/main_2.bpj" target;
       Format.sprintf "--wp-function=%s" func;
       Format.sprintf "--wp-check-calls=%b" check_calls;
+      Format.sprintf "--wp-inline=%b" inline;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
@@ -96,6 +97,7 @@ let suite = [
   "Switch Case Assignments"    >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
   "Switch Cases"               >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
   "Remove Stack Protector"     >:: test_compare_elf "no_stack_protection" "SAT!";
+  "Caller-saved registers"     >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:true;
   "Simple WP"                  >:: test_single_elf "simple_wp" "main" "SAT!";
   "Verifier Assume SAT"        >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
   "Verifier Assume UNSAT"      >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
