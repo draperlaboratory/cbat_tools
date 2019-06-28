@@ -10,7 +10,7 @@ install:
 doc:
 	$(MAKE) -C $(BAP_WP) $@
 
-test:
+test: install
 	$(MAKE) -C $(BAP_WP) $@
 	$(MAKE) -C $(WP) $@
 
