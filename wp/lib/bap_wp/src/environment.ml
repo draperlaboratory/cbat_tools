@@ -39,7 +39,8 @@ type t = {
   jmp_handler : jmp_spec;
   int_handler : int_spec;
   loop_handler : loop_handler;
-  exp_conds : exp_cond list
+  exp_conds : exp_cond list;
+  arch : Arch.t
 }
 
 and fun_spec_type =
@@ -98,13 +99,13 @@ let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t) : string TidMap.t =
         let is_called = get_fresh ~name:("called_" ^ (Sub.name sub)) var_gen in
         TidMap.set map ~key:(Term.tid sub) ~data:is_called)
 
-let init_sub_handler (subs : Sub.t Seq.t)
-    ~specs:(specs : (Sub.t -> fun_spec option) list)
-    ~default_spec:(default_spec : Sub.t -> fun_spec) : fun_spec TidMap.t =
+let init_sub_handler (subs : Sub.t Seq.t) (arch : Arch.t)
+    ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
+    ~default_spec:(default_spec : Sub.t -> Arch.t -> fun_spec) : fun_spec TidMap.t =
   Seq.fold subs ~init:TidMap.empty
     ~f:(fun map sub ->
-        let spec = List.find_map specs ~f:(fun creator -> creator sub)
-                   |> Option.value ~default:(default_spec sub) in
+        let spec = List.find_map specs ~f:(fun creator -> creator sub arch)
+                   |> Option.value ~default:(default_spec sub arch) in
         debug "%s: %s%!" (Sub.name sub) spec.spec_name;
         TidMap.set map ~key:(Term.tid sub) ~data:spec)
 
@@ -146,8 +147,9 @@ let mk_env
     ?subs:(subs = Seq.empty)
     ?exp_conds:(exp_conds = [])
     ?freshen_vars:(freshen = false)
-    ~specs:(specs : (Sub.t -> fun_spec option) list)
-    ~default_spec:(default_spec : Sub.t -> fun_spec)
+    ?arch:(arch = `x86_64)
+    ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
+    ~default_spec:(default_spec : Sub.t -> Arch.t -> fun_spec)
     ~jmp_spec:(jmp_spec : jmp_spec)
     ~int_spec:(int_spec : int_spec)
     ~num_loop_unroll:(num_loop_unroll : int)
@@ -163,11 +165,12 @@ let mk_env
     precond_map = TidMap.empty;
     fun_name_tid = init_fun_name subs;
     call_map = init_call_map var_gen subs;
-    sub_handler = init_sub_handler subs ~specs:specs ~default_spec:default_spec;
+    sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
     loop_handler = init_loop_unfold num_loop_unroll;
-    exp_conds = exp_conds
+    exp_conds = exp_conds;
+    arch = arch
   }
 
 let env_to_string (env : t) : string =
@@ -250,6 +253,9 @@ let get_int_handler (env : t) : int_spec =
 let get_loop_handler (env : t) :
   t -> Constr.t -> start:Graphs.Ir.Edge.node -> Graphs.Ir.t -> t =
   env.loop_handler.handle
+
+let get_arch (env : t) : Arch.t =
+  env.arch
 
 let fold_fun_tids (env : t) ~init:(init : 'a)
     ~f:(f : key:string -> data:Tid.t -> 'a -> 'a) : 'a =

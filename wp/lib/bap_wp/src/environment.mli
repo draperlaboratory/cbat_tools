@@ -77,8 +77,9 @@ val mk_env
   :  ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
   -> ?exp_conds:exp_cond list
   -> ?freshen_vars:bool
-  -> specs:(Bap.Std.Sub.t -> fun_spec option) list
-  -> default_spec:(Bap.Std.Sub.t -> fun_spec)
+  -> ?arch:Bap.Std.Arch.t
+  -> specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec option) list
+  -> default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec)
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
   -> num_loop_unroll:int
@@ -132,10 +133,10 @@ val get_subs : t -> Bap.Std.Sub.t Bap.Std.Seq.t
 (** Obtains the var_map containing a mapping of BIR variables to Z3 variables. *)
 val get_var_map : t -> Constr.z3_expr EnvMap.t
 
-(** Look up the Z3 variable that represents a BIR variable. *)
+(** Looks up the Z3 variable that represents a BIR variable. *)
 val get_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
 
-(** Look up the precondition for a given block in the environment. Currently returns
+(** Looks up the precondition for a given block in the environment. Currently returns
     True if the block is not yet visited. *)
 val get_precondition : t -> Bap.Std.Tid.t -> Constr.t option
 
@@ -161,6 +162,9 @@ val get_int_handler : t -> int_spec
     the BIR program. *)
 val get_loop_handler :
   t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Edge.node -> Bap.Std.Graphs.Ir.t -> t)
+
+(** Obtains the architecture of the program. *)
+val get_arch : t -> Bap.Std.Arch.t
 
 (** Performs a fold on the map of of function names to tids to generate a
     {!Constr.z3_expr}. *)
