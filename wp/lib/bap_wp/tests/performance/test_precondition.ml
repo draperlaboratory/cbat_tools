@@ -26,7 +26,7 @@ module BV = Z3.BitVector
 
 (* To run these tests: `make test.performance` in bap_wp directory *)
 
-let mk_z3_expr e env = let e_val, _, _ = Pre.exp_to_z3 e env in e_val
+let mk_z3_expr e env = let e_val, _, _, _ = Pre.exp_to_z3 e env in e_val
 
 let format_log_error (body : string) (pre : Constr.t) (post : Constr.t) : string =
   Format.asprintf "Post:\n%a\n\nAnalyzing:\n%sPre:\n%a\n"
@@ -109,9 +109,9 @@ let test_nested_ifs (test_ctx : test_ctxt) : unit =
             if t = tid then begin
               (* The first branch in the seq is the innermost in the nest. *)
               if i = 0 then
-                Some (Constr.mk_ite tid (cond_to_z3 cond env) false_constr true_constr)
+                Some (Constr.mk_ite tid (cond_to_z3 cond env) false_constr true_constr, env)
               else
-                Some (Constr.mk_ite tid (cond_to_z3 cond env) branch_pre true_constr)
+                Some (Constr.mk_ite tid (cond_to_z3 cond env) branch_pre true_constr, env)
             end
             else
               None)
