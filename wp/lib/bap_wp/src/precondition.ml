@@ -243,7 +243,7 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
                                       Option.value_exn ?here:None ?error:None ?message:None) in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
-let get_stack_ptr_offsets (sub : Sub.t) : Exp.t list =
+let get_stack_ptr_offsets (sub : Sub.t) (arch : Arch.t) : Exp.t list =
   let blks = Term.to_sequence blk_t sub in
   let ret_block =
     Seq.find blks ~f:(fun b ->
@@ -258,21 +258,20 @@ let get_stack_ptr_offsets (sub : Sub.t) : Exp.t list =
     warning "Sub %s has no return" (Sub.name sub);
     []
   | Some blk ->
-    (* FIXME: We are assuming that the stack pointer is RSP here. *)
-    let rsp = Var.create "RSP" reg64_t in
+    let module Target = (val target_of_arch arch) in
     let defs = Term.to_sequence def_t blk in
     Seq.fold defs ~init:[] ~f:(fun offsets def ->
-        (* Looks for instructions in the form RSP := RSP +/- offset *)
-        if Var.equal (Def.lhs def) rsp then begin
+        (* Looks for instructions in the form SP := SP +/- offset *)
+        if Var.equal (Def.lhs def) Target.CPU.sp then begin
           let rhs = Def.rhs def in
           match rhs with
           | BinOp (PLUS, Var v, Int _) ->
-            if Var.equal v rsp then
+            if Var.equal v Target.CPU.sp then
               rhs :: offsets
             else offsets
           | BinOp (MINUS, Var v, Bil.Types.Int w) ->
-            if Var.equal v rsp then begin
-              warning "RSP is being decremented by %s" (Word.to_string w) ;
+            if Var.equal v Target.CPU.sp then begin
+              warning "Stack pointer is being decremented by %s" (Word.to_string w);
               rhs :: offsets
             end else offsets
           | _ -> offsets
@@ -281,12 +280,14 @@ let get_stack_ptr_offsets (sub : Sub.t) : Exp.t list =
 
 let increment_stack_ptr (post : Constr.t) (env : Env.t) (offsets : Exp.t list)
   : Constr.t * Env.t =
-  let rsp, _ = Env.get_var env (Var.create "RSP" reg64_t) in
+  let arch = Env.get_arch env in
+  let module Target = (val target_of_arch arch) in
+  let sp, _ = Env.get_var env Target.CPU.sp in
   List.fold offsets ~init:(post, env) ~f:(fun (p, e) off ->
       let z3_off, _, _, env = exp_to_z3 off e in
-      Constr.substitute_one p rsp z3_off, env)
+      Constr.substitute_one p sp z3_off, env)
 
-let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
+let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let name = Sub.name sub in
   if name = "__VERIFIER_error" ||
      name = "__assert_fail" then
@@ -306,9 +307,9 @@ let spec_verifier_error (sub : Sub.t) : Env.fun_spec option =
   else
     None
 
-let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
+let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if Sub.name sub = "__VERIFIER_assume" then
-    let offsets = get_stack_ptr_offsets sub in
+    let offsets = get_stack_ptr_offsets sub arch in
     let open Env in
     Some {
       spec_name = "spec_verifier_assume";
@@ -338,9 +339,9 @@ let spec_verifier_assume (sub : Sub.t) : Env.fun_spec option =
   else
     None
 
-let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
+let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if String.is_prefix (Sub.name sub) ~prefix:"__VERIFIER_nondet_" then
-    let offsets = get_stack_ptr_offsets sub in
+    let offsets = get_stack_ptr_offsets sub arch in
     let open Env in
     Some {
       spec_name = "spec_verifier_nondet";
@@ -364,9 +365,9 @@ let spec_verifier_nondet (sub : Sub.t) : Env.fun_spec option =
   else
     None
 
-let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
+let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if Term.first arg_t sub <> None then
-    let offsets = get_stack_ptr_offsets sub in
+    let offsets = get_stack_ptr_offsets sub arch in
     let open Env in
     Some {
       spec_name = "spec_arg_terms";
@@ -395,8 +396,8 @@ let spec_arg_terms (sub : Sub.t) : Env.fun_spec option =
   else
     None
 
-let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
-  (* If the architecture is x86_64, the calling convention uses RAX as the output value. *)
+let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+  (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
     Term.enum blk_t sub
     |> Seq.map ~f:(fun b -> Term.enum def_t b)
@@ -408,7 +409,7 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
   in
   if Seq.exists (defs sub) ~f:is_rax then
     (* RAX is a register that is used in the subroutine *)
-    let offsets = get_stack_ptr_offsets sub in
+    let offsets = get_stack_ptr_offsets sub arch in
     let open Env in
     Some {
       spec_name = "spec_rax_out";
@@ -425,8 +426,8 @@ let spec_rax_out (sub : Sub.t) : Env.fun_spec option =
   else
     None
 
-let spec_default (sub : Sub.t) : Env.fun_spec =
-  let offsets = get_stack_ptr_offsets sub in
+let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
+  let offsets = get_stack_ptr_offsets sub arch in
   let open Env in
   {
     spec_name = "spec_default";
@@ -435,7 +436,7 @@ let spec_default (sub : Sub.t) : Env.fun_spec =
         increment_stack_ptr post env offsets)
   }
 
-let spec_inline (_ : Sub.t) : Env.fun_spec =
+let spec_inline (_ : Sub.t) (_ : Arch. t): Env.fun_spec =
   let open Env in
   {
     spec_name = "spec_inline";
@@ -457,17 +458,19 @@ let mk_default_env
     ?subs:(subs = Seq.empty)
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?exp_conds:(exp_conds = [])
+    ?arch:(arch = `x86_64)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
   let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
                spec_arg_terms; spec_rax_out] in
   Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
-    ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds
+    ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
 
 let mk_inline_env
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?exp_conds:(exp_conds = [])
+    ?arch:(arch = `x86_64)
     ~subs:(subs : Sub.t Seq.t)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
@@ -475,11 +478,11 @@ let mk_inline_env
   let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet] in
   Env.mk_env ctx var_gen ~specs ~default_spec:spec_inline
     ~jmp_spec:jmp_spec_default ~int_spec:int_spec_default ~subs
-    ~num_loop_unroll ~exp_conds
+    ~num_loop_unroll ~exp_conds ~arch
 
 let sub_args (sub : Sub.t) : args =
   let new_args = { inputs = Var.Set.empty; outputs = Var.Set.empty; both = Var.Set.empty } in
-  if spec_arg_terms sub <> None then
+  if not (Seq.is_empty (Term.to_sequence arg_t sub)) then
     (* The subroutine has arg_t terms that we can iterate over to find the input/output args *)
     Seq.fold (Term.enum arg_t sub) ~init:new_args
       ~f:(fun args a ->
@@ -488,20 +491,17 @@ let sub_args (sub : Sub.t) : args =
           | Some Out, v -> { args with outputs = Var.Set.union args.outputs v }
           | Some Both, v -> { args with both = Var.Set.union args.both v }
           | None, _ -> args)
-  else if spec_rax_out sub <> None then
+  else
     (* The subroutine uses RAX as an output register if RAX is defined on the LHS in the sub *)
     let defs = Term.enum blk_t sub |> Seq.map ~f:(fun b -> Term.enum def_t b) |> Seq.concat in
     match Seq.find defs ~f:(fun d ->
         let reg = Var.to_string (Def.lhs d) in
         reg = "RAX" || reg = "EAX") with
     | Some r -> { new_args with outputs = Var.Set.union new_args.outputs (Var.Set.singleton @@ Def.lhs r) }
-    | None -> new_args
-  else
-    begin
+    | None ->
       (* Default case: We are generating a trivial sub compare in this case *)
       warning "Input and output variables for %s are empty%!" (Sub.name sub);
       new_args
-    end
 
 let get_output_vars (sub : Sub.t) : Var.Set.t =
   let args = sub_args sub in

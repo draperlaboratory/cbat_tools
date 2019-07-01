@@ -21,11 +21,16 @@ module Pre = Precondition
 module Env = Environment
 module Constr = Constraint
 
-exception Missing_function of string
+let missing_func_msg (func : string) : string =
+  Format.sprintf "Missing function: %s is not in binary." func
+
+let diff_arch_msg (arch1 : Arch.t) (arch2 : Arch.t) : string =
+  Format.sprintf "Binaries are of two different architectures: %s vs %s"
+    (Arch.to_string arch1) (Arch.to_string arch2)
 
 let find_func (subs : Sub.t Seq.t) (func : string) : Sub.t =
   match Seq.find ~f:(fun s -> String.equal (Sub.name s) func) subs with
-  | None -> raise (Missing_function func)
+  | None -> failwith (missing_func_msg func)
   | Some f -> f
 
 let update_default_num_unroll (num_unroll : int option) : unit =
@@ -36,13 +41,14 @@ let update_default_num_unroll (num_unroll : int option) : unit =
 let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string) ~inline:(inline : bool) ~post_cond:(post_cond : string)
   : Constr.t =
+  let arch = Project.arch proj in
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func subs func in
   let env =
     if inline then
-      Pre.mk_inline_env ctx var_gen ~subs
+      Pre.mk_inline_env ctx var_gen ~subs ~arch
     else
-      Pre.mk_default_env ctx var_gen ~subs
+      Pre.mk_default_env ctx var_gen ~subs ~arch
   in
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let post =
@@ -68,6 +74,10 @@ let compare_projs (file1: string) (file2 : string)
     ~check_calls:(check_calls : bool) ~inline:(inline : bool) : Constr.t =
   let proj1 = In_channel.with_file file1 ~f:(Project.Io.load) in
   let proj2 = In_channel.with_file file2 ~f:(Project.Io.load) in
+  let arch1 = Project.arch proj1 in
+  let arch2 = Project.arch proj2 in
+  if not (Arch.equal arch1 arch2) then
+    failwith (diff_arch_msg arch1 arch2);
   let subs1 = proj1 |> Project.program |> Term.enum sub_t in
   let subs2 = proj2 |> Project.program |> Term.enum sub_t in
   let main_sub1 = find_func subs1 func in
@@ -83,11 +93,11 @@ let compare_projs (file1: string) (file2 : string)
   debug "Output: %s%!" (varset_to_string output_vars);
   let env1, env2 =
     if inline then
-      Pre.mk_inline_env ctx var_gen ~subs:subs1,
-      Pre.mk_inline_env ctx var_gen ~subs:subs2
+      Pre.mk_inline_env ctx var_gen ~subs:subs1 ~arch:arch1,
+      Pre.mk_inline_env ctx var_gen ~subs:subs2 ~arch:arch2
     else
-      Pre.mk_default_env ctx var_gen ~subs:subs1,
-      Pre.mk_default_env ctx var_gen ~subs:subs2
+      Pre.mk_default_env ctx var_gen ~subs:subs1 ~arch:arch1,
+      Pre.mk_default_env ctx var_gen ~subs:subs2 ~arch:arch2
   in
   let pre, _ =
     if check_calls then
