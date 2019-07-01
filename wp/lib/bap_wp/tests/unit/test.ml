@@ -16,6 +16,7 @@ open OUnit2
 let suite =
   "Unit Tests" >::: [
     "Precondition" >::: Test_precondition.suite;
+    "Compare"      >::: Test_compare.suite;
     "Constraint"   >::: Test_constraint.suite;
   ]
 
