@@ -28,6 +28,14 @@ module BV = Z3.BitVector
 
 let mk_z3_expr e env = let e_val, _, _, _ = Pre.exp_to_z3 e env in e_val
 
+let hook_slowdown_msg (time1 : float) (time2 : float) : string =
+  Format.sprintf "Time with hooks is slower than time without hooks:\n \
+                  Time with hooks:    %f\nTime without hooks: %f\n%!" time1 time2
+
+let z3_overtime_msg (threshold : float) (actual : float) : string =
+  Format.sprintf "Running Z3 took longer than expected:\n \
+                  Expected: %fs\nActual:   %fs" threshold actual
+
 let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     (exp : 'a) (real : 'a) : unit =
   if real = exp || real = Z3.Solver.UNSATISFIABLE then () else
@@ -36,7 +44,8 @@ let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     | Some model -> Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model)
 
 let time_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : Sub.t)
-    (post : Constr.t) (pre : Constr.t) (expected : Z3.Solver.status) : float =
+    (post : Constr.t) (pre : Constr.t) (expected : Z3.Solver.status) (threshold : float)
+  : float =
   let solver = Z3.Solver.mk_simple_solver z3_ctx in
   let start_time = Sys.time () in
   let result = Pre.check solver z3_ctx pre in
@@ -48,7 +57,9 @@ let time_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : Sub.t)
           Constr.pp_constr post (Sub.to_string body) Constr.pp_constr pre;
         print_z3_model ff solver exp real)
     expected result;
-  end_time -. start_time
+  let time = end_time -. start_time in
+  assert_bool (z3_overtime_msg threshold time) (time <=. threshold);
+  time
 
 let i32 n = Bil.int (Word.of_int ~width:32 n)
 
@@ -79,7 +90,7 @@ let branch_info (sub : Sub.t) : (Tid.t * Exp.t) Seq.t =
 let cond_to_z3 (cond : Exp.t) (env : Env.t) : Constr.z3_expr =
   Pre.bv_to_bool (mk_z3_expr cond env) (Env.get_context env) 1
 
-let test_nested_ifs (test_ctx : test_ctxt) : unit =
+let test_nested_ifs (threshold : float) (test_ctx : test_ctxt) : unit =
   let depth = 200 in
   let time_with_hooks =
     let ctx = Env.mk_ctx () in
@@ -117,7 +128,7 @@ let test_nested_ifs (test_ctx : test_ctxt) : unit =
                 |> Constr.mk_constr
     in
     let pre, _ = Pre.visit_sub env post sub in
-    time_z3_result test_ctx ctx sub post pre Z3.Solver.SATISFIABLE
+    time_z3_result test_ctx ctx sub post pre Z3.Solver.SATISFIABLE threshold
   in
 
   let time_without_hooks =
@@ -131,11 +142,11 @@ let test_nested_ifs (test_ctx : test_ctxt) : unit =
                 |> Constr.mk_constr
     in
     let pre, _ = Pre.visit_sub env post sub in
-    time_z3_result test_ctx ctx sub post pre Z3.Solver.SATISFIABLE
+    time_z3_result test_ctx ctx sub post pre Z3.Solver.SATISFIABLE threshold
   in
-  Format.printf "\nTime with hooks:    %f\nTime without hooks: %f\n%!"
-    time_with_hooks time_without_hooks
+  assert_bool (hook_slowdown_msg time_with_hooks time_without_hooks)
+    (time_with_hooks <. time_without_hooks)
 
 let suite = [
-  "Test branches" >: TestCase (Long, test_nested_ifs);
+  "Test branches" >: TestCase (Long, test_nested_ifs 10.0);
 ]
