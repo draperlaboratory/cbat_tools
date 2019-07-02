@@ -15,6 +15,7 @@ open !Core_kernel
 open Bap.Std
 
 module Expr = Z3.Expr
+module Bool = Z3.Boolean
 
 type z3_expr = Expr.expr
 
@@ -24,6 +25,25 @@ type goal = { goal_name : string; goal_val : z3_expr }
 
 let goal_to_string (g : goal) : string =
   Format.asprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
+
+let refuted_goal_to_string (g : goal) (model : Z3.Model.model) : string =
+  let buf = Buffer.create 1024 in
+  Buffer.add_string buf g.goal_name;
+  Buffer.add_string buf ":";
+  if Bool.is_eq g.goal_val then begin
+    Buffer.add_string buf "\n\tConcrete values: ";
+    let args = Expr.get_args g.goal_val in
+    List.iteri args ~f:(fun i arg ->
+        let value = Option.value_exn (Z3.Model.eval model arg true) in
+        if i = 0 then begin
+          Buffer.add_string buf (Expr.to_string value);
+          Buffer.add_string buf " = "
+        end else
+          Buffer.add_string buf (Expr.to_string value))
+  end;
+  Buffer.add_string buf "\n\tZ3 Expression: ";
+  Buffer.add_string buf (Expr.to_string (Expr.simplify g.goal_val None));
+  Buffer.contents buf
 
 let mk_goal (name : string) (value : z3_expr) : goal =
   { goal_name = name; goal_val = value }
@@ -75,11 +95,11 @@ let mk_clause (hyps: t list) (concs : t list) : t =
 let rec eval (constr : t) (ctx : Z3.context) : z3_expr =
   match constr with
   | Goal { goal_val = v; _ } -> v
-  | ITE (_, e, c1, c2) -> Z3.Boolean.mk_ite ctx e (eval c1 ctx) (eval c2 ctx)
+  | ITE (_, e, c1, c2) -> Bool.mk_ite ctx e (eval c1 ctx) (eval c2 ctx)
   | Clause (hyps, concs) ->
-    let hyps_expr  = hyps |> List.map ~f:(fun h -> eval h ctx) |> Z3.Boolean.mk_and ctx in
-    let concs_expr = concs |> List.map ~f:(fun c -> eval c ctx) |> Z3.Boolean.mk_and ctx in
-    Z3.Boolean.mk_implies ctx hyps_expr concs_expr
+    let hyps_expr  = hyps |> List.map ~f:(fun h -> eval h ctx) |> Bool.mk_and ctx in
+    let concs_expr = concs |> List.map ~f:(fun c -> eval c ctx) |> Bool.mk_and ctx in
+    Bool.mk_implies ctx hyps_expr concs_expr
 
 let rec substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t =
   match constr with
@@ -103,10 +123,10 @@ let get_refuted_goals_and_paths (constr : t) (model : Z3.Model.model) (ctx : Z3.
     match constr with
     | Goal g ->
       let goal_res = Option.value_exn (Z3.Model.eval model g.goal_val true) in
-      if Z3.Boolean.is_false goal_res then Seq.singleton (g, current_path) else Seq.empty
+      if Bool.is_false goal_res then Seq.singleton (g, current_path) else Seq.empty
     | ITE (tid, cond, c1, c2) ->
       let cond_res = Option.value_exn (Z3.Model.eval model cond true) in
-      if Z3.Boolean.is_true cond_res then
+      if Bool.is_true cond_res then
         worker c1 (Tid.Map.set current_path ~key:tid ~data:true)
       else
         worker c2 (Tid.Map.set current_path ~key:tid ~data:false)
@@ -114,7 +134,7 @@ let get_refuted_goals_and_paths (constr : t) (model : Z3.Model.model) (ctx : Z3.
       let hyps_false = List.exists hyps
           ~f:(fun h -> Z3.Model.eval model (eval h ctx) true
                        |> Option.value_exn ?here:None ?error:None ?message:None
-                       |> Z3.Boolean.is_false)
+                       |> Bool.is_false)
       in
       if hyps_false then
         Seq.empty
