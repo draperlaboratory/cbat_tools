@@ -787,6 +787,7 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
 
 let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.t)
   : Z3.Solver.status =
+  info "Checking precondition with Z3.\n%!";
   let pre' = Constr.eval pre ctx in
   let is_correct = Bool.mk_implies ctx pre' (Bool.mk_false ctx) in
   Z3.Solver.check solver [is_correct]
@@ -804,7 +805,7 @@ let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
     Format.printf "\nModel:\n%s\n%!" (Z3.Model.to_string model);
     Format.printf "\nRefuted goals:\n%!";
     Seq.iter refuted_goals ~f:(fun g ->
-        Format.printf "%s\n%!" (Constr.goal_to_string g))
+        Format.printf "%s\n%!" (Constr.refuted_goal_to_string g model))
 
 let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
     ~pre:(pre : Constr.t) : Z3.Solver.status =
