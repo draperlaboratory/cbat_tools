@@ -627,10 +627,12 @@ let visit_graph (env : Env.t) (post : Constr.t)
     match kind with
     | `Back ->
       begin
-        info "Entering back edge\n%!";
-        let tgt_node = e |> Graphs.Ir.Edge.dst in
+        let src = Graphs.Ir.Edge.src e in
+        let dst = Graphs.Ir.Edge.dst e in
+        info "Entering back edge from\n%sto\n%s\n%!"
+          (Graphs.Ir.Node.to_string src) (Graphs.Ir.Node.to_string dst);
         let handler = Env.get_loop_handler env in
-        post, handler env post ~start:tgt_node g
+        post, handler env post ~start:dst g
       end
     | _ -> p
   in
