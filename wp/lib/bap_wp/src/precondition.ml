@@ -558,8 +558,13 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
           | Some (Direct tid) ->
             debug "Call label %s with return to %s%!"
               (Label.to_string target) (Tid.to_string tid);
-            let ret_pre = Env.get_precondition env tid |>
-                          Option.value_exn ?here:None ?error:None ?message:None in
+            let ret_pre =
+              match Env.get_precondition env tid with
+              | Some pre -> pre
+              | None ->
+                info "Precondition for return %s not found!" (Tid.to_string tid);
+                post
+            in
             (* TODO: lookup_sub should update the environment *)
             lookup_sub target ret_pre env
           | None ->
@@ -789,8 +794,10 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
 
 let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.t)
   : Z3.Solver.status =
-  info "Checking precondition with Z3.\n%!";
+  (* Format.printf "Before: %a\n%!" Constr.pp_constr pre; *)
   let pre' = Constr.eval pre ctx in
+  info "Checking precondition with Z3.\n%!";
+  (* Printf.printf "\nAfter: %s\n%!" (Expr.to_string (Expr.simplify pre' None)); *)
   let is_correct = Bool.mk_implies ctx pre' (Bool.mk_false ctx) in
   Z3.Solver.check solver [is_correct]
 
