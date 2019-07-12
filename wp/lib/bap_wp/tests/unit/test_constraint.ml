@@ -72,14 +72,12 @@ let test_substitute_order (test_ctx : test_ctxt) : unit =
   let env = Pre.mk_default_env ctx var_gen in
   let x = Var.create "x" reg32_t in
   let post_expr = Bool.mk_eq ctx (BV.mk_const_s ctx "x" 32) (BV.mk_numeral ctx "1" 32) in
-
   let sub = Bil.(
       [ x := i32 1;
         x := i32 2;
       ]
     ) |> bil_to_sub
   in
-
   let post = post_expr
              |> Constr.mk_goal "x = 1"
              |> Constr.mk_constr

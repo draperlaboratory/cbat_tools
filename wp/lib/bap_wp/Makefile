@@ -17,7 +17,7 @@ install.local: build
 test: test.unit test.performance
 
 test.unit:
-	dune runtest tests/unit --profile release
+	dune runtest tests/unit
 
 test.performance:
 	dune runtest tests/performance
