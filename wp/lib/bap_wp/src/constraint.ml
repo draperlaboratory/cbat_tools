@@ -28,31 +28,22 @@ let goal_to_string (g : goal) : string =
 
 let refuted_goal_to_string (g : goal) (model : Z3.Model.model) : string =
   let buf = Buffer.create 1024 in
-  Buffer.add_string buf g.goal_name;
-  Buffer.add_string buf ":";
+  Buffer.add_string buf (Format.sprintf "%s:" g.goal_name);
   if Bool.is_eq g.goal_val then begin
-    let conc_vals = Buffer.create 1024 in
-    let simplified_exprs = Buffer.create 1024 in
-    Buffer.add_string conc_vals "\n\tConcrete values: ";
-    Buffer.add_string simplified_exprs "\n\tZ3 Expression: ";
     let args = Expr.get_args g.goal_val in
-    List.iteri args ~f:(fun i arg ->
+    Buffer.add_string buf "\n\tConcrete values: = ";
+    List.iter args ~f:(fun arg ->
         let value = Option.value_exn (Z3.Model.eval model arg true) in
+        Buffer.add_string buf (Format.sprintf "%s " (Expr.to_string value)));
+    Buffer.add_string buf "\n\tZ3 Expression: = ";
+    List.iter args ~f:(fun arg ->
         let simplified = Expr.simplify arg None in
-        Buffer.add_string conc_vals (Expr.to_string value);
-        Buffer.add_string simplified_exprs (Expr.to_string simplified);
-        if i = 0 then begin
-          Buffer.add_string conc_vals " = ";
-          Buffer.add_string simplified_exprs " = "
-        end);
-    Buffer.add_buffer buf conc_vals;
-    Buffer.add_buffer buf simplified_exprs;
-    Buffer.contents buf
+        Buffer.add_string buf (Format.sprintf "%s " (Expr.to_string simplified)));
   end else begin
-    Buffer.add_string buf "\n\tZ3 Expression: ";
-    Buffer.add_string buf (Expr.to_string (Expr.simplify g.goal_val None));
-    Buffer.contents buf
-  end
+    Buffer.add_string buf (Format.sprintf "\n\tZ3 Expression: %s"
+                             (Expr.to_string (Expr.simplify g.goal_val None)));
+  end;
+  Buffer.contents buf
 
 let mk_goal (name : string) (value : z3_expr) : goal =
   { goal_name = name; goal_val = value }
@@ -98,19 +89,9 @@ let mk_ite (tid : Tid.t) (cond : z3_expr) (c1 : t) (c2 : t) : t =
 let mk_clause (hyps: t list) (concs : t list) : t =
   Clause (hyps, concs)
 
-
-let rec eval_subst e olds news =
-  match olds, news with
-  | o :: os, n :: ns ->
-    Printf.printf "'%!";
-    let e' = Expr.substitute_one e o n in
-    eval_subst e' os ns
-  | [], [] -> e
-  | _, _ -> failwith "Constraint.eval: Substitution with unequal size lists"
-
-
-let rec eval_aux c olds news ctx =
-  match c with
+let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
+    (ctx : Z3.context) : z3_expr =
+  match constr with
   | Goal { goal_val = v; _ } -> Expr.substitute v olds news
   | ITE (_, e, c1, c2) ->
     let e' = Expr.substitute e olds news in
@@ -126,7 +107,7 @@ let rec eval_aux c olds news ctx =
     eval_aux c (olds @ o) (news @ n') ctx
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
-let rec eval (constr : t) (ctx : Z3.context) : z3_expr =
+let eval (constr : t) (ctx : Z3.context) : z3_expr =
   eval_aux constr [] [] ctx
 
 let substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t =
