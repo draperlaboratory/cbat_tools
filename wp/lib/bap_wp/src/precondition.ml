@@ -794,10 +794,8 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
 
 let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.t)
   : Z3.Solver.status =
-  (* Format.printf "Before: %a\n%!" Constr.pp_constr pre; *)
   let pre' = Constr.eval pre ctx in
   info "Checking precondition with Z3.\n%!";
-  (* Printf.printf "\nAfter: %s\n%!" (Expr.to_string (Expr.simplify pre' None)); *)
   let is_correct = Bool.mk_implies ctx pre' (Bool.mk_false ctx) in
   Z3.Solver.check solver [is_correct]
 
