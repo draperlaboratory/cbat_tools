@@ -122,11 +122,7 @@ let rec eval_aux c olds news ctx =
                      |> Bool.mk_and ctx in
     Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
-    (* Printf.printf "'%!"; *)
     let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
-    (* Printf.printf "Substituting: %s -> %s\n%!" *)
-    (*   (List.to_string ~f:Expr.to_string (olds @ o)) *)
-    (*   (List.to_string ~f:Expr.to_string (news @ n')); *)
     eval_aux c (olds @ o) (news @ n') ctx
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
@@ -147,7 +143,10 @@ let get_refuted_goals_and_paths (constr : t) (model : Z3.Model.model) (ctx : Z3.
     | Goal g ->
       let goal_val = Expr.substitute g.goal_val olds news in
       let goal_res = Option.value_exn (Z3.Model.eval model goal_val true) in
-      if Bool.is_false goal_res then Seq.singleton (g, current_path) else Seq.empty
+      if Bool.is_false goal_res then
+        Seq.singleton ({g with goal_val = goal_val}, current_path)
+      else
+        Seq.empty
     | ITE (tid, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = Option.value_exn (Z3.Model.eval model cond_val true) in
