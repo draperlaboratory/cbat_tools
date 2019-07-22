@@ -525,15 +525,19 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
           match l with
           | Direct tid ->
             debug "Goto direct label: %s%!" (Label.to_string l);
+            let ctx = Env.get_context env in
             let l_pre =
               match Env.get_precondition env tid with
               | Some pre -> pre
               (* We always hit this point when finish a loop unrolling *)
               | None ->
+                (* FIXME: We are passing a trivial condition in the case that this
+                   is a backedge in the middle of the program. However, this
+                   generates more UNSAT results compared to passing in the
+                   postcondition. *)
                 info "Precondition for node %s not found!" (Tid.to_string tid);
-                post
+                Constr.mk_goal "true" (Bool.mk_true ctx) |> Constr.mk_constr
             in
-            let ctx = Env.get_context env in
             let cond = Jmp.cond jmp in
             let cond_val, assume, vcs, env = exp_to_z3 cond env in
             debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
@@ -634,7 +638,7 @@ let visit_graph (env : Env.t) (post : Constr.t)
       begin
         let src = Graphs.Ir.Edge.src e in
         let dst = Graphs.Ir.Edge.dst e in
-        info "Entering back edge from\n%sto\n%s\n%!"
+        debug "Entering back edge from\n%sto\n%s\n%!"
           (Graphs.Ir.Node.to_string src) (Graphs.Ir.Node.to_string dst);
         let handler = Env.get_loop_handler env in
         post, handler env post ~start:dst g
@@ -650,9 +654,47 @@ let visit_graph (env : Env.t) (post : Constr.t)
 let _ = Env.wp_rec_call :=
     fun env post ~start g -> visit_graph env post ~start g |> snd
 
+(* BAP currently doesn't have a way to determine that exit does not return.
+   This function removes the backedge after the call to exit. *)
+let filter (env : Env.t) (cfg : Graphs.Ir.t) : Graphs.Ir.t =
+  let module G = Graphlib.Std.Graphlib in
+  let enter_edge kind e cfg =
+    match kind with
+    | `Back ->
+      let elts =
+        e
+        |> Graphs.Ir.Edge.src
+        |> Graphs.Ir.Node.label
+        |> Blk.elts ~rev:true
+      in
+      let exits = Seq.exists elts ~f:(function
+          | `Jmp j -> begin
+              match Jmp.kind j with
+              | Call c -> begin
+                  match Call.target c with
+                  | Direct tid -> begin
+                      match Env.get_sub_name env tid with
+                      | Some target -> String.equal target "exit"
+                      | None -> false
+                    end
+                  | _ -> false
+                end
+              | _ -> false
+            end
+          | _ -> false)
+      in
+      if exits then begin
+        info "Removing the back edge from the return from exit";
+        Graphs.Ir.Edge.remove e cfg
+      end else
+        cfg
+    | _ -> cfg
+  in
+  G.depth_first_search (module Graphs.Ir) ~enter_edge:enter_edge ~init:cfg cfg
+
 let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   debug "Visiting sub:\n%s%!" (Sub.to_string sub);
-  let cfg = Sub.to_cfg sub in
+  let cfg = sub |> Sub.to_cfg |> filter env in
   let start = Term.first blk_t sub
               |> Option.value_exn ?here:None ?error:None ?message:None
               |> Graphs.Ir.Node.create in

@@ -140,6 +140,10 @@ val get_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
     True if the block is not yet visited. *)
 val get_precondition : t -> Bap.Std.Tid.t -> Constr.t option
 
+(** Looks up the subroutine's name given its tid. This is needed because a label to
+    a subroutine loses its name when saving a BAP project as a .bpj file. *)
+val get_sub_name : t -> Bap.Std.Tid.t -> string option
+
 (** Finds the tid of a function in the environment. *)
 val get_fun_name_tid : t -> string -> Bap.Std.Tid.t option
 

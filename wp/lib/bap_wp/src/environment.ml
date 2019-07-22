@@ -233,6 +233,13 @@ let get_precondition (env : t) (tid : Tid.t) : Constr.t option =
     warning "Precondition for block %s not found!%!" (Tid.to_string tid);
   TidMap.find env.precond_map tid
 
+let get_sub_name (env : t) (tid : Tid.t) : string option =
+  Seq.find_map env.subs ~f:(fun s ->
+      if Tid.equal tid (Term.tid s) then
+        Some (Sub.name s)
+      else
+        None)
+
 let get_fun_name_tid (env : t) (f : string) : Tid.t option =
   StringMap.find env.fun_name_tid f
 
