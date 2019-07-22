@@ -911,7 +911,7 @@ let test_loop_3 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 (* Currently only testing expressions that evaluate to immediates. *)
