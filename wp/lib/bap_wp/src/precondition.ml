@@ -656,45 +656,46 @@ let _ = Env.wp_rec_call :=
 
 (* BAP currently doesn't have a way to determine that exit does not return.
    This function removes the backedge after the call to exit. *)
-let filter (env : Env.t) (cfg : Graphs.Ir.t) : Graphs.Ir.t =
+let filter (env : Env.t) (calls : string list) (cfg : Graphs.Ir.t) : Graphs.Ir.t =
   let module G = Graphlib.Std.Graphlib in
   let enter_edge kind e cfg =
     match kind with
-    | `Back ->
-      let elts =
-        e
-        |> Graphs.Ir.Edge.src
-        |> Graphs.Ir.Node.label
-        |> Blk.elts ~rev:true
-      in
-      let exits = Seq.exists elts ~f:(function
-          | `Jmp j -> begin
-              match Jmp.kind j with
-              | Call c -> begin
-                  match Call.target c with
-                  | Direct tid -> begin
-                      match Env.get_sub_name env tid with
-                      | Some target -> String.equal target "exit"
-                      | None -> false
-                    end
-                  | _ -> false
-                end
-              | _ -> false
-            end
-          | _ -> false)
-      in
-      if exits then begin
-        info "Removing the back edge from the return from exit";
-        Graphs.Ir.Edge.remove e cfg
-      end else
-        cfg
+    | `Back -> begin
+        let elts =
+          e
+          |> Graphs.Ir.Edge.src
+          |> Graphs.Ir.Node.label
+          |> Blk.elts ~rev:true
+        in
+        let call_target = Seq.find_map elts ~f:(function
+            | `Jmp j -> begin
+                match Jmp.kind j with
+                | Call c -> begin
+                    match Call.target c with
+                    | Direct tid -> begin
+                        match Env.get_sub_name env tid with
+                        | Some target -> List.find calls ~f:(String.equal target)
+                        | None -> None
+                      end
+                    | _ -> None
+                  end
+                | _ -> None
+              end
+            | _ -> None)
+        in
+        match call_target with
+        | Some c ->
+          info "Removing the back edge from the return from %s" c;
+          Graphs.Ir.Edge.remove e cfg
+        | None -> cfg
+      end
     | _ -> cfg
   in
   G.depth_first_search (module Graphs.Ir) ~enter_edge:enter_edge ~init:cfg cfg
 
 let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   debug "Visiting sub:\n%s%!" (Sub.to_string sub);
-  let cfg = sub |> Sub.to_cfg |> filter env in
+  let cfg = sub |> Sub.to_cfg |> filter env ["exit"] in
   let start = Term.first blk_t sub
               |> Option.value_exn ?here:None ?error:None ?message:None
               |> Graphs.Ir.Node.create in

@@ -132,6 +132,14 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       in
       let rec unroll env pre ~start:node g =
         if find_depth node <= 0 then
+          (* TODO: Right now, the handler just returns the same env.
+
+           * Over here we should:
+             * Check what the post dominator is:
+               * if one: update the env wit env.add_precondition
+               * if none: use a trivial postcondition (true)
+               * if multiple: nondeterministically choose a postcondition
+             * We may have to crash if we hit a node with no predecessor. *)
           env
         else
           begin
