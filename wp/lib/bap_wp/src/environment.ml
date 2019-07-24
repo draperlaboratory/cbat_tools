@@ -79,6 +79,9 @@ let mk_z3_expr (ctx : Z3.context) ~name:(name : string) ~typ:(typ : Type.t) : Co
     let w_sort = Z3.BitVector.mk_sort ctx (Size.in_bits w_size) in
     Z3.Z3Array.mk_const_s ctx name i_sort w_sort
 
+let add_precond (env : t) (tid : Tid.t) (p : Constr.t) : t =
+  { env with precond_map = TidMap.set env.precond_map ~key:tid ~data:p }
+
 let init_fun_name (subs : Sub.t Seq.t) : Tid.t StringMap.t =
   Seq.fold subs ~init:StringMap.empty
     ~f:(fun map sub ->
@@ -119,7 +122,7 @@ let wp_rec_call :
   (t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
   ref (fun _ _ ~start:_ _ -> assert false)
 
-let init_loop_unfold (num_unroll : int) : loop_handler =
+let init_loop_unfold (num_unroll : int) (ctx : Z3.context) : loop_handler =
   {
     handle =
       let module Node = Graphs.Ir.Node in
@@ -132,15 +135,20 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       in
       let rec unroll env pre ~start:node g =
         if find_depth node <= 0 then
+          let pre =
+            Z3.Boolean.mk_true ctx
+            |> Constr.mk_goal "true"
+            |> Constr.mk_constr
+          in
           (* TODO: Right now, the handler just returns the same env.
 
            * Over here we should:
              * Check what the post dominator is:
-               * if one: update the env wit env.add_precondition
+               * if one: update the env with env.add_precondition
                * if none: use a trivial postcondition (true)
                * if multiple: nondeterministically choose a postcondition
              * We may have to crash if we hit a node with no predecessor. *)
-          env
+          add_precond env (node |> Node.label |> Term.tid) pre
         else
           begin
             decr_depth node;
@@ -176,7 +184,7 @@ let mk_env
     sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
-    loop_handler = init_loop_unfold num_loop_unroll;
+    loop_handler = init_loop_unfold num_loop_unroll ctx;
     exp_conds = exp_conds;
     arch = arch
   }
@@ -194,13 +202,10 @@ let env_to_string (env : t) : string =
     (map_seq_printer Tid.to_string ident) call_list
     (map_seq_printer Tid.to_string Constr.to_string) precond_list
 
-let set_freshen (env : t)(freshen : bool) = { env with freshen = freshen }
+let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }
 
 let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
-
-let add_precond (env : t) (tid : Tid.t) (p : Constr.t) : t =
-  { env with precond_map = TidMap.set env.precond_map ~key:tid ~data:p }
 
 let mk_exp_conds (env : t) (e : exp) : Constr.goal list * Constr.goal list =
   let { exp_conds; _ } = env in

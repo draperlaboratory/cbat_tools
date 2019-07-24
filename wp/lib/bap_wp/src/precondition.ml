@@ -531,12 +531,8 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
               | Some pre -> pre
               (* We always hit this point when finish a loop unrolling *)
               | None ->
-                (* FIXME: We are passing a trivial condition in the case that this
-                   is a backedge in the middle of the program. However, this
-                   generates more UNSAT results compared to passing in the
-                   postcondition. *)
-                info "Precondition for node %s not found!" (Tid.to_string tid);
-                Constr.mk_goal "true" (Bool.mk_true ctx) |> Constr.mk_constr
+                failwith (Format.sprintf "Precondition for node %s not found!"
+                            (Tid.to_string tid))
             in
             let cond = Jmp.cond jmp in
             let cond_val, assume, vcs, env = exp_to_z3 cond env in
