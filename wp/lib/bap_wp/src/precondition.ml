@@ -531,8 +531,9 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
               | Some pre -> pre
               (* We always hit this point when finish a loop unrolling *)
               | None ->
-                failwith (Format.sprintf "Precondition for node %s not found!"
-                            (Tid.to_string tid))
+                error "Precondition for node %s not found!" (Tid.to_string tid);
+                failwith ("Error in visit_jmp: \
+                           The loop handler should have added the precondition for the node");
             in
             let cond = Jmp.cond jmp in
             let cond_val, assume, vcs, env = exp_to_z3 cond env in
