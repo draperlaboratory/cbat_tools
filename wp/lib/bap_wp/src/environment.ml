@@ -82,6 +82,9 @@ let mk_z3_expr (ctx : Z3.context) ~name:(name : string) ~typ:(typ : Type.t) : Co
 let add_precond (env : t) (tid : Tid.t) (p : Constr.t) : t =
   { env with precond_map = TidMap.set env.precond_map ~key:tid ~data:p }
 
+let get_context (env : t) : Z3.context =
+  env.ctx
+
 let init_fun_name (subs : Sub.t Seq.t) : Tid.t StringMap.t =
   Seq.fold subs ~init:StringMap.empty
     ~f:(fun map sub ->
@@ -122,7 +125,7 @@ let wp_rec_call :
   (t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
   ref (fun _ _ ~start:_ _ -> assert false)
 
-let init_loop_unfold (num_unroll : int) (ctx : Z3.context) : loop_handler =
+let init_loop_unfold (num_unroll : int) : loop_handler =
   {
     handle =
       let module Node = Graphs.Ir.Node in
@@ -135,6 +138,7 @@ let init_loop_unfold (num_unroll : int) (ctx : Z3.context) : loop_handler =
       in
       let rec unroll env pre ~start:node g =
         if find_depth node <= 0 then
+          let ctx = get_context env in
           let pre =
             Z3.Boolean.mk_true ctx
             |> Constr.mk_goal "true"
@@ -184,7 +188,7 @@ let mk_env
     sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
-    loop_handler = init_loop_unfold num_loop_unroll ctx;
+    loop_handler = init_loop_unfold num_loop_unroll;
     exp_conds = exp_conds;
     arch = arch
   }
@@ -213,9 +217,6 @@ let mk_exp_conds (env : t) (e : exp) : Constr.goal list * Constr.goal list =
   let conds = List.filter_opt conds in
   List.partition_map conds
     ~f:(function | Assume cond -> `Fst cond | Verify cond -> `Snd cond)
-
-let get_context (env : t) : Z3.context =
-  env.ctx
 
 let get_var_gen (env : t) : var_gen =
   env.var_gen
