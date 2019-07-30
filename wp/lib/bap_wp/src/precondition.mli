@@ -192,8 +192,9 @@ val visit_block : Env.t -> Constr.t -> Bap.Std.Blk.t -> Constr.t * Env.t
     edges in the CFG. *)
 val visit_sub : Env.t -> Constr.t -> Bap.Std.Sub.t -> Constr.t * Env.t
 
-(** Checks to see if the precondition of a BIR program is [SAT], [UNSAT], or [UNKNOWN]. *)
-val check : Z3.Solver.solver -> Z3.context -> Constr.t -> Z3.Solver.status
+(** Calls Z3 to check for a countermodel for the precondition of a BIR program. If
+    refute is set to false, it checks for a model instead. *)
+val check : ?refute:bool -> Z3.Solver.solver -> Z3.context -> Constr.t -> Z3.Solver.status
 
 (** Prints out the result from check, and if the result is [SAT], generate a model that
     represents the registers and memory values that lead to a specific program state. *)

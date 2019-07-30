@@ -832,11 +832,16 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
   in
   Constr.mk_clause [] goals
 
-let check (solver : Z3.Solver.solver) (ctx : Z3.context) (pre : Constr.t)
-  : Z3.Solver.status =
+let check ?refute:(refute = true) (solver : Z3.Solver.solver) (ctx : Z3.context)
+    (pre : Constr.t) : Z3.Solver.status =
   let pre' = Constr.eval pre ctx in
   info "Checking precondition with Z3.\n%!";
-  let is_correct = Bool.mk_implies ctx pre' (Bool.mk_false ctx) in
+  let is_correct =
+    if refute then
+      Bool.mk_implies ctx pre' (Bool.mk_false ctx)
+    else
+      pre'
+  in
   Z3.Solver.check solver [is_correct]
 
 let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
