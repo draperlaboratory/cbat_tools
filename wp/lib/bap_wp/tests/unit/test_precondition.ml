@@ -1138,77 +1138,77 @@ let test_exclude_1 (test_ctx : test_ctxt) : unit =
 
 
 let suite = [
-  "Empty Block" >:: test_empty_block;
-  "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
-  "Assign SSA block: y = x+1; Post: y == x" >:: test_assign_2;
-  "Assign SSA block: y = x; x = x+1; Post: y == x-1" >:: test_assign_3;
-  "Read/Write Little Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_1;
-  "Read/Write Big Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_2;
-  "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_3;
-  "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_4;
-  "Bit Shifting Logical: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_1;
-  "Bit Shifting Logical Overflow: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_2;
-  "Bit Shifting Arithmetic: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_1;
-  "Bit Shifting Arithmetic Overflow: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_2;
-  "Ite Assign: y = if x < 0x40 then x << 2 ~>> 2 else x" >:: test_ite_assign_1;
-
-  "Subroutine: \n\
-   bl: when x < 0xA goto b2; goto b3; \n\
-   b2: y = x+1; goto b4; \n\
-   b3: y = x-1; goto b4; \n\
-   b4: z = y;" >:: test_subroutine_1;
-  "Subroutine: \n\
-   bl: when x < 0xA goto b2; goto b3; \n\
-   b2: y = x+1; goto b4; \n\
-   b3: y = x-1; goto b4; \n\
-   b4: z = y; \n \
-   but using the smt-lib parser for the postcondition" >:: test_subroutine_1_2;
-  "Ends with two blocks: \n\
-   b1: when x < 0 goto b2; goto b3; \n\
-   b2: x = y; \n\
-   b3: x = z;" >:: test_subroutine_3;
-  "Starts with two blocks: \n\
-   b1: x = y; goto b3; \n\
-   b2: x = z; goto b3; \n\
-   b3: w = x;" >:: test_subroutine_4;
-  "Call function: \n\
-   b1: x = y; call b4 with return b2; \n\
-   b2: x = x + 1; goto b3 \n\
-   b3: z = x; \n\
-   b4: noop;" >:: test_subroutine_5;
-  "Assert fail label: \n\
-   b1: call @__assert_fail with return b2; \n\
-   b2: noop;" >:: test_subroutine_6;
-  "Assert fail BIL: \n\
-   b1: call @__assert_fail with no return; \
-  " >:: test_subroutine_7;
-  "Assert loc <> 0:\n\
-   if mem[loc] = 12 then else; \
-   //using the \"assume non-null\" generator" >:: test_subroutine_8;
-  "Call fail: \n\
-  " >:: test_call_1;
-  "Call vars with spec_arg_terms: \n\
-  " >:: test_call_2;
-  "Call vars with spec_rax_out: \n\
-  " >:: test_call_3;
-  "Call vars with spec_default: \n\
-  " >:: test_call_4;
-  "Call vars: fun not called: \n\
-  " >:: test_call_5;
-  "Call vars with branches: \n\
-  " >:: test_call_6;
-  "Test call with function inlining UNSAT: \n\
-  " >:: test_call_7;
-  "Test call with disabling function inlining SAT: \n\
-  " >:: test_call_8;
-  "Test call with nested function inlining SAT: \n\
-  " >:: test_call_9;
-  "Interrupt 0x0: \n\
-  " >:: test_int_1;
-  "Loop: \n\
-   b1: x = a; y = b; goto b2; \n\
-   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
-   b3:" >:: test_loop_1;
+  (* "Empty Block" >:: test_empty_block; *)
+  (* "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1; *)
+  (* "Assign SSA block: y = x+1; Post: y == x" >:: test_assign_2; *)
+  (* "Assign SSA block: y = x; x = x+1; Post: y == x-1" >:: test_assign_3; *)
+  (* "Read/Write Little Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_1; *)
+  (* "Read/Write Big Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_2; *)
+  (* "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_3; *)
+  (* "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_4; *)
+  (* "Bit Shifting Logical: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_1; *)
+  (* "Bit Shifting Logical Overflow: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_2; *)
+  (* "Bit Shifting Arithmetic: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_1; *)
+  (* "Bit Shifting Arithmetic Overflow: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_2; *)
+  (* "Ite Assign: y = if x < 0x40 then x << 2 ~>> 2 else x" >:: test_ite_assign_1; *)
+  (*  *)
+  (* "Subroutine: \n\ *)
+     (*  bl: when x < 0xA goto b2; goto b3; \n\ *)
+     (*  b2: y = x+1; goto b4; \n\ *)
+     (*  b3: y = x-1; goto b4; \n\ *)
+     (*  b4: z = y;" >:: test_subroutine_1; *)
+  (* "Subroutine: \n\ *)
+     (*  bl: when x < 0xA goto b2; goto b3; \n\ *)
+     (*  b2: y = x+1; goto b4; \n\ *)
+     (*  b3: y = x-1; goto b4; \n\ *)
+     (*  b4: z = y; \n \ *)
+     (*  but using the smt-lib parser for the postcondition" >:: test_subroutine_1_2; *)
+  (* "Ends with two blocks: \n\ *)
+     (*  b1: when x < 0 goto b2; goto b3; \n\ *)
+     (*  b2: x = y; \n\ *)
+     (*  b3: x = z;" >:: test_subroutine_3; *)
+  (* "Starts with two blocks: \n\ *)
+     (*  b1: x = y; goto b3; \n\ *)
+     (*  b2: x = z; goto b3; \n\ *)
+     (*  b3: w = x;" >:: test_subroutine_4; *)
+  (* "Call function: \n\ *)
+     (*  b1: x = y; call b4 with return b2; \n\ *)
+     (*  b2: x = x + 1; goto b3 \n\ *)
+     (*  b3: z = x; \n\ *)
+     (*  b4: noop;" >:: test_subroutine_5; *)
+  (* "Assert fail label: \n\ *)
+     (*  b1: call @__assert_fail with return b2; \n\ *)
+     (*  b2: noop;" >:: test_subroutine_6; *)
+  (* "Assert fail BIL: \n\ *)
+     (*  b1: call @__assert_fail with no return; \ *)
+     (* " >:: test_subroutine_7; *)
+  (* "Assert loc <> 0:\n\ *)
+     (*  if mem[loc] = 12 then else; \ *)
+     (*  //using the \"assume non-null\" generator" >:: test_subroutine_8; *)
+  (* "Call fail: \n\ *)
+     (* " >:: test_call_1; *)
+  (* "Call vars with spec_arg_terms: \n\ *)
+     (* " >:: test_call_2; *)
+  (* "Call vars with spec_rax_out: \n\ *)
+     (* " >:: test_call_3; *)
+  (* "Call vars with spec_default: \n\ *)
+     (* " >:: test_call_4; *)
+  (* "Call vars: fun not called: \n\ *)
+     (* " >:: test_call_5; *)
+  (* "Call vars with branches: \n\ *)
+     (* " >:: test_call_6; *)
+  (* "Test call with function inlining UNSAT: \n\ *)
+     (* " >:: test_call_7; *)
+  (* "Test call with disabling function inlining SAT: \n\ *)
+     (* " >:: test_call_8; *)
+  (* "Test call with nested function inlining SAT: \n\ *)
+     (* " >:: test_call_9; *)
+  (* "Interrupt 0x0: \n\ *)
+     (* " >:: test_int_1; *)
+  (* "Loop: \n\ *)
+     (*  b1: x = a; y = b; goto b2; \n\ *)
+     (*  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\ *)
+     (*  b3:" >:: test_loop_1; *)
   "Loop: \n\
    b1: x = 0; y = 5; goto b2; \n\
    b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
