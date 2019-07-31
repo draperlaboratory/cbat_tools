@@ -566,7 +566,6 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
                 info "Precondition for return %s not found!" (Tid.to_string tid);
                 post
             in
-            (* TODO: lookup_sub should update the environment *)
             lookup_sub target ret_pre env
           | None ->
             debug "Call label %s with no return%!" (Label.to_string target);

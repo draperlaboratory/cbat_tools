@@ -82,6 +82,11 @@ let mk_z3_expr (ctx : Z3.context) ~name:(name : string) ~typ:(typ : Type.t) : Co
 let add_precond (env : t) (tid : Tid.t) (p : Constr.t) : t =
   { env with precond_map = TidMap.set env.precond_map ~key:tid ~data:p }
 
+let get_precondition (env : t) (tid : Tid.t) : Constr.t option =
+  if not (TidMap.mem env.precond_map tid) then
+    warning "Precondition for block %s not found!%!" (Tid.to_string tid);
+  TidMap.find env.precond_map tid
+
 let get_context (env : t) : Z3.context =
   env.ctx
 
@@ -125,6 +130,43 @@ let wp_rec_call :
   (t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
   ref (fun _ _ ~start:_ _ -> assert false)
 
+let trivial_pre (env : t) : Constr.t =
+  let ctx = get_context env in
+  Z3.Boolean.mk_true ctx
+  |> Constr.mk_goal "true"
+  |> Constr.mk_constr
+
+let post_dominator (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+  : Constr.t option =
+  let module G = Graphlib.Std in
+  let module Node = Graphs.Ir.Node in
+  let scc = G.Graphlib.strong_components (module Graphs.Ir) graph in
+  match G.Partition.group scc node with
+  | None -> None
+  | Some g ->
+    let nodes = G.Group.enum g in
+    let leaf = Seq.find (G.Graphlib.postorder_traverse (module Graphs.Ir) graph)
+        ~f:(fun n -> Seq.is_empty (Node.succs n graph))
+    in
+    match leaf with
+    | None -> None
+    | Some l ->
+      let dom_tree = G.Graphlib.dominators (module Graphs.Ir) ~rev:true graph l in
+      let exit_node = Seq.find_map nodes ~f:(fun n ->
+          match G.Tree.parent dom_tree n with
+          | None -> None
+          | Some p ->
+            if Seq.exists nodes ~f:(Node.equal p) then
+              None
+            else
+              Some (p |> Node.label |> Term.tid)
+        ) in
+      match exit_node with
+      | None -> None
+      | Some e ->
+        Format.printf "Exit tid: %s\n%!" (Tid.to_string e);
+        get_precondition env e
+
 let init_loop_unfold (num_unroll : int) : loop_handler =
   {
     handle =
@@ -138,12 +180,6 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       in
       let rec unroll env pre ~start:node g =
         if find_depth node <= 0 then
-          let ctx = get_context env in
-          let pre =
-            Z3.Boolean.mk_true ctx
-            |> Constr.mk_goal "true"
-            |> Constr.mk_constr
-          in
           (* TODO: Right now, the handler just returns the same env.
 
            * Over here we should:
@@ -152,7 +188,12 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
                * if none: use a trivial postcondition (true)
                * if multiple: nondeterministically choose a postcondition
              * We may have to crash if we hit a node with no predecessor. *)
-          add_precond env (node |> Node.label |> Term.tid) pre
+          begin
+            Format.printf "Current node: %s\n%!" (node |> Node.label |> Term.tid |> Tid.to_string);
+            let pre = List.find_map [post_dominator] ~f:(fun spec -> spec env node g)
+                      |> Option.value ~default:(trivial_pre env) in
+            add_precond env (node |> Node.label |> Term.tid) pre
+          end
         else
           begin
             decr_depth node;
@@ -242,11 +283,6 @@ let get_var (env : t) (var : Var.t) : Constr.z3_expr * t =
       let v = mk_z3_expr ctx ~name:full_name ~typ:typ in
       v, add_var env var v
 
-let get_precondition (env : t) (tid : Tid.t) : Constr.t option =
-  if not (TidMap.mem env.precond_map tid) then
-    warning "Precondition for block %s not found!%!" (Tid.to_string tid);
-  TidMap.find env.precond_map tid
-
 let get_sub_name (env : t) (tid : Tid.t) : string option =
   Seq.find_map env.subs ~f:(fun s ->
       if Tid.equal tid (Term.tid s) then
@@ -272,7 +308,7 @@ let get_int_handler (env : t) : int_spec =
   env.int_handler
 
 let get_loop_handler (env : t) :
-  t -> Constr.t -> start:Graphs.Ir.Edge.node -> Graphs.Ir.t -> t =
+  t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
   env.loop_handler.handle
 
 let get_arch (env : t) : Arch.t =
