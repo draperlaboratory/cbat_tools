@@ -771,9 +771,7 @@ let jmp_spec_reach (m : bool Tid.Map.t) : Env.jmp_spec =
                     in
                     let post = constr @ vcs in
                     Some (Constr.mk_clause assume post, env)
-                  | Indirect _ ->
-                    warning "Making an indirect jump, using the default postcondition!\n%!";
-                    Some (post, env)
+                  | Indirect _ -> None
                 end
               | _ -> assert false
             end)
