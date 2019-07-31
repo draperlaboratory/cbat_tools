@@ -73,3 +73,35 @@ let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     match Z3.Solver.get_model solver with
     | None -> ()
     | Some model -> Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model)
+
+(* Obtains the tid of a jump in a sub given its jump condition. *)
+let jump_tid (sub : Sub.t) (cond : Exp.t) : Tid.t =
+  let jumps =
+    Term.enum blk_t sub
+    |> Seq.map ~f:(fun b -> Term.enum jmp_t b)
+    |> Seq.concat
+  in
+  Term.tid (Seq.find_exn jumps ~f:(fun j -> Exp.equal (Jmp.cond j) cond))
+
+(* z3_expr representing a jump being taken. *)
+let jump_taken (ctx : Z3.context) : Constr.z3_expr =
+  Pre.z3_expr_one ctx 1
+
+(* z3_expr representing a jump not being taken. *)
+let jump_not_taken (ctx : Z3.context) : Constr.z3_expr =
+  Pre.z3_expr_zero ctx 1
+
+(* Evaluates a BIR expression to a z3_expr given the values in the Z3 model. *)
+let eval_model (model : Z3.Model.model) (expr : Exp.t) (env : Env.t) : Constr.z3_expr =
+  Z3.Model.eval model (mk_z3_expr env expr) true
+  |> Option.value_exn ?here:None ?error:None ?message:None
+
+let true_constr (ctx : Z3.context) : Constr.t =
+  Z3.Boolean.mk_true ctx
+  |> Constr.mk_goal "true"
+  |> Constr.mk_constr
+
+let false_constr (ctx : Z3.context) : Constr.t =
+  Z3.Boolean.mk_false ctx
+  |> Constr.mk_goal "false"
+  |> Constr.mk_constr

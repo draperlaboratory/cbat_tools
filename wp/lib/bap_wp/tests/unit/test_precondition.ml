@@ -46,7 +46,7 @@ let test_empty_block (test_ctx : test_ctxt) : unit =
   let var_gen = Env.mk_var_gen () in
   let env = Pre.mk_default_env ctx var_gen in
   let block = Blk.create () in
-  let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+  let post = true_constr ctx in
   let pre, _ = Pre.visit_block env post block in
   assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
@@ -521,10 +521,7 @@ let test_subroutine_6 (test_ctx : test_ctxt) : unit =
   let sub = mk_sub [blk2; blk3] in
   let subs = Seq.of_list [sub; sub_assert] in
   let env = Pre.mk_default_env ~subs ctx var_gen in
-  let post = Bool.mk_true ctx
-             |> Constr.mk_goal "true"
-             |> Constr.mk_constr
-  in
+  let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
@@ -536,10 +533,7 @@ let test_subroutine_7 (test_ctx : test_ctxt) : unit =
   let sub = Bil_to_bir.bil_to_sub Bil.([jmp assert_expr])  in
   let subs = Seq.singleton assert_sub in
   let env = Pre.mk_default_env ~subs ctx var_gen in
-  let post = Bool.mk_true ctx
-             |> Constr.mk_goal "true"
-             |> Constr.mk_constr
-  in
+  let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
@@ -657,7 +651,7 @@ let test_call_5 (test_ctx : test_ctxt) : unit =
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid call_body)) in
   let main_sub = mk_sub [start_body; blk2; blk3] in
   let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
-  let post = Bool.mk_eq ctx (Bool.mk_true ctx) (Bool.mk_const_s ctx "called_test_sub1")
+  let post = Bool.mk_const_s ctx "called_test_sub1"
              |> Constr.mk_goal "called_test_sub1"
              |> Constr.mk_constr
   in
@@ -953,10 +947,7 @@ let test_exp_cond_1 (test_ctx : test_ctxt) : unit =
   let x = Var.create "x" reg8_t in
   let load = Bil.load ~mem:(Bil.var mem) ~addr:(Bil.var addr) BigEndian `r8 in
   let blk = blk |> mk_def x load in
-  let post = Bool.mk_true ctx
-             |> Constr.mk_goal "true"
-             |> Constr.mk_constr
-  in
+  let post = true_constr ctx in
   let pre, _ = Pre.visit_block env post blk in
   assert_z3_result test_ctx ctx (Blk.to_string blk) post pre Z3.Solver.SATISFIABLE
 
@@ -973,10 +964,7 @@ let test_exp_cond_2 (test_ctx : test_ctxt) : unit =
   let blk = blk
             |> mk_def addr (Bil.int @@ Word.of_int 0x40000000 ~width:32)
             |> mk_def x load in
-  let post = Bool.mk_true ctx
-             |> Constr.mk_goal "true"
-             |> Constr.mk_constr
-  in
+  let post = true_constr ctx in
   let pre, _ = Pre.visit_block env post blk in
   assert_z3_result test_ctx ctx (Blk.to_string blk) post pre Z3.Solver.UNSATISFIABLE
 
@@ -1019,38 +1007,72 @@ let test_branches_1 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let jumps =
-    Term.enum blk_t sub
-    |> Seq.map ~f:(fun b -> Term.enum jmp_t b)
-    |> Seq.concat
-  in
   let jmp_spec = fun env post tid jmp ->
-    let branch_tid cond =
-      Term.tid (Seq.find_exn jumps ~f:(fun j -> Exp.equal (Jmp.cond j) cond)) in
-    let branch_cond cond = Pre.bv_to_bool (mk_z3_expr env cond) ctx 1 in
-    let branch_pre =
+    let jump_cond cond = Pre.bv_to_bool (mk_z3_expr env cond) ctx 1 in
+    let jump_pre =
       match Jmp.kind jmp with
       | Goto (Direct tid) -> Option.value (Env.get_precondition env tid) ~default:post
       | _ -> assert false
     in
-    let true_constr = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
-    let false_constr = Bool.mk_false ctx |> Constr.mk_goal "false" |> Constr.mk_constr in
-    if Tid.equal tid (branch_tid cond_x) then
-      Some (Constr.mk_ite tid (branch_cond cond_x) branch_pre true_constr, env)
-    else if Tid.equal tid (branch_tid cond_y) then
-      Some (Constr.mk_ite tid (branch_cond cond_y) branch_pre true_constr, env)
-    else if Tid.equal tid (branch_tid cond_z) then
-      Some (Constr.mk_ite tid (branch_cond cond_z) false_constr true_constr, env)
+    if Tid.equal tid (jump_tid sub cond_x) then
+      Some (Constr.mk_ite tid (jump_cond cond_x) jump_pre (true_constr ctx), env)
+    else if Tid.equal tid (jump_tid sub cond_y) then
+      Some (Constr.mk_ite tid (jump_cond cond_y) jump_pre (true_constr ctx), env)
+    else if Tid.equal tid (jump_tid sub cond_z) then
+      Some (Constr.mk_ite tid (jump_cond cond_z) (false_constr ctx) (true_constr ctx), env)
     else
       None
   in
   let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
-  let post  = Bool.mk_true ctx
-              |> Constr.mk_goal "true"
-              |> Constr.mk_constr
-  in
+  let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
+
+
+let test_jmp_spec_reach (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let z = Var.create "z" reg32_t in
+  let cond_x = Bil.(var x = i32 2) in
+  let cond_y = Bil.(var y = i32 3) in
+  let cond_z = Bil.(var z = i32 4) in
+  let sub = Bil.(
+      [ if_ (cond_x)
+          [ if_ (cond_y)
+              [ if_ (cond_z)
+                  []
+                  []
+              ]
+              []
+          ]
+          []
+      ]
+    ) |> bil_to_sub
+  in
+  let jmp_spec =
+    Tid.Map.empty
+    |> Tid.Map.set ~key:(jump_tid sub cond_x) ~data:true
+    |> Tid.Map.set ~key:(jump_tid sub cond_y) ~data:true
+    |> Tid.Map.set ~key:(jump_tid sub cond_z) ~data:false
+    |> Pre.jmp_spec_reach
+  in
+  let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
+  let post  = true_constr ctx in
+  let pre, _ = Pre.visit_sub env post sub in
+  let solver = Z3.Solver.mk_simple_solver ctx in
+  let result = Pre.check ~refute:false solver ctx pre in
+  assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
+    Z3.Solver.SATISFIABLE result;
+  let model = Z3.Solver.get_model solver
+              |> Option.value_exn ?here:None ?error:None ?message:None in
+  assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
+    (jump_taken ctx) (eval_model model cond_x env);
+  assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
+    (jump_taken ctx) (eval_model model cond_y env);
+  assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
+    (jump_not_taken ctx) (eval_model model cond_z env)
 
 
 let test_exclude_1 (test_ctx : test_ctxt) : unit =
@@ -1170,6 +1192,7 @@ let suite = [
   "Low: Bitwidth 8 -> 5; Value: 238 -> 14" >:: test_cast 8 5 238 Bil.LOW;
 
   "Test branches" >:: test_branches_1;
+  "Test jmp_spec_reach" >:: test_jmp_spec_reach;
 
   "Test exclude" >:: test_exclude_1;
 ]
