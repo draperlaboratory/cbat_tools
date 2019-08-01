@@ -1029,7 +1029,7 @@ let test_branches_1 (test_ctx : test_ctxt) : unit =
   assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
-let test_jmp_spec_reach (test_ctx : test_ctxt) : unit =
+let test_jmp_spec_reach_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let x = Var.create "x" reg32_t in
@@ -1059,7 +1059,7 @@ let test_jmp_spec_reach (test_ctx : test_ctxt) : unit =
     |> Pre.jmp_spec_reach
   in
   let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
-  let post  = true_constr ctx in
+  let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   let solver = Z3.Solver.mk_simple_solver ctx in
   let result = Pre.check ~refute:false solver ctx pre in
@@ -1073,6 +1073,43 @@ let test_jmp_spec_reach (test_ctx : test_ctxt) : unit =
     (jump_taken ctx) (eval_model model cond_y env);
   assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
     (jump_not_taken ctx) (eval_model model cond_z env)
+
+
+let test_jmp_spec_reach_2 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let cond_x = Bil.(var x = i32 2) in
+  let cond_y = Bil.(var y = i32 3) in
+  let cond_unsat = Bil.(var x + var y <> i32 5) in
+  let sub = Bil.(
+      [ if_ (cond_x)
+          [ if_ (cond_y)
+              [ if_ (cond_unsat)
+                  []
+                  []
+              ]
+              []
+          ]
+          []
+      ]
+    ) |> bil_to_sub
+  in
+  let jmp_spec =
+    Tid.Map.empty
+    |> Tid.Map.set ~key:(jump_tid sub cond_x) ~data:true
+    |> Tid.Map.set ~key:(jump_tid sub cond_y) ~data:true
+    |> Tid.Map.set ~key:(jump_tid sub cond_unsat) ~data:true
+    |> Pre.jmp_spec_reach
+  in
+  let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
+  let post = true_constr ctx in
+  let pre, _ = Pre.visit_sub env post sub in
+  let solver = Z3.Solver.mk_simple_solver ctx in
+  let result = Pre.check ~refute:false solver ctx pre in
+  assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
+    Z3.Solver.UNSATISFIABLE result
 
 
 let test_exclude_1 (test_ctx : test_ctxt) : unit =
@@ -1192,7 +1229,8 @@ let suite = [
   "Low: Bitwidth 8 -> 5; Value: 238 -> 14" >:: test_cast 8 5 238 Bil.LOW;
 
   "Test branches" >:: test_branches_1;
-  "Test jmp_spec_reach" >:: test_jmp_spec_reach;
+  "Test jmp_spec_reach SAT" >:: test_jmp_spec_reach_1;
+  "Test jmp_spec_reach UNSAT" >:: test_jmp_spec_reach_2;
 
   "Test exclude" >:: test_exclude_1;
 ]
