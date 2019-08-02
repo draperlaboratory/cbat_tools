@@ -165,7 +165,7 @@ val get_int_handler : t -> int_spec
 (** Finds the {!loop_handler} that is used to unroll loops when it is visited in
     the BIR program. *)
 val get_loop_handler :
-  t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Edge.node -> Bap.Std.Graphs.Ir.t -> t)
+  t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t)
 
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t

@@ -163,9 +163,7 @@ let post_dominator (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
         ) in
       match exit_node with
       | None -> None
-      | Some e ->
-        Format.printf "Exit tid: %s\n%!" (Tid.to_string e);
-        get_precondition env e
+      | Some e -> get_precondition env e
 
 let init_loop_unfold (num_unroll : int) : loop_handler =
   {
@@ -178,7 +176,7 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       let decr_depth node =
         Hashtbl.update depth (Node.label node) ~f:(function None -> assert false | Some n -> n-1)
       in
-      let rec unroll env pre ~start:node g =
+      let unroll env pre ~start:node g =
         if find_depth node <= 0 then
           (* TODO: Right now, the handler just returns the same env.
 
@@ -188,17 +186,14 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
                * if none: use a trivial postcondition (true)
                * if multiple: nondeterministically choose a postcondition
              * We may have to crash if we hit a node with no predecessor. *)
-          begin
-            Format.printf "Current node: %s\n%!" (node |> Node.label |> Term.tid |> Tid.to_string);
-            let pre = List.find_map [post_dominator] ~f:(fun spec -> spec env node g)
-                      |> Option.value ~default:(trivial_pre env) in
-            add_precond env (node |> Node.label |> Term.tid) pre
-          end
+          let pre = List.find_map [post_dominator] ~f:(fun spec -> spec env node g)
+                    |> Option.value ~default:(trivial_pre env) in
+          add_precond env (node |> Node.label |> Term.tid) pre
         else
           begin
             decr_depth node;
-            let env = !wp_rec_call env pre ~start:node g in
-            unroll env pre ~start:node g
+            !wp_rec_call env pre ~start:node g
+            (* unroll env pre ~start:node g *)
           end
       in
       unroll
