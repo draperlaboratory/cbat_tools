@@ -13,6 +13,7 @@
 
 open !Core_kernel
 open Bap.Std
+open Graphlib.Std
 
 include Self()
 
@@ -136,27 +137,29 @@ let trivial_pre (env : t) : Constr.t =
   |> Constr.mk_goal "true"
   |> Constr.mk_constr
 
-let post_dominator (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+(* Looks up the precondition of the exit node of a loop by:
+   - obtaining the post dominator tree
+   - for each node in the SCC, find its parent in the dominator tree
+   - if the parent node is not in the original SCC, it is an exit node *)
+let loop_exit_pre (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
   : Constr.t option =
-  let module G = Graphlib.Std in
   let module Node = Graphs.Ir.Node in
-  let scc = G.Graphlib.strong_components (module Graphs.Ir) graph in
-  match G.Partition.group scc node with
+  let scc = Graphlib.strong_components (module Graphs.Ir) graph in
+  match Partition.group scc node with
   | None -> None
   | Some g ->
-    let nodes = G.Group.enum g in
-    let leaf = Seq.find (G.Graphlib.postorder_traverse (module Graphs.Ir) graph)
+    let leaf = Seq.find (Graphlib.postorder_traverse (module Graphs.Ir) graph)
         ~f:(fun n -> Seq.is_empty (Node.succs n graph))
     in
     match leaf with
     | None -> None
     | Some l ->
-      let dom_tree = G.Graphlib.dominators (module Graphs.Ir) ~rev:true graph l in
-      let exit_node = Seq.find_map nodes ~f:(fun n ->
-          match G.Tree.parent dom_tree n with
+      let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph l in
+      let exit_node = Seq.find_map (Group.enum g) ~f:(fun n ->
+          match Tree.parent dom_tree n with
           | None -> None
           | Some p ->
-            if Seq.exists nodes ~f:(Node.equal p) then
+            if Group.mem g p then
               None
             else
               Some (p |> Node.label |> Term.tid)
@@ -178,22 +181,19 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       in
       let unroll env pre ~start:node g =
         if find_depth node <= 0 then
-          (* TODO: Right now, the handler just returns the same env.
-
-           * Over here we should:
-             * Check what the post dominator is:
-               * if one: update the env with env.add_precondition
-               * if none: use a trivial postcondition (true)
-               * if multiple: nondeterministically choose a postcondition
-             * We may have to crash if we hit a node with no predecessor. *)
-          let pre = List.find_map [post_dominator] ~f:(fun spec -> spec env node g)
-                    |> Option.value ~default:(trivial_pre env) in
-          add_precond env (node |> Node.label |> Term.tid) pre
+          let tid = node |> Node.label |> Term.tid in
+          let pre =
+            match List.find_map [loop_exit_pre] ~f:(fun spec -> spec env node g) with
+            | Some p -> p
+            | None ->
+              warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
+              trivial_pre env
+          in
+          add_precond env tid pre
         else
           begin
             decr_depth node;
             !wp_rec_call env pre ~start:node g
-            (* unroll env pre ~start:node g *)
           end
       in
       unroll
