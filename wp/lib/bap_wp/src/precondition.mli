@@ -64,8 +64,9 @@ val lookup_sub : Bap.Std.Label.t -> Constr.t -> Env.t -> Constr.t * Env.t
 (** Get {e every} variable from a subroutine. *)
 val get_vars : Bap.Std.Sub.t -> Bap.Std.Var.Set.t
 
-(** For a subroutine, find the set of output variables. *)
-val get_output_vars : Bap.Std.Sub.t -> Bap.Std.Var.Set.t
+(** Find the set of BAP variables in a subroutine for equivalence checking
+    given the name of each variable. *)
+val get_output_vars : Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t
 
 (** Create a Z3 expression that denotes a load in memory [mem] at address [addr]. *)
 val load_z3_mem

@@ -326,6 +326,9 @@ The various options are:
   this to be an experimental feature.
 - `--wp-num-unroll=num`. If present, replaces the default number of
   times to unroll each loop. The number of loop unrollings is 5 by default.
+- `--wp-output-vars=var_list`. List of output variables for equivalence checking
+  by `,` given the same input variables in the case of a comparative analysis.
+  Defaults to `RAX,EAX` which are the 64- and 32-bit output registers for x86.
 
 ## C checking API
 

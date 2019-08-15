@@ -68,11 +68,17 @@ let mk_z3_var (env : Env.t) (v : Var.t) : Constr.z3_expr =
   fst (Env.get_var env v)
 
 let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
-    (exp : Z3.Solver.status) (real : Z3.Solver.status) : unit =
+    (exp : Z3.Solver.status) (real : Z3.Solver.status) (ctx : Z3.context)
+    (goals : Constr.t) : unit =
   if real = exp || real = Z3.Solver.UNSATISFIABLE then () else
     match Z3.Solver.get_model solver with
     | None -> ()
-    | Some model -> Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model)
+    | Some model ->
+      let refuted_goals = Constr.get_refuted_goals goals model ctx in
+      Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model);
+      Format.fprintf ff "\nRefuted goals:\n%!";
+      Seq.iter refuted_goals ~f:(fun g ->
+          Format.fprintf ff "%s\n%!" (Constr.refuted_goal_to_string g model))
 
 (* Obtains the tid of a jump in a sub given its jump condition. *)
 let jump_tid (sub : Sub.t) (cond : Exp.t) : Tid.t =

@@ -37,7 +37,7 @@ let assert_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : string
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nPost:\n%a\n\nAnalyzing:\n%sPre:\n%a\n\n%!"
           Constr.pp_constr post body Constr.pp_constr pre;
-        print_z3_model ff solver exp real)
+        print_z3_model ff solver exp real z3_ctx pre)
     expected result
 
 

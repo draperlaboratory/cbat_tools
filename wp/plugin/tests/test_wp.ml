@@ -43,6 +43,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
     ?func:(func = "main")
     ?check_calls:(check_calls = false)
     ?inline:(inline = false)
+    ?output_vars:(output_vars = "RAX,EAX")
     (test_ctx : test_ctxt)
   : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
@@ -55,6 +56,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
       Format.sprintf "--wp-function=%s" func;
       Format.sprintf "--wp-check-calls=%b" check_calls;
       Format.sprintf "--wp-inline=%b" inline;
+      Format.sprintf "--wp-output-vars=%s" output_vars;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
@@ -100,7 +102,7 @@ let suite = [
   "Diff Pointer Val"           >:: test_compare_elf "diff_pointer_val" "SAT!";
   "Switch Case Assignments"    >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
   "Switch Cases"               >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
-  "Remove Stack Protector"     >:: test_compare_elf "no_stack_protection" "SAT!";
+  "Remove Stack Protector"     >:: test_compare_elf "no_stack_protection" "SAT!" ~output_vars:"RSI,RAX";
   "Caller-saved registers"     >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:true;
   "Pop RSP in Summary"         >:: test_compare_elf "retrowrite_stub" "UNSAT!";
   "Simple WP"                  >:: test_single_elf "simple_wp" "main" "SAT!";
