@@ -16,3 +16,9 @@
 - We do not correctly handle calls: no effort is made to correctly
   update the variables modified by the call, in particular we assume
   nothing was modified.
+
+- We do not determine loop invariants. Instead, loops are unfolded a default of
+  5 times. When visiting a backedge, we visit the graph of the loop starting
+  from the loop header node. After unfolding, we pass the loop's exit node's
+  precondition to the header node. If the lookup fails, a trivial precondition
+  is passed to the header node.
