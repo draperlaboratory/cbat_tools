@@ -70,12 +70,6 @@ let cast (ctx : Z3.context) (cst : cast) (i : int) (x : Constr.z3_expr) : Constr
   | HIGH -> BV.mk_extract ctx (size - 1) (size - i) x
   | LOW -> BV.mk_extract ctx (i - 1) 0 x
 
-type args = {
-  inputs : Var.Set.t;
-  outputs : Var.Set.t;
-  both : Var.Set.t;
-}
-
 (* Placeholder for inlining function calls, which will be substituted with [visit_sub]
    at its point of definition. *)
 let inline_func :
@@ -255,7 +249,7 @@ let get_stack_ptr_offsets (sub : Sub.t) (arch : Arch.t) : Exp.t list =
   in
   match ret_block with
   | None ->
-    warning "Sub %s has no return" (Sub.name sub);
+    debug "Sub %s has no return" (Sub.name sub);
     []
   | Some blk ->
     let module Target = (val target_of_arch arch) in
@@ -479,33 +473,6 @@ let mk_inline_env
   Env.mk_env ctx var_gen ~specs ~default_spec:spec_inline
     ~jmp_spec:jmp_spec_default ~int_spec:int_spec_default ~subs
     ~num_loop_unroll ~exp_conds ~arch
-
-let sub_args (sub : Sub.t) : args =
-  let new_args = { inputs = Var.Set.empty; outputs = Var.Set.empty; both = Var.Set.empty } in
-  if not (Seq.is_empty (Term.to_sequence arg_t sub)) then
-    (* The subroutine has arg_t terms that we can iterate over to find the input/output args *)
-    Seq.fold (Term.enum arg_t sub) ~init:new_args
-      ~f:(fun args a ->
-          match Bap.Std.Arg.intent a, Exp.free_vars (Bap.Std.Arg.rhs a) with
-          | Some In, v -> { args with inputs = Var.Set.union args.inputs v }
-          | Some Out, v -> { args with outputs = Var.Set.union args.outputs v }
-          | Some Both, v -> { args with both = Var.Set.union args.both v }
-          | None, _ -> args)
-  else
-    (* The subroutine uses RAX as an output register if RAX is defined on the LHS in the sub *)
-    let defs = Term.enum blk_t sub |> Seq.map ~f:(fun b -> Term.enum def_t b) |> Seq.concat in
-    match Seq.find defs ~f:(fun d ->
-        let reg = Var.to_string (Def.lhs d) in
-        reg = "RAX" || reg = "EAX") with
-    | Some r -> { new_args with outputs = Var.Set.union new_args.outputs (Var.Set.singleton @@ Def.lhs r) }
-    | None ->
-      (* Default case: We are generating a trivial sub compare in this case *)
-      warning "Input and output variables for %s are empty%!" (Sub.name sub);
-      new_args
-
-let get_output_vars (sub : Sub.t) : Var.Set.t =
-  let args = sub_args sub in
-  Var.Set.union args.outputs args.both
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in
@@ -831,6 +798,7 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
 
 let check ?refute:(refute = true) (solver : Z3.Solver.solver) (ctx : Z3.context)
     (pre : Constr.t) : Z3.Solver.status =
+  info "Evaluating precondition.%!";
   let pre' = Constr.eval pre ctx in
   info "Checking precondition with Z3.\n%!";
   let is_correct =
@@ -868,7 +836,7 @@ let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3
     (Z3.Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
   check solver ctx pre
 
-let get_vars (t : sub term) : Var.Set.t =
+let get_vars (t : Sub.t) : Var.Set.t =
   let visitor =
     (object inherit [Var.Set.t] Term.visitor
       method! visit_def def vars =
@@ -877,6 +845,23 @@ let get_vars (t : sub term) : Var.Set.t =
         vars
       method! visit_jmp jmp vars =
         Var.Set.union vars (Jmp.free_vars jmp)
+    end)
+  in
+  visitor#visit_sub t Var.Set.empty
+
+let get_output_vars (t : Sub.t) (var_names : string list) : Var.Set.t =
+  let visitor =
+    (object inherit [Var.Set.t] Term.visitor
+      method! visit_def def vars =
+        let is_output_var = List.exists var_names ~f:(fun v ->
+            def
+            |> Def.lhs
+            |> Var.to_string
+            |> String.equal v)
+        in
+        if is_output_var then
+          Var.Set.add vars (Def.lhs def)
+        else vars
     end)
   in
   visitor#visit_sub t Var.Set.empty

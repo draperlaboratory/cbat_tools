@@ -166,7 +166,9 @@ let loop_exit_pre (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
         ) in
       match exit_node with
       | None -> None
-      | Some e -> get_precondition env e
+      | Some e ->
+        debug "Using precondition from node %s%!" (Tid.to_string e);
+        get_precondition env e
 
 let init_loop_unfold (num_unroll : int) : loop_handler =
   {

@@ -35,7 +35,7 @@ let assert_z3_compare (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body1 : stri
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nComparing:\n%s\nand\n\n%s\nCompare_prop:\n%a\n\n%!"
           body1 body2 Constr.pp_constr pre;
-        print_z3_model ff solver exp real)
+        print_z3_model ff solver exp real z3_ctx pre)
     expected result
 
 
@@ -425,6 +425,32 @@ let test_sub_pair_fun_4 (test_ctx : test_ctxt) : unit =
     compare_prop Z3.Solver.SATISFIABLE
 
 
+let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let blk1 = Blk.create () in
+  let blk2 = Blk.create () in
+  let mem = Var.create "mem" (mem32_t `r32) in
+  let loc1 = Var.create "loc" reg32_t in
+  let bv1 = Word.of_int ~width:32 0xDEADBEEF in
+  let bv2 = Word.of_int ~width:32 0x0FA1AFE1 in
+  let store1 = Bil.(store ~mem:(var mem) ~addr:(var loc1) (int bv1) LittleEndian `r32) in
+  let store2 = Bil.(store ~mem:(var mem) ~addr:(var loc1) (int bv2) LittleEndian `r32) in
+  let blk1 = blk1 |> mk_def mem store1 in
+  let blk2 = blk2 |> mk_def mem store2 in
+  let sub1 = mk_sub ~name:"main_sub" [blk1] in
+  let sub2 = mk_sub ~name:"main_sub" [blk2] in
+  let env1 = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [sub1]) in
+  let env2 = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [sub2]) in
+  let input_vars = Var.Set.of_list [mem; loc1] in
+  let output_vars = Var.Set.singleton mem in
+  let compare_prop, _ = Comp.compare_subs_eq
+      ~input:input_vars ~output:output_vars
+      ~original:(sub1,env1) ~modified:(sub2,env2) in
+  assert_z3_compare test_ctx ctx (Sub.to_string sub1) (Sub.to_string sub2)
+    compare_prop Z3.Solver.SATISFIABLE
+
+
 let suite = [
   "z = x+y; and x = x+1; y = y-1; z = x+y;"  >:: test_block_pair_1;
   "z = x; and y = x; z = y;"                 >:: test_block_pair_2;
@@ -441,4 +467,6 @@ let suite = [
   "Fun called in modified sub"               >:: test_sub_pair_fun_2;
   "Branches with fun calls"                  >:: test_sub_pair_fun_3;
   "Fun called in branch"                     >:: test_sub_pair_fun_4;
+
+  "Different memory in two subroutines"      >:: test_sub_pair_mem_1;
 ]

@@ -71,7 +71,8 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
 
 let compare_projs (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context) ~func:(func : string)
-    ~check_calls:(check_calls : bool) ~inline:(inline : bool) : Constr.t =
+    ~check_calls:(check_calls : bool) ~inline:(inline : bool)
+    ~output_vars:(output_vars : string list) : Constr.t =
   let proj1 = In_channel.with_file file1 ~f:(Project.Io.load) in
   let proj2 = In_channel.with_file file2 ~f:(Project.Io.load) in
   let arch1 = Project.arch proj1 in
@@ -82,15 +83,6 @@ let compare_projs (file1: string) (file2 : string)
   let subs2 = proj2 |> Project.program |> Term.enum sub_t in
   let main_sub1 = find_func subs1 func in
   let main_sub2 = find_func subs2 func in
-  (* BUG??: Sub.free_vars only returns a non-empty var set on the SSA form of a sub *)
-  let output_vars = Var.Set.union
-      (Pre.get_output_vars main_sub1) (Pre.get_output_vars main_sub2) in
-  let input_vars = Var.Set.union_list
-      [Pre.get_vars main_sub1; Pre.get_vars main_sub2; output_vars] in
-  let varset_to_string vs =
-    vs |> Var.Set.to_sequence |> Seq.to_list |> List.to_string ~f:Var.to_string in
-  debug "Input: %s%!" (varset_to_string input_vars);
-  debug "Output: %s%!" (varset_to_string output_vars);
   let env1, env2 =
     if inline then
       Pre.mk_inline_env ctx var_gen ~subs:subs1 ~arch:arch1,
@@ -103,8 +95,19 @@ let compare_projs (file1: string) (file2 : string)
     if check_calls then
       Comp.compare_subs_fun ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
     else
-      Comp.compare_subs_eq ~input:input_vars ~output:output_vars
-        ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
+      begin
+        let output_vars = Var.Set.union
+            (Pre.get_output_vars main_sub1 output_vars)
+            (Pre.get_output_vars main_sub2 output_vars) in
+        let input_vars = Var.Set.union_list
+            [Pre.get_vars main_sub1; Pre.get_vars main_sub2; output_vars] in
+        let varset_to_string vs =
+          vs |> Var.Set.to_sequence |> Seq.to_list |> List.to_string ~f:Var.to_string in
+        debug "Input: %s%!" (varset_to_string input_vars);
+        debug "Output: %s%!" (varset_to_string output_vars);
+        Comp.compare_subs_eq ~input:input_vars ~output:output_vars
+          ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
+      end
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
     (Sub.to_string main_sub1) (Sub.to_string main_sub2);
@@ -117,6 +120,7 @@ let main (file1 : string) (file2 : string)
     ~inline:(inline : bool)
     ~post_cond:(post_cond : string)
     ~num_unroll:(num_unroll : int option)
+    ~output_vars:(output_vars : string list)
     (proj : project) : unit =
   Log.start ~logdir:"/dev/stdout" ();
   let ctx = Env.mk_ctx () in
@@ -125,9 +129,9 @@ let main (file1 : string) (file2 : string)
   update_default_num_unroll num_unroll;
   let pre =
     if compare then
-      compare_projs file1 file2 var_gen ctx ~func:func ~check_calls:check_calls ~inline:inline
+      compare_projs file1 file2 var_gen ctx ~func ~check_calls ~inline ~output_vars
     else
-      analyze_proj proj var_gen ctx ~func:func ~inline:inline ~post_cond:post_cond
+      analyze_proj proj var_gen ctx ~func ~inline ~post_cond
   in
   let result = Pre.check solver ctx pre in
   Pre.print_result solver result pre ctx
@@ -142,15 +146,19 @@ module Cmdline = struct
   let func = param string "function" ~doc:"Function in both binaries to compare"
       ~default:"main"
   let check_calls = param bool "check-calls" ~doc:"Check conservation of function calls"
-      ~default:false
+      ~as_flag:true ~default:false
   let compare = param bool "compare" ~doc:"Compare the subroutines of two binaries"
-      ~default:false
+      ~as_flag:true ~default:false
   let inline = param bool "inline" ~doc:"Inline function calls"
-      ~default:false
+      ~as_flag:true ~default:false
   let post_cond = param string "postcond" ~doc:"Post condition in SMT-LIB format"
       ~default:""
   let num_unroll = param (some int) "num-unroll" ~doc:"Amount of times to unroll each loop"
       ~default:None
+  let output_vars = param (list string) "output-vars" ~default:["RAX"; "EAX"]
+      ~doc:"List of output variables to compare separated by ',' given the same \
+            input variables in the case of a comparative analysis. Defaults to `RAX,EAX` \
+            which are the 64- and 32-bit output registers for x86."
 
   let () = when_ready (fun {get=(!!)} ->
       Project.register_pass' @@
@@ -161,6 +169,7 @@ module Cmdline = struct
         ~inline:!!inline
         ~post_cond:!!post_cond
         ~num_unroll:!!num_unroll
+        ~output_vars:!!output_vars
     )
 
   let () = manpage [
