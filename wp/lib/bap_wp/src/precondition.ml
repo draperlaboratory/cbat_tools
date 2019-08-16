@@ -850,18 +850,12 @@ let get_vars (t : Sub.t) : Var.Set.t =
   visitor#visit_sub t Var.Set.empty
 
 let get_output_vars (t : Sub.t) (var_names : string list) : Var.Set.t =
-  let visitor =
-    (object inherit [Var.Set.t] Term.visitor
-      method! visit_def def vars =
-        let is_output_var = List.exists var_names ~f:(fun v ->
-            def
-            |> Def.lhs
-            |> Var.to_string
-            |> String.equal v)
-        in
-        if is_output_var then
-          Var.Set.add vars (Def.lhs def)
-        else vars
-    end)
-  in
-  visitor#visit_sub t Var.Set.empty
+  let all_vars = get_vars t in
+  let has_name name var = String.equal name (Var.to_string var) in
+  List.fold var_names ~init:Var.Set.empty ~f:(fun vars name ->
+      match Var.Set.find all_vars ~f:(has_name name) with
+      | Some v -> Var.Set.add vars v
+      | None ->
+        warning "%s not in sub and will not be added to the postcondition" name;
+        vars
+    )
