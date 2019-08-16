@@ -1163,6 +1163,40 @@ let test_exclude_1 (test_ctx : test_ctxt) : unit =
         (not (Expr.equal v value)))
 
 
+let test_output_vars_1 (test_ctx : test_ctxt) : unit =
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let z = Var.create "z" reg32_t in
+  let sub = Bil.(
+      [
+        x := i32 1;
+        y := i32 2;
+        z := i32 3;
+      ]
+    ) |> bil_to_sub
+  in
+  let vars = Pre.get_output_vars sub ["x"; "y"; "z"] in
+  assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
+    ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
+    (Var.Set.of_list [x; y; z]) vars
+
+
+let test_output_vars_2 (test_ctx : test_ctxt) : unit =
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let sub = Bil.(
+      [
+        x := i32 1;
+        y := i32 2;
+      ]
+    ) |> bil_to_sub
+  in
+  let vars = Pre.get_output_vars sub ["x"; "y"; "z"] in
+  assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
+    ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
+    (Var.Set.of_list [x; y]) vars
+
+
 let suite = [
   "Empty Block" >:: test_empty_block;
   "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
@@ -1263,4 +1297,7 @@ let suite = [
   "Test jmp_spec_reach UNSAT" >:: test_jmp_spec_reach_2;
 
   "Test exclude" >:: test_exclude_1;
+
+  "Test get output variables by name" >:: test_output_vars_1;
+  "z not in subroutine" >:: test_output_vars_2;
 ]
