@@ -23,6 +23,7 @@ module Constr = Constraint
 module Bool = Z3.Boolean
 module Expr = Z3.Expr
 module BV = Z3.BitVector
+module Array = Z3.Z3Array
 
 (* To run these tests: `make test.unit` in bap_wp directory *)
 
@@ -44,12 +45,33 @@ let test_get_refuted_goals (test_ctx : test_ctxt) : unit =
   let result = Pre.check solver ctx clause in
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
     Z3.Solver.SATISFIABLE result;
-  let model = Z3.Solver.get_model solver
-              |> Option.value_exn ?here:None ?error:None ?message:None in
-  let goals = Constr.get_refuted_goals clause model ctx in
+  let goals = Constr.get_refuted_goals clause solver ctx in
   Sequence.iter goals ~f:(fun g ->
       assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
         (Bool.mk_eq ctx x two) (Constr.get_goal_val g))
+
+let test_get_refuted_goals_mem (test_ctx : test_ctxt) : unit =
+  let ctx = Z3.mk_context [] in
+  let solver = Z3.Solver.mk_simple_solver ctx in
+  let sort = BV.mk_sort ctx 32 in
+  let mem = Array.mk_const_s ctx "mem" sort sort in
+  let addr = BV.mk_numeral ctx "11111111" 32 in
+  let data1 = BV.mk_numeral ctx "22222222" 32 in
+  let data2 = BV.mk_numeral ctx "33333333" 32 in
+  let store1 = Array.mk_store ctx mem addr data1 in
+  let store2 = Array.mk_store ctx mem addr data2 in
+  let goal = Bool.mk_eq ctx store1 store2 in
+  let constr = goal
+               |> Constr.mk_goal (Expr.to_string goal)
+               |> Constr.mk_constr
+  in
+  let result = Pre.check solver ctx constr in
+  assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
+    Z3.Solver.SATISFIABLE result;
+  let goals = Constr.get_refuted_goals constr solver ctx in
+  Sequence.iter goals ~f:(fun g ->
+      assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
+        goal (Constr.get_goal_val g))
 
 let test_substitute (test_ctx : test_ctxt) : unit =
   let ctx = Z3.mk_context [] in
@@ -86,15 +108,14 @@ let test_substitute_order (test_ctx : test_ctxt) : unit =
   let result = Pre.check solver ctx pre in
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
     Z3.Solver.SATISFIABLE result;
-  let model = Z3.Solver.get_model solver
-              |> Option.value_exn ?here:None ?error:None ?message:None in
-  let goals = Constr.get_refuted_goals pre model ctx in
+  let goals = Constr.get_refuted_goals pre solver ctx in
   Sequence.iter goals ~f:(fun g ->
       assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
         post_expr (Constr.get_goal_val g))
 
 let suite = [
-  "Get Refuted Goals"         >:: test_get_refuted_goals;
-  "Substitute Exprs"          >:: test_substitute;
-  "Substitute Exprs in Order" >:: test_substitute_order;
+  "Get Refuted Goals"             >:: test_get_refuted_goals;
+  "Get Refuted Goals with Memory" >:: test_get_refuted_goals_mem;
+  "Substitute Exprs"              >:: test_substitute;
+  "Substitute Exprs in Order"     >:: test_substitute_order;
 ]
