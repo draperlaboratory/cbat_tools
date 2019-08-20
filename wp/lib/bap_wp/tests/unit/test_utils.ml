@@ -74,7 +74,7 @@ let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
     match Z3.Solver.get_model solver with
     | None -> ()
     | Some model ->
-      let refuted_goals = Constr.get_refuted_goals goals model ctx in
+      let refuted_goals = Constr.get_refuted_goals goals solver ctx in
       Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model);
       Format.fprintf ff "\nRefuted goals:\n%!";
       Seq.iter refuted_goals ~f:(fun g ->

@@ -97,8 +97,9 @@ val substitute_one : t -> z3_expr -> z3_expr -> t
 
 (** Obtains a list of pairs of goals and a path to that goal that have
     been refuted by a Z3 model. *)
-val get_refuted_goals_and_paths : t -> Z3.Model.model -> Z3.context
-  -> (goal * path) Core_kernel.Sequence.t
+val get_refuted_goals_and_paths :
+  t -> Z3.Solver.solver -> Z3.context -> (goal * path) Core_kernel.Sequence.t
 
 (** Obtains a list of goals that have been refuted by a Z3 model. *)
-val get_refuted_goals : t -> Z3.Model.model -> Z3.context -> goal Core_kernel.Sequence.t
+val get_refuted_goals :
+  t -> Z3.Solver.solver -> Z3.context -> goal Core_kernel.Sequence.t
