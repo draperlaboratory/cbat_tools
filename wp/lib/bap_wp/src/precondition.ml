@@ -573,7 +573,11 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     let post = Constr.mk_clause assume post in
     let typ_size t = match t with
       | Bil.Types.Imm n -> n
-      | Bil.Types.Mem (_, s) -> Size.in_bits s in
+      | Bil.Types.Mem (_, s) -> Size.in_bits s
+      | Bil.Types.Unk ->
+        error "Unk type: Unable to obtain type size.%!";
+        failwith "visit_elt: elt's type is not representable by Type.t"
+    in
     debug "Visiting def:\nlhs = %s : <%d>    rhs = %s : <%d>%!"
       (Expr.to_string z3_var) (var |> Var.typ |> typ_size)
       (Expr.to_string rhs_exp) (rhs |> Type.infer_exn |> typ_size);
@@ -688,6 +692,9 @@ let collect_non_null_expr (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
             | Imm n -> n
             | Mem _ -> error "Expected %s to be an address word!%!" (Exp.to_string addr);
               failwith "Error: in collect_non_null_expr, got a memory read instead of a word"
+            | Unk ->
+              error "Unk type: Unable to determine if %s is an address word.%!" (Exp.to_string addr);
+              failwith "Error: in collect_non_null_expr: addr's type is not representable by Type.t"
           in
           let null = BV.mk_numeral ctx "0" width in
           let addr_val,_,_,_ = exp_to_z3 addr env in

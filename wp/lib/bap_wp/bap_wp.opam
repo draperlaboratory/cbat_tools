@@ -17,7 +17,7 @@ homepage: "https://github.com/draperlaboratory/CBAT-internal"
 bug-reports: "https://github.com/draperlaboratory/CBAT-internal"
 dev-repo: "git+https://github.com/draperlaboratory/CBAT-internal"
 depends: [
-  "bap" {>= "1.6"}
+  "bap" {>= "master"}
   "core" {>= "0.11"}
   "z3" {>= "4.8.4"}
   "ounit"
