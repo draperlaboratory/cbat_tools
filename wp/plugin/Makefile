@@ -16,8 +16,8 @@ install: build verifier save_project
 	bapbundle install $(PASS_NAME).plugin
 
 test: install save_project dummy
-	ocamlbuild -r -use-ocamlfind -pkgs 'bap,z3,bap_wp,oUnit' -tag 'warn(A-48-44),debug,thread' -I tests test.byte
-	ocamlrun test.byte
+	ocamlbuild -r -use-ocamlfind -pkgs 'bap,z3,bap_wp,oUnit' -tag 'warn(A-48-44),debug,thread' -I tests test.native
+	./test.native
 
 verifier:
 	cp api/c/cbat.h $(API_PATH)/c/cbat.h
