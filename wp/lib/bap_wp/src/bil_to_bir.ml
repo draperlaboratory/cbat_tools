@@ -87,7 +87,7 @@ let rec stmt_to_blks (stmt : Bil.Types.stmt)
          and [tid]s
       *)
       | Bil.Unknown (tid_s, _) ->
-        let call_tid = Tid.from_string_exn ("%" ^ tid_s) in
+        let call_tid = Tid.from_string_exn tid_s in
         Tid.set_name call_tid "__assert_fail";
         Blk.Builder.add_jmp tail_blk
           (Jmp.create (Call (Call.create ~target:(Label.direct call_tid) ())));

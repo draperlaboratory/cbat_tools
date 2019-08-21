@@ -79,6 +79,9 @@ let mk_z3_expr (ctx : Z3.context) ~name:(name : string) ~typ:(typ : Type.t) : Co
     let i_sort = Z3.BitVector.mk_sort ctx (Size.in_bits i_size) in
     let w_sort = Z3.BitVector.mk_sort ctx (Size.in_bits w_size) in
     Z3.Z3Array.mk_const_s ctx name i_sort w_sort
+  | Type.Unk ->
+    error "Unk type: Unable to make z3_expr %s.%!" name;
+    failwith "mk_z3_expr: type is not representable by Type.t"
 
 let add_precond (env : t) (tid : Tid.t) (p : Constr.t) : t =
   { env with precond_map = TidMap.set env.precond_map ~key:tid ~data:p }
