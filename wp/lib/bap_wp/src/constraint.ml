@@ -148,15 +148,17 @@ let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
                                     condition at %s" (Tid.to_string tid))
       end
     | Clause (hyps, concs) ->
-      let hyps_false = List.exists hyps
-          ~f:(fun h ->
-              let hyp_val = Z3.Model.eval model (eval_aux h olds news ctx) true
-                            |> Option.value_exn ?here:None ?error:None ?message:None in
-              match Z3.Solver.check solver [hyp_val] with
-              | Z3.Solver.SATISFIABLE -> false
-              | Z3.Solver.UNSATISFIABLE -> true
-              | Z3.Solver.UNKNOWN ->
-                failwith "get_refuted_goals: Unable to resolve value of hypothesis")
+      let hyp_vals =
+        List.map hyps ~f:(fun h ->
+            Z3.Model.eval model (eval_aux h olds news ctx) true
+            |> Option.value_exn ?here:None ?error:None ?message:None)
+      in
+      let hyps_false =
+        match Z3.Solver.check solver hyp_vals with
+        | Z3.Solver.SATISFIABLE -> false
+        | Z3.Solver.UNSATISFIABLE -> true
+        | Z3.Solver.UNKNOWN ->
+          failwith "get_refuted_goals: Unable to resolve value of hypothesis"
       in
       if hyps_false then
         Seq.empty
