@@ -76,7 +76,7 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     (Sub.to_string main_sub) Constr.pp_constr pre;
   pre
 
-let compare_projs (file1: string) (file2 : string)
+let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string)
     ~check_calls:(check_calls : bool)
@@ -84,14 +84,13 @@ let compare_projs (file1: string) (file2 : string)
     ~to_inline:(to_inline : string list)
     ~output_vars:(output_vars : string list)
   : Constr.t =
-  let proj1 = In_channel.with_file file1 ~f:(Project.Io.load) in
-  let proj2 = In_channel.with_file file2 ~f:(Project.Io.load) in
-  let arch1 = Project.arch proj1 in
-  let arch2 = Project.arch proj2 in
-  if not (Arch.equal arch1 arch2) then
-    failwith (diff_arch_msg arch1 arch2);
-  let subs1 = proj1 |> Project.program |> Term.enum sub_t in
-  let subs2 = proj2 |> Project.program |> Term.enum sub_t in
+  let prog1 = In_channel.with_file file1 ~f:Program.Io.load in
+  let prog2 = In_channel.with_file file2 ~f:Program.Io.load in
+  (* Currently using the dummy binary's project to determine the architecture
+     until we discover a better way of determining the architecture from a program. *)
+  let arch = Project.arch proj in
+  let subs1 = Term.enum sub_t prog1 in
+  let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = find_func_err subs1 func in
   let main_sub2 = find_func_err subs2 func in
   (* Not efficient, but easier to read *)
@@ -112,11 +111,11 @@ let compare_projs (file1: string) (file2 : string)
                        |> List.map ~f:(find_func_in_one_of ~to_find:subs2 ~to_check:subs1)
                        |> List.concat
                        |> Seq.of_list in
-      Pre.mk_inline_env ctx var_gen ~subs:subs1 ~arch:arch1 ~to_inline:to_inline1,
-      Pre.mk_inline_env ctx var_gen ~subs:subs2 ~arch:arch2 ~to_inline:to_inline2
+      Pre.mk_inline_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1,
+      Pre.mk_inline_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
     else
-      Pre.mk_default_env ctx var_gen ~subs:subs1 ~arch:arch1,
-      Pre.mk_default_env ctx var_gen ~subs:subs2 ~arch:arch2
+      Pre.mk_default_env ctx var_gen ~subs:subs1 ~arch:arch,
+      Pre.mk_default_env ctx var_gen ~subs:subs2 ~arch:arch
   in
   let pre, _ =
     if check_calls then
@@ -157,7 +156,7 @@ let main (file1 : string) (file2 : string)
   update_default_num_unroll num_unroll;
   let pre =
     if compare then
-      compare_projs file1 file2 var_gen ctx ~func ~check_calls ~inline ~to_inline ~output_vars
+      compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~inline ~to_inline ~output_vars
     else
       analyze_proj proj var_gen ctx ~func ~inline ~to_inline ~post_cond
   in
