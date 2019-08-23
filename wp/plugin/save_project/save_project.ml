@@ -17,24 +17,26 @@ include Self()
 
 
 let main nm proj : unit =
+  let prog = Project.program proj in
   let dest =
     match (nm, Project.get proj filename) with
-    | ("",None) -> printf "Please specify a destination filename with --save-project-filename.\n";
-                   exit 1;
-    | ("",Some bnm) -> String.concat [bnm;".bpj"]
-    | (user_dest,_) -> user_dest
+    | ("", None) ->
+      Format.printf "Please specify a destination filename with --save-project-filename.\n";
+      exit 1;
+    | ("", Some bnm) -> String.concat [bnm; ".bpj"]
+    | (user_dest, _) -> user_dest
   in
-  Project.Io.write dest proj
+  Program.Io.write dest prog
 
 module Cmdline = struct
   open Config
-  let filename = param string "filename" ~doc:"Optional name of output file"
+  let filename = param string "filename" ~doc:"Name of output file"
 
   let () = when_ready (fun {get=(!!)} ->
-               Project.register_pass' (main !!filename))
+      Project.register_pass' (main !!filename))
 
   let () = manpage [
-     `S "DESCRIPTION";
-     `P "Saves a binary's project data structure to disk."
-  ]
+      `S "DESCRIPTION";
+      `P "Saves a binary's program data structure to disk."
+    ]
 end

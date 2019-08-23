@@ -17,7 +17,7 @@ $(PROG1).s: $(PROG1)
 	objdump -Sd $(PROG1) > $(PROG1).s
 
 $(PROG1).bpj: $(PROG1)
-	bap --pass=save-project $(PROG1)
+	bap --pass=save-project --save-project-filename=$(PROG1).bpj $(PROG1)
 
 prog2: $(PROG2) $(PROG2).s $(PROG2).bpj
 
@@ -28,7 +28,7 @@ $(PROG2).s: $(PROG2)
 	objdump -Sd $(PROG2) > $(PROG2).s
 
 $(PROG2).bpj: $(PROG2)
-	bap --pass=save-project $(PROG2)
+	bap --pass=save-project --save-project-filename=$(PROG2).bpj $(PROG2)
 
 clean:
 	rm -f $(PROG1) $(PROG1).s $(PROG1).bpj  $(PROG2) $(PROG2).s $(PROG2).bpj
