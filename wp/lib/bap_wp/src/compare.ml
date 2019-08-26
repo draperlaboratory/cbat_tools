@@ -26,6 +26,11 @@ module Constr = Constraint
    fresh variables, we want to keep those same fresh names in the analysis *)
 let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list * Env.t * Env.t =
   let ctx = Env.get_context env1 in
+  (* We keep only the physical variables, since the virtual ones may
+     have arbitrary values unrelated to the concrete exectution
+     (and in particular be of different types!)
+   *)
+  let vars = Set.filter vars ~f:(fun v -> Var.is_physical v) in
   Var.Set.fold vars ~init:([], env1, env2)
     ~f:(fun (eqs, env1, env2) v ->
         let var1, env1 = Env.get_var env1 v in
