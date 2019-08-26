@@ -238,16 +238,7 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
 let get_stack_ptr_offsets (sub : Sub.t) (arch : Arch.t) : Exp.t list =
-  let blks = Term.to_sequence blk_t sub in
-  let ret_block =
-    Seq.find blks ~f:(fun b ->
-        let jmps = Term.to_sequence jmp_t b in
-        Seq.exists jmps ~f:(fun j ->
-            match Jmp.kind j with
-            | Ret _ -> true
-            | _ -> false))
-  in
-  match ret_block with
+  match Term.last blk_t sub with
   | None ->
     debug "Sub %s has no return" (Sub.name sub);
     []
@@ -265,7 +256,8 @@ let get_stack_ptr_offsets (sub : Sub.t) (arch : Arch.t) : Exp.t list =
             else offsets
           | BinOp (MINUS, Var v, Bil.Types.Int w) ->
             if Var.equal v Target.CPU.sp then begin
-              warning "Stack pointer is being decremented by %s" (Word.to_string w);
+              warning "Stack pointer in %s is being decremented by %s before return"
+                (Sub.name sub) (Word.to_string w);
               rhs :: offsets
             end else offsets
           | _ -> offsets
