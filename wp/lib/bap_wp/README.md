@@ -9,7 +9,7 @@ A weakest-precondition analysis library, for BAP plugins/tools.
 
 Before installing `bap_wp`, the following requirements must be met:
 
-* BAP 1.6+ must be available. Confirm with `bap --version`.
+* BAP 2.0.0-alpha+ must be available. Confirm with `bap --version`.
 * z3 4.8.4+ must be available to `findlib` under the name `z3`
   (note the lowercase `z`). Confirm with `ocamlfind query z3`.
 * core 0.11+ must be available. Confirm with `ocamlfind query core`.
