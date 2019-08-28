@@ -430,7 +430,7 @@ let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
         increment_stack_ptr post env offsets)
   }
 
-let spec_inline (to_inline : Sub.t seq) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =
+let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =
   let open Env in
   let spec_name = "spec_inline" in
   if Seq.mem to_inline sub ~equal:Sub.equal then
@@ -469,8 +469,8 @@ let mk_inline_env
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?exp_conds:(exp_conds = [])
     ?arch:(arch = `x86_64)
-    ~subs:(subs : Sub.t seq)
-    ~to_inline:(to_inline : Sub.t seq)
+    ~subs:(subs : Sub.t Seq.t)
+    ~to_inline:(to_inline : Sub.t Seq.t)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
