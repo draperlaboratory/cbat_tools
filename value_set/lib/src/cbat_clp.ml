@@ -245,8 +245,8 @@ let min_elem (p : t) : word option =
     CLP is going to be the nearest predecessor to 3.
 
     We can get (2^w / 2) by getting the [dom_size] of [w - 1]. E.g.,
-    the domain size when [w = 3] is 8, but half of that is the same as 
-    the domain size when [w = 2], namely 4. 
+    the domain size when [w = 3] is 8, but half of that is the same as
+    the domain size when [w = 2], namely 4.
 
     Note that the max element this function returns is not signed (like
     all BAP words). To see the signed value, use [W.signed word].*)
@@ -499,44 +499,45 @@ let intersection (p1 : t) (p2 : t) : t =
   Option.value ~default:bot begin
     finite_end p1 >>= fun e1 ->
     finite_end p2 >>= fun e2 ->
-    match bounded_lcm p1.step p2.step with
-    | Some step ->
-      bounded_diophantine p1.step p2.step p2.base >>= fun (x,_) ->
-      (* the result is the first point on p1 that is also on the infinite CLP
-         approximation of p2. Due to the translation of the CLPs, this is the
-         least possible value (before translating back) that can inhabit the
-         intersection.
-      *)
-      let base = W.mul x p1.step in
-      (* e1 and e2 are meaningful iff p1 and p2 respectively are non-infinite.
-         We therefore guard their use so that when either argument is
-         infinite, we compute the proper end.
-      *)
-      let minE = if p1_infinite then e2
-        else if p2_infinite then e1
-        else min e1 e2 in
-      (* If the least possible value in resulting set is greater than the
-         maximum possible value, then the set is empty. This does not apply
-         when p1 is infinite since sometimes the base of p2 (and therefore
-         the result) can wrap backwards over 0.
-      *)
-      Option.some_if (W.(<=) base minE) () >>= fun _ ->
-      let cardn = cardn_from_bounds base step minE in
-      !!(create base ~step ~cardn)
-    | None ->
-      (* If there is no bounded LCM then s1 or s2 are 0. In other words,
-         one of the inputs is a singleton. Thus the intersection is either
-         equal to the singleton or empty.
-      *)
-      if W.is_zero p2.step then
-        Option.some_if (elem p2.base p1) () >>= fun _ ->
-        !!(create p2.base)
-      else
-        Option.some_if (elem p1.base p2) () >>= fun _ ->
-        !! (create p1.base)
-        (* whatever the result, we translate it by the original p1.base
-           to make up for the translation at the start.
+      let step = W.lcm_exn p1.step p2.step in
+      if W.is_zero step then begin
+        (* If there is no bounded LCM then s1 or s2 are 0. In other words,
+           one of the inputs is a singleton. Thus the intersection is either
+           equal to the singleton or empty.
         *)
+        if W.is_zero p2.step then
+          Option.some_if (elem p2.base p1) () >>= fun _ ->
+          !!(create p2.base)
+        else
+          Option.some_if (elem p1.base p2) () >>= fun _ ->
+          !! (create p1.base)
+      end else begin
+        bounded_diophantine p1.step p2.step p2.base >>= fun (x,_) ->
+        (* the result is the first point on p1 that is also on the infinite CLP
+           approximation of p2. Due to the translation of the CLPs, this is the
+           least possible value (before translating back) that can inhabit the
+           intersection.
+        *)
+        let base = W.mul x p1.step in
+        (* e1 and e2 are meaningful iff p1 and p2 respectively are non-infinite.
+           We therefore guard their use so that when either argument is
+           infinite, we compute the proper end.
+        *)
+        let minE = if p1_infinite then e2
+          else if p2_infinite then e1
+          else min e1 e2 in
+        (* If the least possible value in resulting set is greater than the
+           maximum possible value, then the set is empty. This does not apply
+           when p1 is infinite since sometimes the base of p2 (and therefore
+           the result) can wrap backwards over 0.
+        *)
+        Option.some_if (W.(<=) base minE) () >>= fun _ ->
+        let cardn = cardn_from_bounds base step minE in
+        !!(create base ~step ~cardn)
+      end
+  (* whatever the result, we translate it by the original p1.base
+     to make up for the translation at the start.
+  *)
   end |> (fun p -> translate p translation)
 
 (* Computes whether there exists any element in both CLPs

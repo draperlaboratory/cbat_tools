@@ -69,12 +69,12 @@ let test_bounded_lcm_gcd _ =
   let two_exp_16_32 = W.lshift (W.one 32) (W.of_int 16 ~width:32) in
   let test_words w1 w2 =
     let gcd = bounded_gcd w1 w2 in
-    match bounded_lcm w1 w2 with
-    | None ->
+    let lcm = W.lcm_exn w1 w2 in
+    if W.is_zero lcm then begin
       if W.is_zero w1 then assert_equal gcd  w2
       else if W.is_zero w2 then assert_equal gcd w1
       else OUnit2.assert_failure "lcm returned None when a solution exists";
-    | Some lcm ->
+    end else begin
       let prod = W.mul w1 w2 in
       let rem = W.modulo prod lcm in
       let cp1 = W.div w1 gcd in
@@ -87,6 +87,7 @@ let test_bounded_lcm_gcd _ =
       let lcm_from_gcd2 = W.mul w2 cp1 in
       assert_equal lcm_from_gcd1 lcm;
       assert_equal lcm_from_gcd2 lcm;
+    end
   in
   List.iter (fun w -> List.iter (test_words w) testlist_64) testlist_64;
   List.iter (fun w -> List.iter (test_words w) testlist_32) testlist_32;
@@ -177,7 +178,7 @@ let test_cap_at_width =
 let test_dom_size =
 
   (* If [w > i], then [dom_size] should be 2^i, represented as
-     a [w]-bit word. For instance [dom_size 3 ~width:4] should 
+     a [w]-bit word. For instance [dom_size 3 ~width:4] should
      return a word that is 4-bits long, which represents the int 8,
      since you can have 8 elements with 3-bit words (2^3 = 8). *)
 
@@ -193,7 +194,7 @@ let test_dom_size =
 
   let dom_tests =
      List.map
-     begin fun (i, w) -> 
+     begin fun (i, w) ->
        (Printf.sprintf "dom_size %d ~width:%d = %d as %d-bit word" i w i w)>::(check_dom (i, w))
      end
      [(1, 2); (2, 3); (2, 32); (3, 4); (3, 8); (4, 5); (8, 32); (60, 61);]
@@ -213,7 +214,7 @@ let test_dom_size =
 
   let zero_tests =
     List.map
-    begin fun i -> 
+    begin fun i ->
       (Printf.sprintf "dom_size %d %d = 0" i i)>::(check_zero i)
     end
     [1; 2; 3; 4; 7; 8; 32; 64; 100; 12350; 16383;]

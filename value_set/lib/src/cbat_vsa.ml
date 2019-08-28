@@ -211,6 +211,7 @@ let val_top : typ -> val_t = function
     let k = {Mem.addr_width = addr_width;
              Mem.addressable_width = addressable_width} in
     `Mem (Mem.top k)
+  | Type.Unk -> failwith "Error in val_top: typ is not representable by Type.t"
 
 let val_bottom : typ -> val_t = function
   | Type.Imm i -> `Word (WordSet.bottom i)
@@ -221,6 +222,7 @@ let val_bottom : typ -> val_t = function
     let k = {Mem.addr_width = addr_width;
              Mem.addressable_width = addressable_width} in
     `Mem (Mem.bottom k)
+  | Type.Unk -> failwith "Error in val_bottom: typ is not representable by Type.t"
 
 (* Helper functions; define a denotation for expressions.
    Assumes that e has BIR type [Imm bitwidth]
@@ -240,6 +242,7 @@ let rec denote_exp (e : exp) (env : AI.t) : val_t or_type_error =
       let k = {Mem.addr_width = addr_width;
                Mem.addressable_width = addressable_width} in
       return_mem @@ AI.find_memory k env v
+    | Type.Unk -> failwith "Error in denote_exp: var type is not representable by Type.t"
     end
   | Bil.Int bv -> return_imm @@ WordSet.singleton bv
   | Bil.BinOp (op, e1, e2) ->

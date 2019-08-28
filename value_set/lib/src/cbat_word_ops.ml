@@ -55,19 +55,6 @@ let bounded_gcd (w1 : word) (w2 : word) : word =
   else if W.is_zero w2 then w1
   else W.gcd_exn w1 w2
 
-(* Calculates the least common multiple of two words
-   such that the result is not less than the inputs.
-   TODO: the above statement is not true if the result wraps around.
-       check whether this works (it should, but needs a reason) and update docs
-   Returns None if either input is 0.
-*)
-let bounded_lcm (w1 : word) (w2 : word) : word option =
-  let width = W.bitwidth w1 in
-  assert (width = W.bitwidth w2);
-  match W.lcm w1 w2 with
-  | Result.Ok w -> Some w
-  | Result.Error _ -> None
-
 (* Performs an unsigned division that rounds updwards instead of downwards. *)
 let cdiv a b : word = if W.is_zero (W.modulo a b)
     then W.div a b else W.succ (W.div a b)
