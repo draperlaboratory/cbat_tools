@@ -43,6 +43,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
     ?func:(func = "main")
     ?check_calls:(check_calls = false)
     ?inline:(inline = false)
+    ?to_inline:(to_inline = "")
     ?output_vars:(output_vars = "RAX,EAX")
     (test_ctx : test_ctxt)
   : unit =
@@ -56,6 +57,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
       Format.sprintf "--wp-function=%s" func;
       Format.sprintf "--wp-check-calls=%b" check_calls;
       Format.sprintf "--wp-inline=%b" inline;
+      Format.sprintf "--wp-inline-funcs=%s" to_inline;
       Format.sprintf "--wp-output-vars=%s" output_vars;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
@@ -66,6 +68,7 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
     ?func:(func = "main")
     ?check_calls:(check_calls = false)
     ?inline:(inline = false)
+    ?to_inline:(to_inline = "")
     ?post:(post = "")
     (test_ctx : test_ctxt)
   : unit =
@@ -77,6 +80,7 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
       Format.sprintf "--wp-function=%s" func;
       Format.sprintf "--wp-check-calls=%b" check_calls;
       Format.sprintf "--wp-inline=%b" inline;
+      Format.sprintf "--wp-inline-funcs=%s" to_inline;
       Format.sprintf "--wp-postcond=%s" post;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target; elf_name];
@@ -103,16 +107,20 @@ let suite = [
   "Switch Case Assignments"    >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
   "Switch Cases"               >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
   "Remove Stack Protector"     >:: test_compare_elf "no_stack_protection" "SAT!" ~output_vars:"RSI,RAX";
-  "Caller-saved registers"     >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:true;
+  "Caller-saved registers"     >:: test_compare_elf "retrowrite_stub" "UNSAT!"
+    ~inline:true ~to_inline:"__afl_maybe_log";
   "Pop RSP in Summary"         >:: test_compare_elf "retrowrite_stub" "UNSAT!";
   "Simple WP"                  >:: test_single_elf "simple_wp" "main" "SAT!";
   "Verifier Assume SAT"        >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
   "Verifier Assume UNSAT"      >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
   "Verifier Nondet"            >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
-  "Function Call"              >:: test_single_elf "function_call" "main" "SAT!" ~inline:true;
-  "Function Specs"             >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:true;
+  "Function Call"              >:: test_single_elf "function_call" "main" "SAT!"
+    ~inline:true ~to_inline:"foo";
+  "Function Specs"             >:: test_single_elf "function_spec" "main" "UNSAT!"
+    ~inline:true ~to_inline:"foo";
   "Function Specs"             >:: test_single_elf "function_spec" "main" "SAT!" ~inline:false;
-  "Nested Function Calls"      >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:true;
+  "Nested Function Calls"      >:: test_single_elf "nested_function_calls" "main" "SAT!"
+    ~inline:true ~to_inline:"foo,bar";
   "User Defined Postcondition" >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
   "Update Number of Unrolls"   >:: test_update_num_unroll (Some 3);
   "Original Number of Unrolls" >:: test_update_num_unroll None;

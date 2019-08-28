@@ -152,6 +152,7 @@ val mk_inline_env
   -> ?exp_conds:Env.exp_cond list
   -> ?arch:Bap.Std.Arch.t
   -> subs:Bap.Std.Sub.t Bap.Std.Seq.t
+  -> to_inline: Bap.Std.Sub.t Bap.Std.Seq.t
   -> Z3.context
   -> Env.var_gen
   -> Env.t

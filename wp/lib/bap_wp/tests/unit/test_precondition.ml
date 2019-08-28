@@ -714,7 +714,10 @@ let test_call_7 (test_ctx : test_ctxt) : unit =
                (Label.direct (Term.tid call_sub)) in
   let blk3 = blk3 |> mk_def z (Bil.var y) in
   let main_sub = mk_sub [blk2; blk3] in
-  let env = Pre.mk_inline_env ctx var_gen ~subs:(Seq.of_list [main_sub; call_sub]) in
+  let env = Pre.mk_inline_env ctx var_gen
+      ~subs:(Seq.of_list [main_sub; call_sub])
+      ~to_inline:(Seq.singleton call_sub)
+  in
   let sub_called = Option.value_exn (call_tid |> Env.get_called env) in
   let post = Bool.mk_and ctx [
       Bool.mk_eq ctx (mk_z3_expr env Bil.(var x + one)) (mk_z3_expr env (Bil.var z));
@@ -761,7 +764,6 @@ let test_call_8 (test_ctx : test_ctxt) : unit =
   let fmtr = (Sub.to_string main_sub) ^ (Sub.to_string call_sub) in
   assert_z3_result test_ctx ctx fmtr post pre Z3.Solver.SATISFIABLE
 
-
 let test_call_9 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -790,7 +792,9 @@ let test_call_9 (test_ctx : test_ctxt) : unit =
                    (Label.direct (Term.tid call1_sub)) in
   let main_sub = mk_sub [blk_main; blk_main'] in
   let env = Pre.mk_inline_env ctx var_gen
-      ~subs:(Seq.of_list [main_sub; call1_sub; call2_sub]) in
+      ~subs:(Seq.of_list [main_sub; call1_sub; call2_sub])
+      ~to_inline:(Seq.of_list [call1_sub; call2_sub])
+  in
   let sub1_called = Option.value_exn (call1_tid |> Env.get_called env) in
   let sub2_called = Option.value_exn (call2_tid |> Env.get_called env) in
   let post = Bool.mk_and ctx [
@@ -804,6 +808,49 @@ let test_call_9 (test_ctx : test_ctxt) : unit =
   let fmtr = (Sub.to_string main_sub) ^ (Sub.to_string call1_sub) ^ (Sub.to_string call2_sub) in
   assert_z3_result test_ctx ctx fmtr post pre Z3.Solver.UNSATISFIABLE
 
+let test_call_10 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let call1_tid = Tid.create () in
+  Tid.set_name call1_tid "call1_sub";
+  let call2_tid = Tid.create () in
+  Tid.set_name call2_tid "call2_sub";
+  let blk1 = Blk.create () in
+  let blk1' = Blk.create () in
+  let blk2 = Blk.create () in
+  let blk_main = Blk.create () in
+  let blk_main' = Blk.create () in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let z = Var.create "z" reg32_t in
+  let blk2 = blk2 |> mk_def z Bil.(var y + one) in
+  let call2_sub = mk_sub ~tid:call2_tid ~name:"call2_sub" [blk2] in
+  let blk1 = blk1
+             |> mk_def y Bil.(var x + one)
+             |> mk_call (Label.direct (Term.tid blk1'))
+               (Label.direct (Term.tid call2_sub))
+  in
+  let call1_sub = mk_sub ~tid:call1_tid ~name:"call1_sub" [blk1; blk1'] in
+  let blk_main = blk_main
+                 |> mk_call (Label.direct (Term.tid blk_main'))
+                   (Label.direct (Term.tid call1_sub)) in
+  let main_sub = mk_sub [blk_main; blk_main'] in
+  let env = Pre.mk_inline_env ctx var_gen
+      ~subs:(Seq.of_list [main_sub; call1_sub; call2_sub])
+      ~to_inline:(Seq.of_list [call1_sub])
+  in
+  let sub1_called = Option.value_exn (call1_tid |> Env.get_called env) in
+  let sub2_called = Option.value_exn (call2_tid |> Env.get_called env) in
+  let post = Bool.mk_and ctx [
+      Bool.mk_eq ctx (mk_z3_expr env Bil.(var x + two)) (mk_z3_expr env (Bil.var z));
+      Bool.mk_const_s ctx sub1_called;
+      Bool.mk_const_s ctx sub2_called]
+             |> Constr.mk_goal "x + 2 = z && sub1_called && sub2_called"
+             |> Constr.mk_constr
+  in
+  let pre, _ = Pre.visit_sub env post main_sub in
+  let fmtr = (Sub.to_string main_sub) ^ (Sub.to_string call1_sub) ^ (Sub.to_string call2_sub) in
+  assert_z3_result test_ctx ctx fmtr post pre Z3.Solver.SATISFIABLE
 
 let test_int_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
@@ -1261,8 +1308,10 @@ let suite = [
   " >:: test_call_7;
   "Test call with disabling function inlining SAT: \n\
   " >:: test_call_8;
-  "Test call with nested function inlining SAT: \n\
+  "Test call with nested function inlining UNSAT: \n\
   " >:: test_call_9;
+  "Test call with nested function inlining SAT (don't inline everything): \n\
+  " >:: test_call_10;
   "Interrupt 0x0: \n\
   " >:: test_int_1;
   "Loop: \n\

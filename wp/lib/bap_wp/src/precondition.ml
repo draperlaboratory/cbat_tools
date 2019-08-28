@@ -430,12 +430,16 @@ let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
         increment_stack_ptr post env offsets)
   }
 
-let spec_inline (_ : Sub.t) (_ : Arch. t): Env.fun_spec =
+let spec_inline (to_inline : Sub.t seq) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =
   let open Env in
-  {
-    spec_name = "spec_inline";
-    spec = Inline
-  }
+  let spec_name = "spec_inline" in
+  if Seq.mem to_inline sub ~equal:Sub.equal then
+    {
+      spec_name = spec_name;
+      spec = Inline
+    }
+  else
+    spec_default sub arch
 
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
@@ -465,12 +469,13 @@ let mk_inline_env
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?exp_conds:(exp_conds = [])
     ?arch:(arch = `x86_64)
-    ~subs:(subs : Sub.t Seq.t)
+    ~subs:(subs : Sub.t seq)
+    ~to_inline:(to_inline : Sub.t seq)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
   let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet] in
-  Env.mk_env ctx var_gen ~specs ~default_spec:spec_inline
+  Env.mk_env ctx var_gen ~specs ~default_spec:(spec_inline to_inline)
     ~jmp_spec:jmp_spec_default ~int_spec:int_spec_default ~subs
     ~num_loop_unroll ~exp_conds ~arch
 
