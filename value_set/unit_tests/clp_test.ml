@@ -71,7 +71,7 @@ struct
       end
     end test_clps_64
 
-  let test_min_max_elem_signed ctxt =
+  let test_min_max_elem_signed _ =
 
     let make_clp w b s c =
       let b' = W.of_int b ~width:(w + 1) in
@@ -112,17 +112,17 @@ struct
               let max_e_int = W.to_int_exn max_e in
               let max_e_int_s = W.to_int_exn (W.signed max_e) in
 
-              let msg = 
-                Printf.sprintf 
-                "%s: Elem %d (%d) is less than the signed min elem %d (%d)" 
-                clp_str wd_int wd_int_s min_e_int min_e_int_s 
+              let msg =
+                Printf.sprintf
+                "%s: Elem %d (%d) is less than the signed min elem %d (%d)"
+                clp_str wd_int wd_int_s min_e_int min_e_int_s
                 in
               assert_bool msg (W.(<=) (W.signed min_e) (W.signed wd));
 
-              let msg = 
-                Printf.sprintf 
-                "%s: Elem %d (%d) is greater than the signed max elem %d (%d)" 
-                clp_str wd_int wd_int_s max_e_int max_e_int_s 
+              let msg =
+                Printf.sprintf
+                "%s: Elem %d (%d) is greater than the signed max elem %d (%d)"
+                clp_str wd_int wd_int_s max_e_int max_e_int_s
                 in
               assert_bool msg (W.(>=) (W.signed max_e) (W.signed wd))
 
@@ -707,7 +707,6 @@ struct
       let width = WordSet.bitwidth p1 in
       let p2 = create ~width w in
       let res = WordSet.concat p1 p2 in
-      (*assert (W.extract_exn ~hi:(width - 1)(WordSet.cardinality res) = (WordSet.cardinality p1)); *)
       let res_hi = WordSet.extract ~hi:(2*width - 1) ~lo:width res in
       assert_bool "extract hi of concat approximates the first argument"
         (WordSet.precedes p1 res_hi) in
@@ -819,12 +818,12 @@ struct
       ]
       in
 
-    let bottom_tests = 
+    let bottom_tests =
       List.map
-        (fun (t1, t2) -> "Test rshift bottom">::(test_bottoms t1 t2)) 
+        (fun (t1, t2) -> "Test rshift bottom">::(test_bottoms t1 t2))
         bottoms
       in
-      
+
     (* If both CLPs are singletons, [rshift] should return
        a singleton whose base is clp1.base >> clp2.base. *)
     let test_singletons clp1 clp2 _ =
@@ -832,7 +831,7 @@ struct
       let b2 = Option.value_exn (Clp.min_elem clp2) in
       let shifted_val = W.rshift b1 b2 in
       let width = Clp.bitwidth clp1 in
-      let expected_clp = 
+      let expected_clp =
         Clp.create ~width ~step:(W.zero width) ~cardn:(W.one width) shifted_val in
       let exp = Conv.of_clp expected_clp in
       let p1 = Conv.of_clp clp1 in
@@ -856,7 +855,7 @@ struct
 
     (* A right shift m >> n is equivalent to m / 2^n.
        So CLP1 >> CLP2 should be roughly equivalent to
-       CLP1 / {2^i : i in CLP2}. 
+       CLP1 / {2^i : i in CLP2}.
        But we can't divide by zero, so we need to
        replace 2^i with 1 if 2^i is a 0, since:
        if m = 0, n >> m is equivalent to n, and
@@ -871,14 +870,14 @@ struct
       let clp = make_clp width b s n in
       let p = Conv.of_clp clp in
 
-      let divby = 
+      let divby =
         Seq.map sq ~f:(fun i -> W.of_int ~width (1 lsl i))
         |> Seq.map ~f:(fun i -> if W.is_zero i then (W.one width) else i)
         |> Seq.to_list
 	|> WordSet.of_list ~width in
       let div_res = WordSet.div p divby in
 
-      let shiftby = 
+      let shiftby =
         Seq.map sq ~f:(W.of_int ~width)
         |> Seq.to_list
 	|> WordSet.of_list ~width in
@@ -934,9 +933,9 @@ struct
       ]
       in
 
-    let bottom_tests = 
+    let bottom_tests =
       List.map
-        (fun (t1, t2) -> "Test arshift bottom">::(test_bottoms t1 t2)) 
+        (fun (t1, t2) -> "Test arshift bottom">::(test_bottoms t1 t2))
         bottoms
       in
 
@@ -947,7 +946,7 @@ struct
       let b2 = Option.value_exn (Clp.min_elem clp2) in
       let shifted_val = W.arshift b1 b2 in
       let width = Clp.bitwidth clp1 in
-      let expected_clp = 
+      let expected_clp =
         Clp.create ~width ~step:(W.zero width) ~cardn:(W.one width) shifted_val in
       let exp = Conv.of_clp expected_clp in
       let p1 = Conv.of_clp clp1 in
@@ -973,11 +972,11 @@ struct
 
   (** The following function checks that [WordSet.arshift] handles
        other cases (i.e., non-bottom/non-singleton cases) correctly.
-      
+
       The strategy is to construct actual concrete CLPs (composed
       of integers) along with the abstract CLPs (composed of bitvectors).
       Then check that the two match up in the relevant ways:
-      
+
       - The bases should be the same.
       - The concrete cardinality should be >= the abstract cardinality.
       - The concrete CLP should be a subset of the abstract CLP.
@@ -1011,7 +1010,7 @@ struct
 	range
 	in
       List.rev bits
-      in	
+      in
 
     let word_to_string ?signed:(s=false) w =
       let bits_list = list_of_bits w in
@@ -1070,14 +1069,14 @@ struct
     let product l1 l2 =
       List.concat (List.map (fun e -> List.map (fun e' -> (e,e')) l2) l1)
       in
-  
+
     let arshift_ints clp1 clp2 =
       let prod = product clp1 clp2 in
-      let result = 
-        List.map 
-        (fun (a, b) -> 
-          let a' = W.of_int a ~width:64 in
-          let b' = W.of_int b ~width:64 in
+      let result =
+        List.map
+        (fun (a, b) ->
+          let a' = W.of_int a ~width:Sys.int_size in
+          let b' = W.of_int b ~width:Sys.int_size in
           let c' = W.arshift (W.signed a') b' in
           W.to_int_exn (W.signed c'))
         prod
@@ -1090,12 +1089,12 @@ struct
     let cardn_of_ints l = List.length l in
 
     let test_base_ints b1 b2 b_res end2 msg =
-      let zero = W.of_int 0 ~width:64 in
-      let b1' = W.of_int b1 ~width:64 in
-      let b2' = W.of_int b2 ~width:64 in
-      let end2' = W.of_int end2 ~width:64 in
-      let b' = 
-        if W.(>=) (W.signed b1') zero 
+      let zero = W.of_int 0 ~width:Sys.int_size in
+      let b1' = W.of_int b1 ~width:Sys.int_size in
+      let b2' = W.of_int b2 ~width:Sys.int_size in
+      let end2' = W.of_int end2 ~width:Sys.int_size in
+      let b' =
+        if W.(>=) (W.signed b1') zero
         then W.arshift (W.signed b1') end2'
         else W.arshift (W.signed b1') b2'
         in
@@ -1269,7 +1268,7 @@ struct
         (fun (clp1, clp2) -> "Test arshift">::(test_shift clp1 clp2))
         clps
       in
-	
+
     List.flatten [tests]
 
   (** The SWEET paper's algorithm for arithmetic shift is incorrect.
@@ -1278,8 +1277,8 @@ struct
       We have changed it to this:
       - [if 0 >= c1[n1 - 1]]
       The following function checks that this revised algorithm
-      does what we expect. 
-      To keep things simple, this function constructs small, concrete 
+      does what we expect.
+      To keep things simple, this function constructs small, concrete
       integer CLPs (no bitvectors), and then it confirms that the
       algorithm computes the correct base and cardinality. *)
   let test_arshift_math =
@@ -1291,7 +1290,7 @@ struct
         let new_acc = Printf.sprintf "%d %s" hd acc in
         ints_to_string ~acc:new_acc tl
       in
-	
+
     let clp_of_ints b s n =
       let l = Seq.range 0 n |> Seq.to_list in
       let result = List.map (fun i -> b + (s * i)) l in
@@ -1301,7 +1300,7 @@ struct
     let product l1 l2 =
       List.concat (List.map (fun e -> List.map (fun e' -> (e,e')) l2) l1)
       in
-  
+ 
     let arshift_ints clp1 clp2 =
       let prod = product clp1 clp2 in
       let result = List.map (fun (a, b) -> a asr b) prod in
@@ -1313,7 +1312,7 @@ struct
     let cardn_of_ints l = List.length l in
 
     let test_base b1 b2 b_res end2 msg =
-      let b = 
+      let b =
         if b1 >= 0 then b1 asr end2
         else b1 asr b2
         in
@@ -1335,7 +1334,7 @@ struct
       assert_bool msg' (n_res <= n)
       in
 
-    let test_shift (w1, b1, s1, n1) (w2, b2, s2, n2) _ =
+    let test_shift (_, b1, s1, n1) (_, b2, s2, n2) _ =
 
       let clp1 = clp_of_ints b1 s1 n1 in
       let clp2 = clp_of_ints b2 s2 n2 in
@@ -1354,16 +1353,16 @@ struct
 
       let s = 1 in
 
-      let msg = 
-        Printf.sprintf 
-          "CLP1: %s\nCLP2: %s\nResult: %s\nEnd 1: %d\nEnd 2: %d\nEnd Res: %d\nBase res: %d" 
+      let msg =
+        Printf.sprintf
+          "CLP1: %s\nCLP2: %s\nResult: %s\nEnd 1: %d\nEnd 2: %d\nEnd Res: %d\nBase res: %d"
           clp1_str clp2_str res_str end1 end2 end_res b_res
         in
 
       test_base b1 b2 b_res end2 msg;
       test_cardn s b2 b_res end1 end2 n_res msg
       in
-  
+
     let clps = [
       ((3, (-4), 2, 4), (3, 0, 1, 2));
       ((8, 5, 5, 20), (5, 2, 1, 7));
@@ -1376,7 +1375,7 @@ struct
         (fun (clp1, clp2) -> "Test arshift">::(test_shift clp1 clp2))
         clps
       in
-	
+
     List.flatten [tests]
 
   let all_tests = "WordSet tests">:::[

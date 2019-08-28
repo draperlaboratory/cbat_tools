@@ -30,8 +30,6 @@ val is_one : word -> bool
 
 val bounded_gcd : word -> word -> word
 
-val bounded_lcm : word -> word -> word option
-
 val bounded_diophantine : word -> word -> word -> (word * word) option
 
 val factor_2s : word -> word * int
@@ -61,7 +59,7 @@ val max : word -> word -> word
 
     So one should always invoke this [dom_size] function with [w > i],
     in order to guarantee that the result can be represented by the
-    returned word. *)    
+    returned word. *)
 val dom_size : ?width : int -> int -> word
 
 val cap_at_width : width:int -> word -> word
