@@ -6,7 +6,7 @@ Depends on:
 
     - ocaml 4.05.0
     - core_kernel 0.11
-    - bap 1.6
+    - bap 2.0.0-alpha
     - ounit 2.0.8
     - z3 4.8.4
 
