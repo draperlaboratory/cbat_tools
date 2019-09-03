@@ -237,7 +237,6 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
                                       Option.value_exn ?here:None ?error:None ?message:None) in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
-
 let get_stack_ptr_offset (sub : Sub.t) (arch : Arch.t) : Exp.t =
   let module Target = (val target_of_arch arch) in
   let blks = Term.to_sequence ~rev:true blk_t sub in
