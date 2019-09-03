@@ -237,41 +237,82 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
                                       Option.value_exn ?here:None ?error:None ?message:None) in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
-let get_stack_ptr_offsets (sub : Sub.t) (arch : Arch.t) : Exp.t list =
-  match Term.last blk_t sub with
+let get_stack_ptr_offset (sub : Sub.t) (arch : Arch.t) : Exp.t =
+  let module Target = (val target_of_arch arch) in
+  let blks = Term.to_sequence ~rev:true blk_t sub in
+  let ret_block = Seq.find blks ~f:(fun blk ->
+      (* Look for the return address, which is the target #x of a call instruction
+         of the form: call #x with noreturn *)
+      let ret_addr =
+        let jmps = Term.to_sequence ~rev:true jmp_t blk in
+        Seq.find_map jmps ~f:(fun jmp ->
+            match Jmp.kind jmp with
+            | Call call -> begin
+                match Call.return call with
+                | Some _ -> None
+                | None ->
+                  match Call.target call with
+                  | Direct _ -> None
+                  | Indirect label ->
+                    let label_vars = Exp.free_vars label in
+                    match Var.Set.choose label_vars with
+                    | None -> None
+                    | Some target ->
+                      (* In BIR, the return address is stored on the stack and then
+                         saved to a virtual variable to pass into the call instruction. *)
+                      if Var.Set.length label_vars = 1 && Var.is_virtual target then
+                        Some target
+                      else
+                        None
+              end
+            | _ -> None)
+      in
+      (* Check to see if the target value was obtained from the stack,
+         i.e. #x := mem[RSP, el]:u64 *)
+      match ret_addr with
+      | None -> false
+      | Some addr ->
+        let defs = Term.to_sequence ~rev:true def_t blk in
+        Seq.exists defs ~f:(fun def ->
+            if Var.equal (Def.lhs def) addr then begin
+              match Def.rhs def with
+              | Load (_, Var addr, _, _) -> Target.CPU.is_sp addr
+              | _ -> false
+            end else
+              false))
+  in
+  let sp = Bil.var Target.CPU.sp in
+  match ret_block with
   | None ->
     debug "Sub %s has no return" (Sub.name sub);
-    []
+    sp
   | Some blk ->
-    let module Target = (val target_of_arch arch) in
     let defs = Term.to_sequence def_t blk in
-    Seq.fold defs ~init:[] ~f:(fun offsets def ->
+    Seq.fold defs ~init:sp ~f:(fun offset def ->
         (* Looks for instructions in the form SP := SP +/- offset *)
         if Var.equal (Def.lhs def) Target.CPU.sp then begin
-          let rhs = Def.rhs def in
-          match rhs with
-          | BinOp (PLUS, Var v, Int _) ->
+          match Def.rhs def with
+          | BinOp (PLUS, Var v, w) ->
             if Var.equal v Target.CPU.sp then
-              rhs :: offsets
-            else offsets
-          | BinOp (MINUS, Var v, Bil.Types.Int w) ->
+              BinOp (PLUS, offset, w)
+            else offset
+          | BinOp (MINUS, Var v, w) ->
             if Var.equal v Target.CPU.sp then begin
               warning "Stack pointer in %s is being decremented by %s before return"
-                (Sub.name sub) (Word.to_string w);
-              rhs :: offsets
-            end else offsets
-          | _ -> offsets
+                (Sub.name sub) (Exp.to_string w);
+              BinOp (MINUS, offset, w)
+            end else offset
+          | _ -> offset
         end else
-          offsets)
+          offset)
 
-let increment_stack_ptr (post : Constr.t) (env : Env.t) (offsets : Exp.t list)
+let increment_stack_ptr (post : Constr.t) (env : Env.t) (offset : Exp.t)
   : Constr.t * Env.t =
   let arch = Env.get_arch env in
   let module Target = (val target_of_arch arch) in
   let sp, _ = Env.get_var env Target.CPU.sp in
-  List.fold offsets ~init:(post, env) ~f:(fun (p, e) off ->
-      let z3_off, _, _, env = exp_to_z3 off e in
-      Constr.substitute_one p sp z3_off, env)
+  let z3_off, _, _, env = exp_to_z3 offset env in
+  Constr.substitute_one post sp z3_off, env
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -295,7 +336,7 @@ let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
 
 let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if Sub.name sub = "__VERIFIER_assume" then
-    let offsets = get_stack_ptr_offsets sub arch in
+    let offset = get_stack_ptr_offset sub arch in
     let open Env in
     Some {
       spec_name = "spec_verifier_assume";
@@ -303,7 +344,7 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
           (fun env post tid ->
              let ctx = Env.get_context env in
              let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env offsets in
+             let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let input =
                match Seq.find args
@@ -327,14 +368,14 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
 
 let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if String.is_prefix (Sub.name sub) ~prefix:"__VERIFIER_nondet_" then
-    let offsets = get_stack_ptr_offsets sub arch in
+    let offset = get_stack_ptr_offset sub arch in
     let open Env in
     Some {
       spec_name = "spec_verifier_nondet";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env offsets in
+             let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let output =
                match Seq.find args
@@ -353,14 +394,14 @@ let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
 
 let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if Term.first arg_t sub <> None then
-    let offsets = get_stack_ptr_offsets sub arch in
+    let offset = get_stack_ptr_offset sub arch in
     let open Env in
     Some {
       spec_name = "spec_arg_terms";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env offsets in
+             let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let outs = Seq.filter args
                  ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
@@ -395,14 +436,14 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   in
   if Seq.exists (defs sub) ~f:is_rax then
     (* RAX is a register that is used in the subroutine *)
-    let offsets = get_stack_ptr_offsets sub arch in
+    let offset = get_stack_ptr_offset sub arch in
     let open Env in
     Some {
       spec_name = "spec_rax_out";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env offsets in
+             let post, env = increment_stack_ptr post env offset in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              let z3_v, env = Env.get_var env rax in
              let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
@@ -413,13 +454,13 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
     None
 
 let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
-  let offsets = get_stack_ptr_offsets sub arch in
+  let offset = get_stack_ptr_offset sub arch in
   let open Env in
   {
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
         let post = set_fun_called post env tid in
-        increment_stack_ptr post env offsets)
+        increment_stack_ptr post env offset)
   }
 
 let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =
