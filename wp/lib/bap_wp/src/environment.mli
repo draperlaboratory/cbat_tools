@@ -114,6 +114,10 @@ val wp_rec_call :
     typically a constant. *)
 val add_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
 
+(** Add a list of {!Constr.z3_expr}s each representing an output value of a function
+    call with target [tid] given its input values to the environment. *)
+val add_fun_outputs : t -> Bap.Std.Tid.t -> Constr.z3_expr list -> t
+
 (** Add a precondition to be associated to a block b to the environment. *)
 val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
 
@@ -169,6 +173,10 @@ val get_loop_handler :
 
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t
+
+(** Looks up the list of {!Constr.z3_expr}s that each represents the output value
+    of a function call with target [tid] given its input values. *)
+val get_fun_outputs : t -> Bap.Std.Tid.t -> Constr.z3_expr list option
 
 (** Performs a fold on the map of of function names to tids to generate a
     {!Constr.z3_expr}. *)
