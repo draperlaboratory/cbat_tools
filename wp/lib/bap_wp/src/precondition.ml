@@ -21,6 +21,7 @@ module Arith = Z3.Arithmetic
 module BV = Z3.BitVector
 module Bool = Z3.Boolean
 module Array = Z3.Z3Array
+module FuncDecl = Z3.FuncDecl
 module Env = Environment
 module Constr = Constraint
 
@@ -314,6 +315,21 @@ let increment_stack_ptr (post : Constr.t) (env : Env.t) (offset : Exp.t)
   let z3_off, _, _, env = exp_to_z3 offset env in
   Constr.substitute_one post sp z3_off, env
 
+let mk_fun_pred (env : Env.t) (sub : Sub.t) (out_vars : Constr.z3_expr list)
+  : Constr.t * Env.t =
+  let ctx = Env.get_context env in
+  let fun_name = (Sub.name sub) ^ "_pred" in
+  let out_sorts = List.map out_vars ~f:Expr.get_sort in
+  let bool_sort = Bool.mk_sort ctx in
+  let fun_decl = FuncDecl.mk_func_decl_s ctx fun_name out_sorts bool_sort in
+  let fun_pred = FuncDecl.apply fun_decl out_vars in
+  let fun_pred_constr =
+    fun_pred
+    |> Constr.mk_goal (Expr.to_string fun_pred)
+    |> Constr.mk_constr
+  in
+  fun_pred_constr, Env.add_fun_pred env (Term.tid sub) fun_decl
+
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let name = Sub.name sub in
   if name = "__VERIFIER_error" ||
@@ -343,7 +359,7 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
       spec = Summary
           (fun env post tid ->
              let ctx = Env.get_context env in
-             let post = set_fun_called post env tid in
+             (* let post = set_fun_called post env tid in *)
              let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let input =
@@ -361,7 +377,8 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                |> Constr.mk_goal (Format.sprintf "assume %s" (Expr.to_string z3_v))
                |> Constr.mk_constr
              in
-             Constr.mk_clause [assumption] [post], env)
+             let fun_pred, env = mk_fun_pred env sub [] in
+             Constr.mk_clause [fun_pred] [Constr.mk_clause [assumption] [post]], env)
     }
   else
     None
@@ -374,7 +391,7 @@ let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
       spec_name = "spec_verifier_nondet";
       spec = Summary
           (fun env post tid ->
-             let post = set_fun_called post env tid in
+             (* let post = set_fun_called post env tid in *)
              let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let output =
@@ -387,7 +404,8 @@ let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let v = Var.Set.choose_exn vars in
              let z3_v, env = Env.get_var env v in
              let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ v) in
-             Constr.substitute_one post z3_v fresh, env)
+             let fun_pred, env = mk_fun_pred env sub [z3_v] in
+             Constr.mk_clause [fun_pred] [Constr.substitute_one post z3_v fresh], env)
     }
   else
     None
@@ -400,7 +418,7 @@ let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
       spec_name = "spec_arg_terms";
       spec = Summary
           (fun env post tid ->
-             let post = set_fun_called post env tid in
+             (* let post = set_fun_called post env tid in *)
              let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let outs = Seq.filter args
@@ -418,7 +436,8 @@ let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                      (z3_v, fresh)
                    ) in
              let (subs_from, subs_to) = chaos |> Seq.to_list |> List.unzip in
-             Constr.substitute post subs_from subs_to, env)
+             let fun_pred, env = mk_fun_pred env sub subs_from in
+             Constr.mk_clause [fun_pred] [Constr.substitute post subs_from subs_to], env)
     }
   else
     None
@@ -442,13 +461,14 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
       spec_name = "spec_rax_out";
       spec = Summary
           (fun env post tid ->
-             let post = set_fun_called post env tid in
+             (* let post = set_fun_called post env tid in *)
              let post, env = increment_stack_ptr post env offset in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              let z3_v, env = Env.get_var env rax in
              let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
              let fresh = new_z3_expr env ~name:name (Var.typ rax) in
-             Constr.substitute_one post z3_v fresh, env)
+             let fun_pred, env = mk_fun_pred env sub [z3_v] in
+             Constr.mk_clause [fun_pred] [Constr.substitute_one post z3_v fresh], env)
     }
   else
     None
@@ -459,8 +479,10 @@ let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
   {
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
-        let post = set_fun_called post env tid in
-        increment_stack_ptr post env offset)
+        (* let post = set_fun_called post env tid in *)
+        let post, env = increment_stack_ptr post env offset in
+        let fun_pred, env = mk_fun_pred env sub [] in
+        Constr.mk_clause [fun_pred] [post], env)
   }
 
 let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =
@@ -678,8 +700,9 @@ let filter (env : Env.t) (calls : string list) (cfg : Graphs.Ir.t) : Graphs.Ir.t
                 | Call c -> begin
                     match Call.target c with
                     | Direct tid -> begin
-                        match Env.get_sub_name env tid with
-                        | Some target -> List.find calls ~f:(String.equal target)
+                        match Env.get_sub env tid with
+                        | Some target -> List.find calls
+                                           ~f:(fun c -> target |> Sub.name |> String.equal c)
                         | None -> None
                       end
                     | _ -> None

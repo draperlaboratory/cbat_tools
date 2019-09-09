@@ -18,6 +18,8 @@ open Graphlib.Std
 include Self()
 
 module Expr = Z3.Expr
+module Bool = Z3.Boolean
+module FuncDecl = Z3.FuncDecl
 module Constr = Constraint
 
 (* The environment for computing the semantics of an instruction *)
@@ -36,6 +38,7 @@ type t = {
   precond_map : Constr.t TidMap.t;
   fun_name_tid : Tid.t StringMap.t;
   call_map : string TidMap.t;
+  fun_pred_map : FuncDecl.func_decl TidMap.t;
   sub_handler : fun_spec TidMap.t;
   jmp_handler : jmp_spec;
   int_handler : int_spec;
@@ -226,6 +229,7 @@ let mk_env
     precond_map = TidMap.empty;
     fun_name_tid = init_fun_name subs;
     call_map = init_call_map var_gen subs;
+    fun_pred_map = TidMap.empty;
     sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
@@ -251,6 +255,10 @@ let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }
 
 let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
+
+let add_fun_pred (env : t) (tid : Tid.t) (fun_pred : FuncDecl.func_decl) : t =
+  { env with fun_pred_map = TidMap.set env.fun_pred_map ~key:tid ~data:fun_pred }
+
 
 let mk_exp_conds (env : t) (e : exp) : Constr.goal list * Constr.goal list =
   let { exp_conds; _ } = env in
@@ -283,12 +291,33 @@ let get_var (env : t) (var : Var.t) : Constr.z3_expr * t =
       let v = mk_z3_expr ctx ~name:full_name ~typ:typ in
       v, add_var env var v
 
-let get_sub_name (env : t) (tid : Tid.t) : string option =
-  Seq.find_map env.subs ~f:(fun s ->
-      if Tid.equal tid (Term.tid s) then
-        Some (Sub.name s)
-      else
-        None)
+let get_fun_out_vars (env : t) (sub : Sub.t) : Constr.z3_expr list * t =
+  let visitor =
+    (object inherit [Constr.z3_expr list * t] Term.visitor
+      method! visit_arg arg (vars, env) =
+        match Arg.intent arg with
+        | Some Out | Some Both ->
+          let arg_vars = arg |> Arg.rhs |> Exp.free_vars in
+          assert (Var.Set.length arg_vars = 1);
+          let var = Var.Set.choose_exn arg_vars in
+          let z3_v, env = get_var env var in
+          List.cons z3_v vars, env
+        | _ -> vars, env
+      method! visit_def def (vars, env) =
+        if List.is_empty vars then begin
+          let reg = Def.lhs def in
+          match Var.to_string reg with
+          | "RAX" | "EAX" ->
+            let z3_v, env = get_var env reg in
+            List.cons z3_v vars, env
+          | _ -> vars, env
+        end else
+          vars, env
+    end) in
+  visitor#visit_sub sub ([], env)
+
+let get_sub (env : t) (tid : Tid.t) : Sub.t option =
+  Seq.find env.subs ~f:(fun s -> Tid.equal tid (Term.tid s))
 
 let get_fun_name_tid (env : t) (f : string) : Tid.t option =
   StringMap.find env.fun_name_tid f
