@@ -21,6 +21,7 @@ module Arith = Z3.Arithmetic
 module BV = Z3.BitVector
 module Bool = Z3.Boolean
 module Array = Z3.Z3Array
+module FuncDecl = Z3.FuncDecl
 module Env = Environment
 module Constr = Constraint
 
@@ -314,6 +315,47 @@ let increment_stack_ptr (post : Constr.t) (env : Env.t) (offset : Exp.t)
   let z3_off, _, _, env = exp_to_z3 offset env in
   Constr.substitute_one post sp z3_off, env
 
+let get_vars (t : Sub.t) : Var.Set.t =
+  let visitor =
+    (object inherit [Var.Set.t] Term.visitor
+      method! visit_def def vars =
+        let vars = Var.Set.add vars (Def.lhs def) in
+        let vars = Var.Set.union vars (Def.free_vars def) in
+        vars
+      method! visit_jmp jmp vars =
+        Var.Set.union vars (Jmp.free_vars jmp)
+    end)
+  in
+  visitor#visit_sub t Var.Set.empty
+
+(* We are currently filtering out mem from the input variables. We might want
+   to add it back, but it causes a great slowdown when Z3 checks the precondition. *)
+let get_fun_inputs (sub : Sub.t) (env : Env.t) : Constr.z3_expr list =
+  Var.Set.fold (get_vars sub) ~init:[]
+    ~f:(fun vars v ->
+        match Var.typ v with
+        | Imm _ ->
+          let z3_v, _ = Env.get_var env v in
+          z3_v :: vars
+        | _ -> vars)
+
+(* Creates a Z3 function of the form func_ret_outvar(in_vars, ...) which represents
+   an output variable to a function call. It is added to the environment, and
+   substitutes the original z3_expr representing the output variable. *)
+let subst_func_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
+    ~inputs:(inputs : Constr.z3_expr list) ~outputs:(outputs : Constr.z3_expr list)
+  : Constr.t * Env.t =
+  let ctx = Env.get_context env in
+  let tid = Term.tid sub in
+  let input_sorts = List.map inputs ~f:Expr.get_sort in
+  let fun_outputs = List.map outputs
+      ~f:(fun o ->
+          let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string o) in
+          let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort o) in
+          FuncDecl.apply func_decl inputs)
+  in
+  Constr.substitute post outputs fun_outputs, Env.add_fun_outputs env tid fun_outputs
+
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let name = Sub.name sub in
   if name = "__VERIFIER_error" ||
@@ -361,6 +403,7 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                |> Constr.mk_goal (Format.sprintf "assume %s" (Expr.to_string z3_v))
                |> Constr.mk_constr
              in
+             let post, env = subst_func_outputs env sub post ~inputs:[z3_v] ~outputs:[] in
              Constr.mk_clause [assumption] [post], env)
     }
   else
@@ -386,8 +429,8 @@ let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
              let v = Var.Set.choose_exn vars in
              let z3_v, env = Env.get_var env v in
-             let fresh = new_z3_expr env ~name:(Sub.name sub ^ "_arg") (Var.typ v) in
-             Constr.substitute_one post z3_v fresh, env)
+             subst_func_outputs env sub post
+               ~inputs:(get_fun_inputs sub env) ~outputs:[z3_v])
     }
   else
     None
@@ -412,13 +455,12 @@ let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                      let vars = a |> Bap.Std.Arg.rhs |> Exp.free_vars in
                      assert (Var.Set.length vars = 1);
                      let v = Var.Set.choose_exn vars in
-                     let z3_v, env = Env.get_var env v in
-                     let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
-                     let fresh = new_z3_expr env ~name:name (Var.typ v) in
-                     (z3_v, fresh)
-                   ) in
-             let (subs_from, subs_to) = chaos |> Seq.to_list |> List.unzip in
-             Constr.substitute post subs_from subs_to, env)
+                     let z3_v, _ = Env.get_var env v in
+                     z3_v)
+             in
+             let outs = Seq.to_list chaos in
+             subst_func_outputs env sub post
+               ~inputs:(get_fun_inputs sub env) ~outputs:outs)
     }
   else
     None
@@ -446,9 +488,8 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let post, env = increment_stack_ptr post env offset in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              let z3_v, env = Env.get_var env rax in
-             let name = Sub.name sub ^ "_" ^ Tid.to_string tid ^ "_ret" in
-             let fresh = new_z3_expr env ~name:name (Var.typ rax) in
-             Constr.substitute_one post z3_v fresh, env)
+             subst_func_outputs env sub post
+               ~inputs:(get_fun_inputs sub env) ~outputs:[z3_v])
     }
   else
     None
@@ -460,7 +501,9 @@ let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
         let post = set_fun_called post env tid in
-        increment_stack_ptr post env offset)
+        let post, env = increment_stack_ptr post env offset in
+        subst_func_outputs env sub post
+          ~inputs:(get_fun_inputs sub env) ~outputs:[])
   }
 
 let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =
@@ -880,19 +923,6 @@ let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3
   info "Added constraints: %s\n%!"
     (Z3.Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
   check solver ctx pre
-
-let get_vars (t : Sub.t) : Var.Set.t =
-  let visitor =
-    (object inherit [Var.Set.t] Term.visitor
-      method! visit_def def vars =
-        let vars = Var.Set.add vars (Def.lhs def) in
-        let vars = Var.Set.union vars (Def.free_vars def) in
-        vars
-      method! visit_jmp jmp vars =
-        Var.Set.union vars (Jmp.free_vars jmp)
-    end)
-  in
-  visitor#visit_sub t Var.Set.empty
 
 let get_output_vars (t : Sub.t) (var_names : string list) : Var.Set.t =
   let all_vars = get_vars t in
