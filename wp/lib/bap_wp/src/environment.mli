@@ -114,7 +114,9 @@ val wp_rec_call :
     typically a constant. *)
 val add_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
 
-val add_fun_pred : t -> Bap.Std.Tid.t -> Z3.FuncDecl.func_decl -> t
+(** Add a function predicate to the environment representing a function call to
+    a target with a given tid and given outputs. *)
+val add_fun_pred : t -> Bap.Std.Tid.t -> Constr.z3_expr -> t
 
 (** Add a precondition to be associated to a block b to the environment. *)
 val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
@@ -142,8 +144,9 @@ val get_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
     True if the block is not yet visited. *)
 val get_precondition : t -> Bap.Std.Tid.t -> Constr.t option
 
-(** Looks up the subroutine given its tid. *)
-val get_sub : t -> Bap.Std.Tid.t -> Bap.Std.Sub.t option
+(** Looks up the subroutine's name given its tid. This is needed because a label to
+    a subroutine loses its name when saving a BAP project as a .bpj file. *)
+val get_sub_name : t -> Bap.Std.Tid.t -> string option
 
 (** Finds the tid of a function in the environment. *)
 val get_fun_name_tid : t -> string -> Bap.Std.Tid.t option
@@ -170,6 +173,10 @@ val get_loop_handler :
 
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t
+
+(** Looks up the function predicate of a subroutine with a given Tid that contains
+    information about its output variables. *)
+val get_fun_pred : t -> Bap.Std.Tid.t -> Constr.z3_expr option
 
 (** Performs a fold on the map of of function names to tids to generate a
     {!Constr.z3_expr}. *)

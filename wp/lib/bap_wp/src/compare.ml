@@ -18,6 +18,8 @@ include Self()
 
 module Expr = Z3.Expr
 module Bool = Z3.Boolean
+module FuncDecl = Z3.FuncDecl
+module Quant = Z3.Quantifier
 module Env = Environment
 module Pre = Precondition
 module Constr = Constraint
@@ -29,7 +31,7 @@ let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list 
   (* We keep only the physical variables, since the virtual ones may
      have arbitrary values unrelated to the concrete exectution
      (and in particular be of different types!)
-   *)
+  *)
   let vars = Set.filter vars ~f:(fun v -> Var.is_physical v) in
   Var.Set.fold vars ~init:([], env1, env2)
     ~f:(fun (eqs, env1, env2) v ->
@@ -85,6 +87,28 @@ let compare_subs
   info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
   let pre_mod, _ = Pre.visit_sub env2 post sub2 in
   let pre_combined, _ = Pre.visit_sub env1 pre_mod sub1 in
+  let goal = Constr.mk_clause [hyps] [pre_combined] in
+  goal, env2
+
+(* This is a different version of the generic [compare_subs] function, but in
+   this case, the hypothesis is generated after visiting both subroutines. *)
+let compare_subs_visit_first
+    ~postcond:(postcond : comparator)
+    ~hyps:(hyps : comparator)
+    ~original:(sub1, env1 : Sub.t * Env.t)
+    ~modified:(sub2, env2 : Sub.t * Env.t)
+  : Constr.t * Env.t =
+  let env2 = Env.set_freshen env2 true in
+  let vars = Var.Set.union
+      (Pre.get_vars sub1) (Pre.get_vars sub2) in
+  let post, env1, env2 =
+    postcond ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
+  info "\nPostcondition:\n%s\n%!" (Constr.to_string post);
+  let pre_mod, env2 = Pre.visit_sub env2 post sub2 in
+  let pre_combined, env1 = Pre.visit_sub env1 pre_mod sub1 in
+  let hyps, _, _ =
+    hyps ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
+  info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
   let goal = Constr.mk_clause [hyps] [pre_combined] in
   goal, env2
 
@@ -144,6 +168,10 @@ let compare_subs_fun
     | None -> Bool.mk_false ctx
     | Some c_f -> Bool.mk_const_s ctx c_f
   in
+  let get_fun_pred env f =
+    Env.get_fun_name_tid env f
+    |> Option.bind ~f:(Env.get_fun_pred env)
+  in
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let ctx = Env.get_context env1 in
     (* Create the goal /\_f Called_f_original => Called_f_modified *)
@@ -182,7 +210,39 @@ let compare_subs_fun
             f_not_called_modified::hyp
           )
     in
+    let modified_same_output =
+      Env.fold_fun_tids env2 ~init:[]
+        ~f:(fun ~key:f ~data:_ hyp ->
+            match get_fun_pred env1 f, get_fun_pred env2 f with
+            | None, _ | _, None -> hyp
+            | Some pred1, Some pred2 ->
+              let func_decl1 = Expr.get_func_decl pred1 in
+              let func_decl2 = Expr.get_func_decl pred2 in
+              assert (FuncDecl.equal func_decl1 func_decl2);
+              let args1 = Expr.get_args pred1 in
+              let args2 = Expr.get_args pred2 in
+              let out_vars = List.append args1 args2 in
+              let sorts = List.map out_vars ~f:Expr.get_sort in
+              let symbols = List.map out_vars
+                  ~f:(fun v -> v |> Expr.to_string |> Z3.Symbol.mk_string ctx) in
+              (* FIXME: Currently assuming that both function calls have the same about
+                 of output variables. *)
+              let out_eqs = List.fold2_exn args1 args2 ~init:[]
+                  ~f:(fun eq var1 var2 -> Bool.mk_eq ctx var1 var2 :: eq) in
+              let body = Bool.mk_implies ctx
+                  (Bool.mk_and ctx [pred1; pred2]) (Bool.mk_and ctx out_eqs) in
+              let f_modified_same_output =
+                Quant.mk_forall ctx sorts symbols body None [] [] None None
+                |> Quant.expr_of_quantifier
+                |> Constr.mk_goal (Format.sprintf "%s called with equal outputs" f)
+                |> Constr.mk_constr
+              in
+              f_modified_same_output::hyp
+          )
+    in
     let eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
-    Constr.mk_clause [] (eqs @ modified_not_called), env1, env2
+    Constr.mk_clause [] (eqs @ modified_same_output @ modified_not_called), env1, env2
   in
-  compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
+  (* The hypothesis needs to be generated after visiting both of the subs because
+     function predicates are generated at call time. *)
+  compare_subs_visit_first ~postcond ~hyps ~original ~modified

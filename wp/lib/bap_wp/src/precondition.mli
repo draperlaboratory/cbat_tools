@@ -127,8 +127,6 @@ val non_null_assert : Env.exp_cond
     We use the default value [!num_unroll = 5]. *)
 val num_unroll : int ref
 
-val mk_fun_pred : Env.t -> Bap.Std.Sub.t -> Constr.z3_expr list -> Constr.t * Env.t
-
 (** Creates a default environment with the default lists of function
     specs, jump specs, and interrupt specs, and an empty list of
     {!Environment.exp_conds}. Optionally takes in a sequence of subs to initialize

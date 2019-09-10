@@ -328,7 +328,7 @@ let mk_fun_pred (env : Env.t) (sub : Sub.t) (out_vars : Constr.z3_expr list)
     |> Constr.mk_goal (Expr.to_string fun_pred)
     |> Constr.mk_constr
   in
-  fun_pred_constr, Env.add_fun_pred env (Term.tid sub) fun_decl
+  fun_pred_constr, Env.add_fun_pred env (Term.tid sub) fun_pred
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -359,7 +359,7 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
       spec = Summary
           (fun env post tid ->
              let ctx = Env.get_context env in
-             (* let post = set_fun_called post env tid in *)
+             let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let input =
@@ -391,7 +391,7 @@ let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
       spec_name = "spec_verifier_nondet";
       spec = Summary
           (fun env post tid ->
-             (* let post = set_fun_called post env tid in *)
+             let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let output =
@@ -418,7 +418,7 @@ let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
       spec_name = "spec_arg_terms";
       spec = Summary
           (fun env post tid ->
-             (* let post = set_fun_called post env tid in *)
+             let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
              let outs = Seq.filter args
@@ -461,7 +461,7 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
       spec_name = "spec_rax_out";
       spec = Summary
           (fun env post tid ->
-             (* let post = set_fun_called post env tid in *)
+             let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env offset in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              let z3_v, env = Env.get_var env rax in
@@ -479,7 +479,7 @@ let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
   {
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
-        (* let post = set_fun_called post env tid in *)
+        let post = set_fun_called post env tid in
         let post, env = increment_stack_ptr post env offset in
         let fun_pred, env = mk_fun_pred env sub [] in
         Constr.mk_clause [fun_pred] [post], env)
@@ -700,9 +700,8 @@ let filter (env : Env.t) (calls : string list) (cfg : Graphs.Ir.t) : Graphs.Ir.t
                 | Call c -> begin
                     match Call.target c with
                     | Direct tid -> begin
-                        match Env.get_sub env tid with
-                        | Some target -> List.find calls
-                                           ~f:(fun c -> target |> Sub.name |> String.equal c)
+                        match Env.get_sub_name env tid with
+                        | Some target -> List.find calls ~f:(String.equal target)
                         | None -> None
                       end
                     | _ -> None
