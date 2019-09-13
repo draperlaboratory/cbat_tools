@@ -115,7 +115,7 @@ val wp_rec_call :
 val add_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
 
 (** Add a function predicate to the environment representing a function call to
-    a target with a given tid and given outputs. *)
+    a target with a given tid. *)
 val add_fun_pred : t -> Bap.Std.Tid.t -> Constr.z3_expr -> t
 
 (** Add a precondition to be associated to a block b to the environment. *)
@@ -174,8 +174,8 @@ val get_loop_handler :
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t
 
-(** Looks up the function predicate of a subroutine with a given Tid that contains
-    information about its output variables. *)
+(** Looks up the function predicate of a subroutine in the form of [func_pred(in, out)]
+    with a given Tid that contains information about its input and output variables. *)
 val get_fun_pred : t -> Bap.Std.Tid.t -> Constr.z3_expr option
 
 (** Performs a fold on the map of of function names to tids to generate a

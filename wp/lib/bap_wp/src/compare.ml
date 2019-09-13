@@ -62,12 +62,12 @@ let fun_call_eqs (env1 : Env.t) (env2 : Env.t) : Constr.t list =
           assert (FuncDecl.equal func_decl1 func_decl2);
           let args1 = Expr.get_args pred1 in
           let args2 = Expr.get_args pred2 in
-          let out_vars = List.append args1 args2 in
-          let sorts = List.map out_vars ~f:Expr.get_sort in
-          let symbols = List.map out_vars
+          let args = List.append args1 args2 in
+          let sorts = List.map args ~f:Expr.get_sort in
+          let symbols = List.map args
               ~f:(fun v -> v |> Expr.to_string |> Z3.Symbol.mk_string ctx) in
-          (* FIXME: Currently assuming that both function calls have the same about
-             of output variables. *)
+          (* FIXME: Currently assuming that both function calls have the same number
+             of input and output variables. *)
           let out_eqs = List.fold2_exn args1 args2 ~init:[]
               ~f:(fun eq var1 var2 -> Bool.mk_eq ctx var1 var2 :: eq) in
           let body = Bool.mk_implies ctx
@@ -78,7 +78,7 @@ let fun_call_eqs (env1 : Env.t) (env2 : Env.t) : Constr.t list =
             |> Constr.mk_goal (Format.sprintf "%s called with equal outputs" f)
             |> Constr.mk_constr
           in
-          f_modified_same_output::hyp
+          f_modified_same_output :: hyp
       )
 
 let compare_blocks

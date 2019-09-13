@@ -315,14 +315,43 @@ let increment_stack_ptr (post : Constr.t) (env : Env.t) (offset : Exp.t)
   let z3_off, _, _, env = exp_to_z3 offset env in
   Constr.substitute_one post sp z3_off, env
 
+let get_vars (t : Sub.t) : Var.Set.t =
+  let visitor =
+    (object inherit [Var.Set.t] Term.visitor
+      method! visit_def def vars =
+        let vars = Var.Set.add vars (Def.lhs def) in
+        let vars = Var.Set.union vars (Def.free_vars def) in
+        vars
+      method! visit_jmp jmp vars =
+        Var.Set.union vars (Jmp.free_vars jmp)
+    end)
+  in
+  visitor#visit_sub t Var.Set.empty
+
 let mk_fun_pred (env : Env.t) (sub : Sub.t) (out_vars : Constr.z3_expr list)
   : Constr.t * Env.t =
   let ctx = Env.get_context env in
   let fun_name = (Sub.name sub) ^ "_pred" in
-  let out_sorts = List.map out_vars ~f:Expr.get_sort in
+  (* FIXME:
+     1. The order of the arguments is probably not guaranteed to be the same
+        across the two different binaries.
+     2. We are currently filtering out mem from the input variables. We might want
+        to add it back, but it causes a great slowdown when Z3 checks the precondition. *)
+  let in_vars = Var.Set.filter (get_vars sub)
+      ~f:(fun v -> match Var.typ v with
+          | Imm _ -> true
+          | _ -> false)
+  in
+  let in_vars, env  = Var.Set.fold in_vars ~init:([], env)
+      ~f:(fun (vars, e) v ->
+          let z3_v, e' = Env.get_var e v in
+          z3_v :: vars, e')
+  in
+  let args = List.append in_vars out_vars in
+  let sorts = List.map args ~f:Expr.get_sort in
   let bool_sort = Bool.mk_sort ctx in
-  let fun_decl = FuncDecl.mk_func_decl_s ctx fun_name out_sorts bool_sort in
-  let fun_pred = FuncDecl.apply fun_decl out_vars in
+  let fun_decl = FuncDecl.mk_func_decl_s ctx fun_name sorts bool_sort in
+  let fun_pred = FuncDecl.apply fun_decl args in
   let fun_pred_constr =
     fun_pred
     |> Constr.mk_goal (Expr.to_string fun_pred)
@@ -902,19 +931,6 @@ let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3
   info "Added constraints: %s\n%!"
     (Z3.Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
   check solver ctx pre
-
-let get_vars (t : Sub.t) : Var.Set.t =
-  let visitor =
-    (object inherit [Var.Set.t] Term.visitor
-      method! visit_def def vars =
-        let vars = Var.Set.add vars (Def.lhs def) in
-        let vars = Var.Set.union vars (Def.free_vars def) in
-        vars
-      method! visit_jmp jmp vars =
-        Var.Set.union vars (Jmp.free_vars jmp)
-    end)
-  in
-  visitor#visit_sub t Var.Set.empty
 
 let get_output_vars (t : Sub.t) (var_names : string list) : Var.Set.t =
   let all_vars = get_vars t in
