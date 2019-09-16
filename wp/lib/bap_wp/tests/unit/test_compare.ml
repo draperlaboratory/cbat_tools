@@ -428,31 +428,29 @@ let test_sub_pair_fun_4 (test_ctx : test_ctxt) : unit =
 let test_sub_pair_fun_5 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let call_tid = Tid.create () in
-  Tid.set_name call_tid "call_tid";
-  let sub1_tid = Tid.create () in
-  let sub2_tid = Tid.create () in
   let ret_var = Var.create "EAX" reg32_t in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
-  let blk1 = Blk.create () in
-  let blk2 = Blk.create () in
-  let blk3 = Blk.create () in
-  let blk4 = Blk.create () in
-  let call_blk1 = Blk.create ()
-                  |> mk_def x (i32 1)
-                  |> mk_def y (i32 2)
-                  |> mk_def ret_var Bil.(var x + var y) in
-  let call_blk2 = Blk.create ()
-                  |> mk_def y (i32 2)
-                  |> mk_def x (i32 1)
-                  |> mk_def ret_var Bil.(var x + var y) in
-  let call_sub1 = mk_sub ~tid:call_tid ~name:"test_call" [call_blk1] in
-  let call_sub2 = mk_sub ~tid:call_tid ~name:"test_call" [call_blk2] in
-  let blk1 = blk1 |> mk_call (Label.direct (Term.tid blk2)) (Label.direct (Term.tid call_sub1)) in
-  let blk3 = blk3 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call_sub2)) in
-  let main_sub1 = mk_sub ~tid:sub1_tid ~name:"main_sub" [blk1; blk2] in
-  let main_sub2 = mk_sub ~tid:sub2_tid ~name:"main_sub" [blk3; blk4] in
+  let call_sub1 = Bil.(
+      [ x := i32 1;
+        y := i32 2;
+        ret_var := var x + var y;
+      ]
+    ) |> bil_to_sub in
+  let call_sub2 = Bil.(
+      [ y := i32 2;
+        x := i32 1;
+        ret_var := var x + var y;
+      ]
+    ) |> bil_to_sub in
+  let call_sub1 = Sub.with_name call_sub1 "test_call" in
+  let call_sub2 = Sub.with_name call_sub2 "test_call" in
+  let main_sub1 = Bil.(
+      [ jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t) ]
+    ) |> bil_to_sub in
+  let main_sub2 = Bil.(
+      [ jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t) ]
+    ) |> bil_to_sub in
   let env1 = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub1]) in
   let env2 = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2]) in
   let compare_prop, _ = Comp.compare_subs_fun
