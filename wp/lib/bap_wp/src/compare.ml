@@ -44,8 +44,12 @@ let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list 
         in (eq::eqs, env1, env2)
       )
 
-(* This hypothesis needs to be generated after visiting both of the subs because
-   function predicates are generated at call time. *)
+(* This hypothesis states that if a function is called in both the original and
+   modified binaries, then the values of its input and output variables are consistent
+   across both binaries.
+
+   It needs to be generated after visiting both of the subs because
+   function predicates are generated at call time.  *)
 let fun_call_eqs (env1 : Env.t) (env2 : Env.t) : Constr.t list =
   let ctx = Env.get_context env1 in
   let get_fun_pred env f =
