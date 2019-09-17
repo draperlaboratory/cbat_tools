@@ -114,9 +114,10 @@ val wp_rec_call :
     typically a constant. *)
 val add_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
 
-(** Add a function predicate to the environment representing a function call to
-    a target with a given tid. The function predicate is a z3_expr with the form
-    [foo_pred(in, ..., out, ...)] where in and out are the input and output variables. *)
+(** Add a function predicate representing a function call to the environment with
+    the tid of the call's target. The function predicate is a z3_expr with the
+    form [foo_pred(in, ..., out, ...)] where in and out are the input and output
+    variables. *)
 val add_fun_pred : t -> Bap.Std.Tid.t -> Constr.z3_expr -> t
 
 (** Add a precondition to be associated to a block b to the environment. *)
