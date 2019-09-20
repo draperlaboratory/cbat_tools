@@ -198,9 +198,6 @@ val visit_sub : Env.t -> Constr.t -> Bap.Std.Sub.t -> Constr.t * Env.t
     refute is set to false, it checks for a model instead. *)
 val check : ?refute:bool -> Z3.Solver.solver -> Z3.context -> Constr.t -> Z3.Solver.status
 
-(** Prints out the result from check, and if the result is [SAT], generate a model that
-    represents the registers and memory values that lead to a specific program state. *)
-val print_result : Z3.Solver.solver -> Z3.Solver.status -> Constr.t -> Z3.context -> unit
 
 (** Adds a constraint to the Z3 solver in which var does not equal its value from
     the original Z3 model, then runs the Z3 solver again.
