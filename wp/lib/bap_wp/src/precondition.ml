@@ -854,20 +854,7 @@ let check ?refute:(refute = true) (solver : Z3.Solver.solver) (ctx : Z3.context)
   in
   Z3.Solver.check solver [is_correct]
 
-let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
-    (goals: Constr.t) (ctx : Z3.context) : unit =
-  match status with
-  | Z3.Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
-  | Z3.Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
-  | Z3.Solver.SATISFIABLE ->
-    Format.printf "\nSAT!\n%!";
-    let model = Z3.Solver.get_model solver
-                |> Option.value_exn ?here:None ?error:None ?message:None in
-    Format.printf "\nModel:\n%s\n%!" (Z3.Model.to_string model);
-    let refuted_goals = Constr.get_refuted_goals goals solver ctx in
-    Format.printf "\nRefuted goals:\n%!";
-    Seq.iter refuted_goals ~f:(fun g ->
-        Format.printf "%s\n%!" (Constr.refuted_goal_to_string g model))
+
 
 let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
     ~pre:(pre : Constr.t) : Z3.Solver.status =
