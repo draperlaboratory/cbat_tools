@@ -328,33 +328,35 @@ let get_vars (t : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub t Var.Set.empty
 
-(* We are currently filtering out mem from the input variables. We might want
-   to add it back, but it causes a great slowdown when Z3 checks the precondition. *)
-let get_fun_inputs (sub : Sub.t) (env : Env.t) : Constr.z3_expr list =
-  Var.Set.fold (get_vars sub) ~init:[]
-    ~f:(fun vars v ->
-        match Var.typ v with
-        | Imm _ ->
-          let z3_v, _ = Env.get_var env v in
-          z3_v :: vars
-        | _ -> vars)
-
-(* Creates a Z3 function of the form func_ret_outvar(in_vars, ...) which represents
+(* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It is added to the environment, and
    substitutes the original z3_expr representing the output variable. *)
-let subst_func_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
-    ~inputs:(inputs : Constr.z3_expr list) ~outputs:(outputs : Constr.z3_expr list)
+let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t) (outputs : Var.t list)
   : Constr.t * Env.t =
   let ctx = Env.get_context env in
   let tid = Term.tid sub in
-  let input_sorts = List.map inputs ~f:Expr.get_sort in
-  let fun_outputs = List.map outputs
-      ~f:(fun o ->
-          let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string o) in
-          let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort o) in
-          FuncDecl.apply func_decl inputs)
+  let inputs =
+    Var.Set.fold (get_vars sub) ~init:[]
+      ~f:(fun vars v ->
+          (* We are currently filtering out mem from the input variables because it
+             causes Z3 to slow down during evaluation. *)
+          match Var.typ v with
+          | Imm _ ->
+            let z3_v, _ = Env.get_var env v in
+            z3_v :: vars
+          | _ -> vars)
   in
-  Constr.substitute post outputs fun_outputs, Env.add_fun_outputs env tid fun_outputs
+  let input_sorts = List.map inputs ~f:Expr.get_sort in
+  let outputs = List.map outputs
+      ~f:(fun o ->
+          let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Var.to_string o) in
+          let z3_v, _ = Env.get_var env o in
+          let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort z3_v) in
+          let application = FuncDecl.apply func_decl inputs in
+          (z3_v, func_decl, application))
+  in
+  let subs_from, func_decls, subs_to = List.unzip3 outputs in
+  Constr.substitute post subs_from subs_to, Env.add_fun_outputs env tid func_decls
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -403,7 +405,6 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                |> Constr.mk_goal (Format.sprintf "assume %s" (Expr.to_string z3_v))
                |> Constr.mk_constr
              in
-             let post, env = subst_func_outputs env sub post ~inputs:[z3_v] ~outputs:[] in
              Constr.mk_clause [assumption] [post], env)
     }
   else
@@ -428,9 +429,7 @@ let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                | None -> failwith "Verifier headerfile must be specified with --api-path" in
              let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
              let v = Var.Set.choose_exn vars in
-             let z3_v, env = Env.get_var env v in
-             subst_func_outputs env sub post
-               ~inputs:(get_fun_inputs sub env) ~outputs:[z3_v])
+             subst_fun_outputs env sub post [v])
     }
   else
     None
@@ -446,21 +445,16 @@ let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env offset in
              let args = Term.enum arg_t sub in
-             let outs = Seq.filter args
+             let out_args = Seq.filter args
                  ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
                               Bap.Std.Arg.intent a = Some Bap.Std.Both) in
-             (* Build an association list*)
-             let chaos = Seq.map outs
-                 ~f:(fun a ->
+             let outs = Seq.fold out_args ~init:[]
+                 ~f:(fun outs a ->
                      let vars = a |> Bap.Std.Arg.rhs |> Exp.free_vars in
                      assert (Var.Set.length vars = 1);
-                     let v = Var.Set.choose_exn vars in
-                     let z3_v, _ = Env.get_var env v in
-                     z3_v)
+                     Var.Set.choose_exn vars :: outs)
              in
-             let outs = Seq.to_list chaos in
-             subst_func_outputs env sub post
-               ~inputs:(get_fun_inputs sub env) ~outputs:outs)
+             subst_fun_outputs env sub post outs)
     }
   else
     None
@@ -487,9 +481,7 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env offset in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
-             let z3_v, env = Env.get_var env rax in
-             subst_func_outputs env sub post
-               ~inputs:(get_fun_inputs sub env) ~outputs:[z3_v])
+             subst_fun_outputs env sub post [rax])
     }
   else
     None
@@ -501,9 +493,7 @@ let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
         let post = set_fun_called post env tid in
-        let post, env = increment_stack_ptr post env offset in
-        subst_func_outputs env sub post
-          ~inputs:(get_fun_inputs sub env) ~outputs:[])
+        increment_stack_ptr post env offset)
   }
 
 let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =

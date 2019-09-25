@@ -18,6 +18,7 @@ open Graphlib.Std
 include Self()
 
 module Expr = Z3.Expr
+module FuncDecl = Z3.FuncDecl
 module Constr = Constraint
 
 (* The environment for computing the semantics of an instruction *)
@@ -36,7 +37,7 @@ type t = {
   precond_map : Constr.t TidMap.t;
   fun_name_tid : Tid.t StringMap.t;
   call_map : string TidMap.t;
-  fun_outputs_map : Constr.z3_expr list TidMap.t;
+  fun_outputs_map : FuncDecl.func_decl list TidMap.t;
   sub_handler : fun_spec TidMap.t;
   jmp_handler : jmp_spec;
   int_handler : int_spec;
@@ -254,7 +255,7 @@ let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }
 let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
 
-let add_fun_outputs (env : t) (tid : Tid.t) (fun_outputs : Constr.z3_expr list) : t =
+let add_fun_outputs (env : t) (tid : Tid.t) (fun_outputs : FuncDecl.func_decl list) : t =
   { env with fun_outputs_map = TidMap.set env.fun_outputs_map ~key:tid ~data:fun_outputs }
 
 let mk_exp_conds (env : t) (e : exp) : Constr.goal list * Constr.goal list =
@@ -319,7 +320,7 @@ let get_loop_handler (env : t) :
 let get_arch (env : t) : Arch.t =
   env.arch
 
-let get_fun_outputs (env : t) (tid : Tid.t) : Constr.z3_expr list option =
+let get_fun_outputs (env : t) (tid : Tid.t) : FuncDecl.func_decl list option =
   TidMap.find env.fun_outputs_map tid
 
 let fold_fun_tids (env : t) ~init:(init : 'a)
