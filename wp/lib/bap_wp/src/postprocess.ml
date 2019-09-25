@@ -85,19 +85,6 @@ let strip_final_digits s =
   let s'' = List.rev (pop_digits s') in
   String.of_char_list s''
 
-(*
-Target.cpu
-
-get registers names
-env has arch
-gprs - set of registers - Var
-
-auxv parameer to main
-list of pointers 
-
-elf
-*)
-
 let reg_names m =
   m |>
   Z3.Model.get_decls |>
@@ -109,17 +96,6 @@ let reg_names m =
 
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a 
     breakpoint at the subroutine and fills the appropriate registers *)
-(**
-
-
-create record with all appropriate things
-
-coudl move val_for_reg out
-
-recompile with 01
- (* let decls = Z3.Model.get_const_decls model in *)
-
- *)
 
 let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
     (goals: Constr.t) (ctx : Z3.context) : unit =
@@ -140,16 +116,18 @@ let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
 
 let output_gdb (solver : Z3.Solver.solver) (status : Z3.Solver.status)
     (goals: Constr.t) (ctx : Z3.context) (env : Env.t) (func : string) ~filename:(gdb_filename : string) : unit =
-    let model = Z3.Solver.get_model solver
-            |> Option.value_exn ?here:None ?error:None ?message:None in
-    let regs = reg_names model in
-    Out_channel.with_file gdb_filename  ~f:(fun t -> 
-        Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
-        Printf.fprintf t "start\n";
-        List.iter regs ~f:(fun r -> 
-              let w = val_for_reg r model env in
-              let s = Format.asprintf "set $%s = %a \n" (String.lowercase r) Bap.Std.Word.pp_hex w  in
-              Printf.fprintf t "%s" s)     
-     )
+    match status with
+    | Z3.Solver.SATISFIABLE ->
+        let model = Z3.Solver.get_model solver
+                |> Option.value_exn ?here:None ?error:None ?message:None in
+        let regs = reg_names model in
+        Out_channel.with_file gdb_filename  ~f:(fun t -> 
+            Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
+            Printf.fprintf t "start\n";
+            List.iter regs ~f:(fun r -> 
+                  let w = val_for_reg r model env in
+                  let s = Format.asprintf "set $%s = %a \n" (String.lowercase r) Bap.Std.Word.pp_hex w  in
+                  Printf.fprintf t "%s" s))   
+    | _ -> ()
 
 
