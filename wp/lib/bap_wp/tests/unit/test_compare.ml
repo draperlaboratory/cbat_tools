@@ -425,6 +425,66 @@ let test_sub_pair_fun_4 (test_ctx : test_ctxt) : unit =
     compare_prop Z3.Solver.SATISFIABLE
 
 
+let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let ret_var = Var.create "EAX" reg32_t in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let call_sub1 = Bil.([ ret_var := var x + var y ]) |> bil_to_sub in
+  let call_sub2 = Bil.([ ret_var := var x + var y ]) |> bil_to_sub in
+  let call_sub1 = Sub.with_name call_sub1 "test_call" in
+  let call_sub2 = Sub.with_name call_sub2 "test_call" in
+  let main_sub1 = Bil.(
+      [ jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t)  ]
+    ) |> bil_to_sub in
+  let main_sub2 = Bil.(
+      [ jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t)  ]
+    ) |> bil_to_sub in
+  let env1 = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub1]) in
+  let env2 = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2]) in
+  let input_vars = Var.Set.of_list [x; y; ret_var] in
+  let output_vars = Var.Set.singleton ret_var in
+  let compare_prop, _ = Comp.compare_subs_eq
+      ~input:input_vars ~output:output_vars
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+  assert_z3_compare test_ctx ctx (Sub.to_string main_sub1)
+    (Sub.to_string main_sub2)
+    compare_prop Z3.Solver.UNSATISFIABLE
+
+
+let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let ret_var = Var.create "EAX" reg32_t in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let call_sub1 = Bil.([ ret_var := var x + var y ]) |> bil_to_sub in
+  let call_sub2 = Bil.([ ret_var := var x + var y ]) |> bil_to_sub in
+  let call_sub1 = Sub.with_name call_sub1 "test_call" in
+  let call_sub2 = Sub.with_name call_sub2 "test_call" in
+  let main_sub1 = Bil.(
+      [ x := i32 1;
+        y := i32 2;
+        jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t)  ]
+    ) |> bil_to_sub in
+  let main_sub2 = Bil.(
+      [ x := i32 2;
+        y := i32 3;
+        jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t)  ]
+    ) |> bil_to_sub in
+  let env1 = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub1]) in
+  let env2 = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2]) in
+  let input_vars = Var.Set.of_list [x; y; ret_var] in
+  let output_vars = Var.Set.singleton ret_var in
+  let compare_prop, _ = Comp.compare_subs_eq
+      ~input:input_vars ~output:output_vars
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+  assert_z3_compare test_ctx ctx (Sub.to_string main_sub1)
+    (Sub.to_string main_sub2)
+    compare_prop Z3.Solver.SATISFIABLE
+
+
 let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -467,6 +527,9 @@ let suite = [
   "Fun called in modified sub"               >:: test_sub_pair_fun_2;
   "Branches with fun calls"                  >:: test_sub_pair_fun_3;
   "Fun called in branch"                     >:: test_sub_pair_fun_4;
+
+  "Function output substitution: UNSAT"      >:: test_fun_outputs_1;
+  "Function output substitution: SAT"        >:: test_fun_outputs_2;
 
   "Compare memory layout"                    >:: test_sub_pair_mem_1;
 ]
