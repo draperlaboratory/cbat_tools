@@ -237,10 +237,7 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
                                       Option.value_exn ?here:None ?error:None ?message:None) in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> Look for a jmp to a var with noreturn as return block
+
 let get_stack_ptr_offset (sub : Sub.t) (arch : Arch.t) : Exp.t =
   let module Target = (val target_of_arch arch) in
   let blks = Term.to_sequence ~rev:true blk_t sub in
@@ -287,13 +284,6 @@ let get_stack_ptr_offset (sub : Sub.t) (arch : Arch.t) : Exp.t =
   in
   let sp = Bil.var Target.CPU.sp in
   match ret_block with
-<<<<<<< HEAD
-=======
-let get_stack_ptr_offsets (sub : Sub.t) (arch : Arch.t) : Exp.t list =
-  match Term.last blk_t sub with
->>>>>>> Use last block to determine how much to increment stack pointer
-=======
->>>>>>> Look for a jmp to a var with noreturn as return block
   | None ->
     debug "Sub %s has no return" (Sub.name sub);
     sp
@@ -310,23 +300,10 @@ let get_stack_ptr_offsets (sub : Sub.t) (arch : Arch.t) : Exp.t list =
           | BinOp (MINUS, Var v, w) ->
             if Var.equal v Target.CPU.sp then begin
               warning "Stack pointer in %s is being decremented by %s before return"
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> Look for a jmp to a var with noreturn as return block
                 (Sub.name sub) (Exp.to_string w);
               BinOp (MINUS, offset, w)
             end else offset
           | _ -> offset
-<<<<<<< HEAD
-=======
-                (Sub.name sub) (Word.to_string w);
-              rhs :: offsets
-            end else offsets
-          | _ -> offsets
->>>>>>> Use last block to determine how much to increment stack pointer
-=======
->>>>>>> Look for a jmp to a var with noreturn as return block
         end else
           offset)
 
