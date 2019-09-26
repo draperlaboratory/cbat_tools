@@ -111,7 +111,7 @@ let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
     breakpoint at the subroutine and fills the appropriate registers *)
 
 let output_gdb (solver : Z3.Solver.solver) (status : Z3.Solver.status)
-    (goals: Constr.t) (ctx : Z3.context) (env : Env.t) (func : string) ~filename:(gdb_filename : string) : unit =
+               (env : Env.t) ~func:(func : string) ~filename:(gdb_filename : string) : unit =
     match status with
     | Z3.Solver.SATISFIABLE ->
         let model = Z3.Solver.get_model solver
