@@ -100,28 +100,38 @@ let test_update_num_unroll (new_unroll : int option) (test_ctx : test_ctxt) : un
     assert_equal ~ctxt:test_ctx ~cmp:Int.equal ~msg:fail_msg updated original
 
 let suite = [
-  "Equiv Null Check"           >:: test_compare_elf "equiv_null_check" "SAT!";
-  "Equiv Argc"                 >:: test_compare_elf "equiv_argc" "SAT!";
-  "Diff Ret Val"               >:: test_compare_elf "diff_ret_val" "SAT!";
-  "Diff Pointer Val"           >:: test_compare_elf "diff_pointer_val" "SAT!";
-  "Switch Case Assignments"    >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
-  "Switch Cases"               >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
-  "Remove Stack Protector"     >:: test_compare_elf "no_stack_protection" "SAT!" ~output_vars:"RSI,RAX";
-  "Caller-saved registers"     >:: test_compare_elf "retrowrite_stub" "UNSAT!"
+  "Equiv Null Check"              >:: test_compare_elf "equiv_null_check" "SAT!";
+  "Equiv Argc"                    >:: test_compare_elf "equiv_argc" "SAT!";
+  "Diff Ret Val"                  >:: test_compare_elf "diff_ret_val" "SAT!";
+  "Diff Pointer Val"              >:: test_compare_elf "diff_pointer_val" "SAT!";
+  "Switch Case Assignments"       >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
+  "Switch Cases"                  >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
+  "No Stack Protection"           >:: test_compare_elf "no_stack_protection" "SAT!" ~output_vars:"RSI,RAX";
+  "Retrowrite Stub"               >:: test_compare_elf "retrowrite_stub" "UNSAT!"
     ~inline:true ~to_inline:"__afl_maybe_log";
-  "Pop RSP in Summary"         >:: test_compare_elf "retrowrite_stub" "UNSAT!";
-  "Simple WP"                  >:: test_single_elf "simple_wp" "main" "SAT!";
-  "Verifier Assume SAT"        >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
-  "Verifier Assume UNSAT"      >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
-  "Verifier Nondet"            >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
-  "Function Call"              >:: test_single_elf "function_call" "main" "SAT!"
+  "Retrowrite Stub: imply inline" >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~to_inline:"__afl_maybe_log";
+  "Retrowrite Stub: inline all"   >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:true;
+  "Retrowrite Stub: Pop RSP"      >:: test_compare_elf "retrowrite_stub" "UNSAT!";
+
+  "Simple WP"                     >:: test_single_elf "simple_wp" "main" "SAT!";
+  "Verifier Assume SAT"           >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
+  "Verifier Assume UNSAT"         >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
+  "Verifier Nondet"               >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
+  "Function Call"                 >:: test_single_elf "function_call" "main" "SAT!"
     ~inline:true ~to_inline:"foo";
-  "Function Specs"             >:: test_single_elf "function_spec" "main" "UNSAT!"
+  "Function Call: imply inline"   >:: test_single_elf "function_call" "main" "SAT!" ~to_inline:"foo";
+  "Function Call: inline all"     >:: test_single_elf "function_call" "main" "SAT!" ~inline:true;
+  "Function Spec"                 >:: test_single_elf "function_spec" "main" "UNSAT!"
     ~inline:true ~to_inline:"foo";
-  "Function Specs"             >:: test_single_elf "function_spec" "main" "SAT!" ~inline:false;
-  "Nested Function Calls"      >:: test_single_elf "nested_function_calls" "main" "SAT!"
+  "Function Spec: imply inline"   >:: test_single_elf "function_spec" "main" "UNSAT!" ~to_inline:"foo";
+  "Function Spec: inline all "    >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:true;
+  "Function Spec: no inlining"    >:: test_single_elf "function_spec" "main" "SAT!" ~inline:false;
+  "Nested Function Calls"         >:: test_single_elf "nested_function_calls" "main" "SAT!"
     ~inline:true ~to_inline:"foo,bar";
-  "User Defined Postcondition" >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
-  "Update Number of Unrolls"   >:: test_update_num_unroll (Some 3);
-  "Original Number of Unrolls" >:: test_update_num_unroll None;
+  "Nested Calls: imply inline"    >:: test_single_elf "nested_function_calls" "main" "SAT!" ~to_inline:"foo,bar";
+  "Nested Calls: inline all"      >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:true;
+  "User Defined Postcondition"    >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
+
+  "Update Number of Unrolls"      >:: test_update_num_unroll (Some 3);
+  "Original Number of Unrolls"    >:: test_update_num_unroll None;
 ]
