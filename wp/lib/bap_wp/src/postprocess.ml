@@ -62,8 +62,6 @@ let word_of_z3_bv bv =
   let s = Z3.Expr.to_string bv in
   word_of_str (String.substr_replace_first s ~pattern:"#" ~with_:"0") bits sign
 
-(* get var will actually create a new variable if it can't find the one we're asking for. *)
-
 let val_for_reg r m env =
   let reg_var = Var.create r (Type.imm 64) in
   let reg_value, _ = Environment.get_var env reg_var in
@@ -94,9 +92,6 @@ let reg_names m =
   List.map ~f:strip_final_digits
 
 
-(** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a 
-    breakpoint at the subroutine and fills the appropriate registers *)
-
 let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
     (goals: Constr.t) (ctx : Z3.context) : unit =
   match status with
@@ -112,7 +107,8 @@ let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
     Seq.iter refuted_goals ~f:(fun g ->
         Format.printf "%s\n%!" (Constr.refuted_goal_to_string g model))
 
-
+(** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a 
+    breakpoint at the subroutine and fills the appropriate registers *)
 
 let output_gdb (solver : Z3.Solver.solver) (status : Z3.Solver.status)
     (goals: Constr.t) (ctx : Z3.context) (env : Env.t) (func : string) ~filename:(gdb_filename : string) : unit =
