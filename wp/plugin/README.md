@@ -329,8 +329,8 @@ The various options are:
 - `--wp-output-vars=var_list`. List of output variables for equivalence checking
   by `,` given the same input variables in the case of a comparative analysis.
   Defaults to `RAX,EAX` which are the 64- and 32-bit output registers for x86.
-- `--wp-gdb-filename=my_exec.gdb` output a gdb script to file `my_exec.gdb` which 
-  will fill in the . From within gdb, run `source my_exec.gdb` to set a breakpoint at the function given by `--wp-function` and fill the appropriate registers with a found counter-model.
+- `--wp-gdb-filename=my_exec.gdb` output a gdb script to file `my_exec.gdb`. From
+  within gdb, run      `source my_exec.gdb` to set a breakpoint at the function given by `--wp-function` and fill the       appropriate registers with a found counter-model.
   
 
 ## C checking API
