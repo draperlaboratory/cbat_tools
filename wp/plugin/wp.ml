@@ -165,9 +165,9 @@ let main (file1 : string) (file2 : string)
   let () = match gdb_filename with
           | None -> ()
           | Some f -> 
-                Printf.printf "Dumping gdb script to file: %s\n" gdb_filename;
-                Postprocess.output_gdb solver result pre ctx env' func ~filename:f in 
-  Postprocess.print_result solver result pre ctx
+                Printf.printf "Dumping gdb script to file: %s\n" f;
+                Output.output_gdb solver result env' ~func:func ~filename:f in 
+  Output.print_result solver result pre ctx
 
 
 module Cmdline = struct
