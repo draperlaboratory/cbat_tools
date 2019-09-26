@@ -165,7 +165,7 @@ let main (file1 : string) (file2 : string)
   let () = match gdb_filename with
           | None -> ()
           | Some f -> 
-                Printf.printf "DUMPING GDB\n";
+                Printf.printf "Dumping gdb script to file: %s\n" gdb_filename;
                 Postprocess.output_gdb solver result pre ctx env' func ~filename:f in 
   Postprocess.print_result solver result pre ctx
 
