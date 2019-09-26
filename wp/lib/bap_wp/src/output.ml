@@ -44,9 +44,6 @@ let no_value_msg e m =
   let m_str = Z3.Model.to_string m in
   Printf.sprintf "No value for symbol '%s' found in model: %s" e_str m_str
 
-let log ?newline:(newline="\n") msg =
-  Printf.printf "[Model] -- %s%s%!" msg newline
-
 let word_of_str s w sign =
   let w_str = Printf.sprintf "%s:%d%s" s w (string_of_sign sign) in
   Word.of_string w_str
