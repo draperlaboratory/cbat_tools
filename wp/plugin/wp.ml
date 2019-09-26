@@ -38,6 +38,9 @@ let update_default_num_unroll (num_unroll : int option) : unit =
   | Some n -> Pre.num_unroll := n
   | None -> ()
 
+let has_inline_funcs (to_inline : string list) : bool =
+  not (List.is_empty to_inline)
+
 let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string)
     ~inline:(inline : bool)
@@ -48,10 +51,14 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func_err subs func in
   let env =
-    if inline then
-      let to_inline = to_inline
-                      |> List.map ~f:(find_func_err subs)
-                      |> Seq.of_list
+    if inline || has_inline_funcs to_inline then
+      let to_inline =
+        match to_inline with
+        | [] -> subs
+        | funcs ->
+          funcs
+          |> List.map ~f:(find_func_err subs)
+          |> Seq.of_list
       in
       Pre.mk_inline_env ctx var_gen ~subs ~arch ~to_inline:to_inline
     else
@@ -101,16 +108,19 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
       else failwith (missing_func_msg func)
     | Some f -> [f]
   in
+  let find_inline_funcs inline_funcs ~to_find ~to_check =
+    match inline_funcs with
+    | [] -> to_find
+    | funcs ->
+      funcs
+      |> List.map ~f:(find_func_in_one_of ~to_find ~to_check)
+      |> List.concat
+      |> Seq.of_list
+  in
   let env1, env2 =
-    if inline then
-      let to_inline1 = to_inline
-                       |> List.map ~f:(find_func_in_one_of ~to_find:subs1 ~to_check:subs2)
-                       |> List.concat
-                       |> Seq.of_list in
-      let to_inline2 = to_inline
-                       |> List.map ~f:(find_func_in_one_of ~to_find:subs2 ~to_check:subs1)
-                       |> List.concat
-                       |> Seq.of_list in
+    if inline || has_inline_funcs to_inline then
+      let to_inline1 = find_inline_funcs to_inline ~to_find:subs1 ~to_check:subs2 in
+      let to_inline2 = find_inline_funcs to_inline ~to_find:subs2 ~to_check:subs1 in
       Pre.mk_inline_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1,
       Pre.mk_inline_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
     else
@@ -155,8 +165,9 @@ let main (file1 : string) (file2 : string)
   let var_gen = Env.mk_var_gen () in
   let solver = Z3.Solver.mk_simple_solver ctx in
   update_default_num_unroll num_unroll;
+  let has_files_to_compare = String.(file1 <> "" && file2 <> "") in
   let pre, env' =
-    if compare then
+    if compare || has_files_to_compare then
       compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~inline ~to_inline ~output_vars
     else
       analyze_proj proj var_gen ctx ~func ~inline ~to_inline ~post_cond
@@ -164,9 +175,9 @@ let main (file1 : string) (file2 : string)
   let result = Pre.check solver ctx pre in
   let () = match gdb_filename with
           | None -> ()
-          | Some f -> 
+          | Some f ->
                 Printf.printf "Dumping gdb script to file: %s\n" f;
-                Output.output_gdb solver result env' ~func:func ~filename:f in 
+                Output.output_gdb solver result env' ~func:func ~filename:f in
   Output.print_result solver result pre ctx
 
 
@@ -193,7 +204,9 @@ module Cmdline = struct
             specify which functions should be replaced by their bodies for purposes \
             of analysis"
 
-  let to_inline = param (list string) "inline-funcs" ~doc:"List of functions to inline. Use in "
+  let to_inline = param (list string) "inline-funcs"
+      ~doc:"List of functions to inline. By default, if inline is set without \
+            specifying inline-funcs, all functions in the binary will be inlined."
       ~default:[]
 
   let post_cond = param string "postcond" ~doc:"Post condition in SMT-LIB format"
