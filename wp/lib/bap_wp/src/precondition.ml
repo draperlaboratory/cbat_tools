@@ -340,13 +340,11 @@ let get_function_inputs (sub : Sub.t) (env : Env.t) : Var.t list =
   |> Var.Set.to_list
 
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
-   an output variable to a function call. It is added to the environment, and
-   substitutes the original z3_expr representing the output variable. *)
+   an output variable to a function call. It substitutes the original z3_expr
+   representing the output variable. *)
 let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
-    ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list)
-  : Constr.t * Env.t =
+    ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
   let ctx = Env.get_context env in
-  let tid = Term.tid sub in
   let inputs = List.map inputs
       ~f:(fun i ->
           let input, _ = Env.get_var env i in
@@ -359,10 +357,10 @@ let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
           let z3_v, _ = Env.get_var env o in
           let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort z3_v) in
           let application = FuncDecl.apply func_decl inputs in
-          (z3_v, func_decl, application))
+          (z3_v, application))
   in
-  let subs_from, func_decls, subs_to = List.unzip3 outputs in
-  Constr.substitute post subs_from subs_to, Env.add_fun_outputs env tid func_decls
+  let subs_from, subs_to = List.unzip outputs in
+  Constr.substitute post subs_from subs_to
 
 let var_of_arg_t (arg : Arg.t) : Var.t =
   let vars = arg |> Arg.rhs |> Exp.free_vars in
@@ -439,7 +437,7 @@ let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                | None -> failwith "Verifier headerfile must be specified with --api-path" in
              let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
              let v = Var.Set.choose_exn vars in
-             subst_fun_outputs env sub post ~inputs:[] ~outputs:[v])
+             subst_fun_outputs env sub post ~inputs:[] ~outputs:[v], env)
     }
   else
     None
@@ -464,7 +462,7 @@ let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                      | Some Both -> var :: ins, var :: outs
                      | None -> ins, outs)
              in
-             subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs)
+             subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs, env)
     }
   else
     None
@@ -492,7 +490,7 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let post, env = increment_stack_ptr post env offset in
              let inputs = get_function_inputs sub env in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
-             subst_fun_outputs env sub post ~inputs:inputs ~outputs:[rax])
+             subst_fun_outputs env sub post ~inputs:inputs ~outputs:[rax], env)
     }
   else
     None
