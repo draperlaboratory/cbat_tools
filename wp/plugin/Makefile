@@ -12,7 +12,7 @@ build:
 	bapbuild -use-ocamlfind -pkgs 'z3,bap_wp' -tag 'warn(A-48-44)' $(PASS_NAME).plugin
 
 install: build verifier save_project
-	bapbundle update -desc 'Computes the weakest precondition of a subroutine given a postcondition' $(PASS_NAME).plugin
+	bapbundle update -desc 'Computes the weakest precondition of a subroutine given a postcondition.' $(PASS_NAME).plugin
 	bapbundle install $(PASS_NAME).plugin
 
 test: install save_project dummy

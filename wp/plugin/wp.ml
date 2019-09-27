@@ -190,43 +190,60 @@ let main (file1 : string) (file2 : string)
 module Cmdline = struct
   open Config
 
-  let file1 = param string "file1" ~doc:"Project file location for first binary"
-      ~default:""
+  let compare = param bool "compare" ~as_flag:true ~default:false
+      ~doc:"Determines whether to analyze a single function or compare the same \
+            function across two binaries. If enabled, project files must be specified \
+            with the `file1' and `file2' options."
 
-  let file2 = param string "file2" ~doc:"Project file location for second binary"
-      ~default:""
+  let file1 = param string "file1" ~default:""
+      ~doc:"Project file location of the first binary for comparative analysis, \
+            which can be generated via the save-project plugin. If both `file1' and \
+            `file2' are specified, wp will automatically run the comparative analysis."
 
-  let func = param string "function" ~doc:"Function in both binaries to compare"
-      ~default:"main"
+  let file2 = param string "file2" ~default:""
+      ~doc:"Project file location of the second binary for comparative analysis, \
+            which can be generated via the save-project plugin. If both `file1' and \
+            `file2' are specified, wp will automatically run the comparative analysis."
 
-  let check_calls = param bool "check-calls" ~doc:"Check conservation of function calls"
-      ~as_flag:true ~default:false
+  let func = param string "function" ~default:"main"
+      ~doc:"Function to run the wp analysis on. `main' by default. If the function \
+            cannot be found in the binary or both binaries in the comparison \
+            case, wp analysis should fail."
 
-  let compare = param bool "compare" ~doc:"Compare the subroutines of two binaries"
-      ~as_flag:true ~default:false
+  let check_calls = param bool "check-calls" ~as_flag:true ~default:false
+      ~doc:"If set, compares which subroutines are invoked in the body of the \
+            function. Otherwise, compares the return values computed in the function \
+            body."
 
   let inline = param bool "inline" ~as_flag:true ~default:false
-      ~doc:"Inline function calls. Use in conjunction with inline-funcs to \
+      ~doc:"Inline function calls. Use in conjunction with `inline-funcs' to \
             specify which functions should be replaced by their bodies for purposes \
-            of analysis"
+            of analysis. If not set, function summaries are used at function call \
+            time."
 
   let to_inline = param (list string) "inline-funcs"
-      ~doc:"List of functions to inline. By default, if inline is set without \
-            specifying inline-funcs, all functions in the binary will be inlined."
+      ~doc:"List of functions to inline separated by `,'. By default, if `inline' \
+            is set without specifying `inline-funcs', all functions in the binary \
+            will be inlined."
       ~default:[]
 
-  let post_cond = param string "postcond" ~doc:"Post condition in SMT-LIB format"
-      ~default:""
+  let post_cond = param string "postcond" ~default:""
+      ~doc:"Post condition in SMT-LIB format used when analyzing a single binary. \
+            If no post condition is specified, a trivial post condition (`true') \
+            will be used."
 
-  let num_unroll = param (some int) "num-unroll" ~doc:"Amount of times to unroll each loop"
+  let num_unroll = param (some int) "num-unroll"
+      ~doc:"Amount of times to unroll each loop. By default, wp will unroll each \
+            loop 5 times."
       ~default:None
 
   let output_vars = param (list string) "output-vars" ~default:["RAX"; "EAX"]
-      ~doc:"List of output variables to compare separated by ',' given the same \
-            input variables in the case of a comparative analysis. Defaults to `RAX,EAX` \
+      ~doc:"List of output variables to compare separated by `,' given the same \
+            input variables in the case of a comparative analysis. Defaults to `RAX,EAX' \
             which are the 64- and 32-bit output registers for x86."
   let gdb_filename = param (some string) "gdb-filename" ~doc:"Output gdb script file for counterexample"
       ~default:None
+
 
   let () = when_ready (fun {get=(!!)} ->
       Project.register_pass' @@
@@ -244,7 +261,6 @@ module Cmdline = struct
 
   let () = manpage [
       `S "DESCRIPTION";
-      `P
-        ("Compute the weakest precondition of a subroutine given a postcondition")
+      `P "Computes the weakest precondition of a subroutine given a postcondition."
     ]
 end
