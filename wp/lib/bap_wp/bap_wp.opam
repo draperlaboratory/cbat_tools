@@ -11,11 +11,12 @@ authors: [
   "Chloe Fortuna <cfortuna@draper.com>"
   "Chris Casinghino <ccasinghino@draper.com>"
   "JT Paasch <jpaasch@draper.com>"
+  "Philip Zucker <pzucker@draper.com>"
 ]
 license: "MIT"
-homepage: "https://github.com/draperlaboratory/CBAT-internal"
-bug-reports: "https://github.com/draperlaboratory/CBAT-internal"
-dev-repo: "git+https://github.com/draperlaboratory/CBAT-internal"
+homepage: "https://github.com/draperlaboratory/cbat_tools"
+bug-reports: "https://github.com/draperlaboratory/cbat_tools"
+dev-repo: "git+https://github.com/draperlaboratory/cbat_tools"
 depends: [
   "bap" {>= "master"}
   "core" {>= "0.11"}
