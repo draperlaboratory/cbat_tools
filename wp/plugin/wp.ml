@@ -33,6 +33,15 @@ let find_func_err (subs : Sub.t Seq.t) (func : string) : Sub.t =
   | None -> failwith (missing_func_msg func)
   | Some f -> f
 
+(* Not efficient, but easier to read *)
+let find_func_in_one_of (f : string) ~to_find:(to_find : Sub.t Seq.t)
+    ~to_check:(to_check : Sub.t Seq.t) : Sub.t list =
+  match Seq.find ~f:(fun s -> String.equal (Sub.name s) f) to_find with
+  | None -> if Option.is_some (Seq.find ~f:(fun s -> String.equal (Sub.name s) f) to_check)
+    then []
+    else failwith (missing_func_msg f)
+  | Some f -> [f]
+
 let update_default_num_unroll (num_unroll : int option) : unit =
   match num_unroll with
   | Some n -> Pre.num_unroll := n
@@ -40,6 +49,22 @@ let update_default_num_unroll (num_unroll : int option) : unit =
 
 let has_inline_funcs (to_inline : string list) : bool =
   not (List.is_empty to_inline)
+
+let find_inline_funcs (inline_funcs : string list) ~to_find:(to_find : Sub.t Seq.t)
+    ~to_check:(to_check : Sub.t Seq.t) : Sub.t Seq.t =
+  if List.is_empty inline_funcs then
+    to_find
+  else
+    inline_funcs
+    |> List.map ~f:(find_func_in_one_of ~to_find ~to_check)
+    |> List.concat
+    |> Seq.of_list
+
+let varset_to_string (vs : Var.Set.t) : string =
+  vs
+  |> Var.Set.to_sequence
+  |> Seq.to_list
+  |> List.to_string ~f:Var.to_string
 
 let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string)
@@ -53,10 +78,10 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   let env =
     if inline || has_inline_funcs to_inline then
       let to_inline =
-        match to_inline with
-        | [] -> subs
-        | funcs ->
-          funcs
+        if List.is_empty to_inline then
+          subs
+        else
+          to_inline
           |> List.map ~f:(find_func_err subs)
           |> Seq.of_list
       in
@@ -100,23 +125,6 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = find_func_err subs1 func in
   let main_sub2 = find_func_err subs2 func in
-  (* Not efficient, but easier to read *)
-  let find_func_in_one_of f ~to_find ~to_check =
-    match Seq.find ~f:(fun s -> String.equal (Sub.name s) f) to_find with
-    | None -> if Option.is_some (Seq.find ~f:(fun s -> String.equal (Sub.name s) f) to_check)
-      then []
-      else failwith (missing_func_msg func)
-    | Some f -> [f]
-  in
-  let find_inline_funcs inline_funcs ~to_find ~to_check =
-    match inline_funcs with
-    | [] -> to_find
-    | funcs ->
-      funcs
-      |> List.map ~f:(find_func_in_one_of ~to_find ~to_check)
-      |> List.concat
-      |> Seq.of_list
-  in
   let env1, env2 =
     if inline || has_inline_funcs to_inline then
       let to_inline1 = find_inline_funcs to_inline ~to_find:subs1 ~to_check:subs2 in
@@ -135,10 +143,8 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
         let output_vars = Var.Set.union
             (Pre.get_output_vars main_sub1 output_vars)
             (Pre.get_output_vars main_sub2 output_vars) in
-        let input_vars = Var.Set.union_list
-            [Pre.get_vars main_sub1; Pre.get_vars main_sub2; output_vars] in
-        let varset_to_string vs =
-          vs |> Var.Set.to_sequence |> Seq.to_list |> List.to_string ~f:Var.to_string in
+        let input_vars = Var.Set.union
+            (Pre.get_vars main_sub1) (Pre.get_vars main_sub2) in
         debug "Input: %s%!" (varset_to_string input_vars);
         debug "Output: %s%!" (varset_to_string output_vars);
         Comp.compare_subs_eq ~input:input_vars ~output:output_vars
