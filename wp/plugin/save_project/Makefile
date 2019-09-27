@@ -9,6 +9,7 @@ build: $(PASS_NAME).ml
 
 install: $(PASS_NAME).ml
 	bapbuild $(PASS_NAME).plugin
+	bapbundle update -desc "Saves a binary's program data structure to disk." $(PASS_NAME).plugin
 	bapbundle install $(PASS_NAME).plugin
 
 clean:

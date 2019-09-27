@@ -277,14 +277,15 @@ nothing else is causing those changes.
 
 Use the bap CLI:
 
+To view the man page:
+
+    bap --wp-help
+
 To find the precondition of a subroutine:
 
     bap /path/to/exec --pass=wp \
       [--wp-function=function_name] \
-      [--wp-inline=bool] \
-      [--wp-postcond=smt-lib-string] \
-      [--wp-num-unroll=int] \
-      [--log-dir=directory]
+      [OPTIONS]
 
 To compare two binaries:
 
@@ -292,46 +293,57 @@ To compare two binaries:
       --wp-compare=true \
       --wp-file1=/path/to/main1.bpj \
       --wp-file2=/path/to/main2.bpj \
-      [--wp-function=function_name] \
-      [--wp-check-calls=bool] \
-      [--wp-inline=bool] \
-      [--wp-num-unroll=int] \
-      [--log-dir=directory]
+      [OPTIONS]
 
 The various options are:
 
 - `--wp-compare=[true|false]`. This flag determines whether or
   not to analyze a single function. If enabled, you will need to
   specify the `file1` and `file2` options as well. `false` by default.
+
+- `--wp-file1=file_name.bpj`. Determines the location of the
+  first file in the case of a comparative analysis.
+
+- `--wp-file2=file_name.bpj`. Determines the location of the
+  second file in the case of a comparative analysis.
+
 - `--wp-function=function_name`. Determines which function to
   verify. `wp` verifies a single function, though calling it on
   the `main` function along with the `inline` option will analyze the
   whole program. Has value `main` by default.
-- `--wp-file1=file_name.bpj`. Determines the location of the
-  first file in the case of a comparative analysis.
-- `--wp-file2=file_name.bpj`. Determines the location of the
-  second file in the case of a comparative analysis.
-- `--wp-inline=[true|false]`. Determines whether to inline a
-  function call for the purpose of computing the semantics. By default
-  we simply build a summary, which is a heuristic representation of
-  the function call semantics. `false` by default.
+
 - `--wp-check-calls=[true|false]`. Determines whether to compare
   the semantics of two programs by examining the return values of the
   function to be compared, or whether to compare which sub-routines
   are invoked in the body of the function. `false` by default.
+
+- `--wp-inline=[true|false]`. Determines whether to inline a
+  function call for the purpose of computing the semantics. By default
+  we simply build a summary, which is a heuristic representation of
+  the function call semantics. `false` by default.
+
+- `--wp-inline-funcs=funcs,list`. Determines which function calls to inline
+  when used in conjunction with `inline-funcs`. If `inline` is set without
+  specifying function calls, all functions in the binary will be inlined.
+
 - `--wp-postcond=smt-lib-string`. If present, replaces the
   default post-condition by the user-specified one, using the
   [smt-lib2] format. At the moment, the names of variables
   representing memory and registers are a bit magical, so consider
   this to be an experimental feature.
+
 - `--wp-num-unroll=num`. If present, replaces the default number of
   times to unroll each loop. The number of loop unrollings is 5 by default.
+
 - `--wp-output-vars=var_list`. List of output variables for equivalence checking
-  by `,` given the same input variables in the case of a comparative analysis.
-  Defaults to `RAX,EAX` which are the 64- and 32-bit output registers for x86.
-- `--wp-gdb-filename=my_exec.gdb` output a gdb script to file `my_exec.gdb`. From
-  within gdb, run `source my_exec.gdb` to set a breakpoint at the function given by `--wp-function` and fill the appropriate registers with a found counter-model.
-  
+  separated by `,` given the same input variables in the case of a comparative
+  analysis. Defaults to `RAX,EAX` which are the 64- and 32-bit output registers
+  for x86.
+
+- `--wp-gdb-filename=my_exec.gdb`. Output a gdb script to file `my_exec.gdb`. From
+  within gdb, run `source my_exec.gdb` to set a breakpoint at the function given
+  by `--wp-function` and fill the appropriate registers with a found counter-model.
+
 
 ## C checking API
 
