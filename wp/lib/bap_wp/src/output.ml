@@ -24,6 +24,7 @@ module Array = Z3.Z3Array
 module Solver = Z3.Solver
 module Model = Z3.Model
 module Fun = Z3.FuncDecl
+module FInterp = Model.FuncInterp
 module Env = Environment
 module Constr = Constraint
 
@@ -40,13 +41,22 @@ let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
           let value = Option.value_exn (Model.eval model data true) in
           (key, value)::pairs)
   in
+  let fmt = Format.str_formatter in
   List.iter key_val
     ~f:(fun (var, value) ->
         let var_str = Var.to_string var in
         let pad_size = Int.max (5 - (String.length var_str)) 1 in 
         let pad = String.make pad_size ' ' in
-        Format.fprintf Format.str_formatter
-          "@[%s%s|->  %s@]@\n" var_str pad (Expr.to_string value));
+        Format.fprintf fmt
+          "%s%s|->  @[%s@]@\n" var_str pad (Expr.to_string value));
+  let fun_defs = model |> Model.get_func_decls
+                 |> List.map ~f:(fun def ->
+                     let interp = Option.value_exn (Model.get_func_interp model def) in
+                     (def, interp))
+  in
+  Format.fprintf fmt "\n";
+  List.iter fun_defs ~f:(fun (def, interp) ->
+      Format.fprintf fmt "%s  %s\n" (Fun.to_string def) (FInterp.to_string interp));
   Format.flush_str_formatter ()
 
 
