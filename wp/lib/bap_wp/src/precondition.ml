@@ -590,7 +590,7 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
               (List.to_string ~f:Constr.to_string assume);
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
-            let ite = Constr.mk_ite (Term.tid jmp) (Bool.mk_not ctx false_cond) l_pre post in
+            let ite = Constr.mk_ite jmp (Bool.mk_not ctx false_cond) l_pre post in
             let post = ite::vcs in
             Constr.mk_clause assume post, env
           (* TODO: evaluate the indirect jump and
@@ -781,12 +781,12 @@ let collect_non_null_expr (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   in
   visitor#visit_exp exp []
 
-let jmp_spec_reach (m : bool Tid.Map.t) : Env.jmp_spec =
+let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
   let is_goto jmp = match Jmp.kind jmp with Goto _ -> true | _ -> false in
-  Tid.Map.fold m ~init:jmp_spec_default
+  Jmp.Map.fold m ~init:jmp_spec_default
     ~f:(fun ~key ~data spec ->
         fun env post tid jmp ->
-          if Tid.(key <> tid) || not (is_goto jmp) then
+          if Jmp.(key <> jmp) || not (is_goto jmp) then
             spec env post tid jmp
           else
             begin
@@ -896,8 +896,6 @@ let check ?refute:(refute = true) (solver : Z3.Solver.solver) (ctx : Z3.context)
       pre'
   in
   Z3.Solver.check solver [is_correct]
-
-
 
 let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
     ~pre:(pre : Constr.t) : Z3.Solver.status =

@@ -80,14 +80,14 @@ let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
       Seq.iter refuted_goals ~f:(fun g ->
           Format.fprintf ff "%s\n%!" (Constr.refuted_goal_to_string g model))
 
-(* Obtains the tid of a jump in a sub given its jump condition. *)
-let jump_tid (sub : Sub.t) (cond : Exp.t) : Tid.t =
+(* Finds a jump in a subroutine given its jump condition. *)
+let find_jump (sub : Sub.t) (cond : Exp.t) : Jmp.t =
   let jumps =
     Term.enum blk_t sub
-    |> Seq.map ~f:(fun b -> Term.enum jmp_t b)
+    |> Seq.map ~f:(Term.enum jmp_t)
     |> Seq.concat
   in
-  Term.tid (Seq.find_exn jumps ~f:(fun j -> Exp.equal (Jmp.cond j) cond))
+  Seq.find_exn jumps ~f:(fun j -> Exp.equal (Jmp.cond j) cond)
 
 (* z3_expr representing a jump being taken. *)
 let jump_taken (ctx : Z3.context) : Constr.z3_expr =
