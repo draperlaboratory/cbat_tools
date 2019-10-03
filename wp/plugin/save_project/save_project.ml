@@ -26,7 +26,7 @@ let main nm proj : unit =
     | ("", Some bnm) -> String.concat [bnm; ".bpj"]
     | (user_dest, _) -> user_dest
   in
-  Program.Io.write dest prog
+  Program.Io.write ~fmt:"bin" dest prog
 
 module Cmdline = struct
   open Config

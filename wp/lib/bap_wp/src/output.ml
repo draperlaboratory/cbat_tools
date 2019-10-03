@@ -45,7 +45,7 @@ let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
   List.iter key_val
     ~f:(fun (var, value) ->
         let var_str = Var.to_string var in
-        let pad_size = Int.max (5 - (String.length var_str)) 1 in 
+        let pad_size = Int.max (5 - (String.length var_str)) 1 in
         let pad = String.make pad_size ' ' in
         Format.fprintf fmt
           "%s%s|->  @[%s@]@\n" var_str pad (Expr.to_string value));
@@ -71,12 +71,13 @@ let print_result (solver : Solver.solver) (status : Solver.status)
     let model = Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
-    let refuted_goals = Constr.get_refuted_goals goals solver ctx in
+    let refuted_goals = Constr.get_refuted_goals_and_paths goals solver ctx in
     Format.printf "\nRefuted goals:\n%!";
-    Seq.iter refuted_goals ~f:(fun g ->
-        Format.printf "%s\n%!" (Constr.refuted_goal_to_string g model))
+    Seq.iter refuted_goals ~f:(fun (goal, path) ->
+        Format.printf "%s\n%!" (Constr.refuted_goal_to_string goal model);
+        Format.printf "\t%s%!" (Constr.path_to_string path))
 
-(** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a 
+(** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
     breakpoint at the subroutine and fills the appropriate registers *)
 
 let output_gdb (solver : Solver.solver) (status : Solver.status)
@@ -85,16 +86,16 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
   | Solver.SATISFIABLE ->
     let model = Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
-    let varmap = Env.get_var_map env in 
+    let varmap = Env.get_var_map env in
     let module Target = (val target_of_arch (Env.get_arch env)) in
     let regmap = VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in
     let reg_val_map = VarMap.map ~f:(fun z3_reg -> Option.value_exn (Z3.Model.eval model z3_reg true)) regmap in
-    Out_channel.with_file gdb_filename  ~f:(fun t -> 
+    Out_channel.with_file gdb_filename  ~f:(fun t ->
         Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
-        Printf.fprintf t "start\n";
-        VarMap.iteri reg_val_map ~f:(fun ~key ~data -> 
+        Printf.fprintf t "run\n";
+        VarMap.iteri reg_val_map ~f:(fun ~key ~data ->
             let hex_value = Z3.Expr.to_string data |> String.substr_replace_first ~pattern:"#" ~with_:"0" in
             Printf.fprintf t "set $%s = %s \n" (String.lowercase (Var.name key)) hex_value;
-        ))
+          ))
   | _ -> ()
 

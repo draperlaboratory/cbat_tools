@@ -116,8 +116,8 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     ~to_inline:(to_inline : string list)
     ~output_vars:(output_vars : string list)
   : Constr.t * Env.t * Env.t =
-  let prog1 = In_channel.with_file file1 ~f:Program.Io.load in
-  let prog2 = In_channel.with_file file2 ~f:Program.Io.load in
+  let prog1 = Program.Io.read file1 in
+  let prog2 = Program.Io.read file2 in
   (* Currently using the dummy binary's project to determine the architecture
      until we discover a better way of determining the architecture from a program. *)
   let arch = Project.arch proj in
@@ -180,10 +180,10 @@ let main (file1 : string) (file2 : string)
   in
   let result = Pre.check solver ctx pre in
   let () = match gdb_filename with
-          | None -> ()
-          | Some f ->
-                Printf.printf "Dumping gdb script to file: %s\n" f;
-                Output.output_gdb solver result env2 ~func:func ~filename:f in
+    | None -> ()
+    | Some f ->
+      Printf.printf "Dumping gdb script to file: %s\n" f;
+      Output.output_gdb solver result env2 ~func:func ~filename:f in
   Output.print_result solver result pre ~orig:env1 ~modif:env2
 
 
