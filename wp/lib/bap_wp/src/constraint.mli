@@ -43,9 +43,9 @@ type t
 (** A goal is simply a Z3 (boolean) expression tagged with a name. *)
 type goal
 
-(** A path tracks an execution path by mapping [tid]s of branches to a
+(** A path tracks an execution path by mapping [jmp]s of branches to a
     boolean, which marks whether the path was taken or not. *)
-type path = bool Bap.Std.Tid.Map.t
+type path = bool Bap.Std.Jmp.Map.t
 
 (** [mk_goal name e] creates a goal using a Z3 boolean expression and
     a name. *)
@@ -73,10 +73,10 @@ val pp_constr : Format.formatter -> t -> unit
 (** Creates a constraint made of a single goal. *)
 val mk_constr : goal -> t
 
-(** [mk_ite tid e lc rc] creates an if-then-else constraint
-    representing a branch at [tid] with constraint [e], which has
+(** [mk_ite jmp e lc rc] creates an if-then-else constraint
+    representing a branch at [jmp] with constraint [e], which has
     the constraints [lc] if [e] is true and [rc] otherwise. *)
-val mk_ite : Bap.Std.Tid.t -> z3_expr -> t -> t -> t
+val mk_ite : Bap.Std.Jmp.t -> z3_expr -> t -> t -> t
 
 (** [mk_clause [a1;...,an] [v1;...;vm]] creates the constraint
     [a1 /\ ... /\ an ==> v1 /\ ... /\ vm]. *)

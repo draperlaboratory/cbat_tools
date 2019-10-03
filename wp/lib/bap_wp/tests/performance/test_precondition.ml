@@ -115,9 +115,9 @@ let test_nested_ifs (threshold : float) (test_ctx : test_ctxt) : unit =
             if t = tid then begin
               (* The first branch in the seq is the innermost in the nest. *)
               if i = 0 then
-                Some (Constr.mk_ite tid (cond_to_z3 cond env) false_constr true_constr, env)
+                Some (Constr.mk_ite jmp (cond_to_z3 cond env) false_constr true_constr, env)
               else
-                Some (Constr.mk_ite tid (cond_to_z3 cond env) branch_pre true_constr, env)
+                Some (Constr.mk_ite jmp (cond_to_z3 cond env) branch_pre true_constr, env)
             end
             else
               None)

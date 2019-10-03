@@ -19,7 +19,7 @@ module Bool = Z3.Boolean
 
 type z3_expr = Expr.expr
 
-type path = bool Bap.Std.Tid.Map.t
+type path = bool Jmp.Map.t
 
 type goal = { goal_name : string; goal_val : z3_expr }
 
@@ -56,7 +56,7 @@ let get_goal_val (g : goal) : z3_expr =
 
 type t =
   | Goal of goal
-  | ITE of Tid.t * z3_expr * t * t
+  | ITE of Jmp.t * z3_expr * t * t
   | Clause of t list * t list
   | Subst of t * z3_expr list * z3_expr list
 
@@ -65,7 +65,7 @@ let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
   | Goal g -> Format.fprintf ch "%s" (goal_to_string g)
   | ITE (tid, e, c1, c2) ->
     Format.fprintf ch "ITE(%s, %s, %a, %a)"
-      (Tid.to_string tid) (Expr.to_string e) pp_constr c1 pp_constr c2
+      (tid |> Term.tid |> Tid.to_string) (Expr.to_string e) pp_constr c1 pp_constr c2
   | Clause (hyps, concs) ->
     Format.fprintf ch "(";
     (List.iter hyps ~f:(fun h -> Format.fprintf ch "%a" pp_constr h));
@@ -83,8 +83,8 @@ let to_string (constr : t) : string =
 let mk_constr (g : goal) : t =
   Goal g
 
-let mk_ite (tid : Tid.t) (cond : z3_expr) (c1 : t) (c2 : t) : t =
-  ITE (tid, cond, c1, c2)
+let mk_ite (jmp : Jmp.t) (cond : z3_expr) (c1 : t) (c2 : t) : t =
+  ITE (jmp, cond, c1, c2)
 
 let mk_clause (hyps: t list) (concs : t list) : t =
   Clause (hyps, concs)
@@ -134,18 +134,18 @@ let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
         | Z3.Solver.UNKNOWN ->
           failwith (Format.sprintf "get_refuted_goals: Unable to resolve %s" g.goal_name)
       end
-    | ITE (tid, cond, c1, c2) ->
+    | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = Option.value_exn (Z3.Model.eval model cond_val true) in
       begin
         match Z3.Solver.check solver [cond_res] with
         | Z3.Solver.SATISFIABLE ->
-          worker c1 (Tid.Map.set current_path ~key:tid ~data:true) olds news
+          worker c1 (Jmp.Map.set current_path ~key:jmp ~data:true) olds news
         | Z3.Solver.UNSATISFIABLE ->
-          worker c2 (Tid.Map.set current_path ~key:tid ~data:false) olds news
+          worker c2 (Jmp.Map.set current_path ~key:jmp ~data:false) olds news
         | Z3.Solver.UNKNOWN ->
           failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
-                                    condition at %s" (Tid.to_string tid))
+                                    condition at %s" (jmp |> Term.tid |> Tid.to_string))
       end
     | Clause (hyps, concs) ->
       let hyp_vals =
@@ -169,7 +169,7 @@ let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
       let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
       worker e current_path (olds @ o) (news @ n')
   in
-  worker constr Tid.Map.empty [] []
+  worker constr Jmp.Map.empty [] []
 
 let get_refuted_goals (constr : t) (solver : Z3.Solver.solver) (ctx : Z3.context)
   : goal seq =

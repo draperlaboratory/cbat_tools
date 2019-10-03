@@ -1080,19 +1080,19 @@ let test_branches_1 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let jmp_spec = fun env post tid jmp ->
+  let jmp_spec = fun env post _ jmp ->
     let jump_cond cond = Pre.bv_to_bool (mk_z3_expr env cond) ctx 1 in
     let jump_pre =
       match Jmp.kind jmp with
       | Goto (Direct tid) -> Option.value (Env.get_precondition env tid) ~default:post
       | _ -> assert false
     in
-    if Tid.equal tid (jump_tid sub cond_x) then
-      Some (Constr.mk_ite tid (jump_cond cond_x) jump_pre (true_constr ctx), env)
-    else if Tid.equal tid (jump_tid sub cond_y) then
-      Some (Constr.mk_ite tid (jump_cond cond_y) jump_pre (true_constr ctx), env)
-    else if Tid.equal tid (jump_tid sub cond_z) then
-      Some (Constr.mk_ite tid (jump_cond cond_z) (false_constr ctx) (true_constr ctx), env)
+    if Jmp.equal jmp (find_jump sub cond_x) then
+      Some (Constr.mk_ite jmp (jump_cond cond_x) jump_pre (true_constr ctx), env)
+    else if Jmp.equal jmp (find_jump sub cond_y) then
+      Some (Constr.mk_ite jmp (jump_cond cond_y) jump_pre (true_constr ctx), env)
+    else if Jmp.equal jmp (find_jump sub cond_z) then
+      Some (Constr.mk_ite jmp (jump_cond cond_z) (false_constr ctx) (true_constr ctx), env)
     else
       None
   in
@@ -1125,10 +1125,10 @@ let test_jmp_spec_reach_1 (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
   let jmp_spec =
-    Tid.Map.empty
-    |> Tid.Map.set ~key:(jump_tid sub cond_x) ~data:true
-    |> Tid.Map.set ~key:(jump_tid sub cond_y) ~data:true
-    |> Tid.Map.set ~key:(jump_tid sub cond_z) ~data:false
+    Jmp.Map.empty
+    |> Jmp.Map.set ~key:(find_jump sub cond_x) ~data:true
+    |> Jmp.Map.set ~key:(find_jump sub cond_y) ~data:true
+    |> Jmp.Map.set ~key:(find_jump sub cond_z) ~data:false
     |> Pre.jmp_spec_reach
   in
   let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
@@ -1170,10 +1170,10 @@ let test_jmp_spec_reach_2 (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
   let jmp_spec =
-    Tid.Map.empty
-    |> Tid.Map.set ~key:(jump_tid sub cond_x) ~data:true
-    |> Tid.Map.set ~key:(jump_tid sub cond_y) ~data:true
-    |> Tid.Map.set ~key:(jump_tid sub cond_unsat) ~data:true
+    Jmp.Map.empty
+    |> Jmp.Map.set ~key:(find_jump sub cond_x) ~data:true
+    |> Jmp.Map.set ~key:(find_jump sub cond_y) ~data:true
+    |> Jmp.Map.set ~key:(find_jump sub cond_unsat) ~data:true
     |> Pre.jmp_spec_reach
   in
   let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
