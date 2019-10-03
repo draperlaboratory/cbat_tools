@@ -47,7 +47,7 @@ let compare_blocks
     ~output:(output : Var.Set.t)
     ~original:(blk1, env1 : Blk.t * Env.t)
     ~modified:(blk2, env2 : Blk.t * Env.t)
-  : Constr.t * Env.t =
+  : Constr.t * Env.t * Env.t =
   (* We only freshen variables in blk2, leaving those of blk1 with
      their original names. *)
   let env2 = Env.set_freshen env2 true in
@@ -57,7 +57,7 @@ let compare_blocks
   let pre1, _ = Pre.visit_block env1 output_eq blk1 in
   let pre2, _ = Pre.visit_block env2 pre1 blk2 in
   let goal = Constr.mk_clause input_eq_list [pre2] in
-  goal, env2
+  goal, env1, env2
 
 (* The type of functions that generate a postcondition or hypothesis for comparative
    analysis. Also updates the environments as needed. *)
@@ -73,7 +73,7 @@ let compare_subs
     ~hyps:(hyps : comparator)
     ~original:(sub1, env1 : Sub.t * Env.t)
     ~modified:(sub2, env2 : Sub.t * Env.t)
-  : Constr.t * Env.t =
+  : Constr.t * Env.t * Env.t =
   let env2 = Env.set_freshen env2 true in
   let vars = Var.Set.union
       (Pre.get_vars sub1) (Pre.get_vars sub2) in
@@ -86,12 +86,12 @@ let compare_subs
   let pre_mod, _ = Pre.visit_sub env2 post sub2 in
   let pre_combined, _ = Pre.visit_sub env1 pre_mod sub1 in
   let goal = Constr.mk_clause [hyps] [pre_combined] in
-  goal, env2
+  goal, env1, env2
 
 let compare_subs_empty
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
-  : Constr.t * Env.t =
+  : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_,env2) ~rename_set:_ =
     let ctx = Env.get_context env1 in
     let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
@@ -104,7 +104,7 @@ let compare_subs_empty_post
     ~input:(_ : Var.Set.t)
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
-  : Constr.t * Env.t =
+  : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let ctx = Env.get_context env1 in
     let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
@@ -121,7 +121,7 @@ let compare_subs_eq
     ~output:(output : Var.Set.t)
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
-  : Constr.t * Env.t =
+  : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let post_eqs, env1, env2 = set_to_eqs env1 env2 output in
     Constr.mk_clause [] post_eqs, env1, env2
@@ -135,7 +135,7 @@ let compare_subs_eq
 let compare_subs_fun
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
-  : Constr.t * Env.t =
+  : Constr.t * Env.t * Env.t =
   let mk_is_fun_called env f =
     let ctx = Env.get_context env in
     let f_tid = Env.get_fun_name_tid env f in

@@ -71,7 +71,7 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~inline:(inline : bool)
     ~to_inline:(to_inline : string list)
     ~post_cond:(post_cond : string)
-  : Constr.t * Env.t =
+  : Constr.t * Env.t * Env.t =
   let arch = Project.arch proj in
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func_err subs func in
@@ -106,7 +106,7 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   let pre, env' = Pre.visit_sub env post main_sub in
   Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
     (Sub.to_string main_sub) Constr.pp_constr pre;
-  (pre, env')
+  (pre, env', env)
 
 let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
@@ -115,7 +115,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     ~inline:(inline : bool)
     ~to_inline:(to_inline : string list)
     ~output_vars:(output_vars : string list)
-  : Constr.t * Env.t =
+  : Constr.t * Env.t * Env.t =
   let prog1 = In_channel.with_file file1 ~f:Program.Io.load in
   let prog2 = In_channel.with_file file2 ~f:Program.Io.load in
   (* Currently using the dummy binary's project to determine the architecture
@@ -135,7 +135,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
       Pre.mk_default_env ctx var_gen ~subs:subs1 ~arch:arch,
       Pre.mk_default_env ctx var_gen ~subs:subs2 ~arch:arch
   in
-  let pre, env' =
+  let pre, env1, env2 =
     if check_calls then
       Comp.compare_subs_fun ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
     else
@@ -153,7 +153,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
     (Sub.to_string main_sub1) (Sub.to_string main_sub2);
-  (pre, env')
+  (pre, env1, env2)
 
 let main (file1 : string) (file2 : string)
     ~func:(func : string)
@@ -172,7 +172,7 @@ let main (file1 : string) (file2 : string)
   let solver = Z3.Solver.mk_simple_solver ctx in
   update_default_num_unroll num_unroll;
   let has_files_to_compare = String.(file1 <> "" && file2 <> "") in
-  let pre, env' =
+  let pre, env1, env2 =
     if compare || has_files_to_compare then
       compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~inline ~to_inline ~output_vars
     else
@@ -183,8 +183,8 @@ let main (file1 : string) (file2 : string)
           | None -> ()
           | Some f ->
                 Printf.printf "Dumping gdb script to file: %s\n" f;
-                Output.output_gdb solver result env' ~func:func ~filename:f in
-  Output.print_result solver result pre ctx
+                Output.output_gdb solver result env2 ~func:func ~filename:f in
+  Output.print_result solver result pre ~orig:env1 ~modif:env2
 
 
 module Cmdline = struct

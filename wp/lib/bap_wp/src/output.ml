@@ -21,6 +21,9 @@ module Arith = Z3.Arithmetic
 module BV = Z3.BitVector
 module Bool = Z3.Boolean
 module Array = Z3.Z3Array
+module Solver = Z3.Solver
+module Model = Z3.Model
+module Fun = Z3.FuncDecl
 module Env = Environment
 module Constr = Constraint
 
@@ -29,16 +32,35 @@ module VarMap = Var.Map
 open Core_kernel
 open Bap.Std
 
-let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
-    (goals: Constr.t) (ctx : Z3.context) : unit =
+
+let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
+  let var_map = Env.get_var_map env1 in
+  let key_val = Env.EnvMap.fold var_map ~init:[]
+      ~f:(fun ~key ~data pairs ->
+          let value = Option.value_exn (Model.eval model data true) in
+          (key, value)::pairs)
+  in
+  List.iter key_val
+    ~f:(fun (var, value) ->
+        let var_str = Var.to_string var in
+        let pad_size = Int.max (5 - (String.length var_str)) 1 in 
+        let pad = String.make pad_size ' ' in
+        Format.fprintf Format.str_formatter
+          "@[%s%s|->  %s@]@\n" var_str pad (Expr.to_string value));
+  Format.flush_str_formatter ()
+
+
+let print_result (solver : Solver.solver) (status : Solver.status)
+    (goals: Constr.t) ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
+  let ctx = Env.get_context env1 in
   match status with
-  | Z3.Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
-  | Z3.Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
-  | Z3.Solver.SATISFIABLE ->
+  | Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
+  | Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
+  | Solver.SATISFIABLE ->
     Format.printf "\nSAT!\n%!";
-    let model = Z3.Solver.get_model solver
+    let model = Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
-    Format.printf "\nModel:\n%s\n%!" (Z3.Model.to_string model);
+    Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
     let refuted_goals = Constr.get_refuted_goals goals solver ctx in
     Format.printf "\nRefuted goals:\n%!";
     Seq.iter refuted_goals ~f:(fun g ->
@@ -47,11 +69,11 @@ let print_result (solver : Z3.Solver.solver) (status : Z3.Solver.status)
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a 
     breakpoint at the subroutine and fills the appropriate registers *)
 
-let output_gdb (solver : Z3.Solver.solver) (status : Z3.Solver.status)
+let output_gdb (solver : Solver.solver) (status : Solver.status)
     (env : Env.t) ~func:(func : string) ~filename:(gdb_filename : string) : unit =
   match status with
-  | Z3.Solver.SATISFIABLE ->
-    let model = Z3.Solver.get_model solver
+  | Solver.SATISFIABLE ->
+    let model = Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
     let varmap = Env.get_var_map env in 
     let module Target = (val target_of_arch (Env.get_arch env)) in

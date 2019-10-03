@@ -33,7 +33,8 @@ module Constr = Constraint
 
 (** Prints out the result from check, and if the result is [SAT], generate a model that
     represents the registers and memory values that lead to a specific program state. *)
-val print_result : Z3.Solver.solver -> Z3.Solver.status -> Constr.t -> Z3.context -> unit
+val print_result : Z3.Solver.solver -> Z3.Solver.status -> Constr.t
+  -> orig:Env.t -> modif:Env.t -> unit
 
 
 (** Prints to file a gdb script that will fill the appropriate registers with the countermodel *)
