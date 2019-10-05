@@ -1,4 +1,4 @@
-# CBAT
+# CBAT TOOLS
 
 This repository contains three BAP plugins, the value-set plugin, explicit-edge plugin,
 and weakest-precondition plugin.
