@@ -1,24 +1,12 @@
 This repository contains three BAP plugins, the value-set plugin, explicit-edge plugin,
-and weakest-precondition plugin.
-For details on the plugins and their flags, see:
+and weakest-precondition plugin.  It also contains a tool for comparing programs using
+the weakest-precondition analysis.  For details on the plugins and their flags, see:
 - [the value-set README](./value_set/README.md),
 - [the explicit-edge README](./explicit_edge/README.md), or
 - [the weakest-precondition README](./wp/plugin/README.md).
 
 For a general overview, read below:
 
-Purpose
-----------------------
-
-CFG reconstruction, especially in the presence of indirect jumps, is a difficult task.
-However, it is a basic prerequisite of a large class of static analyses.
-While the existing BAP machinery recovers large portions of a binary's CFG, it does not
-do so at indirect jumps.
-
-A value-set analysis can be used to determine the possible values of the registers used
-as jump targets. While the value-set analysis, like many others, is only sound on a
-complete control flow graph, this strategy can produce a sound superset of the CFG by
-iterating edge insertion with updating the value-set results.
 
 
 Contents
@@ -26,8 +14,16 @@ Contents
 
 This project consists of
 
-- **A value-set style analysis (VSA) and a CFG edge reconstruction
-algorithm based on it.** The analysis uses circular linear progressions\[[1][1]\]\[[2][2]\] to
+
+- **A weakest-precondition computation (WP),** and a program comparison algorithm based on it.
+The WP calculation verifies intra-procedural properties specified
+using first-order logic, and resolved using the Z3 theorem prover.  To compare programs, we 
+combine them into a single program and use the weakest-precondition computation to find 
+differences in the behavior of the two parts.
+See the [README](./wp/plugin) for the plugin for more details.
+
+- **A value-set style analysis (VSA)** and a CFG edge reconstruction
+algorithm based on it. The analysis uses circular linear progressions\[[1][1]\]\[[2][2]\] to
 represent sets of bitvectors. Small sets are represented exactly to increase precision,
 e.g. in the case where a jump target can be one of three locations. The analysis handles
 all conversion between different representations internally and exposes a generic interface
@@ -48,9 +44,6 @@ could likely be weakened by incorporating a formula based approach similar to \[
 to track the stored return address and, where possible, prove via the analysis that it
 is the only viable target of the jump.
 
-- **A weakest-precondition computation (WP),** which verifies intra-procedural properties specified
-using first-order logic, and resolved using the Z3 theorem prover. See the
-[README](./wp/plugin) for the plugin for more details.
 
 [1]: http://www.csa.iisc.ernet.in/~cplse/papers/srikant-memocode-2007.pdf
 [2]: http://www.es.mdh.se/pdf_publications/3813.pdf
