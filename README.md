@@ -1,3 +1,5 @@
+# CBAT TOOLS
+
 This repository contains three BAP plugins, the value-set plugin, explicit-edge plugin,
 and weakest-precondition plugin.  It also contains a tool for comparing programs using
 the weakest-precondition analysis.  For details on the plugins and their flags, see:
