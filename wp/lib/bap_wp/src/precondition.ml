@@ -542,6 +542,7 @@ let mk_default_env
     ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
 
 let mk_inline_env
+    ?jmp_spec:(jmp_spec = jmp_spec_default)
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?exp_conds:(exp_conds = [])
     ?arch:(arch = `x86_64)
@@ -551,9 +552,8 @@ let mk_inline_env
     (var_gen : Env.var_gen)
   : Env.t =
   let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet] in
-  Env.mk_env ctx var_gen ~specs ~default_spec:(spec_inline to_inline)
-    ~jmp_spec:jmp_spec_default ~int_spec:int_spec_default ~subs
-    ~num_loop_unroll ~exp_conds ~arch
+  Env.mk_env ctx var_gen ~specs ~default_spec:(spec_inline to_inline) ~jmp_spec
+    ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in
