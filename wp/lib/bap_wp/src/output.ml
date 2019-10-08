@@ -38,7 +38,7 @@ let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
   let var_map = Env.get_var_map env1 in
   let key_val = Env.EnvMap.fold var_map ~init:[]
       ~f:(fun ~key ~data pairs ->
-          let value = Option.value_exn (Model.eval model data true) in
+          let value = Constr.eval_model_exn model data in
           (key, value)::pairs)
   in
   let fmt = Format.str_formatter in
@@ -89,7 +89,7 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     let varmap = Env.get_var_map env in
     let module Target = (val target_of_arch (Env.get_arch env)) in
     let regmap = VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in
-    let reg_val_map = VarMap.map ~f:(fun z3_reg -> Option.value_exn (Z3.Model.eval model z3_reg true)) regmap in
+    let reg_val_map = VarMap.map ~f:(fun z3_reg -> Constr.eval_model_exn model z3_reg) regmap in
     Out_channel.with_file gdb_filename  ~f:(fun t ->
         Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
         Printf.fprintf t "run\n";

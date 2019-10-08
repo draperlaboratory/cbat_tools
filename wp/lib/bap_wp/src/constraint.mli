@@ -109,3 +109,8 @@ val get_refuted_goals_and_paths :
 (** Obtains a list of goals that have been refuted by a Z3 model. *)
 val get_refuted_goals :
   t -> Z3.Solver.solver -> Z3.context -> goal Core_kernel.Sequence.t
+
+(** Evaluates an expression in the current model. May raise an error if
+    evaluation fails in the case that the argument contains quantifiers, is
+    partial, or is not well-sorted. *)
+val eval_model_exn : Z3.Model.model -> z3_expr -> z3_expr

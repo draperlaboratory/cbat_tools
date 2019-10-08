@@ -1141,11 +1141,11 @@ let test_jmp_spec_reach_1 (test_ctx : test_ctxt) : unit =
   let model = Z3.Solver.get_model solver
               |> Option.value_exn ?here:None ?error:None ?message:None in
   assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
-    (jump_taken ctx) (eval_model model cond_x env);
+    (jump_taken ctx) (cond_x |> mk_z3_expr env |> Constr.eval_model_exn model);
   assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
-    (jump_taken ctx) (eval_model model cond_y env);
+    (jump_taken ctx) (cond_y |> mk_z3_expr env |> Constr.eval_model_exn model);
   assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
-    (jump_not_taken ctx) (eval_model model cond_z env)
+    (jump_not_taken ctx) (cond_z |> mk_z3_expr env |> Constr.eval_model_exn model)
 
 
 let test_jmp_spec_reach_2 (test_ctx : test_ctxt) : unit =
@@ -1203,7 +1203,7 @@ let test_exclude_1 (test_ctx : test_ctxt) : unit =
   let regs = model
              |> Z3.Model.get_decls
              |> List.map ~f:(fun v -> Z3.FuncDecl.apply v [])
-             |> List.filter_map ~f:(fun v -> Z3.Model.eval model v true)
+             |> List.map ~f:(Constr.eval_model_exn model)
   in
   List.iter regs ~f:(fun v ->
       assert_bool "Variable's value was not properly excluded from the model"
