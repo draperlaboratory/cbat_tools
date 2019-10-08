@@ -97,11 +97,6 @@ let jump_taken (ctx : Z3.context) : Constr.z3_expr =
 let jump_not_taken (ctx : Z3.context) : Constr.z3_expr =
   Pre.z3_expr_zero ctx 1
 
-(* Evaluates a BIR expression to a z3_expr given the values in the Z3 model. *)
-let eval_model (model : Z3.Model.model) (expr : Exp.t) (env : Env.t) : Constr.z3_expr =
-  Z3.Model.eval model (mk_z3_expr env expr) true
-  |> Option.value_exn ?here:None ?error:None ?message:None
-
 let true_constr (ctx : Z3.context) : Constr.t =
   Z3.Boolean.mk_true ctx
   |> Constr.mk_goal "true"

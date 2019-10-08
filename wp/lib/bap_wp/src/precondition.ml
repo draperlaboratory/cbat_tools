@@ -901,7 +901,7 @@ let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3
     ~pre:(pre : Constr.t) : Z3.Solver.status =
   let model = Z3.Solver.get_model solver
               |> Option.value_exn ?here:None ?error:None ?message:None in
-  let value = Option.value_exn (Z3.Model.eval model var true) in
+  let value = Constr.eval_model_exn model var in
   let cond = Bool.mk_not ctx (Bool.mk_eq ctx var value) in
   Z3.Solver.push solver;
   Z3.Solver.add solver [cond];

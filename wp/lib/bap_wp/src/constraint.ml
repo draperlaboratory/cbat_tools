@@ -44,6 +44,14 @@ let pp_path (ch : Format.formatter) (p : path) : unit =
 let path_to_string (p : path) : string =
   Format.asprintf "%a" pp_path p
 
+let eval_model_exn (model : Model.model) (expr: z3_expr) : z3_expr =
+  Model.eval model expr true
+  |> Option.value_exn
+    ?here:None
+    ~error:(Error.of_string "eval_model_exn: Error evaluating expression with model.")
+    ~message:(Format.sprintf "Unable to evaluate expr %s with current model."
+                (Expr.to_string expr))
+
 let refuted_goal_to_string (g : goal) (model : Model.model) : string =
   let fmt = Format.str_formatter in
   Format.fprintf fmt "%s:" g.goal_name;
@@ -51,7 +59,7 @@ let refuted_goal_to_string (g : goal) (model : Model.model) : string =
     let args = Expr.get_args g.goal_val in
     Format.fprintf fmt "\n\tConcrete values: = ";
     List.iter args ~f:(fun arg ->
-        let value = Option.value_exn (Model.eval model arg true) in
+        let value = eval_model_exn model arg in
         Format.fprintf fmt "%s " (Expr.to_string value));
     Format.fprintf fmt "\n\tZ3 Expression: = ";
     List.iter args ~f:(fun arg ->
@@ -143,7 +151,7 @@ let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
     match constr with
     | Goal g ->
       let goal_val = Expr.substitute g.goal_val olds news in
-      let goal_res = Option.value_exn (Model.eval model goal_val true) in
+      let goal_res = eval_model_exn model goal_val in
       begin
         match Z3.Solver.check solver [goal_res] with
         | Z3.Solver.SATISFIABLE -> Seq.empty
@@ -154,7 +162,7 @@ let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
       end
     | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
-      let cond_res = Option.value_exn (Model.eval model cond_val true) in
+      let cond_res = eval_model_exn model cond_val in
       begin
         match Z3.Solver.check solver [cond_res] with
         | Z3.Solver.SATISFIABLE ->
@@ -167,9 +175,7 @@ let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
       end
     | Clause (hyps, concs) ->
       let hyp_vals =
-        List.map hyps ~f:(fun h ->
-            Model.eval model (eval_aux h olds news ctx) true
-            |> Option.value_exn ?here:None ?error:None ?message:None)
+        List.map hyps ~f:(fun h -> eval_model_exn model (eval_aux h olds news ctx))
       in
       let hyps_false =
         match Z3.Solver.check solver hyp_vals with
