@@ -148,7 +148,8 @@ val mk_default_env
     of the program, and optionally the number of times to unroll a loop,
     a list of {!Environment.exp_cond}s, and the architecture of the binary. *)
 val mk_inline_env
-  :  ?num_loop_unroll:int
+  :  ?jmp_spec:Env.jmp_spec
+  -> ?num_loop_unroll:int
   -> ?exp_conds:Env.exp_cond list
   -> ?arch:Bap.Std.Arch.t
   -> subs:Bap.Std.Sub.t Bap.Std.Seq.t
