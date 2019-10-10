@@ -232,88 +232,30 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Constr.t list * Con
   let z3_exp, new_env = exp_to_z3_body exp env in
   z3_exp, assume, verify, new_env
 
+let typ_size (t : Type.t) : int =
+  match t with
+  | Bil.Types.Imm n -> n
+  | Bil.Types.Mem (_, s) -> Size.in_bits s
+  | Bil.Types.Unk ->
+    error "Unk type: Unable to obtain type size.%!";
+    failwith "visit_elt: elt's type is not representable by Type.t"
+
 let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
   let ctx = Env.get_context env in
   let fun_name = Bool.mk_const_s ctx (Env.get_called env tid |>
                                       Option.value_exn ?here:None ?error:None ?message:None) in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
-
-let get_stack_ptr_offset (sub : Sub.t) (arch : Arch.t) : Exp.t =
-  let module Target = (val target_of_arch arch) in
-  let blks = Term.to_sequence ~rev:true blk_t sub in
-  let ret_block = Seq.find blks ~f:(fun blk ->
-      (* Look for the return address, which is the target #x of a call instruction
-         of the form: call #x with noreturn *)
-      let ret_addr =
-        let jmps = Term.to_sequence ~rev:true jmp_t blk in
-        Seq.find_map jmps ~f:(fun jmp ->
-            match Jmp.kind jmp with
-            | Call call -> begin
-                match Call.return call with
-                | Some _ -> None
-                | None ->
-                  match Call.target call with
-                  | Direct _ -> None
-                  | Indirect label ->
-                    let label_vars = Exp.free_vars label in
-                    match Var.Set.choose label_vars with
-                    | None -> None
-                    | Some target ->
-                      (* In BIR, the return address is stored on the stack and then
-                         saved to a virtual variable to pass into the call instruction. *)
-                      if Var.Set.length label_vars = 1 && Var.is_virtual target then
-                        Some target
-                      else
-                        None
-              end
-            | _ -> None)
-      in
-      (* Check to see if the target value was obtained from the stack,
-         i.e. #x := mem[RSP, el]:u64 *)
-      match ret_addr with
-      | None -> false
-      | Some addr ->
-        let defs = Term.to_sequence ~rev:true def_t blk in
-        Seq.exists defs ~f:(fun def ->
-            if Var.equal (Def.lhs def) addr then begin
-              match Def.rhs def with
-              | Load (_, Var addr, _, _) -> Target.CPU.is_sp addr
-              | _ -> false
-            end else
-              false))
-  in
-  let sp = Bil.var Target.CPU.sp in
-  match ret_block with
-  | None ->
-    debug "Sub %s has no return" (Sub.name sub);
-    sp
-  | Some blk ->
-    let defs = Term.to_sequence def_t blk in
-    Seq.fold defs ~init:sp ~f:(fun offset def ->
-        (* Looks for instructions in the form SP := SP +/- offset *)
-        if Var.equal (Def.lhs def) Target.CPU.sp then begin
-          match Def.rhs def with
-          | BinOp (PLUS, Var v, w) ->
-            if Var.equal v Target.CPU.sp then
-              BinOp (PLUS, offset, w)
-            else offset
-          | BinOp (MINUS, Var v, w) ->
-            if Var.equal v Target.CPU.sp then begin
-              warning "Stack pointer in %s is being decremented by %s before return"
-                (Sub.name sub) (Exp.to_string w);
-              BinOp (MINUS, offset, w)
-            end else offset
-          | _ -> offset
-        end else
-          offset)
-
-let increment_stack_ptr (post : Constr.t) (env : Env.t) (offset : Exp.t)
-  : Constr.t * Env.t =
+let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
+  let ctx = Env.get_context env in
   let arch = Env.get_arch env in
   let module Target = (val target_of_arch arch) in
-  let sp, _ = Env.get_var env Target.CPU.sp in
-  let z3_off, _, _, env = exp_to_z3 offset env in
+  let sp, env = Env.get_var env Target.CPU.sp in
+  let width = Target.CPU.sp |> Var.typ |> typ_size in
+  (* TODO: We are currently incrementing the stack pointer by 8 for the return address.
+     We will have to change that offset depending on the archtecture. *)
+  let offset = BV.mk_numeral ctx "8" width in
+  let z3_off = BV.mk_add ctx sp offset in
   Constr.substitute_one post sp z3_off, env
 
 let get_vars (t : Sub.t) : Var.Set.t =
@@ -388,9 +330,8 @@ let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let spec_verifier_assume (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   if Sub.name sub = "__VERIFIER_assume" then
-    let offset = get_stack_ptr_offset sub arch in
     let open Env in
     Some {
       spec_name = "spec_verifier_assume";
@@ -398,7 +339,7 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
           (fun env post tid ->
              let ctx = Env.get_context env in
              let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env offset in
+             let post, env = increment_stack_ptr post env in
              let args = Term.enum arg_t sub in
              let input =
                match Seq.find args
@@ -419,16 +360,15 @@ let spec_verifier_assume (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   if String.is_prefix (Sub.name sub) ~prefix:"__VERIFIER_nondet_" then
-    let offset = get_stack_ptr_offset sub arch in
     let open Env in
     Some {
       spec_name = "spec_verifier_nondet";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env offset in
+             let post, env = increment_stack_ptr post env in
              let args = Term.enum arg_t sub in
              let output =
                match Seq.find args
@@ -443,16 +383,15 @@ let spec_verifier_nondet (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   if Term.first arg_t sub <> None then
-    let offset = get_stack_ptr_offset sub arch in
     let open Env in
     Some {
       spec_name = "spec_arg_terms";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env offset in
+             let post, env = increment_stack_ptr post env in
              let args = Term.enum arg_t sub in
              let inputs, outputs = Seq.fold args ~init:([], [])
                  ~f:(fun (ins, outs) arg ->
@@ -468,7 +407,7 @@ let spec_arg_terms (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
     Term.enum blk_t sub
@@ -481,14 +420,13 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   in
   if Seq.exists (defs sub) ~f:is_rax then
     (* RAX is a register that is used in the subroutine *)
-    let offset = get_stack_ptr_offset sub arch in
     let open Env in
     Some {
       spec_name = "spec_rax_out";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env offset in
+             let post, env = increment_stack_ptr post env in
              let inputs = get_function_inputs sub env in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              subst_fun_outputs env sub post ~inputs:inputs ~outputs:[rax], env)
@@ -496,14 +434,13 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_default (sub : Sub.t) (arch : Arch.t) : Env.fun_spec =
-  let offset = get_stack_ptr_offset sub arch in
+let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
   let open Env in
   {
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
         let post = set_fun_called post env tid in
-        increment_stack_ptr post env offset)
+        increment_stack_ptr post env)
   }
 
 let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =
@@ -647,13 +584,6 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     (* Here we add the assumptions as a hypothesis if there
        are any. *)
     let post = Constr.mk_clause assume post in
-    let typ_size t = match t with
-      | Bil.Types.Imm n -> n
-      | Bil.Types.Mem (_, s) -> Size.in_bits s
-      | Bil.Types.Unk ->
-        error "Unk type: Unable to obtain type size.%!";
-        failwith "visit_elt: elt's type is not representable by Type.t"
-    in
     debug "Visiting def:\nlhs = %s : <%d>    rhs = %s : <%d>%!"
       (Expr.to_string z3_var) (var |> Var.typ |> typ_size)
       (Expr.to_string rhs_exp) (rhs |> Type.infer_exn |> typ_size);

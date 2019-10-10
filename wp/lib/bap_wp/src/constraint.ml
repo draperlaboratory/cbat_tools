@@ -33,12 +33,12 @@ let pp_path (ch : Format.formatter) (p : path) : unit =
       let jmp_str =
         jmp |> Jmp.to_string |> String.substr_replace_first ~pattern:"\n" ~with_:"" in
       let taken_str = if taken then "(taken)" else "(not taken)" in
-      match Term.get_attr jmp address with
-      | None ->
-        Format.fprintf ch "\t%s %s\n%!" jmp_str taken_str;
-      | Some addr ->
-        Format.fprintf ch "\t%s %s (Address: %s)\n%!"
-          jmp_str taken_str (Addr.to_string addr)
+      let addr_str =
+        match Term.get_attr jmp address with
+        | None -> "not found"
+        | Some addr -> Addr.to_string addr
+      in
+      Format.fprintf ch "\t%s\t%s\t(Address: %s)\n%!" jmp_str taken_str addr_str;
     )
 
 let path_to_string (p : path) : string =
