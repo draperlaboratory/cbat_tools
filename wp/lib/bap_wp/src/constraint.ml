@@ -17,6 +17,7 @@ open Bap.Std
 module Expr = Z3.Expr
 module Bool = Z3.Boolean
 module Model = Z3.Model
+module Solver = Z3.Solver
 
 type z3_expr = Expr.expr
 
@@ -38,7 +39,7 @@ let pp_path (ch : Format.formatter) (p : path) : unit =
         | None -> "not found"
         | Some addr -> Addr.to_string addr
       in
-      Format.fprintf ch "\t%s\t%s\t(Address: %s)\n%!" jmp_str taken_str addr_str;
+      Format.fprintf ch "\t%40s %12s (Address: %s)\n%!" jmp_str taken_str addr_str;
     )
 
 let path_to_string (p : path) : string =
@@ -51,6 +52,14 @@ let eval_model_exn (model : Model.model) (expr: z3_expr) : z3_expr =
     ~error:(Error.of_string "eval_model_exn: Error evaluating expression with model.")
     ~message:(Format.sprintf "Unable to evaluate expr %s with current model."
                 (Expr.to_string expr))
+
+let get_model_exn (solver : Solver.solver) : Model.model =
+  Solver.get_model solver
+  |> Option.value_exn
+    ?here:None
+    ~error:(Error.of_string "get_model_exn: Error getting the model from the Z3 solver.")
+    ~message:(Format.sprintf "Unable to get the model from the Z3 solver : %s"
+                (Solver.to_string solver))
 
 let refuted_goal_to_string (g : goal) (model : Model.model) : string =
   let fmt = Format.str_formatter in
@@ -142,10 +151,9 @@ let substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t =
 let substitute_one (constr : t) (old_exp : z3_expr) (new_exp : z3_expr) : t =
   Subst (constr, [old_exp], [new_exp])
 
-let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
+let get_refuted_goals_and_paths (constr : t) (solver : Solver.solver)
     (ctx : Z3.context) : (goal * path) seq =
-  let model = Z3.Solver.get_model solver
-              |> Option.value_exn ?here:None ?error:None ?message:None in
+  let model = get_model_exn solver in
   let rec worker (constr : t) (current_path : path) (olds : z3_expr list)
       (news : z3_expr list) : (goal * path) seq =
     match constr with
@@ -153,35 +161,34 @@ let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
       let goal_val = Expr.substitute g.goal_val olds news in
       let goal_res = eval_model_exn model goal_val in
       begin
-        match Z3.Solver.check solver [goal_res] with
-        | Z3.Solver.SATISFIABLE -> Seq.empty
-        | Z3.Solver.UNSATISFIABLE ->
+        match Solver.check solver [goal_res] with
+        | Solver.SATISFIABLE -> Seq.empty
+        | Solver.UNSATISFIABLE ->
           Seq.singleton ({g with goal_val = goal_val}, current_path)
-        | Z3.Solver.UNKNOWN ->
+        | Solver.UNKNOWN ->
           failwith (Format.sprintf "get_refuted_goals: Unable to resolve %s" g.goal_name)
       end
     | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
       begin
-        match Z3.Solver.check solver [cond_res] with
-        | Z3.Solver.SATISFIABLE ->
+        match Solver.check solver [cond_res] with
+        | Solver.SATISFIABLE ->
           worker c1 (Jmp.Map.set current_path ~key:jmp ~data:true) olds news
-        | Z3.Solver.UNSATISFIABLE ->
+        | Solver.UNSATISFIABLE ->
           worker c2 (Jmp.Map.set current_path ~key:jmp ~data:false) olds news
-        | Z3.Solver.UNKNOWN ->
+        | Solver.UNKNOWN ->
           failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
                                     condition at %s" (jmp |> Term.tid |> Tid.to_string))
       end
     | Clause (hyps, concs) ->
-      let hyp_vals =
-        List.map hyps ~f:(fun h -> eval_model_exn model (eval_aux h olds news ctx))
-      in
       let hyps_false =
-        match Z3.Solver.check solver hyp_vals with
-        | Z3.Solver.SATISFIABLE -> false
-        | Z3.Solver.UNSATISFIABLE -> true
-        | Z3.Solver.UNKNOWN ->
+        let hyp_vals =
+          List.map hyps ~f:(fun h -> eval_model_exn model (eval_aux h olds news ctx)) in
+        match Solver.check solver hyp_vals with
+        | Solver.SATISFIABLE -> false
+        | Solver.UNSATISFIABLE -> true
+        | Solver.UNKNOWN ->
           failwith "get_refuted_goals: Unable to resolve value of hypothesis"
       in
       if hyps_false then
@@ -195,6 +202,6 @@ let get_refuted_goals_and_paths (constr : t) (solver : Z3.Solver.solver)
   in
   worker constr Jmp.Map.empty [] []
 
-let get_refuted_goals (constr : t) (solver : Z3.Solver.solver) (ctx : Z3.context)
+let get_refuted_goals (constr : t) (solver : Solver.solver) (ctx : Z3.context)
   : goal seq =
   Seq.map (get_refuted_goals_and_paths constr solver ctx) ~f:(fun (g,_) -> g)
