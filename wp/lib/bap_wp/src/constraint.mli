@@ -114,3 +114,8 @@ val get_refuted_goals :
     evaluation fails in the case that the argument contains quantifiers, is
     partial, or is not well-sorted. *)
 val eval_model_exn : Z3.Model.model -> z3_expr -> z3_expr
+
+(** Gets the model of the last check to the Z3 solver. An error will be raised
+    if retrieving the model fails in the case that [check] was not yet called
+    to the solver or the result of the last [check] did not result in SAT. *)
+val get_model_exn : Z3.Solver.solver -> Z3.Model.model

@@ -22,6 +22,7 @@ module BV = Z3.BitVector
 module Bool = Z3.Boolean
 module Array = Z3.Z3Array
 module FuncDecl = Z3.FuncDecl
+module Solver = Z3.Solver
 module Env = Environment
 module Constr = Constraint
 
@@ -814,8 +815,8 @@ let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
   in
   Constr.mk_clause [] goals
 
-let check ?refute:(refute = true) (solver : Z3.Solver.solver) (ctx : Z3.context)
-    (pre : Constr.t) : Z3.Solver.status =
+let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
+    (pre : Constr.t) : Solver.status =
   info "Evaluating precondition.%!";
   let pre' = Constr.eval pre ctx in
   info "Checking precondition with Z3.\n%!";
@@ -825,18 +826,17 @@ let check ?refute:(refute = true) (solver : Z3.Solver.solver) (ctx : Z3.context)
     else
       pre'
   in
-  Z3.Solver.check solver [is_correct]
+  Solver.check solver [is_correct]
 
-let exclude (solver : Z3.Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
-    ~pre:(pre : Constr.t) : Z3.Solver.status =
-  let model = Z3.Solver.get_model solver
-              |> Option.value_exn ?here:None ?error:None ?message:None in
+let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
+    ~pre:(pre : Constr.t) : Solver.status =
+  let model = Constr.get_model_exn solver in
   let value = Constr.eval_model_exn model var in
   let cond = Bool.mk_not ctx (Bool.mk_eq ctx var value) in
-  Z3.Solver.push solver;
-  Z3.Solver.add solver [cond];
+  Solver.push solver;
+  Solver.add solver [cond];
   info "Added constraints: %s\n%!"
-    (Z3.Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
+    (Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
   check solver ctx pre
 
 let get_output_vars (t : Sub.t) (var_names : string list) : Var.Set.t =

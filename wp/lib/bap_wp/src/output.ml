@@ -33,7 +33,6 @@ module VarMap = Var.Map
 open Core_kernel
 open Bap.Std
 
-
 let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
   let var_map = Env.get_var_map env1 in
   let key_val = Env.EnvMap.fold var_map ~init:[]
@@ -68,8 +67,7 @@ let print_result (solver : Solver.solver) (status : Solver.status)
   | Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
   | Solver.SATISFIABLE ->
     Format.printf "\nSAT!\n%!";
-    let model = Solver.get_model solver
-                |> Option.value_exn ?here:None ?error:None ?message:None in
+    let model = Constr.get_model_exn solver in
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
     let refuted_goals = Constr.get_refuted_goals_and_paths goals solver ctx in
     Format.printf "\nRefuted goals:\n%!";
@@ -84,8 +82,7 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     (env : Env.t) ~func:(func : string) ~filename:(gdb_filename : string) : unit =
   match status with
   | Solver.SATISFIABLE ->
-    let model = Solver.get_model solver
-                |> Option.value_exn ?here:None ?error:None ?message:None in
+    let model = Constr.get_model_exn solver in
     let varmap = Env.get_var_map env in
     let module Target = (val target_of_arch (Env.get_arch env)) in
     let regmap = VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in

@@ -1138,8 +1138,7 @@ let test_jmp_spec_reach_1 (test_ctx : test_ctxt) : unit =
   let result = Pre.check ~refute:false solver ctx pre in
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
     Z3.Solver.SATISFIABLE result;
-  let model = Z3.Solver.get_model solver
-              |> Option.value_exn ?here:None ?error:None ?message:None in
+  let model = Constr.get_model_exn solver in
   assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
     (jump_taken ctx) (cond_x |> mk_z3_expr env |> Constr.eval_model_exn model);
   assert_equal ~ctxt:test_ctx ~printer:Expr.to_string
@@ -1198,8 +1197,7 @@ let test_exclude_1 (test_ctx : test_ctxt) : unit =
     Z3.Solver.SATISFIABLE (Pre.check solver ctx pre);
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
     Z3.Solver.SATISFIABLE (Pre.exclude solver ctx ~var:var ~pre:pre);
-  let model = Z3.Solver.get_model solver
-              |> Option.value_exn ?here:None ?error:None ?message:None in
+  let model = Constr.get_model_exn solver in
   let regs = model
              |> Z3.Model.get_decls
              |> List.map ~f:(fun v -> Z3.FuncDecl.apply v [])
