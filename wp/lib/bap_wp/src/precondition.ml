@@ -249,7 +249,7 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
 
 let is_x86 (a : Arch.t) : bool =
   match a with
-  | `x86 | `x86_64 -> true
+  | #Arch.x86 -> true
   | _ -> false
 
 let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
