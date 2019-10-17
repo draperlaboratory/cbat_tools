@@ -247,17 +247,26 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
                                       Option.value_exn ?here:None ?error:None ?message:None) in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
+let is_x86 (a : Arch.t) : bool =
+  match a with
+  | `x86 | `x86_64 -> true
+  | _ -> false
+
 let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
-  let ctx = Env.get_context env in
   let arch = Env.get_arch env in
-  let module Target = (val target_of_arch arch) in
-  let sp, env = Env.get_var env Target.CPU.sp in
-  let width = Target.CPU.sp |> Var.typ |> typ_size in
-  (* TODO: We are currently incrementing the stack pointer by 8 for the return address.
-     We will have to change that offset depending on the archtecture. *)
-  let offset = BV.mk_numeral ctx "8" width in
-  let z3_off = BV.mk_add ctx sp offset in
-  Constr.substitute_one post sp z3_off, env
+  if is_x86 arch then
+    begin
+      let module Target = (val target_of_arch arch) in
+      let sp, env = Env.get_var env Target.CPU.sp in
+      let width = Target.CPU.sp |> Var.typ |> typ_size in
+      let addr_size = arch |> Arch.addr_size |> Size.in_bytes in
+      let ctx = Env.get_context env in
+      let offset = BV.mk_numeral ctx (Int.to_string addr_size) width in
+      let z3_off = BV.mk_add ctx sp offset in
+      Constr.substitute_one post sp z3_off, env
+    end
+  else
+    post, env
 
 let get_vars (t : Sub.t) : Var.Set.t =
   let visitor =
