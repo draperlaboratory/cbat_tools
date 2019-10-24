@@ -47,6 +47,10 @@ type goal
     boolean, which marks whether the path was taken or not. *)
 type path = bool Bap.Std.Jmp.Map.t
 
+type reg_map = (z3_expr * z3_expr) list Bap.Std.Jmp.Map.t
+
+type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
+
 (** [mk_goal name e] creates a goal using a Z3 boolean expression and
     a name. *)
 val mk_goal : string -> z3_expr -> goal
@@ -59,10 +63,6 @@ val path_to_string : path -> string
 
 (** Pretty prints a path. *)
 val pp_path : Format.formatter -> path -> unit
-
-(** Creates a string representation of a goal that has been refuted given the model.
-    This string shows the lhs and rhs of a goal that compares two values. *)
-val refuted_goal_to_string : goal -> Z3.Model.model -> string
 
 (** Obtains a goal's tagged name. *)
 val get_goal_name : goal -> string
@@ -101,14 +101,9 @@ val substitute : t -> z3_expr list -> z3_expr list -> t
 (** [substitute_one c e d] is equivalent to [substitute c [e] [d]]. *)
 val substitute_one : t -> z3_expr -> z3_expr -> t
 
-(** Obtains a list of pairs of goals and a path to that goal that have
-    been refuted by a Z3 model. *)
-val get_refuted_goals_and_paths :
-  t -> Z3.Solver.solver -> Z3.context -> (goal * path) Core_kernel.Sequence.t
-
 (** Obtains a list of goals that have been refuted by a Z3 model. *)
 val get_refuted_goals :
-  t -> Z3.Solver.solver -> Z3.context -> goal Core_kernel.Sequence.t
+  t -> Z3.Solver.solver -> Z3.context -> refuted_goal Bap.Std.Seq.t
 
 (** Evaluates an expression in the current model. May raise an error if
     evaluation fails in the case that the argument contains quantifiers, is

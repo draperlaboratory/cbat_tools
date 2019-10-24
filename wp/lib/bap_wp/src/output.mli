@@ -17,16 +17,6 @@
 
 *)
 
-module Expr = Z3.Expr
-
-module Arith = Z3.Arithmetic
-
-module BV = Z3.BitVector
-
-module Bool = Z3.Boolean
-
-module Array = Z3.Z3Array
-
 module Env = Environment
 
 module Constr = Constraint

@@ -17,10 +17,7 @@ open Bap.Std
 include Self()
 
 module Expr = Z3.Expr
-module Arith = Z3.Arithmetic
-module BV = Z3.BitVector
 module Bool = Z3.Boolean
-module Array = Z3.Z3Array
 module Solver = Z3.Solver
 module Model = Z3.Model
 module Fun = Z3.FuncDecl
@@ -30,8 +27,14 @@ module Constr = Constraint
 
 module VarMap = Var.Map
 
-open Core_kernel
-open Bap.Std
+let format_values (fmt : Format.formatter) (vals : (Var.t * Constr.z3_expr) list) : unit =
+  List.iter vals
+    ~f:(fun (var, value) ->
+        let var_str = Var.to_string var in
+        let pad_size = Int.max (5 - (String.length var_str)) 1 in
+        let pad = String.make pad_size ' ' in
+        Format.fprintf fmt
+          "\t%s%s|->  @[%s@]@\n" var_str pad (Expr.to_string value))
 
 let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
   let var_map = Env.get_var_map env1 in
@@ -41,23 +44,81 @@ let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
           (key, value)::pairs)
   in
   let fmt = Format.str_formatter in
-  List.iter key_val
-    ~f:(fun (var, value) ->
-        let var_str = Var.to_string var in
-        let pad_size = Int.max (5 - (String.length var_str)) 1 in
-        let pad = String.make pad_size ' ' in
-        Format.fprintf fmt
-          "%s%s|->  @[%s@]@\n" var_str pad (Expr.to_string value));
-  let fun_defs = model |> Model.get_func_decls
-                 |> List.map ~f:(fun def ->
-                     let interp = Option.value_exn (Model.get_func_interp model def) in
-                     (def, interp))
+  format_values fmt key_val;
+  let fun_defs =
+    model
+    |> Model.get_func_decls
+    |> List.map ~f:(fun def ->
+        let interp = Option.value_exn (Model.get_func_interp model def) in
+        (def, interp))
   in
   Format.fprintf fmt "\n";
   List.iter fun_defs ~f:(fun (def, interp) ->
       Format.fprintf fmt "%s  %s\n" (Fun.to_string def) (FInterp.to_string interp));
   Format.flush_str_formatter ()
 
+let format_registers (fmt : Format.formatter) (regs : Constr.reg_map) (jmp : Jmp.t)
+    (env : Env.t) : unit =
+  match Jmp.Map.find regs jmp with
+  | None -> ()
+  | Some regs ->
+    let var_map = Env.get_var_map env in
+    let reg_vals = VarMap.fold var_map ~init:[]
+        ~f:(fun ~key ~data pairs ->
+            let regs = List.filter_map regs ~f:(fun (r, value) ->
+                if Expr.equal data r then Some (key, value) else None) in
+            List.append pairs regs)
+    in
+    format_values fmt reg_vals;
+    Format.fprintf fmt "\n%!"
+
+let format_path (fmt : Format.formatter) (p : Constr.path) (regs : Constr.reg_map)
+    (env : Env.t) : unit =
+  Format.fprintf fmt "\n\tPath:\n%!";
+  Jmp.Map.iteri p
+    ~f:(fun ~key:jmp ~data:taken ->
+        let jmp_str =
+          jmp
+          |> Jmp.to_string
+          |> String.substr_replace_first ~pattern:"\n" ~with_:"" in
+        let taken_str = if taken then "(taken)" else "(not taken)" in
+        begin
+          match Term.get_attr jmp address with
+          | None -> Format.fprintf fmt "\t%s %s\n%!" jmp_str taken_str
+          | Some addr ->
+            Format.fprintf fmt "\t%s %s (Address: %s)\n%!"
+              jmp_str taken_str (Addr.to_string addr)
+        end;
+        format_registers fmt regs jmp env)
+
+let format_goal (fmt : Format.formatter) (g : Constr.goal) (model : Model.model) : unit =
+  let goal_name = Constr.get_goal_name g in
+  let goal_val = Constr.get_goal_val g in
+  Format.fprintf fmt "%s:" goal_name;
+  if Bool.is_eq goal_val then
+    begin
+      let args = Expr.get_args goal_val in
+      Format.fprintf fmt "\n\tConcrete values: = ";
+      List.iter args ~f:(fun arg ->
+          let value = Constr.eval_model_exn model arg in
+          Format.fprintf fmt "%s " (Expr.to_string value));
+      Format.fprintf fmt "\n\tZ3 Expression: = ";
+      List.iter args ~f:(fun arg ->
+          let simplified = Expr.simplify arg None in
+          Format.fprintf fmt "%s " (Expr.to_string simplified));
+    end
+  else
+    Format.fprintf fmt "\n\tZ3 Expression: %s"
+      (Expr.to_string (Expr.simplify goal_val None))
+
+(* Creates a string representation of a goal that has been refuted given the model.
+   This string shows the lhs and rhs of a goal that compares two values. *)
+let format_refuted_goal (rg : Constr.refuted_goal) (model : Model.model) (env : Env.t)
+  : string =
+  let fmt = Format.str_formatter in
+  format_goal fmt rg.goal model;
+  format_path fmt rg.path rg.reg_map env;
+  Format.flush_str_formatter ()
 
 type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
 
@@ -116,11 +177,10 @@ let print_result (solver : Solver.solver) (status : Solver.status)
     Format.printf "\nSAT!\n%!";
     let model = Constr.get_model_exn solver in
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
-    let refuted_goals = Constr.get_refuted_goals_and_paths goals solver ctx in
+    let refuted_goals = Constr.get_refuted_goals goals solver ctx in
     Format.printf "\nRefuted goals:\n%!";
-    Seq.iter refuted_goals ~f:(fun (goal, path) ->
-        Format.printf "%s\n%!" (Constr.refuted_goal_to_string goal model);
-        Format.printf "\t%s%!" (Constr.path_to_string path))
+    Seq.iter refuted_goals ~f:(fun goal ->
+        Format.printf "%s\n%!" (format_refuted_goal goal model env1))
 
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
     breakpoint at the subroutine and fills the appropriate registers *)
