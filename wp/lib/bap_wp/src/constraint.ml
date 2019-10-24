@@ -23,7 +23,11 @@ type z3_expr = Expr.expr
 
 type path = bool Jmp.Map.t
 
+type reg_map = (z3_expr * z3_expr) list Jmp.Map.t
+
 type goal = { goal_name : string; goal_val : z3_expr }
+
+type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
 
 let goal_to_string (g : goal) : string =
   Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
@@ -60,25 +64,6 @@ let get_model_exn (solver : Solver.solver) : Model.model =
     ~error:(Error.of_string "get_model_exn: Error getting the model from the Z3 solver.")
     ~message:(Format.sprintf "Unable to get the model from the Z3 solver : %s"
                 (Solver.to_string solver))
-
-let refuted_goal_to_string (g : goal) (model : Model.model) : string =
-  let fmt = Format.str_formatter in
-  Format.fprintf fmt "%s:" g.goal_name;
-  if Bool.is_eq g.goal_val then begin
-    let args = Expr.get_args g.goal_val in
-    Format.fprintf fmt "\n\tConcrete values: = ";
-    List.iter args ~f:(fun arg ->
-        let value = eval_model_exn model arg in
-        Format.fprintf fmt "%s " (Expr.to_string value));
-    Format.fprintf fmt "\n\tZ3 Expression: = ";
-    List.iter args ~f:(fun arg ->
-        let simplified = Expr.simplify arg None in
-        Format.fprintf fmt "%s " (Expr.to_string simplified));
-  end else begin
-    Format.fprintf fmt "\n\tZ3 Expression: %s"
-      (Expr.to_string (Expr.simplify g.goal_val None));
-  end;
-  Format.flush_str_formatter ()
 
 let mk_goal (name : string) (value : z3_expr) : goal =
   { goal_name = name; goal_val = value }
@@ -151,11 +136,11 @@ let substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t =
 let substitute_one (constr : t) (old_exp : z3_expr) (new_exp : z3_expr) : t =
   Subst (constr, [old_exp], [new_exp])
 
-let get_refuted_goals_and_paths (constr : t) (solver : Solver.solver)
-    (ctx : Z3.context) : (goal * path) seq =
+let get_refuted_goals (constr : t) (solver : Z3.Solver.solver)
+    (ctx : Z3.context) : refuted_goal seq =
   let model = get_model_exn solver in
-  let rec worker (constr : t) (current_path : path) (olds : z3_expr list)
-      (news : z3_expr list) : (goal * path) seq =
+  let rec worker (constr : t) (current_path : path) (current_registers : reg_map)
+      (olds : z3_expr list) (news : z3_expr list) : refuted_goal seq =
     match constr with
     | Goal g ->
       let goal_val = Expr.substitute g.goal_val olds news in
@@ -164,19 +149,33 @@ let get_refuted_goals_and_paths (constr : t) (solver : Solver.solver)
         match Solver.check solver [goal_res] with
         | Solver.SATISFIABLE -> Seq.empty
         | Solver.UNSATISFIABLE ->
-          Seq.singleton ({g with goal_val = goal_val}, current_path)
+          Seq.singleton
+            { goal = { g with goal_val = goal_val};
+              path = current_path;
+              reg_map = current_registers }
         | Solver.UNKNOWN ->
           failwith (Format.sprintf "get_refuted_goals: Unable to resolve %s" g.goal_name)
       end
     | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
+      let registers =
+        List.fold (List.zip_exn olds news) ~init:[]
+          ~f:(fun regs (reg, value) ->
+              if String.is_prefix ~prefix:"mem" (Expr.to_string reg) then
+                regs
+              else
+                (reg, eval_model_exn model value) :: regs)
+      in
+      let current_registers = Jmp.Map.set current_registers ~key:jmp ~data:registers in
       begin
-        match Solver.check solver [cond_res] with
+        match Z3.Solver.check solver [cond_res] with
         | Solver.SATISFIABLE ->
-          worker c1 (Jmp.Map.set current_path ~key:jmp ~data:true) olds news
+          let current_path = Jmp.Map.set current_path ~key:jmp ~data:true in
+          worker c1 current_path current_registers olds news
         | Solver.UNSATISFIABLE ->
-          worker c2 (Jmp.Map.set current_path ~key:jmp ~data:false) olds news
+          let current_path = Jmp.Map.set current_path ~key:jmp ~data:false in
+          worker c2 current_path current_registers olds news
         | Solver.UNKNOWN ->
           failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
                                     condition at %s" (jmp |> Term.tid |> Tid.to_string))
@@ -194,14 +193,10 @@ let get_refuted_goals_and_paths (constr : t) (solver : Solver.solver)
       if hyps_false then
         Seq.empty
       else
-        List.fold concs ~init:Seq.empty
-          ~f:(fun accum c -> Seq.append (worker c current_path olds news) accum)
+        List.fold concs ~init:Seq.empty ~f:(fun accum c ->
+            Seq.append (worker c current_path current_registers olds news) accum)
     | Subst (e, o, n) ->
       let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
-      worker e current_path (olds @ o) (news @ n')
+      worker e current_path current_registers (olds @ o) (news @ n')
   in
-  worker constr Jmp.Map.empty [] []
-
-let get_refuted_goals (constr : t) (solver : Solver.solver) (ctx : Z3.context)
-  : goal seq =
-  Seq.map (get_refuted_goals_and_paths constr solver ctx) ~f:(fun (g,_) -> g)
+  worker constr Jmp.Map.empty Jmp.Map.empty [] []
