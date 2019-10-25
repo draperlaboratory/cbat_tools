@@ -133,12 +133,11 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     Printf.printf "Z3 Version: %s\n" (Z3.Version.to_string);
     let model = Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
-    Printf.printf "%s \n" (Z3.Model.to_string model);
     let option_mem_model = get_mem model in
     let varmap = Env.get_var_map env in 
 >>>>>>> 874382e... Tests and simple mem-model extractor for gdb
     let module Target = (val target_of_arch (Env.get_arch env)) in
-    let regmap = varmap in (* VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in *)
+    let regmap = VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in 
     let reg_val_map = VarMap.map ~f:(fun z3_reg -> Constr.eval_model_exn model z3_reg) regmap in
     Out_channel.with_file gdb_filename  ~f:(fun t ->
         Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)

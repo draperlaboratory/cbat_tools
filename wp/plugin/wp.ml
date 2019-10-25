@@ -106,7 +106,7 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   let pre, env' = Pre.visit_sub env post main_sub in
   Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
     (Sub.to_string main_sub) Constr.pp_constr pre;
-  (pre, env', env)
+  (pre, env, env')
 
 let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
