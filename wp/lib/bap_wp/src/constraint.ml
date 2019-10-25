@@ -159,9 +159,12 @@ let get_refuted_goals (constr : t) (solver : Z3.Solver.solver)
     | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
+      (* FIXME: Still getting some values that don't necessarily match up with
+         their values when running the program in GDB. *)
       let registers =
         List.fold (List.zip_exn olds news) ~init:[]
           ~f:(fun regs (reg, value) ->
+              (* Manually removing mem from the list of variables being updates. *)
               if String.is_prefix ~prefix:"mem" (Expr.to_string reg) then
                 regs
               else

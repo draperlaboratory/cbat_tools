@@ -47,8 +47,13 @@ type goal
     boolean, which marks whether the path was taken or not. *)
 type path = bool Bap.Std.Jmp.Map.t
 
+(** A map containing a pair of registers and their values at a specific jump
+    in the program. *)
 type reg_map = (z3_expr * z3_expr) list Bap.Std.Jmp.Map.t
 
+(** A goal that has been refuted by th Z3 model during WP analysis. Contains
+    the path taken in the binary to reach the goal, as well as a map of register
+    values at each jump in the path. *)
 type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
 
 (** [mk_goal name e] creates a goal using a Z3 boolean expression and
