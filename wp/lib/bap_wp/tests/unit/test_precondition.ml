@@ -28,8 +28,9 @@ module BV = Z3.BitVector
 
 (* To run these tests: `make test.unit` in bap_wp directory *)
 
-let assert_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : string)
+let assert_z3_result (test_ctx : test_ctxt) (env : Env.t) (body : string)
     (post : Constr.t) (pre : Constr.t) (expected : Z3.Solver.status) : unit =
+  let z3_ctx = Env.get_context env in
   let solver = Z3.Solver.mk_simple_solver z3_ctx in
   let result = Pre.check solver z3_ctx pre in
   assert_equal ~ctxt:test_ctx
@@ -37,7 +38,7 @@ let assert_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : string
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nPost:\n%a\n\nAnalyzing:\n%sPre:\n%a\n\n%!"
           Constr.pp_constr post body Constr.pp_constr pre;
-        print_z3_model ff solver exp real z3_ctx pre)
+        print_z3_model solver exp real pre ~orig:env ~modif:env)
     expected result
 
 
@@ -48,7 +49,7 @@ let test_empty_block (test_ctx : test_ctxt) : unit =
   let block = Blk.create () in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_assign_1 (test_ctx : test_ctxt) : unit =
@@ -64,7 +65,7 @@ let test_assign_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_assign_2 (test_ctx : test_ctxt) : unit =
@@ -80,7 +81,7 @@ let test_assign_2 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
 
 
 let test_assign_3 (test_ctx : test_ctxt) : unit =
@@ -100,7 +101,7 @@ let test_assign_3 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_phi_1 (test_ctx : test_ctxt) : unit =
@@ -123,7 +124,7 @@ let test_phi_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_read_write_1 (test_ctx : test_ctxt) : unit =
@@ -145,7 +146,7 @@ let test_read_write_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_read_write_2 (test_ctx : test_ctxt) : unit =
@@ -167,7 +168,7 @@ let test_read_write_2 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_read_write_3 (test_ctx : test_ctxt) : unit =
@@ -189,7 +190,7 @@ let test_read_write_3 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
 
 
 let test_read_write_4 (test_ctx : test_ctxt) : unit =
@@ -211,7 +212,7 @@ let test_read_write_4 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
 
 
 let test_bit_shift_1 (test_ctx : test_ctxt) : unit =
@@ -233,7 +234,7 @@ let test_bit_shift_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_bit_shift_2 (test_ctx : test_ctxt) : unit =
@@ -255,7 +256,7 @@ let test_bit_shift_2 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
 
 
 let test_bit_ashift_1 (test_ctx : test_ctxt) : unit =
@@ -277,7 +278,7 @@ let test_bit_ashift_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_bit_ashift_2 (test_ctx : test_ctxt) : unit =
@@ -299,7 +300,7 @@ let test_bit_ashift_2 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.SATISFIABLE
 
 
 let test_ite_assign_1 (test_ctx : test_ctxt) : unit =
@@ -320,7 +321,7 @@ let test_ite_assign_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_block env post block in
-  assert_z3_result test_ctx ctx (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string block) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_subroutine_1 (test_ctx : test_ctxt) : unit =
@@ -348,7 +349,7 @@ let test_subroutine_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_subroutine_1_2 (test_ctx : test_ctxt) : unit =
@@ -377,7 +378,7 @@ let test_subroutine_1_2 (test_ctx : test_ctxt) : unit =
       "(assert (and (bvsle (bvsub z0 x0) #x00000001) (bvsle #xffffffff (bvsub z0 x0))))"
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_subroutine_2 (test_ctx : test_ctxt) : unit =
@@ -423,7 +424,7 @@ let test_subroutine_2 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_subroutine_3 (test_ctx : test_ctxt) : unit =
@@ -447,7 +448,7 @@ let test_subroutine_3 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_subroutine_4 (test_ctx : test_ctxt) : unit =
@@ -478,7 +479,7 @@ let test_subroutine_4 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_subroutine_5 (test_ctx : test_ctxt) : unit =
@@ -505,7 +506,7 @@ let test_subroutine_5 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_subroutine_6 (test_ctx : test_ctxt) : unit =
@@ -523,7 +524,7 @@ let test_subroutine_6 (test_ctx : test_ctxt) : unit =
   let env = Pre.mk_default_env ~subs ctx var_gen in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
 let test_subroutine_7 (test_ctx : test_ctxt) : unit =
@@ -535,7 +536,7 @@ let test_subroutine_7 (test_ctx : test_ctxt) : unit =
   let env = Pre.mk_default_env ~subs ctx var_gen in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
 let test_call_1 (test_ctx : test_ctxt) : unit =
@@ -562,7 +563,7 @@ let test_call_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
-  assert_z3_result test_ctx ctx (Sub.to_string main_sub) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post pre Z3.Solver.SATISFIABLE
 
 
 let test_call_2 (test_ctx : test_ctxt) : unit =
@@ -588,7 +589,7 @@ let test_call_2 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
-  assert_z3_result test_ctx ctx (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_call_3 (test_ctx : test_ctxt) : unit =
@@ -610,7 +611,7 @@ let test_call_3 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
-  assert_z3_result test_ctx ctx (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_call_4 (test_ctx : test_ctxt) : unit =
@@ -630,7 +631,7 @@ let test_call_4 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
-  assert_z3_result test_ctx ctx (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_call_5 (test_ctx : test_ctxt) : unit =
@@ -656,7 +657,7 @@ let test_call_5 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
-  assert_z3_result test_ctx ctx (Sub.to_string main_sub) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post pre Z3.Solver.SATISFIABLE
 
 
 let test_call_6 (test_ctx : test_ctxt) : unit =
@@ -689,7 +690,7 @@ let test_call_6 (test_ctx : test_ctxt) : unit =
     |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
-  assert_z3_result test_ctx ctx (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_call_7 (test_ctx : test_ctxt) : unit =
@@ -727,7 +728,7 @@ let test_call_7 (test_ctx : test_ctxt) : unit =
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = (Sub.to_string main_sub) ^ (Sub.to_string call_sub) in
-  assert_z3_result test_ctx ctx fmtr post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env fmtr post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_call_8 (test_ctx : test_ctxt) : unit =
@@ -762,7 +763,7 @@ let test_call_8 (test_ctx : test_ctxt) : unit =
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = (Sub.to_string main_sub) ^ (Sub.to_string call_sub) in
-  assert_z3_result test_ctx ctx fmtr post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env fmtr post pre Z3.Solver.SATISFIABLE
 
 let test_call_9 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
@@ -806,7 +807,7 @@ let test_call_9 (test_ctx : test_ctxt) : unit =
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = (Sub.to_string main_sub) ^ (Sub.to_string call1_sub) ^ (Sub.to_string call2_sub) in
-  assert_z3_result test_ctx ctx fmtr post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env fmtr post pre Z3.Solver.UNSATISFIABLE
 
 let test_call_10 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
@@ -850,7 +851,7 @@ let test_call_10 (test_ctx : test_ctxt) : unit =
   in
   let pre, _ = Pre.visit_sub env post main_sub in
   let fmtr = (Sub.to_string main_sub) ^ (Sub.to_string call1_sub) ^ (Sub.to_string call2_sub) in
-  assert_z3_result test_ctx ctx fmtr post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env fmtr post pre Z3.Solver.SATISFIABLE
 
 let test_int_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
@@ -869,7 +870,7 @@ let test_int_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post main_sub in
-  assert_z3_result test_ctx ctx (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_loop_1 (test_ctx : test_ctxt) : unit =
@@ -900,7 +901,7 @@ let test_loop_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_loop_2 (test_ctx : test_ctxt) : unit =
@@ -926,7 +927,7 @@ let test_loop_2 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_loop_3 (test_ctx : test_ctxt) : unit =
@@ -952,7 +953,7 @@ let test_loop_3 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
 let test_loop_4 (test_ctx : test_ctxt) : unit =
@@ -978,7 +979,7 @@ let test_loop_4 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 (* Currently only testing expressions that evaluate to immediates. *)
@@ -1022,7 +1023,7 @@ let test_exp_cond_1 (test_ctx : test_ctxt) : unit =
   let blk = blk |> mk_def x load in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_block env post blk in
-  assert_z3_result test_ctx ctx (Blk.to_string blk) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string blk) post pre Z3.Solver.SATISFIABLE
 
 
 let test_exp_cond_2 (test_ctx : test_ctxt) : unit =
@@ -1039,7 +1040,7 @@ let test_exp_cond_2 (test_ctx : test_ctxt) : unit =
             |> mk_def x load in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_block env post blk in
-  assert_z3_result test_ctx ctx (Blk.to_string blk) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Blk.to_string blk) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_subroutine_8 (test_ctx : test_ctxt) : unit =
@@ -1055,7 +1056,7 @@ let test_subroutine_8 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_constr
   in
   let pre, _ = Pre. visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
 let test_branches_1 (test_ctx : test_ctxt) : unit =
@@ -1099,7 +1100,7 @@ let test_branches_1 (test_ctx : test_ctxt) : unit =
   let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx ctx (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
 let test_jmp_spec_reach_1 (test_ctx : test_ctxt) : unit =
