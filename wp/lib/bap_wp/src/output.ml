@@ -66,18 +66,19 @@ type mem_model = {default : Z3.Expr.expr ; model : (Z3.Expr.expr * Z3.Expr.expr)
 
 let extract_array (e : Z3.Expr.expr) : mem_model  = 
       let rec extract_array' (partial_map : (Z3.Expr.expr * Z3.Expr.expr) list) (e : Z3.Expr.expr) : mem_model =
+          Printf.printf "%s\n" (Z3.Expr.to_string e);
           let numargs = Z3.Expr.get_num_args e in
           let args = Z3.Expr.get_args e in
           let f_decl = Z3.Expr.get_func_decl e in
           let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
-          if ((numargs = 3) && (f_name = "store"))
+          if ( Int.(numargs = 3) && String.(f_name = "store"))
           then begin 
                 let next_arr = List.nth_exn args 0 in
                 let key = List.nth_exn args 1 in
                 let value = List.nth_exn args 2 in
                 extract_array' (( key , value ) :: partial_map) next_arr
                 end
-          else if ((numargs = 1) && (f_name = "const")) then begin
+          else if ( Int.(numargs = 1) && String.(f_name = "const")) then begin
                 let key = List.nth_exn args 0 in
                 { default = key; model = List.rev partial_map}
                 end
@@ -91,11 +92,13 @@ let extract_array (e : Z3.Expr.expr) : mem_model  =
 
 module F = Z3.Model.FuncInterp
 
-let get_mem (m : Z3.Model.model) : mem_model =
+let get_mem (m : Z3.Model.model) : mem_model option =
    let decls = Z3.Model.get_decls m |> List.filter ~f:(fun decl -> (Z3.Symbol.to_string (Z3.FuncDecl.get_name decl)) = "mem0") in
-   let f_decl = Option.value_exn (List.hd decls) in
-   let f_interp = Option.value_exn (Z3.Model.get_const_interp m f_decl) in
-   extract_array f_interp
+   match (List.hd decls) with
+   | None -> Printf.printf "No mem0 found.";
+             None
+   | Some f_decl -> let f_interp = Option.value_exn (Z3.Model.get_const_interp m f_decl) in
+                    Some (extract_array f_interp)
 
 
 let print_result (solver : Solver.solver) (status : Solver.status)
@@ -130,11 +133,12 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     Printf.printf "Z3 Version: %s\n" (Z3.Version.to_string);
     let model = Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
-    let mem_model = get_mem model in
+    Printf.printf "%s \n" (Z3.Model.to_string model);
+    let option_mem_model = get_mem model in
     let varmap = Env.get_var_map env in 
 >>>>>>> 874382e... Tests and simple mem-model extractor for gdb
     let module Target = (val target_of_arch (Env.get_arch env)) in
-    let regmap = VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in
+    let regmap = varmap in (* VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in *)
     let reg_val_map = VarMap.map ~f:(fun z3_reg -> Constr.eval_model_exn model z3_reg) regmap in
     Out_channel.with_file gdb_filename  ~f:(fun t ->
         Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
@@ -143,8 +147,10 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
             let hex_value = expr_to_hex data in
             Printf.fprintf t "set $%s = %s \n" (String.lowercase (Var.name key)) hex_value;
         );
-        List.iter mem_model.model ~f:(fun (addr,value) -> 
-            Printf.fprintf t "set {int}%s = %s \n" (expr_to_hex addr) (expr_to_hex value)  );
-        ()
+        match option_mem_model with
+        | None -> ()
+        | Some mem_model ->  List.iter mem_model.model ~f:(fun (addr,value) -> 
+                             Printf.fprintf t "set {int}%s = %s \n" (expr_to_hex addr) (expr_to_hex value)  );
+                             ()
     )
   | _ -> ()
