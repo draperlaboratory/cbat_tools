@@ -59,6 +59,121 @@ let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
   Format.flush_str_formatter ()
 
 
+
+
+let rec extract_array (e : Z3.Expr.expr) : (Z3.Expr.expr * Z3.Expr.expr) list  = 
+      let numargs = Z3.Expr.get_num_args e in
+      let args = Z3.Expr.get_args e in
+      let f_decl = Z3.Expr.get_func_decl e in
+      let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
+      Printf.printf "numargs : %d \n" numargs;
+      Printf.printf "symbol name %s \n" f_name;
+      if ((numargs = 3) && (f_name = "store"))
+      then begin 
+            let next_arr = List.nth_exn args 0 in
+            let key = List.nth_exn args 1 in
+            let value = List.nth_exn args 2 in
+            (( key , value ) :: (extract_array next_arr))
+            end
+      else if ((numargs = 1) && (f_name = "const")) then
+            let key = List.nth_exn args 0 in
+            [( key , key )]
+      else (Printf.printf "Unpexpected case destructing Z3 array: %s" f_name;
+           [])
+
+
+module F = Z3.Model.FuncInterp
+
+let get_mem (m : Z3.Model.model) =
+   let decls = Z3.Model.get_decls m |> List.filter ~f:(fun decl -> (Z3.Symbol.to_string (Z3.FuncDecl.get_name decl)) = "mem0") in
+   let f_decl = Option.value_exn (List.hd decls) in
+   let f_interp = Option.value_exn (Z3.Model.get_const_interp m f_decl) in
+   extract_array f_interp
+
+(*
+let get_mem (m : Z3.Model.model) =
+   Printf.printf "Printing func interps\n";
+   let decls = Z3.Model.get_decls m |> List.filter ~f:(fun decl -> (Z3.Symbol.to_string (Z3.FuncDecl.get_name decl)) = "mem0") in
+   List.iter decls ~f:(fun c ->  Printf.printf "func : %s\n " (Z3.FuncDecl.to_string c) ) ;
+   List.iter (Z3.Model.get_decls m) ~f:(fun c ->  Printf.printf "func : %s\n " (Z3.FuncDecl.to_string c) ) ;
+   Printf.printf "Here\n";
+   let f_decl = Option.value_exn (List.hd decls) in
+   Printf.printf "Here\n";
+   let f_interp = Option.value_exn ?message:(Some "getting interp") (Z3.Model.get_const_interp  m f_decl) in
+   let chewed = extract_array f_interp in
+   List.iter chewed ~f:(fun (key , value) -> Printf.printf "( %s, %s ) :: \n" (Z3.Expr.to_string key) (Z3.Expr.to_string value));            
+   Printf.printf "Printing const interps\n";
+   List.iter (Z3.Model.get_const_decls m) ~f:(fun c ->  Printf.printf  "const : %s\n " (Z3.FuncDecl.to_string c) ) ;
+   Printf.printf "Printing func decls\n";
+   List.iter (Z3.Model.get_func_decls m) ~f:(fun c ->  Printf.printf "func : %s\n " (Z3.FuncDecl.to_string c) ) ;
+   chewed
+  *)
+
+   (* 
+   List.iter decls ~f:(fun func -> 
+      Printf.printf "%s\n " (Z3.FuncDecl.to_string func);
+      let arr = Option.value_exn (Z3.Model.get_const_interp m func) ?message:(Some "getting lam") in
+      Printf.printf "%s \n" (Z3.Expr.to_string arr);
+
+      
+      (* let ctx = Z3.mk_context [] in  *)
+              (** goal is basically the entire problem *)
+              (* let g = Z3.Goal.mk_goal ctx true false false in *) (** what the hell are these parameters? *)
+      let solver = Z3.Solver.mk_solver ctx None in
+      let q = Z3.BitVector.mk_const_s ctx "q" 64 in
+      let bvsort64 = Z3.BitVector.mk_sort ctx 64 in 
+      let bvsort8 = Z3.BitVector.mk_sort ctx 8 in 
+      let f2 = Z3.FuncDecl.mk_func_decl_s ctx "f2" [bvsort64] bvsort8 in 
+      let for_e = Z3.Boolean.mk_eq ctx (Z3.FuncDecl.apply f2 [q]) (Z3.Z3Array.mk_select ctx arr q) in
+      let forall = Z3.Quantifier.mk_forall_const ctx [q] for_e None [] [] None None |> Z3.Quantifier.expr_of_quantifier in
+      let () = Z3.Solver.add solver [forall] in
+      match Z3.Solver.check solver [] with
+                     | Z3.Solver.UNKNOWN -> ()
+                     | Z3.Solver.UNSATISFIABLE -> ()
+                     | Z3.Solver.SATISFIABLE -> match Z3.Solver.get_model solver with
+                                                | Some(model) -> Printf.printf "sat\n";
+                                                                 let decls = Z3.Model.get_decls model in
+                                                                 List.iter decls ~f:(fun c ->  Printf.printf  "solution : %s\n " (Z3.FuncDecl.to_string c) );
+                                                                 let f_decl = Option.value_exn (List.hd decls) in 
+                                                                 let lam = Option.value_exn (Z3.Model.get_func_interp model f_decl) ?message:(Some "getting lam") in
+                                                                 Printf.printf "%s\n " (Z3.Model.FuncInterp.to_string lam);
+                                                                 ()
+
+
+                                                                 
+                                                | None -> ()
+                      
+      *)
+       
+      (*
+      let lam = Option.value_exn (Z3.Model.get_const_interp m func) ?message:(Some "getting lam") in
+      Printf.printf "%s\n " (Z3.Expr.to_string lam);
+      let func = Z3.Expr.get_func_decl lam in 
+      Printf.printf "%s\n " (Z3.FuncDecl.to_string func); *)
+      (* let interp = Option.value_exn (Z3.Model.get_func_interp m func) ?message:(Some "getting interp")  in 
+      Printf.printf "Makde it this far";
+      let entries = F.get_entries interp in 
+      List.iter entries ~f:(fun entry -> Printf.printf "%s\n" (F.FuncEntry.to_string entry))*)
+
+
+
+
+   (**
+   
+  getconstinterp:
+   Z3.Error("Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
+    getfuncinterp:
+    Z3.Error("Argument was not an array constant")
+
+   Z3.Boolean.is_ite
+
+(define-fun mem0 () (Array (_ BitVec 64) (_ BitVec 8))
+  (lambda ((x!1 (_ BitVec 64))) (ite (= x!1 #x0000000000000000) #x03 #x00)))
+
+    *)
+
+
+
 let print_result (solver : Solver.solver) (status : Solver.status)
     (goals: Constr.t) ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
   let ctx = Env.get_context env1 in
@@ -78,21 +193,38 @@ let print_result (solver : Solver.solver) (status : Solver.status)
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
     breakpoint at the subroutine and fills the appropriate registers *)
 
+let expr_to_hex (e : Z3.Expr.expr) : string = Z3.Expr.to_string e |> String.substr_replace_first ~pattern:"#" ~with_:"0"
+
 let output_gdb (solver : Solver.solver) (status : Solver.status)
     (env : Env.t) ~func:(func : string) ~filename:(gdb_filename : string) : unit =
   match status with
   | Solver.SATISFIABLE ->
+<<<<<<< HEAD
     let model = Constr.get_model_exn solver in
     let varmap = Env.get_var_map env in
+=======
+    Printf.printf "Z3 Version: %s\n" (Z3.Version.to_string);
+    let model = Solver.get_model solver
+                |> Option.value_exn ?here:None ?error:None ?message:None in
+    let mem_model = get_mem model in
+    let varmap = Env.get_var_map env in 
+>>>>>>> 874382e... Tests and simple mem-model extractor for gdb
     let module Target = (val target_of_arch (Env.get_arch env)) in
     let regmap = VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in
     let reg_val_map = VarMap.map ~f:(fun z3_reg -> Constr.eval_model_exn model z3_reg) regmap in
     Out_channel.with_file gdb_filename  ~f:(fun t ->
         Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
-        Printf.fprintf t "run\n";
-        VarMap.iteri reg_val_map ~f:(fun ~key ~data ->
-            let hex_value = Z3.Expr.to_string data |> String.substr_replace_first ~pattern:"#" ~with_:"0" in
+        Printf.fprintf t "start\n";
+        VarMap.iteri reg_val_map ~f:(fun ~key ~data -> 
+            let hex_value = expr_to_hex data in
             Printf.fprintf t "set $%s = %s \n" (String.lowercase (Var.name key)) hex_value;
-          ))
+        );
+        List.iter mem_model ~f:(fun (addr,value) -> 
+            Printf.fprintf t "set {int}%s = %s \n" (expr_to_hex addr) (expr_to_hex value)  );
+        ()
+    )
   | _ -> ()
 
+(*
+set {int}0x83040 = 4
+ *)

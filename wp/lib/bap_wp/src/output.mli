@@ -39,3 +39,5 @@ val print_result : Z3.Solver.solver -> Z3.Solver.status -> Constr.t
 
 (** Prints to file a gdb script that will fill the appropriate registers with the countermodel *)
 val output_gdb : Z3.Solver.solver -> Z3.Solver.status -> Env.t -> func:string -> filename:string -> unit
+
+val extract_array : Z3.Expr.expr -> (Z3.Expr.expr * Z3.Expr.expr) list 
