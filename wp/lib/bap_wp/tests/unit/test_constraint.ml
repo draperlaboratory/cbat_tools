@@ -48,7 +48,7 @@ let test_get_refuted_goals (test_ctx : test_ctxt) : unit =
   let goals = Constr.get_refuted_goals clause solver ctx in
   Sequence.iter goals ~f:(fun g ->
       assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
-        (Bool.mk_eq ctx x two) (Constr.get_goal_val g))
+        (Bool.mk_eq ctx x two) (Constr.get_goal_val g.goal))
 
 let test_get_refuted_goals_mem (test_ctx : test_ctxt) : unit =
   let ctx = Z3.mk_context [] in
@@ -71,7 +71,7 @@ let test_get_refuted_goals_mem (test_ctx : test_ctxt) : unit =
   let goals = Constr.get_refuted_goals constr solver ctx in
   Sequence.iter goals ~f:(fun g ->
       assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
-        goal (Constr.get_goal_val g))
+        goal (Constr.get_goal_val g.goal))
 
 let test_substitute (test_ctx : test_ctxt) : unit =
   let ctx = Z3.mk_context [] in
@@ -111,7 +111,7 @@ let test_substitute_order (test_ctx : test_ctxt) : unit =
   let goals = Constr.get_refuted_goals pre solver ctx in
   Sequence.iter goals ~f:(fun g ->
       assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
-        post_expr (Constr.get_goal_val g))
+        post_expr (Constr.get_goal_val g.goal))
 
 let suite = [
   "Get Refuted Goals"             >:: test_get_refuted_goals;

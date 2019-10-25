@@ -67,14 +67,11 @@ let mk_z3_expr (env : Env.t) (e : Exp.t) : Constr.z3_expr =
 let mk_z3_var (env : Env.t) (v : Var.t) : Constr.z3_expr =
   fst (Env.get_var env v)
 
-let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
-    (exp : Z3.Solver.status) (real : Z3.Solver.status) (_ctx : Z3.context)
-    (_goals : Constr.t) : unit =
+let print_z3_model (solver : Z3.Solver.solver) (exp : Z3.Solver.status)
+    (real : Z3.Solver.status) (goals : Constr.t) ~orig:(env1 : Env.t)
+    ~modif:(env2 : Env.t) : unit =
   if real = exp || real = Z3.Solver.UNSATISFIABLE then () else
-    match Z3.Solver.get_model solver with
-    | None -> ()
-    | Some model ->
-      Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model)
+    Output.print_result solver real goals ~orig:env1 ~modif:env2
 
 (* Finds a jump in a subroutine given its jump condition. *)
 let find_jump (sub : Sub.t) (cond : Exp.t) : Jmp.t =
