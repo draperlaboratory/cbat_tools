@@ -25,7 +25,7 @@ let test_get_model (test_ctx : test_ctxt) : unit =
                             let f_decl = Option.value_exn (List.hd decls) in
                             let f_interp = Option.value_exn (Z3.Model.get_const_interp model f_decl) in
                             let mem_model = extract_array f_interp in
-                            assert_equal (List.hd_exn mem_model) (three,four) ~ctxt:test_ctx ~cmp:(fun (e1,e2) (n1,n2) -> (Z3.Expr.equal e1 n1) && (Z3.Expr.equal e2 n2) )
+                            assert_equal (List.hd_exn mem_model.model) (three,four) ~ctxt:test_ctx ~cmp:(fun (e1,e2) (n1,n2) -> (Z3.Expr.equal e1 n1) && (Z3.Expr.equal e2 n2) )
                     | None       -> assert_failure "No Model Found"
 
 let suite = [
