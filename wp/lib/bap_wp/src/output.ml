@@ -138,7 +138,7 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     let reg_val_map = VarMap.map ~f:(fun z3_reg -> Constr.eval_model_exn model z3_reg) regmap in
     Out_channel.with_file gdb_filename  ~f:(fun t ->
         Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
-        Printf.fprintf t "start\n";
+        Printf.fprintf t "run\n";
         VarMap.iteri reg_val_map ~f:(fun ~key ~data -> 
             let hex_value = expr_to_hex data in
             Printf.fprintf t "set $%s = %s \n" (String.lowercase (Var.name key)) hex_value;
