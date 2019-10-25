@@ -835,7 +835,12 @@ let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     else
       pre'
   in
+<<<<<<< HEAD
   Solver.check solver [is_correct]
+=======
+  let () = Z3.Solver.add solver [is_correct] in
+  Z3.Solver.check solver []
+>>>>>>> 874382e... Tests and simple mem-model extractor for gdb
 
 let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
     ~pre:(pre : Constr.t) : Solver.status =
