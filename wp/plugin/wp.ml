@@ -165,6 +165,7 @@ let main (file1 : string) (file2 : string)
     ~num_unroll:(num_unroll : int option)
     ~output_vars:(output_vars : string list)
     ~gdb_filename:(gdb_filename : string option)
+    ~print_path:(print_path : bool)
     (proj : project) : unit =
   Log.start ~logdir:"/dev/stdout" ();
   let ctx = Env.mk_ctx () in
@@ -184,7 +185,7 @@ let main (file1 : string) (file2 : string)
     | Some f ->
       Printf.printf "Dumping gdb script to file: %s\n" f;
       Output.output_gdb solver result env2 ~func:func ~filename:f in
-  Output.print_result solver result pre ~orig:env1 ~modif:env2
+  Output.print_result solver result pre ~print_path ~orig:env1 ~modif:env2
 
 
 module Cmdline = struct
@@ -221,28 +222,34 @@ module Cmdline = struct
             of analysis. If not set, function summaries are used at function call \
             time."
 
-  let to_inline = param (list string) "inline-funcs"
+  let to_inline = param (list string) "inline-funcs" ~default:[]
       ~doc:"List of functions to inline separated by `,'. By default, if `inline' \
             is set without specifying `inline-funcs', all functions in the binary \
             will be inlined."
-      ~default:[]
 
   let post_cond = param string "postcond" ~default:""
       ~doc:"Post condition in SMT-LIB format used when analyzing a single binary. \
             If no post condition is specified, a trivial post condition (`true') \
             will be used."
 
-  let num_unroll = param (some int) "num-unroll"
+  let num_unroll = param (some int) "num-unroll" ~default:None
       ~doc:"Amount of times to unroll each loop. By default, wp will unroll each \
             loop 5 times."
-      ~default:None
 
   let output_vars = param (list string) "output-vars" ~default:["RAX"; "EAX"]
       ~doc:"List of output variables to compare separated by `,' given the same \
             input variables in the case of a comparative analysis. Defaults to `RAX,EAX' \
             which are the 64- and 32-bit output registers for x86."
-  let gdb_filename = param (some string) "gdb-filename" ~doc:"Output gdb script file for counterexample"
-      ~default:None
+
+  let gdb_filename = param (some string) "gdb-filename" ~default:None
+      ~doc:"Output gdb script file for counterexample. This script file sets a \
+            breakpoint at the the start of the function being analyzed and sets \
+            the registers and memory to the values specified in the countermodel."
+
+  let print_path = param bool "print-path" ~as_flag:true ~default:false
+      ~doc:"If set, prints out the path to a refuted goal and the register values \
+            at each jump in the path. The path contains information about whether \
+            a jump has been taken and the address of the jump if found."
 
 
   let () = when_ready (fun {get=(!!)} ->
@@ -257,6 +264,7 @@ module Cmdline = struct
         ~num_unroll:!!num_unroll
         ~output_vars:!!output_vars
         ~gdb_filename:!!gdb_filename
+        ~print_path:!!print_path
     )
 
   let () = manpage [

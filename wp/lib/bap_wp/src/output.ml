@@ -65,11 +65,9 @@ let format_registers (fmt : Format.formatter) (regs : Constr.reg_map) (jmp : Jmp
     let var_map = Env.get_var_map env in
     let reg_vals = VarMap.fold var_map ~init:[]
         ~f:(fun ~key ~data pairs ->
-            let regs = List.find_map regs ~f:(fun (r, value) ->
-                if Expr.equal data r then Some (key, value) else None) in
-            match regs with
+            match List.find regs ~f:(fun (r, _) -> Expr.equal data r) with
             | None -> pairs
-            | Some r -> r :: pairs)
+            | Some (_, value) -> (key, value) :: pairs)
     in
     format_values fmt reg_vals;
     Format.fprintf fmt "\n%!"
@@ -86,7 +84,7 @@ let format_path (fmt : Format.formatter) (p : Constr.path) (regs : Constr.reg_ma
         let taken_str = if taken then "(taken)" else "(not taken)" in
         begin
           match Term.get_attr jmp address with
-          | None -> Format.fprintf fmt "\t%s %s (Address not found) \n%!" jmp_str taken_str
+          | None -> Format.fprintf fmt "\t%s %s (Address not found)\n%!" jmp_str taken_str
           | Some addr ->
             Format.fprintf fmt "\t%s %s (Address: %s)\n%!"
               jmp_str taken_str (Addr.to_string addr)
@@ -113,13 +111,11 @@ let format_goal (fmt : Format.formatter) (g : Constr.goal) (model : Model.model)
     Format.fprintf fmt "\n\tZ3 Expression: %s"
       (Expr.to_string (Expr.simplify goal_val None))
 
-(* Creates a string representation of a goal that has been refuted given the model.
-   This string shows the lhs and rhs of a goal that compares two values. *)
 let format_refuted_goal (rg : Constr.refuted_goal) (model : Model.model) (env : Env.t)
-  : string =
+    ~print_path:(print_path : bool) : string =
   let fmt = Format.str_formatter in
   format_goal fmt rg.goal model;
-  format_path fmt rg.path rg.reg_map env;
+  if print_path then format_path fmt rg.path rg.reg_map env;
   Format.flush_str_formatter ()
 
 type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
@@ -167,10 +163,8 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
     else
       None
 
-
-
-let print_result (solver : Solver.solver) (status : Solver.status)
-    (goals: Constr.t) ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
+let print_result (solver : Solver.solver) (status : Solver.status) (goals: Constr.t)
+    ~print_path:(print_path : bool)  ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
   let ctx = Env.get_context env1 in
   match status with
   | Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
@@ -182,7 +176,7 @@ let print_result (solver : Solver.solver) (status : Solver.status)
     let refuted_goals = Constr.get_refuted_goals goals solver ctx in
     Format.printf "\nRefuted goals:\n%!";
     Seq.iter refuted_goals ~f:(fun goal ->
-        Format.printf "%s\n%!" (format_refuted_goal goal model env1))
+        Format.printf "%s\n%!" (format_refuted_goal goal model env1 ~print_path))
 
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
     breakpoint at the subroutine and fills the appropriate registers *)

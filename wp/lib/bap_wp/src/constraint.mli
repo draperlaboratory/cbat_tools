@@ -51,7 +51,7 @@ type path = bool Bap.Std.Jmp.Map.t
     in the program. *)
 type reg_map = (z3_expr * z3_expr) list Bap.Std.Jmp.Map.t
 
-(** A goal that has been refuted by th Z3 model during WP analysis. Contains
+(** A goal that has been refuted by the Z3 model during WP analysis. Contains
     the path taken in the binary to reach the goal, as well as a map of register
     values at each jump in the path. *)
 type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
@@ -107,8 +107,7 @@ val substitute : t -> z3_expr list -> z3_expr list -> t
 val substitute_one : t -> z3_expr -> z3_expr -> t
 
 (** Obtains a list of goals that have been refuted by a Z3 model. *)
-val get_refuted_goals :
-  t -> Z3.Solver.solver -> Z3.context -> refuted_goal Bap.Std.Seq.t
+val get_refuted_goals : t -> Z3.Solver.solver -> Z3.context -> refuted_goal Bap.Std.Seq.t
 
 (** Evaluates an expression in the current model. May raise an error if
     evaluation fails in the case that the argument contains quantifiers, is
