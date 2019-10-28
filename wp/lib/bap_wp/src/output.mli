@@ -40,9 +40,12 @@ val print_result : Z3.Solver.solver -> Z3.Solver.status -> Constr.t
 (** Prints to file a gdb script that will fill the appropriate registers with the countermodel *)
 val output_gdb : Z3.Solver.solver -> Z3.Solver.status -> Env.t -> func:string -> filename:string -> unit
 
-type mem_model = {default : Z3.Expr.expr ; model : (Z3.Expr.expr * Z3.Expr.expr) list}
+(** [mem_model] The default value stores the final else branch of a memory model. The model holds an association list of addresses and
+    values held at those adresses. *)
+
+type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
 
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
-val extract_array : Z3.Expr.expr -> mem_model
+val extract_array : Constr.z3_expr -> mem_model

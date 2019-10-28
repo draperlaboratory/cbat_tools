@@ -59,13 +59,13 @@ let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
   Format.flush_str_formatter ()
 
 
-type mem_model = {default : Z3.Expr.expr ; model : (Z3.Expr.expr * Z3.Expr.expr) list}
+type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
 
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
-let extract_array (e : Z3.Expr.expr) : mem_model  = 
-      let rec extract_array' (partial_map : (Z3.Expr.expr * Z3.Expr.expr) list) (e : Z3.Expr.expr) : mem_model =
+let extract_array (e : Constr.z3_expr) : mem_model  = 
+      let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
           Printf.printf "%s\n" (Z3.Expr.to_string e);
           let numargs = Z3.Expr.get_num_args e in
           let args = Z3.Expr.get_args e in
@@ -83,19 +83,16 @@ let extract_array (e : Z3.Expr.expr) : mem_model  =
                 { default = key; model = List.rev partial_map}
                 end
           else begin
-                Printf.printf "Unpexpected case destructing Z3 array: %s" f_name;
+                warning "Unexpected case destructing Z3 array: %s" f_name;
                 {default = e ; model = partial_map}
                 end
       in
       extract_array' [] e
 
-
-module F = Z3.Model.FuncInterp
-
 let get_mem (m : Z3.Model.model) : mem_model option =
    let decls = Z3.Model.get_decls m |> List.filter ~f:(fun decl -> (Z3.Symbol.to_string (Z3.FuncDecl.get_name decl)) = "mem0") in
    match (List.hd decls) with
-   | None -> Printf.printf "No mem0 found.";
+   | None -> warning "No mem0 found.";
              None
    | Some f_decl -> let f_interp = Option.value_exn (Z3.Model.get_const_interp m f_decl) in
                     Some (extract_array f_interp)
@@ -120,7 +117,7 @@ let print_result (solver : Solver.solver) (status : Solver.status)
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
     breakpoint at the subroutine and fills the appropriate registers *)
 
-let expr_to_hex (e : Z3.Expr.expr) : string = Z3.Expr.to_string e |> String.substr_replace_first ~pattern:"#" ~with_:"0"
+let expr_to_hex (e : Constr.z3_expr) : string = Z3.Expr.to_string e |> String.substr_replace_first ~pattern:"#" ~with_:"0"
 
 let output_gdb (solver : Solver.solver) (status : Solver.status)
     (env : Env.t) ~func:(func : string) ~filename:(gdb_filename : string) : unit =
