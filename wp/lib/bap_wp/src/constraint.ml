@@ -136,6 +136,23 @@ let substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t =
 let substitute_one (constr : t) (old_exp : z3_expr) (new_exp : z3_expr) : t =
   Subst (constr, [old_exp], [new_exp])
 
+let update_current_regs (model : Model.model) (regs : z3_expr list) (vals : z3_expr list)
+    (jmp : Jmp.t) (map : reg_map) : reg_map =
+  let registers =
+    List.fold (List.zip_exn regs vals) ~init:[]
+      ~f:(fun regs (reg, value) ->
+          (* Manually removing mem from the list of variables being updated. *)
+          if String.is_prefix ~prefix:"mem" (Expr.to_string reg) then
+            regs
+          else
+            (reg, eval_model_exn model value) :: regs)
+  in
+  (* TODO: Figure out why we shouldn't overwrite the register values if the
+     jmp is already in the map. *)
+  match Jmp.Map.add map ~key:jmp ~data:registers with
+  | `Ok reg_map -> reg_map
+  | `Duplicate -> map
+
 let get_refuted_goals (constr : t) (solver : Z3.Solver.solver)
     (ctx : Z3.context) : refuted_goal seq =
   let model = get_model_exn solver in
@@ -159,20 +176,9 @@ let get_refuted_goals (constr : t) (solver : Z3.Solver.solver)
     | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
-      (* FIXME: Still getting some values that don't necessarily match up with
-         their values when running the program in GDB. *)
-      let registers =
-        List.fold (List.zip_exn olds news) ~init:[]
-          ~f:(fun regs (reg, value) ->
-              (* Manually removing mem from the list of variables being updates. *)
-              if String.is_prefix ~prefix:"mem" (Expr.to_string reg) then
-                regs
-              else
-                (reg, eval_model_exn model value) :: regs)
-      in
-      let current_registers = Jmp.Map.set current_registers ~key:jmp ~data:registers in
+      let current_registers = update_current_regs model olds news jmp current_registers in
       begin
-        match Z3.Solver.check solver [cond_res] with
+        match Solver.check solver [cond_res] with
         | Solver.SATISFIABLE ->
           let current_path = Jmp.Map.set current_path ~key:jmp ~data:true in
           worker c1 current_path current_registers olds news

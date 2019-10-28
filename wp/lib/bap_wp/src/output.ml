@@ -65,9 +65,11 @@ let format_registers (fmt : Format.formatter) (regs : Constr.reg_map) (jmp : Jmp
     let var_map = Env.get_var_map env in
     let reg_vals = VarMap.fold var_map ~init:[]
         ~f:(fun ~key ~data pairs ->
-            let regs = List.filter_map regs ~f:(fun (r, value) ->
+            let regs = List.find_map regs ~f:(fun (r, value) ->
                 if Expr.equal data r then Some (key, value) else None) in
-            List.append pairs regs)
+            match regs with
+            | None -> pairs
+            | Some r -> r :: pairs)
     in
     format_values fmt reg_vals;
     Format.fprintf fmt "\n%!"
@@ -84,7 +86,7 @@ let format_path (fmt : Format.formatter) (p : Constr.path) (regs : Constr.reg_ma
         let taken_str = if taken then "(taken)" else "(not taken)" in
         begin
           match Term.get_attr jmp address with
-          | None -> Format.fprintf fmt "\t%s %s\n%!" jmp_str taken_str
+          | None -> Format.fprintf fmt "\t%s %s (Address not found) \n%!" jmp_str taken_str
           | Some addr ->
             Format.fprintf fmt "\t%s %s (Address: %s)\n%!"
               jmp_str taken_str (Addr.to_string addr)
