@@ -31,27 +31,29 @@ module Constr = Constraint
     the same registers are removed. *)
 val format_model : Z3.Model.model -> Env.t -> Env.t -> string
 
-(* Creates a string representation of a goal that has been refuted given the model.
-   This string shows the lhs and rhs of a goal that compares two values. It also
-   shows the path taken to reach the refuted goal, along with the register values
-   along that path. *)
-val format_refuted_goal : Constr.refuted_goal -> Z3.Model.model -> Env.t -> string
+(** Creates a string representation of a goal that has been refuted given the model.
+    This string shows the lhs and rhs of a goal that compares two values. If print_path
+    is set, it also shows the path taken to reach the refuted goal and the register
+    values along that path. *)
+val format_refuted_goal :
+  Constr.refuted_goal -> Z3.Model.model -> Env.t -> print_path:bool -> string
 
 (** Prints out the result from check, and if the result is [SAT], generate a model that
-    represents the registers and memory values that lead to a specific program state. *)
-val print_result : Z3.Solver.solver -> Z3.Solver.status -> Constr.t
-  -> orig:Env.t -> modif:Env.t -> unit
-
+    represents the registers and memory values that lead to a specific program state,
+    a list of goals that have been refuted, and if specified, the paths that lead to
+    the refuted goals. *)
+val print_result :
+  Z3.Solver.solver -> Z3.Solver.status -> Constr.t -> print_path:bool ->
+  orig:Env.t -> modif:Env.t -> unit
 
 (** Prints to file a gdb script that will fill the appropriate registers with the countermodel *)
-val output_gdb : Z3.Solver.solver -> Z3.Solver.status -> Env.t -> func:string -> filename:string -> unit
+val output_gdb :
+  Z3.Solver.solver -> Z3.Solver.status -> Env.t -> func:string -> filename:string -> unit
 
 (** [mem_model] The default value stores the final else branch of a memory model. The model holds an association list of addresses and
     values held at those adresses. *)
-
 type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
 
 (** [extract_array] takes a z3 expression that is a sequence of stores and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
-
 val extract_array : Constr.z3_expr -> mem_model
