@@ -66,7 +66,6 @@ type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3
 
 let extract_array (e : Constr.z3_expr) : mem_model  = 
       let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
-          Printf.printf "%s\n" (Z3.Expr.to_string e);
           let numargs = Z3.Expr.get_num_args e in
           let args = Z3.Expr.get_args e in
           let f_decl = Z3.Expr.get_func_decl e in
@@ -83,19 +82,28 @@ let extract_array (e : Constr.z3_expr) : mem_model  =
                 { default = key; model = List.rev partial_map}
                 end
           else begin
-                warning "Unexpected case destructing Z3 array: %s" f_name;
+                warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
                 {default = e ; model = partial_map}
                 end
       in
       extract_array' [] e
 
-let get_mem (m : Z3.Model.model) : mem_model option =
-   let decls = Z3.Model.get_decls m |> List.filter ~f:(fun decl -> (Z3.Symbol.to_string (Z3.FuncDecl.get_name decl)) = "mem0") in
-   match (List.hd decls) with
-   | None -> warning "No mem0 found.";
-             None
-   | Some f_decl -> let f_interp = Option.value_exn (Z3.Model.get_const_interp m f_decl) in
-                    Some (extract_array f_interp)
+let is_x86 (a : Arch.t) : bool =
+  match a with
+  | #Arch.x86 -> true
+  | _ -> false
+
+let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
+    let arch = Env.get_arch env in
+    if is_x86 arch then
+    begin
+      let module Target = (val target_of_arch arch) in
+      let mem, _ = Env.get_var env Target.CPU.mem in
+      Some (extract_array (Constr.eval_model_exn m mem))
+    end
+    else
+      None
+
 
 
 let print_result (solver : Solver.solver) (status : Solver.status)
@@ -130,7 +138,7 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     Printf.printf "Z3 Version: %s\n" (Z3.Version.to_string);
     let model = Solver.get_model solver
                 |> Option.value_exn ?here:None ?error:None ?message:None in
-    let option_mem_model = get_mem model in
+    let option_mem_model = get_mem model env in
     let varmap = Env.get_var_map env in 
 >>>>>>> 874382e... Tests and simple mem-model extractor for gdb
     let module Target = (val target_of_arch (Env.get_arch env)) in

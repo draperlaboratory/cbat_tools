@@ -45,7 +45,7 @@ val output_gdb : Z3.Solver.solver -> Z3.Solver.status -> Env.t -> func:string ->
 
 type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
 
-(** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
+(** [extract_array] takes a z3 expression that is a sequence of stores and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
 val extract_array : Constr.z3_expr -> mem_model
