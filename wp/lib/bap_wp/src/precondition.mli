@@ -127,27 +127,13 @@ val non_null_assert : Env.exp_cond
     We use the default value [!num_unroll = 5]. *)
 val num_unroll : int ref
 
-(** Creates a default environment with the default lists of function
-    specs, jump specs, and interrupt specs, and an empty list of
-    {!Environment.exp_conds}. Optionally takes in a sequence of subs to initialize
-    the fun_specs, the number of times to unroll a loop, a list of
-    {!Environment.exp_cond}s, and the architecture of the binary. *)
-val mk_default_env
-  :  ?jmp_spec:Env.jmp_spec
-  -> ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
-  -> ?num_loop_unroll:int
-  -> ?exp_conds:Env.exp_cond list
-  -> ?arch:Bap.Std.Arch.t
-  -> Z3.context
-  -> Env.var_gen
-  -> Env.t
 
 (** Creates an environment that inlines function calls not defined in
     cbat.h.  It contains a default list of jump specs and interrupt
     specs, and an empty list of {!Environment.exp_cond}s. Takes in a sequence of subs
     of the program, and optionally the number of times to unroll a loop,
     a list of {!Environment.exp_cond}s, and the architecture of the binary. *)
-val mk_inline_env
+val mk_env
   :  ?jmp_spec:Env.jmp_spec
   -> ?num_loop_unroll:int
   -> ?exp_conds:Env.exp_cond list

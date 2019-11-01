@@ -448,16 +448,16 @@ let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
         increment_stack_ptr post env)
   }
 
-let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (arch : Arch. t): Env.fun_spec =
+let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t): Env.fun_spec option =
   let open Env in
   let spec_name = "spec_inline" in
   if Seq.mem to_inline sub ~equal:Sub.equal then
-    {
+    Some {
       spec_name = spec_name;
       spec = Inline
     }
   else
-    spec_default sub arch
+    None
 
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
@@ -469,21 +469,7 @@ let int_spec_default : Env.int_spec =
 
 let num_unroll : int ref = ref 5
 
-let mk_default_env
-    ?jmp_spec:(jmp_spec = jmp_spec_default)
-    ?subs:(subs = Seq.empty)
-    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
-    ?exp_conds:(exp_conds = [])
-    ?arch:(arch = `x86_64)
-    (ctx : Z3.context)
-    (var_gen : Env.var_gen)
-  : Env.t =
-  let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
-               spec_arg_terms; spec_rax_out] in
-  Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
-    ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
-
-let mk_inline_env
+let mk_env
     ?jmp_spec:(jmp_spec = jmp_spec_default)
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?exp_conds:(exp_conds = [])
@@ -493,8 +479,9 @@ let mk_inline_env
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet] in
-  Env.mk_env ctx var_gen ~specs ~default_spec:(spec_inline to_inline) ~jmp_spec
+  let specs = [(spec_inline to_inline); spec_verifier_error; spec_verifier_assume;
+               spec_verifier_nondet; spec_arg_terms; spec_rax_out] in
+  Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
     ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
