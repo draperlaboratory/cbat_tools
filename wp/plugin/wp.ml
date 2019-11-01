@@ -50,6 +50,9 @@ let update_default_num_unroll (num_unroll : int option) : unit =
 let has_inline_funcs (to_inline : string list) : bool =
   not (List.is_empty to_inline)
 
+let filter_subs (subs : Sub.t Seq.t) : (Sub.t Seq.t) =
+  Seq.filter ~f:(fun s -> String.is_prefix ~prefix:"sub_" (Sub.name s)) subs
+
 let find_inline_funcs (inline_funcs : string list) ~to_find:(to_find : Sub.t Seq.t)
     ~to_check:(to_check : Sub.t Seq.t) : Sub.t Seq.t =
   if List.is_empty inline_funcs then
@@ -66,6 +69,8 @@ let varset_to_string (vs : Var.Set.t) : string =
   |> Seq.to_list
   |> List.to_string ~f:Var.to_string
 
+
+
 let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string)
     ~inline:(inline : bool)
@@ -76,18 +81,18 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func_err subs func in
   let env =
-    if inline || has_inline_funcs to_inline then
-      let to_inline =
+      let to_inline = if inline || has_inline_funcs to_inline then
+        begin
         if List.is_empty to_inline then
           subs
         else
           to_inline
           |> List.map ~f:(find_func_err subs)
           |> Seq.of_list
+        end
+        else Seq.empty
       in
-      Pre.mk_inline_env ctx var_gen ~subs ~arch ~to_inline:to_inline
-    else
-      Pre.mk_default_env ctx var_gen ~subs ~arch
+      Pre.mk_env ctx var_gen ~subs ~arch ~to_inline: (Seq.append to_inline (filter_subs subs))
   in
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let post =
@@ -126,14 +131,14 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let main_sub1 = find_func_err subs1 func in
   let main_sub2 = find_func_err subs2 func in
   let env1, env2 =
-    if inline || has_inline_funcs to_inline then
-      let to_inline1 = find_inline_funcs to_inline ~to_find:subs1 ~to_check:subs2 in
-      let to_inline2 = find_inline_funcs to_inline ~to_find:subs2 ~to_check:subs1 in
-      Pre.mk_inline_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1,
-      Pre.mk_inline_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
-    else
-      Pre.mk_default_env ctx var_gen ~subs:subs1 ~arch:arch,
-      Pre.mk_default_env ctx var_gen ~subs:subs2 ~arch:arch
+    let to_inline1 =  if inline || has_inline_funcs to_inline then 
+                      find_inline_funcs to_inline ~to_find:subs1 ~to_check:subs2
+                      else Seq.empty in
+    let to_inline2 = if inline || has_inline_funcs to_inline then 
+                      find_inline_funcs to_inline ~to_find:subs2 ~to_check:subs1
+                      else Seq.empty in
+    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:(Seq.append to_inline1 (filter_subs subs1)),
+    Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:(Seq.append to_inline2 (filter_subs subs2))
   in
   let pre, env1, env2 =
     if check_calls then
