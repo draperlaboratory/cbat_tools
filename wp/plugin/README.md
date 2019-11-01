@@ -8,11 +8,15 @@ Depends on:
     - core_kernel 0.11
     - bap 2.0.0-alpha
     - ounit 2.0.8
-    - z3 4.8.4
+    - z3 4.8.6
 
 All these can be installed with
 
     opam install package_name
+
+The latest z3 version can be installed with
+
+    opam pin add z3.4.8.6 --dev-repo
 
 To build and install the plugin:
 
