@@ -398,7 +398,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
              let args = Term.enum arg_t sub in
-             let inputs, outputs = Seq.fold args ~init:([], [])
+             let _inputs, outputs = Seq.fold args ~init:([], [])
                  ~f:(fun (ins, outs) arg ->
                      let var = var_of_arg_t arg in
                      match Arg.intent arg with
@@ -407,11 +407,12 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
                      | Some Both -> var :: ins, var :: outs
                      | None -> ins, outs)
              in
-             subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs, env)
+             subst_fun_outputs env sub post ~inputs:[] ~outputs:outputs, env)
     }
   else
     None
 
+(* This spec chaoses RAX if it is used on the LHS of an assignment in the subroutine. *)
 let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
@@ -432,12 +433,29 @@ let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             let inputs = get_function_inputs sub env in
+             let _inputs = get_function_inputs sub env in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
-             subst_fun_outputs env sub post ~inputs:inputs ~outputs:[rax], env)
+             subst_fun_outputs env sub post ~inputs:[] ~outputs:[rax], env)
     }
   else
     None
+
+(* This spec currently chaoses RAX even if it is not used on the LHS of an assignment
+   if the architecture is x86_64. It should be extended to chaos all caller-saved
+   registers. *)
+let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+  match arch with
+  | `x86_64 ->
+    Some {
+      spec_name = "spec_chaos_rax";
+      spec = Summary
+          (fun env post tid ->
+             let post = set_fun_called post env tid in
+             let post, env = increment_stack_ptr post env in
+             let rax = Var.create "RAX" reg64_t in
+             subst_fun_outputs env sub post ~inputs:[] ~outputs:[rax], env)
+    }
+  | _ -> None
 
 let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
   let open Env in
@@ -479,7 +497,7 @@ let mk_default_env
     (var_gen : Env.var_gen)
   : Env.t =
   let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
-               spec_arg_terms; spec_rax_out] in
+               spec_arg_terms; spec_rax_out; spec_chaos_rax] in
   Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
     ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
 
