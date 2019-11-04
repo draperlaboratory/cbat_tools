@@ -29,26 +29,6 @@ type goal = { goal_name : string; goal_val : z3_expr }
 
 type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
 
-let goal_to_string (g : goal) : string =
-  Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
-
-let pp_path (ch : Format.formatter) (p : path) : unit =
-  Format.fprintf ch "Path:\n%!";
-  Jmp.Map.iteri p ~f:(fun ~key:jmp ~data:taken ->
-      let jmp_str =
-        jmp |> Jmp.to_string |> String.substr_replace_first ~pattern:"\n" ~with_:"" in
-      let taken_str = if taken then "(taken)" else "(not taken)" in
-      let addr_str =
-        match Term.get_attr jmp address with
-        | None -> "not found"
-        | Some addr -> Addr.to_string addr
-      in
-      Format.fprintf ch "\t%40s %12s (Address: %s)\n%!" jmp_str taken_str addr_str;
-    )
-
-let path_to_string (p : path) : string =
-  Format.asprintf "%a" pp_path p
-
 let eval_model_exn (model : Model.model) (expr: z3_expr) : z3_expr =
   Model.eval model expr true
   |> Option.value_exn
@@ -64,6 +44,84 @@ let get_model_exn (solver : Solver.solver) : Model.model =
     ~error:(Error.of_string "get_model_exn: Error getting the model from the Z3 solver.")
     ~message:(Format.sprintf "Unable to get the model from the Z3 solver : %s"
                 (Solver.to_string solver))
+
+let goal_to_string (g : goal) : string =
+  Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
+
+let format_values (fmt : Format.formatter) (vals : (Var.t * z3_expr) list) : unit =
+  List.iter vals
+    ~f:(fun (var, value) ->
+        let var_str = Var.to_string var in
+        let pad_size = Int.max (5 - (String.length var_str)) 1 in
+        let pad = String.make pad_size ' ' in
+        Format.fprintf fmt
+          "\t%s%s|->  @[%s@]@\n" var_str pad (Expr.to_string value))
+
+let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
+    (var_map : z3_expr Var.Map.t) : unit =
+  match Jmp.Map.find regs jmp with
+  | None -> ()
+  | Some regs ->
+    let reg_vals = Var.Map.fold var_map ~init:[]
+        ~f:(fun ~key ~data pairs ->
+            match List.find regs ~f:(fun (r, _) -> Expr.equal data r) with
+            | None -> pairs
+            | Some (_, value) -> (key, value) :: pairs)
+    in
+    format_values fmt reg_vals;
+    Format.fprintf fmt "\n%!"
+
+let format_path (fmt : Format.formatter) (p : path) (regs : reg_map)
+    (var_map : z3_expr Var.Map.t) : unit =
+  Format.fprintf fmt "\n\tPath:\n%!";
+  Jmp.Map.iteri p
+    ~f:(fun ~key:jmp ~data:taken ->
+        let jmp_str =
+          jmp
+          |> Jmp.to_string
+          |> String.substr_replace_first ~pattern:"\n" ~with_:"" in
+        let taken_str = if taken then "(taken)" else "(not taken)" in
+        begin
+          match Term.get_attr jmp address with
+          | None -> Format.fprintf fmt "\t%s %s (Address not found)\n%!" jmp_str taken_str
+          | Some addr ->
+            Format.fprintf fmt "\t%s %s (Address: %s)\n%!"
+              jmp_str taken_str (Addr.to_string addr)
+        end;
+        format_registers fmt regs jmp var_map)
+
+let path_to_string (p : path) : string =
+  let fmt = Format.str_formatter in
+  format_path fmt p Jmp.Map.empty Var.Map.empty;
+  Format.flush_str_formatter ()
+
+let format_goal (fmt : Format.formatter) (g : goal) (model : Model.model) : unit =
+  Format.fprintf fmt "%s:" g.goal_name;
+  if Bool.is_eq g.goal_val then
+    begin
+      let args = Expr.get_args g.goal_val in
+      Format.fprintf fmt "\n\tConcrete values: = ";
+      List.iter args ~f:(fun arg ->
+          let value = eval_model_exn model arg in
+          Format.fprintf fmt "%s " (Expr.to_string value));
+      Format.fprintf fmt "\n\tZ3 Expression: = ";
+      List.iter args ~f:(fun arg ->
+          let simplified = Expr.simplify arg None in
+          Format.fprintf fmt "%s " (Expr.to_string simplified));
+    end
+  else
+    Format.fprintf fmt "\n\tZ3 Expression: %s"
+      (Expr.to_string (Expr.simplify g.goal_val None))
+
+let format_refuted_goal (rg : refuted_goal) (model : Model.model)
+    (var_map : z3_expr Var.Map.t) ~print_path:(print_path : bool) : string =
+  let fmt = Format.str_formatter in
+  format_goal fmt rg.goal model;
+  if print_path then format_path fmt rg.path rg.reg_map var_map;
+  Format.flush_str_formatter ()
+
+let goal_of_refuted_goal (rg : refuted_goal) : goal =
+  rg.goal
 
 let mk_goal (name : string) (value : z3_expr) : goal =
   { goal_name = name; goal_val = value }

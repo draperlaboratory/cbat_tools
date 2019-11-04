@@ -247,14 +247,9 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
                                       Option.value_exn ?here:None ?error:None ?message:None) in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
-let is_x86 (a : Arch.t) : bool =
-  match a with
-  | #Arch.x86 -> true
-  | _ -> false
-
 let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
   let arch = Env.get_arch env in
-  if is_x86 arch then
+  if Env.is_x86 arch then
     begin
       let module Target = (val target_of_arch arch) in
       let sp, env = Env.get_var env Target.CPU.sp in

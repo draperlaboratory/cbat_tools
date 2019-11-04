@@ -47,14 +47,10 @@ type goal
     boolean, which marks whether the path was taken or not. *)
 type path = bool Bap.Std.Jmp.Map.t
 
-(** A map containing a pair of registers and their values at a specific jump
-    in the program. *)
-type reg_map = (z3_expr * z3_expr) list Bap.Std.Jmp.Map.t
-
 (** A goal that has been refuted by the Z3 model during WP analysis. Contains
     the path taken in the binary to reach the goal, as well as a map of register
     values at each jump in the path. *)
-type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
+type refuted_goal
 
 (** [mk_goal name e] creates a goal using a Z3 boolean expression and
     a name. *)
@@ -66,8 +62,18 @@ val goal_to_string : goal -> string
 (** Creates a string representation of a path. *)
 val path_to_string : path -> string
 
-(** Pretty prints a path. *)
-val pp_path : Format.formatter -> path -> unit
+(** Creates a string representation of a mapping of BAP variables to their [z3_expr]s. *)
+val format_values : Format.formatter -> (Bap.Std.Var.t * z3_expr) list -> unit
+
+(** Creates a string representation of a goal that has been refuted given the model.
+    This string shows the lhs and rhs of a goal that compares two values. If print_path
+    is set, it also shows the path taken to reach the refuted goal and the register
+    values along that path. *)
+val format_refuted_goal :
+  refuted_goal -> Z3.Model.model -> z3_expr Bap.Std.Var.Map.t -> print_path:bool -> string
+
+(** Obtains the goal data type from a refuted goal. *)
+val goal_of_refuted_goal : refuted_goal -> goal
 
 (** Obtains a goal's tagged name. *)
 val get_goal_name : goal -> string

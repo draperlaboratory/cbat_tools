@@ -27,6 +27,12 @@ module Array = Z3.Z3Array
 
 (* To run these tests: `make test.unit` in bap_wp directory *)
 
+let assert_refuted_goals (test_ctx : test_ctxt) (expected : Constr.z3_expr)
+    (goals : Constr.refuted_goal Seq.t) : unit =
+  Seq.iter goals ~f:(fun g ->
+      assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
+        expected (g |> Constr.goal_of_refuted_goal |> Constr.get_goal_val))
+
 let test_get_refuted_goals (test_ctx : test_ctxt) : unit =
   let ctx = Z3.mk_context [] in
   let solver = Z3.Solver.mk_simple_solver ctx in
@@ -46,9 +52,7 @@ let test_get_refuted_goals (test_ctx : test_ctxt) : unit =
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
     Z3.Solver.SATISFIABLE result;
   let goals = Constr.get_refuted_goals clause solver ctx in
-  Sequence.iter goals ~f:(fun g ->
-      assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
-        (Bool.mk_eq ctx x two) (Constr.get_goal_val g.goal))
+  assert_refuted_goals test_ctx (Bool.mk_eq ctx x two) goals
 
 let test_get_refuted_goals_mem (test_ctx : test_ctxt) : unit =
   let ctx = Z3.mk_context [] in
@@ -69,9 +73,7 @@ let test_get_refuted_goals_mem (test_ctx : test_ctxt) : unit =
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
     Z3.Solver.SATISFIABLE result;
   let goals = Constr.get_refuted_goals constr solver ctx in
-  Sequence.iter goals ~f:(fun g ->
-      assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
-        goal (Constr.get_goal_val g.goal))
+  assert_refuted_goals test_ctx goal goals
 
 let test_substitute (test_ctx : test_ctxt) : unit =
   let ctx = Z3.mk_context [] in
@@ -109,9 +111,7 @@ let test_substitute_order (test_ctx : test_ctxt) : unit =
   assert_equal ~ctxt:test_ctx ~printer:Z3.Solver.string_of_status
     Z3.Solver.SATISFIABLE result;
   let goals = Constr.get_refuted_goals pre solver ctx in
-  Sequence.iter goals ~f:(fun g ->
-      assert_equal ~ctxt:test_ctx ~printer:Expr.to_string ~cmp:Expr.equal
-        post_expr (Constr.get_goal_val g.goal))
+  assert_refuted_goals test_ctx post_expr goals
 
 let suite = [
   "Get Refuted Goals"             >:: test_get_refuted_goals;

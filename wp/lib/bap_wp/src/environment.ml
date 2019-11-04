@@ -318,3 +318,7 @@ let fold_fun_tids (env : t) ~init:(init : 'a)
     ~f:(f : key:string -> data:Tid.t -> 'a -> 'a) : 'a =
   StringMap.fold env.fun_name_tid ~init:init ~f:f
 
+let is_x86 (a : Arch.t) : bool =
+  match a with
+  | #Arch.x86 -> true
+  | _ -> false

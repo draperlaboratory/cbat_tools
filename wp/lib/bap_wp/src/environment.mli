@@ -175,6 +175,9 @@ val get_arch : t -> Bap.Std.Arch.t
 val fold_fun_tids :
   t -> init:'a -> f:(key:string -> data:Bap.Std.Tid.t -> 'a -> 'a) -> 'a
 
+(** Checks if the architecture is part of the x86 family. *)
+val is_x86 : Bap.Std.Arch.t -> bool
+
 (*-------- Z3 constant creation utilities ----------*)
 
 (** Create a constant Z3 expression of a type that corresponds to a bap type, where
