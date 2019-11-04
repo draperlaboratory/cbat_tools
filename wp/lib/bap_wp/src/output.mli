@@ -27,17 +27,6 @@ module Env = Environment
 
 module Constr = Constraint
 
-(** Creates a string representation of a Z3 Model where duplicate entries representing
-    the same registers are removed. *)
-val format_model : Z3.Model.model -> Env.t -> Env.t -> string
-
-(** Creates a string representation of a goal that has been refuted given the model.
-    This string shows the lhs and rhs of a goal that compares two values. If print_path
-    is set, it also shows the path taken to reach the refuted goal and the register
-    values along that path. *)
-val format_refuted_goal :
-  Constr.refuted_goal -> Z3.Model.model -> Env.t -> print_path:bool -> string
-
 (** Prints out the result from check, and if the result is [SAT], generate a model that
     represents the registers and memory values that lead to a specific program state,
     a list of goals that have been refuted, and if specified, the paths that lead to
