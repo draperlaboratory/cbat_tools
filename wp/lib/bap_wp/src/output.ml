@@ -90,16 +90,20 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
 
 let print_result (solver : Solver.solver) (status : Solver.status) (goals: Constr.t)
     ~print_path:(print_path : bool)  ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
-  let ctx = Env.get_context env1 in
-  let var_map = Env.get_var_map env1 in
   match status with
   | Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
   | Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
   | Solver.SATISFIABLE ->
-    Format.printf "\nSAT!\n%!";
+    let module Target = (val target_of_arch (Env.get_arch env1)) in
+    let ctx = Env.get_context env1 in
+    let var_map = Env.get_var_map env1 in
     let model = Constr.get_model_exn solver in
+    let mem1, _ = Env.get_var env1 Target.CPU.mem in
+    let mem2, _ = Env.get_var env2 Target.CPU.mem in
+    let refuted_goals =
+      Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
+    Format.printf "\nSAT!\n%!";
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
-    let refuted_goals = Constr.get_refuted_goals goals solver ctx in
     Format.printf "\nRefuted goals:\n%!";
     Seq.iter refuted_goals ~f:(fun goal ->
         Format.printf "%s\n%!"
