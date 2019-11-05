@@ -112,8 +112,12 @@ val substitute : t -> z3_expr list -> z3_expr list -> t
 (** [substitute_one c e d] is equivalent to [substitute c [e] [d]]. *)
 val substitute_one : t -> z3_expr -> z3_expr -> t
 
-(** Obtains a list of goals that have been refuted by a Z3 model. *)
-val get_refuted_goals : t -> Z3.Solver.solver -> Z3.context -> refuted_goal Bap.Std.Seq.t
+(** [get_refuted_goals ~filter c solver ctx] obtains a list of goals that have
+    been refuted by a Z3 model. The register map in the refuted goal will not
+    save any z3 variable in [filter]. *)
+val get_refuted_goals :
+  ?filter_out:z3_expr list -> t -> Z3.Solver.solver -> Z3.context ->
+  refuted_goal Bap.Std.Seq.t
 
 (** Evaluates an expression in the current model. May raise an error if
     evaluation fails in the case that the argument contains quantifiers, is

@@ -23,6 +23,7 @@ type z3_expr = Expr.expr
 
 type path = bool Jmp.Map.t
 
+(* A map containing pairs of a register and its value at specific jumps in the program. *)
 type reg_map = (z3_expr * z3_expr) list Jmp.Map.t
 
 type goal = { goal_name : string; goal_val : z3_expr }
@@ -195,12 +196,12 @@ let substitute_one (constr : t) (old_exp : z3_expr) (new_exp : z3_expr) : t =
   Subst (constr, [old_exp], [new_exp])
 
 let update_current_regs (model : Model.model) (regs : z3_expr list) (vals : z3_expr list)
-    (jmp : Jmp.t) (map : reg_map) : reg_map =
+    (jmp : Jmp.t) (map : reg_map) (filter_out : z3_expr list) : reg_map =
   let registers =
     List.fold (List.zip_exn regs vals) ~init:[]
       ~f:(fun regs (reg, value) ->
           (* Manually removing mem from the list of variables being updated. *)
-          if String.is_prefix ~prefix:"mem" (Expr.to_string reg) then
+          if List.exists filter_out ~f:(Expr.equal reg) then
             regs
           else
             (reg, eval_model_exn model value) :: regs)
@@ -211,8 +212,8 @@ let update_current_regs (model : Model.model) (regs : z3_expr list) (vals : z3_e
   | `Ok reg_map -> reg_map
   | `Duplicate -> map
 
-let get_refuted_goals (constr : t) (solver : Z3.Solver.solver)
-    (ctx : Z3.context) : refuted_goal seq =
+let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
+    (solver : Z3.Solver.solver) (ctx : Z3.context) : refuted_goal seq =
   let model = get_model_exn solver in
   let rec worker (constr : t) (current_path : path) (current_registers : reg_map)
       (olds : z3_expr list) (news : z3_expr list) : refuted_goal seq =
@@ -234,7 +235,8 @@ let get_refuted_goals (constr : t) (solver : Z3.Solver.solver)
     | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
-      let current_registers = update_current_regs model olds news jmp current_registers in
+      let current_registers = update_current_regs
+          model olds news jmp current_registers filter_out in
       begin
         match Solver.check solver [cond_res] with
         | Solver.SATISFIABLE ->
