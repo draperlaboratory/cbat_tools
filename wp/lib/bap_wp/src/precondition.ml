@@ -474,13 +474,13 @@ let mk_env
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?exp_conds:(exp_conds = [])
     ?arch:(arch = `x86_64)
-    ~subs:(subs : Sub.t Seq.t)
-    ~to_inline:(to_inline : Sub.t Seq.t)
+    ?subs:(subs = Seq.empty)
+    ?to_inline:(to_inline = Seq.empty)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  let specs = [(spec_inline to_inline); spec_verifier_error; spec_verifier_assume;
-               spec_verifier_nondet; spec_arg_terms; spec_rax_out] in
+  let specs = [spec_verifier_error; spec_verifier_assume;
+               spec_verifier_nondet; (spec_inline to_inline); spec_arg_terms; spec_rax_out] in
   Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
     ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
 

@@ -81,18 +81,21 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func_err subs func in
   let env =
-      let to_inline = if inline || has_inline_funcs to_inline then
+      let to_inline' = if (inline || has_inline_funcs to_inline) then
         begin
-        if List.is_empty to_inline then
-          subs
-        else
-          to_inline
-          |> List.map ~f:(find_func_err subs)
-          |> Seq.of_list
+          if List.is_empty to_inline then
+            (Printf.printf "using all subs"; subs)
+          else
+            begin
+            to_inline
+            |> List.map ~f:(find_func_err subs)
+            |> Seq.of_list
+            end
         end
         else Seq.empty
       in
-      Pre.mk_env ctx var_gen ~subs ~arch ~to_inline: (Seq.append to_inline (filter_subs subs))
+      Seq.iter (filter_subs subs) ~f:(fun sub -> Printf.printf "%s\n" (Sub.name sub));
+      Pre.mk_env ctx var_gen ~subs ~arch ~to_inline:(Seq.append to_inline' (filter_subs subs))
   in
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let post =

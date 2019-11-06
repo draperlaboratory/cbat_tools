@@ -138,8 +138,8 @@ val mk_env
   -> ?num_loop_unroll:int
   -> ?exp_conds:Env.exp_cond list
   -> ?arch:Bap.Std.Arch.t
-  -> subs:Bap.Std.Sub.t Bap.Std.Seq.t
-  -> to_inline: Bap.Std.Sub.t Bap.Std.Seq.t
+  -> ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
+  -> ?to_inline: Bap.Std.Sub.t Bap.Std.Seq.t
   -> Z3.context
   -> Env.var_gen
   -> Env.t
