@@ -45,7 +45,7 @@ let assert_z3_result (test_ctx : test_ctxt) (env : Env.t) (body : string)
 let test_empty_block (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let block = Blk.create () in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_block env post block in
@@ -55,7 +55,7 @@ let test_empty_block (test_ctx : test_ctxt) : unit =
 let test_assign_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen ()in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let y = Var.create "y" reg32_t in
   let x = Var.create "x" reg32_t in
   let e = Bil.binop Bil.plus (Bil.var x) one in
@@ -71,7 +71,7 @@ let test_assign_1 (test_ctx : test_ctxt) : unit =
 let test_assign_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let y = Var.create "y" reg32_t in
   let x = Var.create "x" reg32_t in
   let e = Bil.binop Bil.plus (Bil.var x) one in
@@ -87,7 +87,7 @@ let test_assign_2 (test_ctx : test_ctxt) : unit =
 let test_assign_3 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let y = Var.create "y" reg32_t in
   let x = Var.create "x" reg32_t in
   let e = Bil.binop Bil.plus (Bil.var x) one in
@@ -107,7 +107,7 @@ let test_assign_3 (test_ctx : test_ctxt) : unit =
 let test_phi_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let l1_tid = Tid.create () in
   Tid.set_name l1_tid "test_l1";
   let l2_tid = Tid.create () in
@@ -130,7 +130,7 @@ let test_phi_1 (test_ctx : test_ctxt) : unit =
 let test_read_write_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let addr = Var.create "addr" reg32_t in
@@ -152,7 +152,7 @@ let test_read_write_1 (test_ctx : test_ctxt) : unit =
 let test_read_write_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let addr = Var.create "addr" reg32_t in
@@ -174,7 +174,7 @@ let test_read_write_2 (test_ctx : test_ctxt) : unit =
 let test_read_write_3 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let addr = Var.create "addr" reg32_t in
@@ -196,7 +196,7 @@ let test_read_write_3 (test_ctx : test_ctxt) : unit =
 let test_read_write_4 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let addr = Var.create "addr" reg32_t in
@@ -218,7 +218,7 @@ let test_read_write_4 (test_ctx : test_ctxt) : unit =
 let test_bit_shift_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let lshift = Bil.binop Bil.lshift (Bil.var x) two in
@@ -240,7 +240,7 @@ let test_bit_shift_1 (test_ctx : test_ctxt) : unit =
 let test_bit_shift_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let lshift = Bil.binop Bil.lshift (Bil.var y) two in
@@ -262,7 +262,7 @@ let test_bit_shift_2 (test_ctx : test_ctxt) : unit =
 let test_bit_ashift_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let lshift = Bil.binop Bil.lshift (Bil.var x) two in
@@ -284,7 +284,7 @@ let test_bit_ashift_1 (test_ctx : test_ctxt) : unit =
 let test_bit_ashift_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let lshift = Bil.binop Bil.lshift (Bil.var y) two in
@@ -306,7 +306,7 @@ let test_bit_ashift_2 (test_ctx : test_ctxt) : unit =
 let test_ite_assign_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg8_t in
   let y = Var.create "y" reg8_t in
   let lshift = Bil.binop Bil.lshift (Bil.var x) (Bil.int @@ Word.one 8) in
@@ -327,7 +327,7 @@ let test_ite_assign_1 (test_ctx : test_ctxt) : unit =
 let test_subroutine_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let z = Var.create "z" reg32_t in
@@ -355,7 +355,7 @@ let test_subroutine_1 (test_ctx : test_ctxt) : unit =
 let test_subroutine_1_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let z = Var.create "z" reg32_t in
@@ -384,7 +384,7 @@ let test_subroutine_1_2 (test_ctx : test_ctxt) : unit =
 let test_subroutine_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let l1_tid = Tid.create () in
   let l2_tid = Tid.create () in
   let l3_tid = Tid.create () in
@@ -430,7 +430,7 @@ let test_subroutine_2 (test_ctx : test_ctxt) : unit =
 let test_subroutine_3 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let z = Var.create "z" reg32_t in
@@ -454,7 +454,7 @@ let test_subroutine_3 (test_ctx : test_ctxt) : unit =
 let test_subroutine_4 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let blk1 = Blk.create () in
   let blk2 = Blk.create () in
   let blk3 = Blk.create () in
@@ -485,7 +485,7 @@ let test_subroutine_4 (test_ctx : test_ctxt) : unit =
 let test_subroutine_5 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let blk1 = Blk.create () in
   let blk2 = Blk.create () in
   let blk3 = Blk.create () in
@@ -521,7 +521,7 @@ let test_subroutine_6 (test_ctx : test_ctxt) : unit =
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid sub_assert)) in
   let sub = mk_sub [blk2; blk3] in
   let subs = Seq.of_list [sub; sub_assert] in
-  let env = Pre.mk_default_env ~subs ctx var_gen in
+  let env = Pre.mk_env ~subs ctx var_gen in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
@@ -533,7 +533,7 @@ let test_subroutine_7 (test_ctx : test_ctxt) : unit =
   let assert_sub, assert_expr = Bil_to_bir.mk_assert_fail () in
   let sub = Bil_to_bir.bil_to_sub Bil.([jmp assert_expr])  in
   let subs = Seq.singleton assert_sub in
-  let env = Pre.mk_default_env ~subs ctx var_gen in
+  let env = Pre.mk_env ~subs ctx var_gen in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
@@ -556,7 +556,7 @@ let test_call_1 (test_ctx : test_ctxt) : unit =
              |> mk_def ret_var zero
              |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid call_body)) in
   let main_sub = mk_sub [blk2; blk3] in
-  let env = Pre.mk_default_env ctx var_gen
+  let env = Pre.mk_env ctx var_gen 
       ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_eq ctx (mk_z3_expr env (Bil.var ret_var)) (mk_z3_expr env zero)
              |> Constr.mk_goal "ret = 0"
@@ -583,7 +583,7 @@ let test_call_2 (test_ctx : test_ctxt) : unit =
              |> mk_def ret_var zero
              |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid call_body)) in
   let main_sub = mk_sub [blk2; blk3] in
-  let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
+  let env = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_const_s ctx "called_test_sub1"
              |> Constr.mk_goal "called_test_sub1"
              |> Constr.mk_constr
@@ -605,7 +605,7 @@ let test_call_3 (test_ctx : test_ctxt) : unit =
   let call_body = mk_sub ~tid:sub_tid ~name:"test_sub" [blk1] in
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid call_body)) in
   let main_sub = mk_sub [blk2; blk3] in
-  let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
+  let env = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_const_s ctx "called_test_sub1"
              |> Constr.mk_goal "called_test_sub1"
              |> Constr.mk_constr
@@ -625,7 +625,7 @@ let test_call_4 (test_ctx : test_ctxt) : unit =
   let call_body = mk_sub ~tid:sub_tid ~name:"test_sub" [blk1] in
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid call_body)) in
   let main_sub = mk_sub [blk2; blk3] in
-  let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
+  let env = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_const_s ctx "called_test_sub1"
              |> Constr.mk_goal "called_test_sub1"
              |> Constr.mk_constr
@@ -651,7 +651,7 @@ let test_call_5 (test_ctx : test_ctxt) : unit =
                    |> mk_cond cond blk2 blk3 in
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid call_body)) in
   let main_sub = mk_sub [start_body; blk2; blk3] in
-  let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [call_body; main_sub]) in
+  let env = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [call_body; main_sub]) in
   let post = Bool.mk_const_s ctx "called_test_sub1"
              |> Constr.mk_goal "called_test_sub1"
              |> Constr.mk_constr
@@ -680,7 +680,7 @@ let test_call_6 (test_ctx : test_ctxt) : unit =
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call1_body)) in
   let blk3 = blk3 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call2_body)) in
   let main_sub = mk_sub [start_body; blk2; blk3; blk4] in
-  let env = Pre.mk_default_env ctx var_gen
+  let env = Pre.mk_env ctx var_gen 
       ~subs:(Seq.of_list [call1_body; call2_body; main_sub]) in
   let sub1_called = Option.value_exn (sub1_tid |> Env.get_called env) in
   let sub2_called = Option.value_exn (sub2_tid |> Env.get_called env) in
@@ -715,7 +715,7 @@ let test_call_7 (test_ctx : test_ctxt) : unit =
                (Label.direct (Term.tid call_sub)) in
   let blk3 = blk3 |> mk_def z (Bil.var y) in
   let main_sub = mk_sub [blk2; blk3] in
-  let env = Pre.mk_inline_env ctx var_gen
+  let env = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub; call_sub])
       ~to_inline:(Seq.singleton call_sub)
   in
@@ -753,7 +753,7 @@ let test_call_8 (test_ctx : test_ctxt) : unit =
                (Label.direct (Term.tid call_sub)) in
   let blk3 = blk3 |> mk_def z (Bil.var y) in
   let main_sub = mk_sub [blk2; blk3] in
-  let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub; call_sub]) in
+  let env = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub; call_sub]) in
   let sub_called = Option.value_exn (call_tid |> Env.get_called env) in
   let post = Bool.mk_and ctx [
       Bool.mk_eq ctx (mk_z3_expr env Bil.(var x + one)) (mk_z3_expr env (Bil.var z));
@@ -792,7 +792,7 @@ let test_call_9 (test_ctx : test_ctxt) : unit =
                  |> mk_call (Label.direct (Term.tid blk_main'))
                    (Label.direct (Term.tid call1_sub)) in
   let main_sub = mk_sub [blk_main; blk_main'] in
-  let env = Pre.mk_inline_env ctx var_gen
+  let env = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub; call1_sub; call2_sub])
       ~to_inline:(Seq.of_list [call1_sub; call2_sub])
   in
@@ -836,7 +836,7 @@ let test_call_10 (test_ctx : test_ctxt) : unit =
                  |> mk_call (Label.direct (Term.tid blk_main'))
                    (Label.direct (Term.tid call1_sub)) in
   let main_sub = mk_sub [blk_main; blk_main'] in
-  let env = Pre.mk_inline_env ctx var_gen
+  let env = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub; call1_sub; call2_sub])
       ~to_inline:(Seq.of_list [call1_sub])
   in
@@ -864,7 +864,7 @@ let test_int_1 (test_ctx : test_ctxt) : unit =
              |> mk_int 0x0 blk2
   in
   let main_sub = mk_sub [blk1; blk2] in
-  let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.of_list [main_sub]) in
+  let env = Pre.mk_env ctx var_gen ~to_inline:(Seq.empty) ~subs:(Seq.of_list [main_sub]) in
   let post = Bool.mk_eq ctx (mk_z3_expr env (Bil.var ret_var)) (mk_z3_expr env zero)
              |> Constr.mk_goal "ret = 0"
              |> Constr.mk_constr
@@ -876,7 +876,7 @@ let test_int_1 (test_ctx : test_ctxt) : unit =
 let test_loop_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let a = Var.create "a" reg32_t in
@@ -907,7 +907,7 @@ let test_loop_1 (test_ctx : test_ctxt) : unit =
 let test_loop_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let sub = Bil.(
@@ -933,7 +933,7 @@ let test_loop_2 (test_ctx : test_ctxt) : unit =
 let test_loop_3 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let sub = Bil.(
@@ -959,7 +959,7 @@ let test_loop_3 (test_ctx : test_ctxt) : unit =
 let test_loop_4 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ~num_loop_unroll:1 ctx var_gen in
+  let env = Pre.mk_env ~num_loop_unroll:1 ctx var_gen in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let sub = Bil.(
@@ -994,7 +994,7 @@ let test_cast (width_orig : int) (width_cast : int) (value : int)
     (cast : Bil.cast) (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen in
+  let env = Pre.mk_env ctx var_gen  in
   let bil_var = Bil.int @@ Word.of_int value ~width:width_orig in
   let bil_cast = Bil.cast cast width_cast bil_var in
   let z3_var = Expr.simplify (mk_z3_expr env bil_var) None in
@@ -1014,7 +1014,7 @@ let test_cast (width_orig : int) (width_cast : int) (value : int)
 let test_exp_cond_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen ~exp_conds:[Pre.non_null_vc] in
+  let env = Pre.mk_env ctx var_gen  ~exp_conds:[Pre.non_null_vc] in
   let blk = Blk.create () in
   let addr = Var.create "addr" reg32_t in
   let mem = Var.create "mem" (mem32_t `r8) in
@@ -1029,7 +1029,7 @@ let test_exp_cond_1 (test_ctx : test_ctxt) : unit =
 let test_exp_cond_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen ~exp_conds:[Pre.non_null_vc] in
+  let env = Pre.mk_env ctx var_gen  ~exp_conds:[Pre.non_null_vc] in
   let blk = Blk.create () in
   let addr = Var.create "addr" reg32_t in
   let mem = Var.create "mem" (mem32_t `r8) in
@@ -1046,7 +1046,7 @@ let test_exp_cond_2 (test_ctx : test_ctxt) : unit =
 let test_subroutine_8 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_default_env ctx var_gen ~exp_conds:[Pre.non_null_assert] in
+  let env = Pre.mk_env ctx var_gen  ~exp_conds:[Pre.non_null_assert] in
   let mem = Var.create "mem" (mem32_t `r32) in
   let loc = Var.create "loc" reg32_t in
   let read = Bil.(load ~mem:(var mem) ~addr:(var loc) LittleEndian `r32) in
@@ -1097,7 +1097,7 @@ let test_branches_1 (test_ctx : test_ctxt) : unit =
     else
       None
   in
-  let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
+  let env = Pre.mk_env ctx var_gen  ~jmp_spec ~subs:(Seq.singleton sub) in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
@@ -1132,7 +1132,7 @@ let test_jmp_spec_reach_1 (test_ctx : test_ctxt) : unit =
     |> Jmp.Map.set ~key:(find_jump sub cond_z) ~data:false
     |> Pre.jmp_spec_reach
   in
-  let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
+  let env = Pre.mk_env ctx var_gen  ~jmp_spec ~subs:(Seq.singleton sub) in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   let solver = Z3.Solver.mk_simple_solver ctx in
@@ -1176,7 +1176,7 @@ let test_jmp_spec_reach_2 (test_ctx : test_ctxt) : unit =
     |> Jmp.Map.set ~key:(find_jump sub cond_unsat) ~data:true
     |> Pre.jmp_spec_reach
   in
-  let env = Pre.mk_default_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
+  let env = Pre.mk_env ctx var_gen  ~jmp_spec ~subs:(Seq.singleton sub) in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   let solver = Z3.Solver.mk_simple_solver ctx in
