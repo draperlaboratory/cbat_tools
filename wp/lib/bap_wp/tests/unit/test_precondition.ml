@@ -1011,6 +1011,30 @@ let test_cast (width_orig : int) (width_cast : int) (value : int)
   assert_equal ~ctxt:test_ctx ~printer:string_of_int width_cast (BV.get_size sort_cast)
 
 
+let test_shift_bitwidth (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let two = Bil.int @@ Word.of_int ~width:2 2 in
+  let sub = Bil.(
+      [
+        x := i32 0x3fffffff;
+        y := var x lsl two;
+        y := var y lsr two;
+      ]
+    ) |> bil_to_sub
+  in
+  let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.singleton sub) in
+  let post =
+    Bool.mk_eq ctx (mk_z3_var env x) (mk_z3_var env y)
+    |> Constr.mk_goal "x = y"
+    |> Constr.mk_constr
+  in
+  let pre, _ = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+
+
 let test_exp_cond_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -1339,6 +1363,8 @@ let suite = [
   "Unsigned: Bitwidth 3 -> 8; Value 6 -> 6" >:: test_cast 3 8 6 Bil.UNSIGNED;
   "High: Bitwidth 8 -> 5; Value: 238 -> 29" >:: test_cast 8 5 238 Bil.HIGH;
   "Low: Bitwidth 8 -> 5; Value: 238 -> 14" >:: test_cast 8 5 238 Bil.LOW;
+
+  "Test Shift Bitwidth" >:: test_shift_bitwidth;
 
   "Test branches" >:: test_branches_1;
   "Test jmp_spec_reach SAT" >:: test_jmp_spec_reach_1;
