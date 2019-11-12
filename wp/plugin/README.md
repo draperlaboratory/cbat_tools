@@ -9,7 +9,7 @@ Depends on:
     - bap 2.0.0-alpha
     - ounit 2.0.8
     - z3 4.8.6
-    - re 
+    - re 1.9.0
 
 All these can be installed with
 
