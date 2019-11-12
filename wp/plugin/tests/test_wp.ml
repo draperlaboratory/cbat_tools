@@ -42,8 +42,7 @@ let check_result (stream : char Stream.t) (expected : string) (test_ctx : test_c
 let test_compare_elf (elf_dir : string) (expected : string)
     ?func:(func = "main")
     ?check_calls:(check_calls = false)
-    ?inline:(inline = false)
-    ?to_inline:(to_inline = "")
+    ?inline:(inline = "")
     ?output_vars:(output_vars = "RAX,EAX")
     (test_ctx : test_ctxt)
   : unit =
@@ -56,8 +55,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
       Format.sprintf "--wp-file2=%s/main_2.bpj" target;
       Format.sprintf "--wp-function=%s" func;
       Format.sprintf "--wp-check-calls=%b" check_calls;
-      Format.sprintf "--wp-inline=%b" inline;
-      Format.sprintf "--wp-inline-funcs=%s" to_inline;
+      Format.sprintf "--wp-inline=%s" inline;
       Format.sprintf "--wp-output-vars=%s" output_vars;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
@@ -67,8 +65,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
 let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
     ?func:(func = "main")
     ?check_calls:(check_calls = false)
-    ?inline:(inline = false)
-    ?to_inline:(to_inline = "")
+    ?inline:(inline = "")
     ?post:(post = "")
     (test_ctx : test_ctxt)
   : unit =
@@ -79,8 +76,7 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
       Format.sprintf "--wp-compare=%b" false;
       Format.sprintf "--wp-function=%s" func;
       Format.sprintf "--wp-check-calls=%b" check_calls;
-      Format.sprintf "--wp-inline=%b" inline;
-      Format.sprintf "--wp-inline-funcs=%s" to_inline;
+      Format.sprintf "--wp-inline=%s" inline;
       Format.sprintf "--wp-postcond=%s" post;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target; elf_name];
@@ -107,10 +103,9 @@ let suite = [
   "Switch Case Assignments"        >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
   "Switch Cases"                   >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
   "No Stack Protection"            >:: test_compare_elf "no_stack_protection" "SAT!" ~output_vars:"RSI,RAX";
-  "Retrowrite Stub"                >:: test_compare_elf "retrowrite_stub" "UNSAT!"
-    ~inline:true ~to_inline:"__afl_maybe_log";
-  "Retrowrite Stub: imply inline"  >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~to_inline:"__afl_maybe_log";
-  "Retrowrite Stub: inline all"    >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:true;
+  "Retrowrite Stub"                >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:"__afl_maybe_log";
+  "Retrowrite Stub: imply inline"  >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:"__afl_maybe_log";
+  "Retrowrite Stub: inline all"    >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:".*";
   "Retrowrite Stub: Pop RSP"       >:: test_compare_elf "retrowrite_stub" "UNSAT!";
   "Retrowrite Stub No Ret in Call" >:: test_compare_elf "retrowrite_stub_no_ret" "UNSAT!";
 
@@ -118,19 +113,17 @@ let suite = [
   "Verifier Assume SAT"            >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
   "Verifier Assume UNSAT"          >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
   "Verifier Nondet"                >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
-  "Function Call"                  >:: test_single_elf "function_call" "main" "SAT!"
-    ~inline:true ~to_inline:"foo";
-  "Function Call: imply inline"    >:: test_single_elf "function_call" "main" "SAT!" ~to_inline:"foo";
-  "Function Call: inline all"      >:: test_single_elf "function_call" "main" "SAT!" ~inline:true;
-  "Function Spec"                  >:: test_single_elf "function_spec" "main" "UNSAT!"
-    ~inline:true ~to_inline:"foo";
-  "Function Spec: imply inline"    >:: test_single_elf "function_spec" "main" "UNSAT!" ~to_inline:"foo";
-  "Function Spec: inline all "     >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:true;
-  "Function Spec: no inlining"     >:: test_single_elf "function_spec" "main" "SAT!" ~inline:false;
+  "Function Call"                  >:: test_single_elf "function_call" "main" "SAT!" ~inline:"foo";
+  "Function Call: imply inline"    >:: test_single_elf "function_call" "main" "SAT!" ~inline:"foo";
+  "Function Call: inline all"      >:: test_single_elf "function_call" "main" "SAT!" ~inline:".*";
+  "Function Spec"                  >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:"foo";
+  "Function Spec: imply inline"    >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:"foo";
+  "Function Spec: inline all "     >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:".*";
+  "Function Spec: no inlining"     >:: test_single_elf "function_spec" "main" "SAT!" ~inline:"NONEXISTENTGARBAGE";
   "Nested Function Calls"          >:: test_single_elf "nested_function_calls" "main" "SAT!"
-    ~inline:true ~to_inline:"foo,bar";
-  "Nested Calls: imply inline"     >:: test_single_elf "nested_function_calls" "main" "SAT!" ~to_inline:"foo,bar";
-  "Nested Calls: inline all"       >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:true;
+    ~inline:"foo|bar";
+  "Nested Calls: imply inline"     >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:"foo|bar";
+  "Nested Calls: inline all"       >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:".*";
   "User Defined Postcondition"     >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
 
   "Update Number of Unrolls"       >:: test_update_num_unroll (Some 3);
