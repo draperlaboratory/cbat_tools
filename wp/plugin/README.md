@@ -9,6 +9,7 @@ Depends on:
     - bap 2.0.0-alpha
     - ounit 2.0.8
     - z3 4.8.6
+    - re 
 
 All these can be installed with
 
@@ -321,14 +322,10 @@ The various options are:
   function to be compared, or whether to compare which sub-routines
   are invoked in the body of the function. `false` by default.
 
-- `--wp-inline=[true|false]`. Determines whether to inline a
-  function call for the purpose of computing the semantics. By default
-  we simply build a summary, which is a heuristic representation of
-  the function call semantics. `false` by default.
-
-- `--wp-inline-funcs=funcs,list`. Determines which function calls to inline
-  when used in conjunction with `inline-funcs`. If `inline` is set without
-  specifying function calls, all functions in the binary will be inlined.
+- `--wp-inline=posix-re`. Function calls to inline as specified by a POSIX 
+  regular expression.  If not inlined, heuristic function summaries are used at
+  function call sites. For example, If you want to inline everything, set to 
+  --wp-inline=.* or --wp-inline=foo|bar will inline the functions foo and bar.
 
 - `--wp-postcond=smt-lib-string`. If present, replaces the
   default post-condition by the user-specified one, using the
