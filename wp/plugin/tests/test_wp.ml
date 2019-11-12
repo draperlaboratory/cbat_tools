@@ -104,7 +104,6 @@ let suite = [
   "Switch Cases"                   >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
   "No Stack Protection"            >:: test_compare_elf "no_stack_protection" "SAT!" ~output_vars:"RSI,RAX";
   "Retrowrite Stub"                >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:"__afl_maybe_log";
-  "Retrowrite Stub: imply inline"  >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:"__afl_maybe_log";
   "Retrowrite Stub: inline all"    >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:".*";
   "Retrowrite Stub: Pop RSP"       >:: test_compare_elf "retrowrite_stub" "UNSAT!";
   "Retrowrite Stub No Ret in Call" >:: test_compare_elf "retrowrite_stub_no_ret" "UNSAT!";
@@ -114,15 +113,11 @@ let suite = [
   "Verifier Assume UNSAT"          >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
   "Verifier Nondet"                >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
   "Function Call"                  >:: test_single_elf "function_call" "main" "SAT!" ~inline:"foo";
-  "Function Call: imply inline"    >:: test_single_elf "function_call" "main" "SAT!" ~inline:"foo";
   "Function Call: inline all"      >:: test_single_elf "function_call" "main" "SAT!" ~inline:".*";
   "Function Spec"                  >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:"foo";
-  "Function Spec: imply inline"    >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:"foo";
   "Function Spec: inline all "     >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:".*";
   "Function Spec: no inlining"     >:: test_single_elf "function_spec" "main" "SAT!" ~inline:"NONEXISTENTGARBAGE";
-  "Nested Function Calls"          >:: test_single_elf "nested_function_calls" "main" "SAT!"
-    ~inline:"foo|bar";
-  "Nested Calls: imply inline"     >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:"foo|bar";
+  "Nested Function Calls"          >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:"foo|bar";
   "Nested Calls: inline all"       >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:".*";
   "User Defined Postcondition"     >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
 
