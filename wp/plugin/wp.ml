@@ -115,8 +115,8 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let env1, env2 =
     let to_inline1 = match_inline to_inline subs1 in 
     let to_inline2 = match_inline to_inline subs2 in 
-    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1,  (* (Seq.append to_inline1 (filter_subs subs1)) *)
-    Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2 (* (Seq.append to_inline2 (filter_subs subs2)) *)
+    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1,
+    Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
   in
   let pre, env1, env2 =
     if check_calls then
