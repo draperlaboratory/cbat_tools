@@ -52,14 +52,14 @@ let match_inline (to_inline : string option) (subs : (Sub.t Seq.t)) : Sub.t Seq.
   match to_inline with
   | None -> Seq.empty
   | Some to_inline -> let inline_pat = Re.Posix.re to_inline |> Re.Posix.compile in
-                      let filter_subs = Seq.filter ~f:(fun s -> Re.execp inline_pat (Sub.name s)) subs in
-                      let _ = if Seq.length_is_bounded_by ~min:1 filter_subs then 
-                                  info "Inlining functions: %s\n"  (filter_subs |> Seq.to_list |> List.to_string ~f:(fun sub -> (Sub.name sub)))
-                                  else
-                                  warning "No matches on inlining\n"
-                                  
-                      in
-                      filter_subs
+    let filter_subs = Seq.filter ~f:(fun s -> Re.execp inline_pat (Sub.name s)) subs in
+    let _ = if Seq.length_is_bounded_by ~min:1 filter_subs then 
+        info "Inlining functions: %s\n"  (filter_subs |> Seq.to_list |> List.to_string ~f:(fun sub -> (Sub.name sub)))
+      else
+        warning "No matches on inlining\n"
+
+    in
+    filter_subs
 
 
 let varset_to_string (vs : Var.Set.t) : string =
