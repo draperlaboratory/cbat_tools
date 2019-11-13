@@ -1025,7 +1025,7 @@ let test_shift_bitwidth (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let env = Pre.mk_default_env ctx var_gen ~subs:(Seq.singleton sub) in
+  let env = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub) in
   let post =
     Bool.mk_eq ctx (mk_z3_var env x) (mk_z3_var env y)
     |> Constr.mk_goal "x = y"
