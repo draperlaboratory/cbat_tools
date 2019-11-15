@@ -1,4 +1,4 @@
 (library
   (name bap_wp)
   (public_name bap_wp)
-  (libraries bap z3 oUnit))
+  (libraries bap bap-x86-cpu z3 oUnit))

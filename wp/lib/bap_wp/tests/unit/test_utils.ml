@@ -27,6 +27,9 @@ let two : Exp.t = Bil.int @@ Word.of_int 2 ~width:32
 let i32 (n : int) : Exp.t =
   Bil.int (Word.of_int ~width:32 n)
 
+let i64 (n : int) : Exp.t =
+  Bil.int (Word.of_int ~width:64 n)
+
 let mk_def ?tid:(tid = Tid.create ()) (var : var) (exp : exp) (block : Blk.t) : Blk.t =
   Term.append def_t block (Def.create ~tid:tid var exp)
 
