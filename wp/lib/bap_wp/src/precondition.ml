@@ -20,7 +20,7 @@ module Expr = Z3.Expr
 module Arith = Z3.Arithmetic
 module BV = Z3.BitVector
 module Bool = Z3.Boolean
-module Array = Z3.Z3Array
+module Z3Array = Z3.Z3Array
 module FuncDecl = Z3.FuncDecl
 module Solver = Z3.Solver
 module Env = Environment
@@ -93,10 +93,10 @@ let lookup_sub (label : Label.t) (post : Constr.t) (env : Env.t) : Constr.t * En
 
 let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Constr.z3_expr)
     ~addr:(addr : Constr.z3_expr) (endian : Bap.Std.endian) : Constr.z3_expr =
-  assert (Array.is_array mem && mem |> Expr.get_sort
-                                |> Array.get_range
-                                |> Z3.Sort.get_sort_kind |> (fun s -> s = Z3enums.BV_SORT));
-  let m_size = mem |> Expr.get_sort |> Array.get_range |> BV.get_size in
+  assert (Z3Array.is_array mem && mem |> Expr.get_sort
+                                  |> Z3Array.get_range
+                                  |> Z3.Sort.get_sort_kind |> (fun s -> s = Z3enums.BV_SORT));
+  let m_size = mem |> Expr.get_sort |> Z3Array.get_range |> BV.get_size in
   let addr_size = addr |> Expr.get_sort |> BV.get_size in
   let nums_to_read = word_size / m_size in
   debug "Creating load on Mem<%d,%d>, with target Imm<%d>%!" addr_size m_size word_size;
@@ -106,7 +106,7 @@ let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Constr.z3_ex
     else
       (* TODO: handle overflow *)
       let addr' = BV.mk_add ctx addr (z3_expr_one ctx addr_size) in
-      read_list (n-1) addr' (Array.mk_select ctx mem addr :: reads)
+      read_list (n-1) addr' (Z3Array.mk_select ctx mem addr :: reads)
   in
   let read = read_list nums_to_read addr [] in
   let read_sorted =
@@ -119,10 +119,10 @@ let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Constr.z3_ex
 let store_z3_mem (ctx : Z3.context) ~word_size:word_size
     ~mem:(mem : Constr.z3_expr) ~addr:(addr : Constr.z3_expr) ~content:(e : Constr.z3_expr)
     (endian : Bap.Std.endian) : Constr.z3_expr =
-  assert (Array.is_array mem && mem |> Expr.get_sort
-                                |> Array.get_range
-                                |> Z3.Sort.get_sort_kind |> (fun s -> s = Z3enums.BV_SORT));
-  let m_size = mem |> Expr.get_sort |> Array.get_range |> BV.get_size in
+  assert (Z3Array.is_array mem && mem |> Expr.get_sort
+                                  |> Z3Array.get_range
+                                  |> Z3.Sort.get_sort_kind |> (fun s -> s = Z3enums.BV_SORT));
+  let m_size = mem |> Expr.get_sort |> Z3Array.get_range |> BV.get_size in
   let addr_size = addr |> Expr.get_sort |> BV.get_size in
   let nums_to_write = word_size / m_size in
   let first_loc, next_loc =
@@ -139,7 +139,7 @@ let store_z3_mem (ctx : Z3.context) ~word_size:word_size
         debug "Storing bits %d to %d at position %s%!"
           loc (loc + m_size - 1) (Expr.to_string addr);
         let e_chunk_n = BV.mk_extract ctx (loc + m_size - 1) loc e in
-        let mem' = Array.mk_store ctx mem addr e_chunk_n in
+        let mem' = Z3Array.mk_store ctx mem addr e_chunk_n in
         let addr' = BV.mk_add ctx addr (z3_expr_one ctx addr_size) in
         store (n-1) (next_loc loc) addr' mem'
       end
@@ -414,7 +414,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
              let args = Term.enum arg_t sub in
-             let _inputs, outputs = Seq.fold args ~init:([], [])
+             let inputs, outputs = Seq.fold args ~init:([], [])
                  ~f:(fun (ins, outs) arg ->
                      let var = var_of_arg_t arg in
                      match Arg.intent arg with
@@ -423,7 +423,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
                      | Some Both -> var :: ins, var :: outs
                      | None -> ins, outs)
              in
-             subst_fun_outputs env sub post ~inputs:[] ~outputs:outputs, env)
+             subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs, env)
     }
   else
     None
@@ -449,9 +449,9 @@ let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             let _inputs = get_function_inputs sub env in
+             let inputs = get_function_inputs sub env in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
-             subst_fun_outputs env sub post ~inputs:[] ~outputs:[rax], env)
+             subst_fun_outputs env sub post ~inputs:inputs ~outputs:[rax], env)
     }
   else
     None
@@ -459,7 +459,7 @@ let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
 (* This spec currently chaoses RAX even if it is not used on the LHS of an assignment
    if the architecture is x86_64. It should be extended to chaos all caller-saved
    registers. *)
-let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let _spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   match arch with
   | `x86_64 ->
     Some {
@@ -468,10 +468,60 @@ let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             let rax = Var.create "RAX" reg64_t in
-             subst_fun_outputs env sub post ~inputs:[] ~outputs:[rax], env)
+             subst_fun_outputs env sub post ~inputs:[] ~outputs:[X86_cpu.AMD64.rax], env)
     }
   | _ -> None
+
+let arg_regs (arch : Arch.t) : Var.t list =
+  match arch with
+  | `x86_64 ->
+    let open X86_cpu.AMD64 in
+    (* r.(0) and r.(1) refer to registers R8 and R9 respectively. *)
+    [rdi; rsi; rdx; rcx; r.(0); r.(1)]
+  | _ ->
+    raise (Not_implemented "arg_regs: Argument locations have not been \
+                            implemented for non-x86 architectures.")
+
+let caller_saved_regs (arch : Arch.t) : Var.t list =
+  match arch with
+  | `x86_64 ->
+    let open X86_cpu.AMD64 in
+    (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
+    let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
+    [rax; rcx; rdx; rsi; rdi] @ r
+  | _ ->
+    raise (Not_implemented "caller_saved_regs: Caller-saved registers have not been \
+                            implemented for non-x86_64 architectures.")
+
+let callee_saved_regs (arch : Arch.t) : Var.t list =
+  match arch with
+  | `x86_64 ->
+    let open X86_cpu.AMD64 in
+    (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
+    let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
+    [rbx; rsp; rbp] @ r
+  | _ ->
+    raise (Not_implemented "callee_saved_regs: Callee-saved registers have not been \
+                            implemented for non-x86_64 architectures.")
+
+let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+  if Env.is_x86 arch then
+    Some {
+      spec_name = "spec_chaos_caller_saved";
+      spec = Summary
+          (fun env post tid ->
+             let post = set_fun_called post env tid in
+             let post, env = increment_stack_ptr post env in
+             (* let inputs = get_function_inputs sub env in *)
+             let inputs = arg_regs arch in
+             let regs = caller_saved_regs arch in
+             Printf.printf "Inputs: %s\nOutputs: %s\n%!"
+               (inputs |> List.to_string ~f:Var.to_string)
+               (regs |> List.to_string ~f:Var.to_string) ;
+             subst_fun_outputs env sub post ~inputs:inputs ~outputs:regs, env)
+    }
+  else
+    None
 
 let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
   let open Env in
@@ -514,7 +564,8 @@ let mk_env
     (var_gen : Env.var_gen)
   : Env.t =
   let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
-               spec_inline to_inline; spec_arg_terms; spec_rax_out; spec_chaos_rax] in
+               spec_inline to_inline; spec_arg_terms; spec_rax_out;
+               spec_chaos_caller_saved] in
   Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
     ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
 
