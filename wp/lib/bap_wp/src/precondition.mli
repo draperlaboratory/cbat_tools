@@ -168,19 +168,33 @@ val non_null_assert : Env.exp_cond
     We use the default value [!num_unroll = 5]. *)
 val num_unroll : int ref
 
+(** [default_fun_specs to_inline] is the default list of specs used when
+    generating an environment. It contains the following specs:
+    spec_verifier_error, spec_verifier_assume, spec_verifier_nondet,
+    spec_inline to_inline, spec_arg_terms, spec_rax_out, spec_chaos_rax, and
+    spec_chaos_caller_saved. *)
+val default_fun_specs
+  :  Bap.Std.Sub.t Bap.Std.Seq.t
+  -> (Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option) list
 
-(** Creates an environment that inlines function calls not defined in
-    cbat.h.  It contains a default list of jump specs and interrupt
-    specs, and an empty list of {!Environment.exp_cond}s. Takes in a sequence of subs
-    of the program, and optionally the number of times to unroll a loop,
-    a list of {!Environment.exp_cond}s, and the architecture of the binary. *)
+(** Creates an environment with an empty sequence of subroutines to initialize
+    function specs, an empty sequence of subroutines to inline, the default list
+    of function_specs, the default jump_spec, default interrupt_spec, an empty
+    list of {!Environment.exp_cond}s, a loop unroll count of 5, an architecture
+    of x86_64, and freshening variables set to false unless specified. A Z3
+    context and var_gen are required to generate Z3 expressions and create
+    fresh variables. *)
 val mk_env
-  :  ?jmp_spec:Env.jmp_spec
-  -> ?num_loop_unroll:int
+  :  ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
+  -> ?to_inline:Bap.Std.Sub.t Bap.Std.Seq.t
+  -> ?specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option) list
+  -> ?default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec)
+  -> ?jmp_spec:Env.jmp_spec
+  -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
+  -> ?num_loop_unroll:int
   -> ?arch:Bap.Std.Arch.t
-  -> ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
-  -> ?to_inline: Bap.Std.Sub.t Bap.Std.Seq.t
+  -> ?freshen_vars:bool
   -> Z3.context
   -> Env.var_gen
   -> Env.t

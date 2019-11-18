@@ -19,7 +19,7 @@
    It contains a Z3 context, a {!var_gen}, the association between BIR variables
    and Z3 constants, preconditions for previously visited blocks, a mapping of Z3
    variables to function calls during runtime, subroutine summaries, a handler for
-   loop unrolling, and expression verification conditionss.
+   loop unrolling, and expression verification conditions.
 
 *)
 
@@ -71,18 +71,24 @@ type cond_type = Verify of Constr.goal | Assume of Constr.goal
     typically a correctness constraint, like no overflow or no null dereference. *)
 type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 
-(** Create a new environment. Optionally pass in a sequence of subroutines, which
-    will be used to initialize the preconditions on invocation. *)
+(** Creates a new environment with a sequence of subroutines in the program used
+    to initialize function specs, a list of function_specs that each summarize
+    the precondition for its mapped function, the default function_spec in the
+    case a function does not satisfy the requirements of the other function_specs,
+    a jump_spec for handling branches, an int_spec for handling interrupts, a list
+    of exp_conds to satisfy, the number of times to unroll a loop, the
+    architecture of the binary, the option to freshen variable names, a Z3
+    context, and a variable generator. *)
 val mk_env
-  :  ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
-  -> ?exp_conds:exp_cond list
-  -> ?freshen_vars:bool
-  -> ?arch:Bap.Std.Arch.t
+  :  subs:Bap.Std.Sub.t Bap.Std.Seq.t
   -> specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec option) list
   -> default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec)
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
+  -> exp_conds:exp_cond list
   -> num_loop_unroll:int
+  -> arch:Bap.Std.Arch.t
+  -> freshen_vars:bool
   -> Z3.context
   -> var_gen
   -> t
