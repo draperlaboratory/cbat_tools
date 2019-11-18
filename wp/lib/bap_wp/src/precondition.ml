@@ -459,7 +459,7 @@ let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
 (* This spec currently chaoses RAX even if it is not used on the LHS of an assignment
    if the architecture is x86_64. It should be extended to chaos all caller-saved
    registers. *)
-let _spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   match arch with
   | `x86_64 ->
     Some {
