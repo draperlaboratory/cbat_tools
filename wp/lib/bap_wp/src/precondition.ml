@@ -428,7 +428,6 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
-(* This spec chaoses RAX if it is used on the LHS of an assignment in the subroutine. *)
 let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
@@ -456,9 +455,6 @@ let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
-(* This spec currently chaoses RAX even if it is not used on the LHS of an assignment
-   if the architecture is x86_64. It should be extended to chaos all caller-saved
-   registers. *)
 let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   match arch with
   | `x86_64 ->
@@ -553,21 +549,27 @@ let int_spec_default : Env.int_spec =
 
 let num_unroll : int ref = ref 5
 
+let default_fun_specs (to_inline : Sub.t Seq.t) :
+  (Sub.t -> Arch.t -> Env.fun_spec option) list =
+  [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
+   spec_inline to_inline; spec_arg_terms; spec_rax_out; spec_chaos_caller_saved]
+
 let mk_env
-    ?jmp_spec:(jmp_spec = jmp_spec_default)
-    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
-    ?exp_conds:(exp_conds = [])
-    ?arch:(arch = `x86_64)
     ?subs:(subs = Seq.empty)
     ?to_inline:(to_inline = Seq.empty)
+    ?specs:(specs = default_fun_specs to_inline)
+    ?default_spec:(default_spec = spec_default)
+    ?jmp_spec:(jmp_spec = jmp_spec_default)
+    ?int_spec:(int_spec = int_spec_default)
+    ?exp_conds:(exp_conds = [])
+    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
+    ?arch:(arch = `x86_64)
+    ?freshen_vars:(freshen_vars = false)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  let specs = [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
-               spec_inline to_inline; spec_arg_terms; spec_rax_out;
-               spec_chaos_caller_saved] in
-  Env.mk_env ctx var_gen ~specs ~default_spec:spec_default ~jmp_spec
-    ~int_spec:int_spec_default ~subs ~num_loop_unroll ~exp_conds ~arch
+  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds
+    ~num_loop_unroll ~arch ~freshen_vars ctx var_gen
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in

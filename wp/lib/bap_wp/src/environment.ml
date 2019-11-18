@@ -205,15 +205,15 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
   }
 
 let mk_env
-    ?subs:(subs = Seq.empty)
-    ?exp_conds:(exp_conds = [])
-    ?freshen_vars:(freshen = false)
-    ?arch:(arch = `x86_64)
+    ~subs:(subs : Sub.t Seq.t)
     ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
     ~default_spec:(default_spec : Sub.t -> Arch.t -> fun_spec)
     ~jmp_spec:(jmp_spec : jmp_spec)
     ~int_spec:(int_spec : int_spec)
+    ~exp_conds:(exp_conds : exp_cond list)
     ~num_loop_unroll:(num_loop_unroll : int)
+    ~arch:(arch : Arch.t)
+    ~freshen_vars:(freshen : bool)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =

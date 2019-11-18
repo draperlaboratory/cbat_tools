@@ -531,16 +531,10 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
         rdx := i64 4;
         jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t) ]
     ) |> bil_to_sub in
-  let env1 = Env.mk_env ctx var_gen
-      ~specs:[Pre.spec_chaos_caller_saved]
-      ~default_spec:Pre.spec_default ~jmp_spec:Pre.jmp_spec_default
-      ~int_spec:Pre.int_spec_default ~subs:(Seq.of_list [main_sub1; call_sub1])
-      ~num_loop_unroll:!Pre.num_unroll in
-  let env2 = Env.mk_env ctx var_gen
-      ~specs:[Pre.spec_chaos_caller_saved]
-      ~default_spec:Pre.spec_default ~jmp_spec:Pre.jmp_spec_default
-      ~int_spec:Pre.int_spec_default ~subs:(Seq.of_list [main_sub2; call_sub2])
-      ~num_loop_unroll:!Pre.num_unroll in
+  let env1 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
+      ~subs:(Seq.of_list [main_sub1; call_sub1]) in
+  let env2 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
+      ~subs:(Seq.of_list [main_sub2; call_sub2]) in
   let input_vars = Var.Set.of_list [rdi; rsi; rdx; rax] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, _, _ = Comp.compare_subs_eq
