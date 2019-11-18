@@ -104,15 +104,47 @@ val caller_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 
 val callee_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 
+(** This spec is used for the functions [__assert_fail] or [__VERIFIER_error]. It
+    returns a precondition of [false]. *)
+val spec_verifier_error : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
+(** This spec is used for assumptions made with [__VERIFIER_assume(assumption)].
+    It returns a precondition of [assumption => post]. *)
+val spec_verifier_assume : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
+(** This spec is used for functions of [__VERIFIER_nondet_type], which return a
+    nondeterministic value for the type. This spec chaoses the register that holds
+    the output value from the function call. *)
+val spec_verifier_nondet : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
+(** This spec is used when BAP is able to generate [arg term]s for the subroutine
+    in the case when an API is specified. It creates a function predicate for
+    each output register given the input registers in the form
+    [func_out_reg(in_reg1, in_reg2, ...)]. *)
+val spec_arg_terms : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
+(** This spec is used when RAX or EAX is used on the left-hand side of the subroutine.
+    It creates a function predicate for RAX/EAX with the input registers as arguments. *)
+val spec_rax_out : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
+(** This spec is similar to {! spec_rax_out}, but will create a function predicate
+    for RAX regardless if it was used in the left-hand side of the subroutine or not.
+    This spec only works for x86_64 architectures. *)
+val spec_chaos_rax : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
+(** This spec is used for x86 architectures and will create a function predicate
+    for all caller-saved registers given with the input registers as arguments. *)
 val spec_chaos_caller_saved : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
 
+(** This spec is used to inline a function call. It calls {! visit_sub} on the
+    target function being called. *)
 val spec_inline :
   Bap.Std.Sub.t Bap.Std.Seq.t -> Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
 
 (** The default spec used when mapping subroutines to their preconditions. This
     spec sets the constraint representing the subroutine being called to true, and
-    updates the value of the stack pointer on the return, using a heuristic based on
-    the increments of [SP] before the return in the last block of the subroutine. *)
+    in x86 architectures, increments the value of the stack pointer on the return
+    by the address size. *)
 val spec_default : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec
 
 (** The default jmp spec for handling branches in a BIR program. *)
