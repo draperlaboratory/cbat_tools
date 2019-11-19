@@ -443,11 +443,11 @@ let test_sub_pair_fun_4 (test_ctx : test_ctxt) : unit =
 let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let ret_var = Var.create "EAX" reg32_t in
-  let x = Var.create "x" reg32_t in
-  let y = Var.create "y" reg32_t in
-  let call_sub1 = Bil.([ ret_var := var x + var y ]) |> bil_to_sub in
-  let call_sub2 = Bil.([ ret_var := var x + var y ]) |> bil_to_sub in
+  let ret_var = Var.create "RAX" reg64_t in
+  let rdi = Var.create "RDI" reg64_t in
+  let rsi = Var.create "RSI" reg64_t in
+  let call_sub1 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
+  let call_sub2 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
   let call_sub1 = Sub.with_name call_sub1 "test_call" in
   let call_sub2 = Sub.with_name call_sub2 "test_call" in
   let main_sub1 = Bil.(
@@ -458,7 +458,7 @@ let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub in
   let env1 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub1; call_sub1]) in
   let env2 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub2; call_sub2]) in
-  let input_vars = Var.Set.of_list [x; y; ret_var] in
+  let input_vars = Var.Set.of_list (ret_var :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton ret_var in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
@@ -472,26 +472,26 @@ let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
 let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let ret_var = Var.create "EAX" reg32_t in
-  let x = Var.create "x" reg32_t in
-  let y = Var.create "y" reg32_t in
-  let call_sub1 = Bil.([ ret_var := var x + var y ]) |> bil_to_sub in
-  let call_sub2 = Bil.([ ret_var := var x + var y ]) |> bil_to_sub in
+  let ret_var = Var.create "RAX" reg64_t in
+  let rdi = Var.create "RDI" reg64_t in
+  let rsi = Var.create "RSI" reg64_t in
+  let call_sub1 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
+  let call_sub2 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
   let call_sub1 = Sub.with_name call_sub1 "test_call" in
   let call_sub2 = Sub.with_name call_sub2 "test_call" in
   let main_sub1 = Bil.(
-      [ x := i32 1;
-        y := i32 2;
+      [ rdi := i64 1;
+        rsi := i64 2;
         jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t)  ]
     ) |> bil_to_sub in
   let main_sub2 = Bil.(
-      [ x := i32 2;
-        y := i32 3;
+      [ rdi := i64 2;
+        rsi := i64 3;
         jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t)  ]
     ) |> bil_to_sub in
   let env1 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub1; call_sub1]) in
   let env2 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub2; call_sub2]) in
-  let input_vars = Var.Set.of_list [x; y; ret_var] in
+  let input_vars = Var.Set.of_list (ret_var :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton ret_var in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
@@ -509,14 +509,8 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
   let rsi = Var.create "RSI" reg64_t in
   let rdx = Var.create "RDX" reg64_t in
   let rax = Var.create "RAX" reg64_t in
-  let call_sub1 = Bil.(
-      [
-        rax := var rdi + var rsi ]
-    ) |> bil_to_sub in
-  let call_sub2 = Bil.(
-      [
-        rax := var rdi + var rsi ]
-    ) |> bil_to_sub in
+  let call_sub1 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
+  let call_sub2 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
   let call_sub1 = Sub.with_name call_sub1 "test_call" in
   let call_sub2 = Sub.with_name call_sub2 "test_call" in
   let main_sub1 = Bil.(
@@ -535,7 +529,7 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
       ~subs:(Seq.of_list [main_sub1; call_sub1]) in
   let env2 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
       ~subs:(Seq.of_list [main_sub2; call_sub2]) in
-  let input_vars = Var.Set.of_list [rdi; rsi; rdx; rax] in
+  let input_vars = Var.Set.of_list (rax :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
@@ -544,6 +538,44 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
     compare_prop Z3.Solver.SATISFIABLE
+
+
+let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let rdi = Var.create "RDI" reg64_t in
+  let rsi = Var.create "RSI" reg64_t in
+  let rdx = Var.create "RDX" reg64_t in
+  let rax = Var.create "RAX" reg64_t in
+  let call_sub1 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
+  let call_sub2 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
+  let call_sub1 = Sub.with_name call_sub1 "test_call" in
+  let call_sub2 = Sub.with_name call_sub2 "test_call" in
+  let main_sub1 = Bil.(
+      [ rdi := i64 1;
+        rsi := i64 2;
+        rdx := i64 3;
+        jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t) ]
+    ) |> bil_to_sub in
+  let main_sub2 = Bil.(
+      [ rdi := i64 1;
+        rsi := i64 2;
+        rdx := i64 4;
+        jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t) ]
+    ) |> bil_to_sub in
+  let env1 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
+      ~subs:(Seq.of_list [main_sub1; call_sub1]) ~fun_input_regs:false in
+  let env2 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
+      ~subs:(Seq.of_list [main_sub2; call_sub2]) ~fun_input_regs:false in
+  let input_vars = Var.Set.of_list (rax :: x86_64_input_regs) in
+  let output_vars = Var.Set.singleton rax in
+  let compare_prop, _, _ = Comp.compare_subs_eq
+      ~input:input_vars ~output:output_vars
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+  assert_z3_compare test_ctx ~orig:env1 ~modif:env2
+    (Sub.to_string main_sub1)
+    (Sub.to_string main_sub2)
+    compare_prop Z3.Solver.UNSATISFIABLE
 
 
 let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
@@ -592,7 +624,8 @@ let suite = [
 
   "Function output substitution: UNSAT"      >:: test_fun_outputs_1;
   "Function output substitution: SAT"        >:: test_fun_outputs_2;
-  "Function output: x86_64 Registers"        >:: test_fun_outputs_3;
+  "Function output: all input regs SAT"      >:: test_fun_outputs_3;
+  "Function output: no input regss UNSAT"    >:: test_fun_outputs_4;
 
   "Compare memory layout"                    >:: test_sub_pair_mem_1;
 ]

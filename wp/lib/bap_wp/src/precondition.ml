@@ -292,17 +292,6 @@ let get_vars (t : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub t Var.Set.empty
 
-(* We are currently filtering out mem from the input variables because it causes
-   Z3 to slow down during evaluation. *)
-let get_function_inputs (sub : Sub.t) (env : Env.t) : Var.t list =
-  let arch = Env.get_arch env in
-  let module Target = (val target_of_arch arch) in
-  sub
-  |> Sub.ssa
-  |> Sub.free_vars
-  |> Var.Set.filter ~f:(fun v -> not (Target.CPU.is_mem v))
-  |> Var.Set.to_list
-
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It substitutes the original z3_expr
    representing the output variable. *)
@@ -330,6 +319,38 @@ let var_of_arg_t (arg : Arg.t) : Var.t =
   let vars = arg |> Arg.rhs |> Exp.free_vars in
   assert (Var.Set.length vars = 1);
   Var.Set.choose_exn vars
+
+let input_regs (arch : Arch.t) : Var.t list =
+  match arch with
+  | `x86_64 ->
+    let open X86_cpu.AMD64 in
+    (* r.(0) and r.(1) refer to registers R8 and R9 respectively. *)
+    [rdi; rsi; rdx; rcx; r.(0); r.(1)]
+  | _ ->
+    raise (Not_implemented "input_regs: Input registers have not been \
+                            implemented for non-x86 architectures.")
+
+let caller_saved_regs (arch : Arch.t) : Var.t list =
+  match arch with
+  | `x86_64 ->
+    let open X86_cpu.AMD64 in
+    (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
+    let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
+    [rax; rcx; rdx; rsi; rdi] @ r
+  | _ ->
+    raise (Not_implemented "caller_saved_regs: Caller-saved registers have not been \
+                            implemented for non-x86_64 architectures.")
+
+let callee_saved_regs (arch : Arch.t) : Var.t list =
+  match arch with
+  | `x86_64 ->
+    let open X86_cpu.AMD64 in
+    (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
+    let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
+    [rbx; rsp; rbp] @ r
+  | _ ->
+    raise (Not_implemented "callee_saved_regs: Callee-saved registers have not been \
+                            implemented for non-x86_64 architectures.")
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -428,7 +449,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
     Term.enum blk_t sub
@@ -448,9 +469,9 @@ let spec_rax_out (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             let inputs = get_function_inputs sub env in
+             let inputs = if Env.use_input_regs env then input_regs arch else [] in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
-             subst_fun_outputs env sub post ~inputs:inputs ~outputs:[rax], env)
+             subst_fun_outputs env sub post ~inputs ~outputs:[rax], env)
     }
   else
     None
@@ -464,41 +485,10 @@ let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             subst_fun_outputs env sub post ~inputs:[] ~outputs:[X86_cpu.AMD64.rax], env)
+             let inputs = if Env.use_input_regs env then input_regs arch else [] in
+             subst_fun_outputs env sub post ~inputs ~outputs:[X86_cpu.AMD64.rax], env)
     }
   | _ -> None
-
-let arg_regs (arch : Arch.t) : Var.t list =
-  match arch with
-  | `x86_64 ->
-    let open X86_cpu.AMD64 in
-    (* r.(0) and r.(1) refer to registers R8 and R9 respectively. *)
-    [rdi; rsi; rdx; rcx; r.(0); r.(1)]
-  | _ ->
-    raise (Not_implemented "arg_regs: Argument locations have not been \
-                            implemented for non-x86 architectures.")
-
-let caller_saved_regs (arch : Arch.t) : Var.t list =
-  match arch with
-  | `x86_64 ->
-    let open X86_cpu.AMD64 in
-    (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
-    let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
-    [rax; rcx; rdx; rsi; rdi] @ r
-  | _ ->
-    raise (Not_implemented "caller_saved_regs: Caller-saved registers have not been \
-                            implemented for non-x86_64 architectures.")
-
-let callee_saved_regs (arch : Arch.t) : Var.t list =
-  match arch with
-  | `x86_64 ->
-    let open X86_cpu.AMD64 in
-    (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
-    let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
-    [rbx; rsp; rbp] @ r
-  | _ ->
-    raise (Not_implemented "callee_saved_regs: Callee-saved registers have not been \
-                            implemented for non-x86_64 architectures.")
 
 let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if Env.is_x86 arch then
@@ -508,13 +498,9 @@ let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option 
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             (* let inputs = get_function_inputs sub env in *)
-             let inputs = arg_regs arch in
+             let inputs = if Env.use_input_regs env then input_regs arch else [] in
              let regs = caller_saved_regs arch in
-             Printf.printf "Inputs: %s\nOutputs: %s\n%!"
-               (inputs |> List.to_string ~f:Var.to_string)
-               (regs |> List.to_string ~f:Var.to_string) ;
-             subst_fun_outputs env sub post ~inputs:inputs ~outputs:regs, env)
+             subst_fun_outputs env sub post ~inputs ~outputs:regs, env)
     }
   else
     None
@@ -528,12 +514,12 @@ let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
         increment_stack_ptr post env)
   }
 
-let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t): Env.fun_spec option =
+let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t)
+  : Env.fun_spec option =
   let open Env in
-  let spec_name = "spec_inline" in
   if Seq.mem to_inline sub ~equal:Sub.equal then
     Some {
-      spec_name = spec_name;
+      spec_name = "spec_inline";
       spec = Inline
     }
   else
@@ -552,7 +538,7 @@ let num_unroll : int ref = ref 5
 let default_fun_specs (to_inline : Sub.t Seq.t) :
   (Sub.t -> Arch.t -> Env.fun_spec option) list =
   [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
-   spec_inline to_inline; spec_arg_terms; spec_rax_out; spec_chaos_caller_saved]
+   spec_inline to_inline; spec_arg_terms; spec_chaos_caller_saved; spec_rax_out]
 
 let mk_env
     ?subs:(subs = Seq.empty)
@@ -565,11 +551,12 @@ let mk_env
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?arch:(arch = `x86_64)
     ?freshen_vars:(freshen_vars = false)
+    ?fun_input_regs:(fun_input_regs = true)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
   Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds
-    ~num_loop_unroll ~arch ~freshen_vars ctx var_gen
+    ~num_loop_unroll ~arch ~freshen_vars ~fun_input_regs ctx var_gen
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in
