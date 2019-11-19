@@ -77,8 +77,9 @@ type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
     case a function does not satisfy the requirements of the other function_specs,
     a jump_spec for handling branches, an int_spec for handling interrupts, a list
     of exp_conds to satisfy, the number of times to unroll a loop, the
-    architecture of the binary, the option to freshen variable names, a Z3
-    context, and a variable generator. *)
+    architecture of the binary, the option to freshen variable names, the option
+    to use all input registers when generating predicates at a function call site,
+    a Z3 context, and a variable generator. *)
 val mk_env
   :  subs:Bap.Std.Sub.t Bap.Std.Seq.t
   -> specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec option) list
@@ -89,6 +90,7 @@ val mk_env
   -> num_loop_unroll:int
   -> arch:Bap.Std.Arch.t
   -> freshen_vars:bool
+  -> fun_input_regs:bool
   -> Z3.context
   -> var_gen
   -> t
@@ -183,6 +185,10 @@ val fold_fun_tids :
 
 (** Checks if the architecture is part of the x86 family. *)
 val is_x86 : Bap.Std.Arch.t -> bool
+
+(** Checks to see if the environment supports using all possible input registers
+    when generating predicates in the function specs at a function call site. *)
+val use_input_regs : t -> bool
 
 (*-------- Z3 constant creation utilities ----------*)
 

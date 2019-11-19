@@ -41,7 +41,8 @@ type t = {
   int_handler : int_spec;
   loop_handler : loop_handler;
   exp_conds : exp_cond list;
-  arch : Arch.t
+  arch : Arch.t;
+  fun_input_regs : bool
 }
 
 and fun_spec_type =
@@ -214,6 +215,7 @@ let mk_env
     ~num_loop_unroll:(num_loop_unroll : int)
     ~arch:(arch : Arch.t)
     ~freshen_vars:(freshen : bool)
+    ~fun_input_regs:(fun_input_regs : bool)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -231,7 +233,8 @@ let mk_env
     int_handler = int_spec;
     loop_handler = init_loop_unfold num_loop_unroll;
     exp_conds = exp_conds;
-    arch = arch
+    arch = arch;
+    fun_input_regs = fun_input_regs
   }
 
 let env_to_string (env : t) : string =
@@ -322,3 +325,6 @@ let is_x86 (a : Arch.t) : bool =
   match a with
   | #Arch.x86 -> true
   | _ -> false
+
+let use_input_regs (env : t) : bool =
+  env.fun_input_regs

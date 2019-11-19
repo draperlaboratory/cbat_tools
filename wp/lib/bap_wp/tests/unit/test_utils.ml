@@ -30,6 +30,9 @@ let i32 (n : int) : Exp.t =
 let i64 (n : int) : Exp.t =
   Bil.int (Word.of_int ~width:64 n)
 
+let x86_64_input_regs : Var.t list =
+  Pre.input_regs `x86_64
+
 let mk_def ?tid:(tid = Tid.create ()) (var : var) (exp : exp) (block : Blk.t) : Blk.t =
   Term.append def_t block (Def.create ~tid:tid var exp)
 

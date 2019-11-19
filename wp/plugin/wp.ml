@@ -73,12 +73,13 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string)
     ~to_inline:(to_inline : string option)
     ~post_cond:(post_cond : string)
+    ~fun_input_regs:(fun_input_regs : bool)
   : Constr.t * Env.t * Env.t =
   let arch = Project.arch proj in
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func_err subs func in
   let to_inline = match_inline to_inline subs in
-  let env = Pre.mk_env ctx var_gen ~subs ~arch ~to_inline in
+  let env = Pre.mk_env ctx var_gen ~subs ~arch ~to_inline ~fun_input_regs in
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let post =
     if String.(post_cond = "") then
@@ -102,6 +103,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     ~check_calls:(check_calls : bool)
     ~to_inline:(to_inline : string option)
     ~output_vars:(output_vars : string list)
+    ~fun_input_regs:(fun_input_regs : bool)
   : Constr.t * Env.t * Env.t =
   let prog1 = Program.Io.read file1 in
   let prog2 = Program.Io.read file2 in
@@ -113,10 +115,10 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let main_sub1 = find_func_err subs1 func in
   let main_sub2 = find_func_err subs2 func in
   let env1, env2 =
-    let to_inline1 = match_inline to_inline subs1 in 
-    let to_inline2 = match_inline to_inline subs2 in 
-    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1,
-    Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
+    let to_inline1 = match_inline to_inline subs1 in
+    let to_inline2 = match_inline to_inline subs2 in
+    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs,
+    Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2 ~fun_input_regs
   in
   let pre, env1, env2 =
     if check_calls then
@@ -148,6 +150,7 @@ let main (file1 : string) (file2 : string)
     ~output_vars:(output_vars : string list)
     ~gdb_filename:(gdb_filename : string option)
     ~print_path:(print_path : bool)
+    ~fun_input_regs:(fun_input_regs : bool)
     (proj : project) : unit =
   Log.start ~logdir:"/dev/stdout" ();
   let ctx = Env.mk_ctx () in
@@ -157,9 +160,10 @@ let main (file1 : string) (file2 : string)
   let has_files_to_compare = String.(file1 <> "" && file2 <> "") in
   let pre, env1, env2 =
     if compare || has_files_to_compare then
-      compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~to_inline ~output_vars
+      compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~to_inline
+        ~output_vars ~fun_input_regs
     else
-      analyze_proj proj var_gen ctx ~func ~to_inline ~post_cond
+      analyze_proj proj var_gen ctx ~func ~to_inline ~post_cond ~fun_input_regs
   in
   let result = Pre.check solver ctx pre in
   let () = match gdb_filename with
@@ -228,6 +232,12 @@ module Cmdline = struct
             at each jump in the path. The path contains information about whether \
             a jump has been taken and the address of the jump if found."
 
+  let fun_input_regs = param bool "fun-input-regs" ~default:true
+      ~doc:"If set, at a function call site, uses all possible input registers \
+            as arguments to a function predicate generated for an output register \
+            that holds the result of the function call. If set to false, no \
+            registers will be used. Defaults to true."
+
 
   let () = when_ready (fun {get=(!!)} ->
       Project.register_pass' @@
@@ -241,6 +251,7 @@ module Cmdline = struct
         ~output_vars:!!output_vars
         ~gdb_filename:!!gdb_filename
         ~print_path:!!print_path
+        ~fun_input_regs:!!fun_input_regs
     )
 
   let () = manpage [
