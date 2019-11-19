@@ -1,0 +1,172 @@
+make: Nothing to be done for 'all'.
+
+Comparing
+
+00000e01: sub process_status()
+000005a3: 
+000005ac: #46 := RBP
+000005b1: RSP := RSP - 8
+000005b6: mem := mem with [RSP, el]:u64 <- #46
+000005bf: RBP := RSP
+000005ca: #47 := R13
+000005cf: RSP := RSP - 8
+000005d4: mem := mem with [RSP, el]:u64 <- #47
+000005df: #48 := R12
+000005e4: RSP := RSP - 8
+000005e9: mem := mem with [RSP, el]:u64 <- #48
+000005f4: #49 := RBX
+000005f9: RSP := RSP - 8
+000005fe: mem := mem with [RSP, el]:u64 <- #49
+00000607: R13 := pad:64[low:32[RDI]]
+00000610: mem := mem with [RBP - 0x4C, el]:u32 <- low:32[R13]
+00000619: mem := mem with [RBP - 0x43] <- 0
+00000622: mem := mem with [RBP - 0x51] <- 0
+0000062b: R13 := pad:64[mem[RBP - 0x4C, el]:u32]
+0000063a: #50 := low:32[R13]
+0000063f: OF := 0
+00000644: CF := 0
+00000649: AF := unknown[bits]:u1
+0000064e: PF := ~low:1[let $1 = #50 >> 4 ^ #50 in let $2 = $1 >> 2 ^ $1 in
+$2 >> 1 ^ $2]
+00000653: SF := high:1[#50]
+00000658: ZF := 0 = #50
+00000661: mem := mem with [RBP - 0x50, el]:u32 <- low:32[R13]
+0000066d: when ZF goto %00000665
+00000e18: goto %00000be0
+
+00000665: 
+0000067b: mem := mem with [RBP - 0x43] <- 1
+00000e19: goto %0000067d
+
+00000be0: 
+00000be8: call %00000be2 with noreturn
+00000e1a: goto %00000bef
+
+00000bef: 
+00000bf0: R12 := pad:64[mem[RBP - 0x50, el]:u32]
+00000c00: #91 := low:32[R12]
+00000c05: R12 := pad:64[low:32[R12] - 1]
+00000c0a: CF := #91 < 1
+00000c0f: OF := high:1[(#91 ^ 1) & (#91 ^ low:32[R12])]
+00000c14: AF := 0x10 = (0x10 & (low:32[R12] ^ #91 ^ 1))
+00000c19: PF := ~low:1[let $1 = low:32[R12] >> 4 ^ low:32[R12] in
+let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+00000c1e: SF := high:1[low:32[R12]]
+00000c23: ZF := 0 = low:32[R12]
+00000c2c: mem := mem with [RBP - 0x48, el]:u32 <- low:32[R12]
+00000c37: when ZF goto %0000067d
+00000e1b: goto %00000c3f
+
+0000067d: 
+00000684: mem := mem with [RBP - 0x51] <- 1
+00000e1c: goto %00000686
+
+00000c3f: 
+00000c46: goto %00000686
+
+00000686: 
+0000068d: RBX := high:56[RBX].mem[RBP - 0x51]
+0000069c: RBX := extract:63:8[RBX].low:8[RBX] & 1
+000006a1: OF := 0
+000006a6: CF := 0
+000006ab: AF := unknown[bits]:u1
+000006b0: PF := ~low:1[let $1 = low:8[RBX] >> 4 ^ low:8[RBX] in
+let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+000006b5: SF := high:1[low:8[RBX]]
+000006ba: ZF := 0 = low:8[RBX]
+000006c3: RAX := pad:64[pad:32[low:8[RBX]]]
+000006cd: RBX := mem[RSP, el]:u64
+000006d2: RSP := RSP + 8
+000006dc: R12 := mem[RSP, el]:u64
+000006e1: RSP := RSP + 8
+000006eb: R13 := mem[RSP, el]:u64
+000006f0: RSP := RSP + 8
+000006fa: RBP := mem[RSP, el]:u64
+000006ff: RSP := RSP + 8
+0000070a: #53 := mem[RSP, el]:u64
+0000070f: RSP := RSP + 8
+00000715: call #53 with noreturn
+
+
+
+and
+
+00000de0: sub process_status()
+000005a3: 
+000005ac: #46 := RBP
+000005b1: RSP := RSP - 8
+000005b6: mem := mem with [RSP, el]:u64 <- #46
+000005bf: RBP := RSP
+000005ca: #47 := RBX
+000005cf: RSP := RSP - 8
+000005d4: mem := mem with [RSP, el]:u64 <- #47
+000005dd: RBX := pad:64[low:32[RDI]]
+000005e6: mem := mem with [RBP - 0x2C, el]:u32 <- low:32[RBX]
+000005ef: mem := mem with [RBP - 0x25] <- 0
+000005f8: mem := mem with [RBP - 0x31] <- 0
+00000601: RBX := pad:64[mem[RBP - 0x2C, el]:u32]
+00000610: #48 := low:32[RBX]
+00000615: OF := 0
+0000061a: CF := 0
+0000061f: AF := unknown[bits]:u1
+00000624: PF := ~low:1[let $1 = #48 >> 4 ^ #48 in let $2 = $1 >> 2 ^ $1 in
+$2 >> 1 ^ $2]
+00000629: SF := high:1[#48]
+0000062e: ZF := 0 = #48
+00000637: mem := mem with [RBP - 0x24, el]:u32 <- low:32[RBX]
+00000643: when ZF goto %0000063b
+00000df7: goto %00000bbf
+
+0000063b: 
+00000651: mem := mem with [RBP - 0x25] <- 1
+00000df8: goto %00000653
+
+00000bbf: 
+00000bc7: call %00000bc1 with noreturn
+00000df9: goto %00000bce
+
+00000bce: 
+00000bcf: RAX := pad:64[mem[RBP - 0x24, el]:u32]
+00000bdf: #90 := low:32[RAX]
+00000be4: RAX := pad:64[low:32[RAX] - 1]
+00000be9: CF := #90 < 1
+00000bee: OF := high:1[(#90 ^ 1) & (#90 ^ low:32[RAX])]
+00000bf3: AF := 0x10 = (0x10 & (low:32[RAX] ^ #90 ^ 1))
+00000bf8: PF := ~low:1[let $1 = low:32[RAX] >> 4 ^ low:32[RAX] in
+let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+00000bfd: SF := high:1[low:32[RAX]]
+00000c02: ZF := 0 = low:32[RAX]
+00000c0b: mem := mem with [RBP - 0x30, el]:u32 <- low:32[RAX]
+00000c16: when ZF goto %00000653
+00000dfa: goto %00000c1e
+
+00000653: 
+0000065a: mem := mem with [RBP - 0x31] <- 1
+00000dfb: goto %0000065c
+
+00000c1e: 
+00000c25: goto %0000065c
+
+0000065c: 
+00000663: RCX := high:56[RCX].mem[RBP - 0x31]
+00000672: RCX := extract:63:8[RCX].low:8[RCX] & 1
+00000677: OF := 0
+0000067c: CF := 0
+00000681: AF := unknown[bits]:u1
+00000686: PF := ~low:1[let $1 = low:8[RCX] >> 4 ^ low:8[RCX] in
+let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+0000068b: SF := high:1[low:8[RCX]]
+00000690: ZF := 0 = low:8[RCX]
+00000699: RAX := pad:64[pad:32[low:8[RCX]]]
+000006a3: RBX := mem[RSP, el]:u64
+000006a8: RSP := RSP + 8
+000006b2: RBP := mem[RSP, el]:u64
+000006b7: RSP := RSP + 8
+000006c2: #51 := mem[RSP, el]:u64
+000006c7: RSP := RSP + 8
+000006cd: call #51 with noreturn
+
+
+
+
+UNSAT!
