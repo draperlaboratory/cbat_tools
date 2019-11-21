@@ -217,11 +217,10 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Constr.t list * Con
       debug "Visiting let %s = %s in %s%!"
         (Var.to_string v) (Exp.to_string exp) (Exp.to_string body);
       let exp_val, env = exp_to_z3_body exp env in
-      (* FIXME: we're handling this incorrectly! The variable should
-         be removed from the context after leaving the scope of the
-         Let! *)
       let env' = Env.add_var env v exp_val in
-      exp_to_z3_body body env'
+      let z3_expr, env = exp_to_z3_body body env' in
+      let env = Env.remove_var env v in
+      (z3_expr, env)
     | Unknown (str, typ) ->
       debug "Visiting unknown: %s  Type:%s%!" str (Type.to_string typ);
       Env.new_z3_expr env ~name:("unknown_" ^ str) typ, env
@@ -847,42 +846,6 @@ let non_null_assert : Env.exp_cond = fun env exp ->
   else
     Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
 
-let mk_smtlib2_post (env : Env.t) (smt_post : string) : Constr.t =
-  let ctx = Env.get_context env in
-  let sort_symbols = [] in
-  let sorts = [] in
-  let fun_decls =
-    Env.EnvMap.fold (Env.get_var_map env) ~init:[]
-      ~f:(fun ~key:_ ~data:z3_var decls ->
-          assert (Z3.Expr.is_const z3_var);
-          Z3.FuncDecl.mk_const_decl_s ctx
-            (Z3.Expr.to_string z3_var)
-            (Z3.Expr.get_sort z3_var)
-          ::decls
-        )
-  in
-  let fun_symbols =
-    Env.EnvMap.fold (Env.get_var_map env) ~init:[]
-      ~f:(fun ~key:_ ~data:z3_var decls ->
-          assert (Z3.Expr.is_const z3_var);
-          Z3.Symbol.mk_string ctx
-            (Z3.Expr.to_string z3_var)
-          ::decls
-        )
-  in
-  let asts = Z3.SMT.parse_smtlib2_string ctx smt_post
-      sort_symbols
-      sorts
-      fun_symbols
-      fun_decls
-  in
-  let goals = List.map (Z3.AST.ASTVector.to_expr_list asts)
-      ~f:(fun e ->
-          e
-          |> Constr.mk_goal (Expr.to_string e)
-          |> Constr.mk_constr)
-  in
-  Constr.mk_clause [] goals
 
 let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     (pre : Constr.t) : Solver.status =
@@ -895,6 +858,7 @@ let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     else
       pre'
   in
+  Printf.printf "Z3 Query:\n%s\n" (Z3.Expr.to_string (Z3.Expr.simplify is_correct None));
   let () = Z3.Solver.add solver [is_correct] in
   Z3.Solver.check solver []
 

@@ -116,19 +116,43 @@ let compare_subs_empty_post
   in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
 
+(** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used 
+    as a comparison predicate between an original and modified binary. *)
+let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
+  let var_map1 = (Env.get_var_map env1) in
+  let var_map2 = (Env.get_var_map env2) in
+  let smtlib_str = Env.EnvMap.fold var_map1 ~init:smtlib_str 
+      ~f:(fun ~key:var ~data:z3_var smtlib_str ->
+          String.substr_replace_all smtlib_str ~pattern:((Var.name var) ^ "_orig") ~with_:(Z3.Expr.to_string z3_var)
+        ) in
+  let smtlib_str = Env.EnvMap.fold var_map2 ~init:smtlib_str 
+      ~f:(fun ~key:var ~data:z3_var smtlib_str ->
+          String.substr_replace_all smtlib_str ~pattern:((Var.name var) ^ "_mod") ~with_:(Z3.Expr.to_string z3_var)
+        ) in
+  info "New smtlib string: %s \n" smtlib_str;
+  let declsym1 = Env.get_decls_and_symbols env1 in
+  let declsym2 = Env.get_decls_and_symbols env2 in
+  let declsym = declsym1 @ declsym2 in
+  let ctx = Env.get_context env1 in
+  Constr.mk_smtlib2 ctx smtlib_str declsym
+
 let compare_subs_eq
     ~input:(input : Var.Set.t)
     ~output:(output : Var.Set.t)
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
+    ~smtlib_post:(smtlib_post : string)
+    ~smtlib_pre:(smtlib_pre : string)
   : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let post_eqs, env1, env2 = set_to_eqs env1 env2 output in
-    Constr.mk_clause [] post_eqs, env1, env2
+    let post' = mk_smtlib2_compare env1 env2 smtlib_post in 
+    Constr.mk_clause [] (post' :: post_eqs), env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
-    Constr.mk_clause [] pre_eqs, env1, env2
+    let pre' = mk_smtlib2_compare env1 env2 smtlib_pre in 
+    Constr.mk_clause [] (pre' :: pre_eqs), env1, env2
   in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
 

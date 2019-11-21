@@ -53,6 +53,8 @@ val compare_subs_eq
   -> output:Bap.Std.Var.Set.t
   -> original:(Bap.Std.Sub.t * Env.t)
   -> modified:(Bap.Std.Sub.t * Env.t)
+  -> smtlib_post:string
+  -> smtlib_pre:string
   -> Constr.t * Env.t * Env.t
 
 (** Compare two subroutines by composition for an empty postcondition:

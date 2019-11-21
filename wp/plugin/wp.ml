@@ -72,6 +72,7 @@ let varset_to_string (vs : Var.Set.t) : string =
 let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string)
     ~to_inline:(to_inline : string option)
+    ~pre_cond:(pre_cond : string)
     ~post_cond:(post_cond : string)
     ~fun_input_regs:(fun_input_regs : bool)
   : Constr.t * Env.t * Env.t =
@@ -80,22 +81,21 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   let main_sub = find_func_err subs func in
   let to_inline = match_inline to_inline subs in
   let env = Pre.mk_env ctx var_gen ~subs ~arch ~to_inline ~fun_input_regs in
+  (* call visit sub with a dummy postcondition to fill the
+     environment with variables *)
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+  let _, env' = Pre.visit_sub env true_constr main_sub in 
   let post =
     if String.(post_cond = "") then
       true_constr
     else
-      begin
-        (* call visit sub with a dummy postcondition to fill the
-           environment with variables *)
-        let _, env = Pre.visit_sub env true_constr main_sub in
-        Pre.mk_smtlib2_post env post_cond
-      end
+      Env.mk_smtlib2_single env' post_cond
   in
-  let pre, env' = Pre.visit_sub env post main_sub in
+  let pre, env = Pre.visit_sub env post main_sub in
+  let pre = Constr.mk_clause [Env.mk_smtlib2_single env' pre_cond] [pre] in
   Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
     (Sub.to_string main_sub) Constr.pp_constr pre;
-  (pre, env, env')
+  (pre, env, env)
 
 let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
@@ -104,6 +104,8 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     ~to_inline:(to_inline : string option)
     ~output_vars:(output_vars : string list)
     ~fun_input_regs:(fun_input_regs : bool)
+    ~pre_cond:(pre_cond : string)
+    ~post_cond:(post_cond : string)
   : Constr.t * Env.t * Env.t =
   let prog1 = Program.Io.read file1 in
   let prog2 = Program.Io.read file2 in
@@ -133,7 +135,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
         debug "Input: %s%!" (varset_to_string input_vars);
         debug "Output: %s%!" (varset_to_string output_vars);
         Comp.compare_subs_eq ~input:input_vars ~output:output_vars
-          ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
+          ~original:(main_sub1,env1) ~modified:(main_sub2,env2) ~smtlib_post:post_cond ~smtlib_pre:pre_cond
       end
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
@@ -145,6 +147,7 @@ let main (file1 : string) (file2 : string)
     ~check_calls:(check_calls : bool)
     ~compare:(compare : bool)
     ~inline:(to_inline : string option)
+    ~pre_cond:(pre_cond : string)
     ~post_cond:(post_cond : string)
     ~num_unroll:(num_unroll : int option)
     ~output_vars:(output_vars : string list)
@@ -161,9 +164,9 @@ let main (file1 : string) (file2 : string)
   let pre, env1, env2 =
     if compare || has_files_to_compare then
       compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~to_inline
-        ~output_vars ~fun_input_regs
+        ~output_vars ~fun_input_regs ~post_cond ~pre_cond
     else
-      analyze_proj proj var_gen ctx ~func ~to_inline ~post_cond ~fun_input_regs
+      analyze_proj proj var_gen ctx ~func ~to_inline ~fun_input_regs ~post_cond ~pre_cond 
   in
   let result = Pre.check solver ctx pre in
   let () = match gdb_filename with
@@ -208,6 +211,11 @@ module Cmdline = struct
             If you want to inline everything, set to .*  \
             foo|bar will inline the functions foo and bar."
 
+  let pre_cond = param string "precond" ~default:""
+      ~doc:"Pre condition in SMT-LIB format used when analyzing a single binary. \
+            If no pre condition is specified, a trivial pre condition (`true') \
+            will be used."
+
   let post_cond = param string "postcond" ~default:""
       ~doc:"Post condition in SMT-LIB format used when analyzing a single binary. \
             If no post condition is specified, a trivial post condition (`true') \
@@ -246,6 +254,7 @@ module Cmdline = struct
         ~check_calls:!!check_calls
         ~compare:!!compare
         ~inline:!!inline
+        ~pre_cond:!!pre_cond
         ~post_cond:!!post_cond
         ~num_unroll:!!num_unroll
         ~output_vars:!!output_vars

@@ -128,3 +128,8 @@ val eval_model_exn : Z3.Model.model -> z3_expr -> z3_expr
     if retrieving the model fails in the case that [check] was not yet called
     to the solver or the result of the last [check] did not result in SAT. *)
 val get_model_exn : Z3.Solver.solver -> Z3.Model.model
+
+(** [mk_smtlib2] parses a string in the context that already has a mapping of func_decl to symbols 
+    and returns a constraint [Constr.t] *)
+
+val mk_smtlib2 : Z3.context -> string -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)  -> t

@@ -196,14 +196,6 @@ val mk_env
   -> Env.var_gen
   -> Env.t
 
-(** [mk_smtlib2_post env sub post] takes in a string representing a
-    valid SMT-Lib-2 statement, and turns it into a valid postcondition
-    to be passed to {!visit_sub}.
-
-    The variables in the SMT-Lib statements need to appear in the
-    environment. *)
-val mk_smtlib2_post : Env.t -> string -> Constr.t
-
 (** Create a precondition for a given jump expression, depending on the postcondition
     and (potentially) the preconditions for the jump targets or the loop invariants.
 
