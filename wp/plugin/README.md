@@ -83,6 +83,9 @@ UNSAT!
 
 Meaning there is no way to reach the `assert(0)` statement.
 
+Alternatively one may assert custom assumptions specified as smt-lib expressions
+via the command line option `--wp-precond="(assert (= RDI #x0000000000000002))"`
+
 -------
 
 A more sophisticated example involves comparing two different
@@ -323,11 +326,15 @@ The various options are:
   function call sites. For example, If you want to inline everything, set to
   --wp-inline=.\* or --wp-inline=foo|bar will inline the functions foo and bar.
 
+- `--wp-precond=smt-lib-string`. If present, allows the introduction of assertions
+  to the beginning of a query. This allows pruning of possible models. For 
+  comparative predicates, one may refer to variables in the original and modified program by appending the suffix "_orig" and "_mod" to variable names in the smt-lib expression.
+  For examples `--wp-precond="(assert (= RDI_mod #x0000000000000003))  (assert (= RDI_orig #x0000000000000003))"`
+
 - `--wp-postcond=smt-lib-string`. If present, replaces the
   default post-condition by the user-specified one, using the
-  [smt-lib2] format. At the moment, the names of variables
-  representing memory and registers are a bit magical, so consider
-  this to be an experimental feature.
+  [smt-lib2] format. Similar to `--wp-precond`, one may create comparative 
+  postconditions on variables by appending "_orig" and "_mod" to register names.
 
 - `--wp-num-unroll=num`. If present, replaces the default number of
   times to unroll each loop. The number of loop unrollings is 5 by default.

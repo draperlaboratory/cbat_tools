@@ -119,7 +119,7 @@ let suite = [
   "Function Spec: no inlining"     >:: test_single_elf "function_spec" "main" "SAT!" ~inline:"NONEXISTENTGARBAGE";
   "Nested Function Calls"          >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:"foo|bar";
   "Nested Calls: inline all"       >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:".*";
-  "User Defined Postcondition"     >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX0 #x0000000000000000))";
+  "User Defined Postcondition"     >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX #x0000000000000000))";
 
   "Update Number of Unrolls"       >:: test_update_num_unroll (Some 3);
   "Original Number of Unrolls"     >:: test_update_num_unroll None;

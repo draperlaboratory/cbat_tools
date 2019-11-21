@@ -127,6 +127,9 @@ val wp_rec_call :
     typically a constant. *)
 val add_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
 
+(** Remove a binding in the environment for a bap variable. *)
+val remove_var : t -> Bap.Std.Var.t -> t
+
 (** Add a precondition to be associated to a block b to the environment. *)
 val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
 
@@ -208,5 +211,21 @@ val mk_z3_expr : Z3.context -> name:string -> typ:Bap.Std.Type.t -> Constr.z3_ex
 (** Create a Z3 constant of the appropriate name and type, but ensure that the
     constant is "fresh" with the {!Environment.var_gen}. *)
 val new_z3_expr : ?name:string -> t -> Bap.Std.Type.t -> Constr.z3_expr
+
+
+(** [get_decls_and_symbols] builds from a the var_map in an environment 
+    a mapping of all Z3 func_decl to their symbol. This is a helper function for
+    [mk_smtlib2] *)
+
+val get_decls_and_symbols : t -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) 
+
+
+(** [mk_smtlib2_single env smtlib_str] takes in a string representing a
+    valid SMT-Lib-2 statement. 
+    The variables in the SMT-Lib statements need to appear in the
+    environment. The intended purpose of this function is generating hypothesis
+     and postconditions for single binary analysis *)
+val mk_smtlib2_single : t -> string -> Constr.t
+
 
 (*---------------------------------------------------*)
