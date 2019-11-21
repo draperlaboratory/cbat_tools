@@ -234,8 +234,8 @@ module Cmdline = struct
 
   let fun_input_regs = param bool "fun-input-regs" ~default:true
       ~doc:"If set, at a function call site, uses all possible input registers \
-            as arguments to a function predicate generated for an output register \
-            that holds the result of the function call. If set to false, no \
+            as arguments to a function symbol generated for an output register \
+            that represents the result of the function call. If set to false, no \
             registers will be used. Defaults to true."
 
 

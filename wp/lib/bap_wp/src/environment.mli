@@ -71,15 +71,20 @@ type cond_type = Verify of Constr.goal | Assume of Constr.goal
     typically a correctness constraint, like no overflow or no null dereference. *)
 type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 
-(** Creates a new environment with a sequence of subroutines in the program used
-    to initialize function specs, a list of function_specs that each summarize
-    the precondition for its mapped function, the default function_spec in the
-    case a function does not satisfy the requirements of the other function_specs,
-    a jump_spec for handling branches, an int_spec for handling interrupts, a list
-    of exp_conds to satisfy, the number of times to unroll a loop, the
-    architecture of the binary, the option to freshen variable names, the option
-    to use all input registers when generating predicates at a function call site,
-    a Z3 context, and a variable generator. *)
+(** Creates a new environment with
+    - a sequence of subroutines in the program used to initialize function specs
+    - a list of {!fun_spec}s that each summarize the precondition for its mapped function
+    - the default fun_spec in the case a function does not satisfy the requirements
+      of the other fun_specs
+    - a {!jmp_spec} for handling branches
+    - an {!int_spec} for handling interrupts
+    - a list of {!exp_cond}s to satisfy
+    - the number of times to unroll a loop
+    - the architecture of the binary
+    - the option to freshen variable names
+    - the option to use all input registers when generating function symbols at a call site
+    - a Z3 context
+    - and a variable generator. *)
 val mk_env
   :  subs:Bap.Std.Sub.t Bap.Std.Seq.t
   -> specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec option) list
@@ -187,7 +192,7 @@ val fold_fun_tids :
 val is_x86 : Bap.Std.Arch.t -> bool
 
 (** Checks to see if the environment supports using all possible input registers
-    when generating predicates in the function specs at a function call site. *)
+    when generating symbols in the function specs at a function call site. *)
 val use_input_regs : t -> bool
 
 (*-------- Z3 constant creation utilities ----------*)
