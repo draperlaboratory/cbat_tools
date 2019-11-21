@@ -324,7 +324,11 @@ let input_regs (arch : Arch.t) : Var.t list =
   match arch with
   | `x86_64 ->
     let open X86_cpu.AMD64 in
-    (* r.(0) and r.(1) refer to registers R8 and R9 respectively. *)
+    (* r.(0) and r.(1) refer to registers R8 and R9 respectively.
+       Arguments are placed on the stack when they have a higher count than the
+       number of registers. We currently do not handle mem as an input because it
+       causes Z3 to slow down during evaluation. *)
+    info "[mem] is not included as an input to the function call.%!";
     [rdi; rsi; rdx; rcx; r.(0); r.(1)]
   | _ ->
     raise (Not_implemented "input_regs: Input registers have not been \
