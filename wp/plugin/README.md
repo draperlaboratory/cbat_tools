@@ -6,7 +6,7 @@ Depends on:
 
     - ocaml 4.05.0
     - core_kernel 0.11
-    - bap 2.0.0-alpha
+    - bap 2.0.0
     - ounit 2.0.8
     - z3 4.8.6
     - re 1.9.0
@@ -63,8 +63,7 @@ You should get an output which includes something like the following:
 ```
 SAT!
 Model:
-(define-fun RDI0 () (_ BitVec 64)
-  #x0000000000000003)
+    RDI  |->  #x000000000000003
 ```
 
 Given that the `argc` argument is kept in the `RDI` register on
@@ -204,12 +203,9 @@ variables in the decompiled code, which should include something along
 the lines of:
 
 ```
-(define-fun RBP0 () (_ BitVec 64)
-  #x0000000000000000)
-(define-fun ZF0 () (_ BitVec 1)
-  #b0)
-(define-fun RDI30 () (_ BitVec 64)
-  #x0000000000000003)
+RBP  |->  #x000000000000000
+ZF   |->  #b0
+RDI  |->  #x000000000000003
 ```
 As in the single program example, this gives values for registers
 which exercise unwanted behavior. In this case, invoking
@@ -230,52 +226,52 @@ case NAV:
 And a similar invocation of bap will indeed give `UNSAT`, meaning that
 the return values are always identical for identical inputs.
 
-This plugin can also supplement current binary diffing tools to not 
-only identify code reuse between binaries but also understand the 
+This plugin can also supplement current binary diffing tools to not
+only identify code reuse between binaries but also understand the
 implications and causes of their nuanced differences in behavior.
 
-Binary diffing is the primary technique for identifying code reuse, 
-which is heavily used in disciplines such as malware attribution, 
+Binary diffing is the primary technique for identifying code reuse,
+which is heavily used in disciplines such as malware attribution,
 software plagiarism identification, and patch identification.
 
-Current binary diffing tools only provide clues as to what is changed, 
-but not why or how the change manifests. For example, 
-[Diaphora](https://github.com/joxeankoret/diaphora) gives users percentage 
-scores on how closely functions between binaries match as well as how 
-closely the basic blocks within a function match. Those details are 
-helpful to identify what is changed, but most of the time, users want to 
+Current binary diffing tools only provide clues as to what is changed,
+but not why or how the change manifests. For example,
+[Diaphora](https://github.com/joxeankoret/diaphora) gives users percentage
+scores on how closely functions between binaries match as well as how
+closely the basic blocks within a function match. Those details are
+helpful to identify what is changed, but most of the time, users want to
 know more.
 
-For malware attribution and software plagiarism identification, users 
-will want to also know if the detected similarities are authentic. 
-False positive identifications are not uncommon. Multiple functions 
-can have similar control-flow structure and instructions distribution. 
-For authenticity, we have to check the disassembly to see whether the 
-similarities are out of sheer luck, compiler-specific patterns, or 
+For malware attribution and software plagiarism identification, users
+will want to also know if the detected similarities are authentic.
+False positive identifications are not uncommon. Multiple functions
+can have similar control-flow structure and instructions distribution.
+For authenticity, we have to check the disassembly to see whether the
+similarities are out of sheer luck, compiler-specific patterns, or
 if it is actually legitimate.
 
-For patch identification, we might not only want to identify the 
-specific patch but also the specific bug or vulnerability that warrants 
+For patch identification, we might not only want to identify the
+specific patch but also the specific bug or vulnerability that warrants
 the patch.
 
-For all 3 cases, a certain level of program understanding is required. 
-With just the current binary diffing tools, the final stretch of program 
-understanding is left to the end users. But supplemented with the wp plugin, 
+For all 3 cases, a certain level of program understanding is required.
+With just the current binary diffing tools, the final stretch of program
+understanding is left to the end users. But supplemented with the wp plugin,
 the final stretch can be simplified and achieved quicker.
 
 Below is an image showing Diaphora's diffing output for the `process_status` function:
 
 ![Process status diff](./../resources/images/process_status_diff.png)
 
-It highlights in red the basic block that differs between the two similar 
-functions. But if users want to understand the implications and what causes 
-the change, they will have to manually reason about the surrounding basic 
-blocks, or at worst, reason about the function's inter-procedural dependencies 
-like callers and callees. This pass assists users in reasoning the causes and 
-implications by providing register states that lead to the disparating behaviors. 
-The outputted register states will help answer the 'cause' question. And with 
-'cause' question answered, users can narrow the scope of code that they need 
-to analyze to understand the implications since they can be confident that 
+It highlights in red the basic block that differs between the two similar
+functions. But if users want to understand the implications and what causes
+the change, they will have to manually reason about the surrounding basic
+blocks, or at worst, reason about the function's inter-procedural dependencies
+like callers and callees. This pass assists users in reasoning the causes and
+implications by providing register states that lead to the disparating behaviors.
+The outputted register states will help answer the 'cause' question. And with
+'cause' question answered, users can narrow the scope of code that they need
+to analyze to understand the implications since they can be confident that
 nothing else is causing those changes.
 
 ## Invocation
@@ -322,10 +318,10 @@ The various options are:
   function to be compared, or whether to compare which sub-routines
   are invoked in the body of the function. `false` by default.
 
-- `--wp-inline=posix-re`. Function calls to inline as specified by a POSIX 
+- `--wp-inline=posix-re`. Function calls to inline as specified by a POSIX
   regular expression.  If not inlined, heuristic function summaries are used at
-  function call sites. For example, If you want to inline everything, set to 
-  --wp-inline=.* or --wp-inline=foo|bar will inline the functions foo and bar.
+  function call sites. For example, If you want to inline everything, set to
+  --wp-inline=.\* or --wp-inline=foo|bar will inline the functions foo and bar.
 
 - `--wp-postcond=smt-lib-string`. If present, replaces the
   default post-condition by the user-specified one, using the
@@ -344,6 +340,15 @@ The various options are:
 - `--wp-gdb-filename=my_exec.gdb`. Output a gdb script to file `my_exec.gdb`. From
   within gdb, run `source my_exec.gdb` to set a breakpoint at the function given
   by `--wp-function` and fill the appropriate registers with a found counter-model.
+
+- `--wp-print-path=[true|false]`. If present, will print out the path to a refuted
+  goal and the register values at each jump in the path. It also contains information
+  about whehter a jump has been taken and the address of the jump if found.
+
+- `--wp-fun-input-regs=[true|false].` If present, at a function call site, uses
+  all possible input registers as arguments to a function symbol generated for
+  an output register that represents the result of the function call. If set to
+  false, no registers will be used. Defaults to true.
 
 
 ## C checking API

@@ -214,13 +214,13 @@ let mk_env
     ~exp_conds:(exp_conds : exp_cond list)
     ~num_loop_unroll:(num_loop_unroll : int)
     ~arch:(arch : Arch.t)
-    ~freshen_vars:(freshen : bool)
+    ~freshen_vars:(freshen_vars : bool)
     ~fun_input_regs:(fun_input_regs : bool)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
   {
-    freshen = freshen;
+    freshen = freshen_vars;
     ctx = ctx;
     var_gen = var_gen;
     subs = subs;
