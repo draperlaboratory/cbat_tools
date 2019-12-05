@@ -89,10 +89,10 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     if String.(post_cond = "") then
       true_constr
     else
-      Env.mk_smtlib2_single env' post_cond
+      Z3_utils.mk_smtlib2_single env' post_cond
   in
   let pre, env = Pre.visit_sub env post main_sub in
-  let pre = Constr.mk_clause [Env.mk_smtlib2_single env' pre_cond] [pre] in
+  let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env' pre_cond] [pre] in
   Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
     (Sub.to_string main_sub) Constr.pp_constr pre;
   (pre, env, env)
@@ -135,7 +135,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
         debug "Input: %s%!" (varset_to_string input_vars);
         debug "Output: %s%!" (varset_to_string output_vars);
         Comp.compare_subs_eq ~input:input_vars ~output:output_vars
-          ~original:(main_sub1,env1) ~modified:(main_sub2,env2) ~smtlib_post:post_cond ~smtlib_pre:pre_cond
+          ~original:(main_sub1,env1) ~modified:(main_sub2,env2) ~smtlib_post:post_cond ~smtlib_hyp:pre_cond
       end
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"

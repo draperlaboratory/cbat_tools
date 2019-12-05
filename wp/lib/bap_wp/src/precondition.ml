@@ -217,9 +217,13 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Constr.t list * Con
       debug "Visiting let %s = %s in %s%!"
         (Var.to_string v) (Exp.to_string exp) (Exp.to_string body);
       let exp_val, env = exp_to_z3_body exp env in
+      let old_val = Env.find_var env v in
       let env' = Env.add_var env v exp_val in
       let z3_expr, env = exp_to_z3_body body env' in
       let env = Env.remove_var env v in
+      let env = match old_val with
+        | None -> env
+        | Some exp_val -> Env.add_var env v exp_val in
       (z3_expr, env)
     | Unknown (str, typ) ->
       debug "Visiting unknown: %s  Type:%s%!" str (Type.to_string typ);
@@ -858,7 +862,7 @@ let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     else
       pre'
   in
-  Printf.printf "Z3 Query:\n%s\n" (Z3.Expr.to_string (Z3.Expr.simplify is_correct None));
+  info "Z3 Query:\n%s\n" (Z3.Expr.to_string (Z3.Expr.simplify is_correct None));
   let () = Z3.Solver.add solver [is_correct] in
   Z3.Solver.check solver []
 

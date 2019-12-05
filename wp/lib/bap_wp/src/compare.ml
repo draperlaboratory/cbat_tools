@@ -130,11 +130,11 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
           String.substr_replace_all smtlib_str ~pattern:((Var.name var) ^ "_mod") ~with_:(Z3.Expr.to_string z3_var)
         ) in
   info "New smtlib string: %s \n" smtlib_str;
-  let declsym1 = Env.get_decls_and_symbols env1 in
-  let declsym2 = Env.get_decls_and_symbols env2 in
+  let declsym1 = Z3_utils.get_decls_and_symbols env1 in
+  let declsym2 = Z3_utils.get_decls_and_symbols env2 in
   let declsym = declsym1 @ declsym2 in
   let ctx = Env.get_context env1 in
-  Constr.mk_smtlib2 ctx smtlib_str declsym
+  Z3_utils.mk_smtlib2 ctx smtlib_str declsym
 
 let compare_subs_eq
     ~input:(input : Var.Set.t)
@@ -142,7 +142,7 @@ let compare_subs_eq
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
     ~smtlib_post:(smtlib_post : string)
-    ~smtlib_pre:(smtlib_pre : string)
+    ~smtlib_hyp:(smtlib_hyp : string)
   : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let post_eqs, env1, env2 = set_to_eqs env1 env2 output in
@@ -151,7 +151,7 @@ let compare_subs_eq
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
-    let pre' = mk_smtlib2_compare env1 env2 smtlib_pre in 
+    let pre' = mk_smtlib2_compare env1 env2 smtlib_hyp in 
     Constr.mk_clause [] (pre' :: pre_eqs), env1, env2
   in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
