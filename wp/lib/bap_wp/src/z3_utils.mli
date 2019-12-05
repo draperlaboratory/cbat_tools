@@ -13,13 +13,9 @@
 
 (**
 
-   This module exports types and utilities to process and report results found
-   using the WP plugin.
-
-   The report contains information about the result of the WP analysis, and in
-   the case the result is [SAT], prints out the model that contains the input
-   register and memory values that result in the program refuting a goal, the path
-   taken to the refuted goal, and the register values at each jump in the path.
+   This module exports utility functions for working with Z3. Unfortunately, the module
+   hierarchy necessitates thats some things that might naturally be placed in here have to
+   put elsewhere, in particular any functionality required by [Constr] or [Env].
 
 *)
 
