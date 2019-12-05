@@ -44,6 +44,8 @@ let test_compare_elf (elf_dir : string) (expected : string)
     ?check_calls:(check_calls = false)
     ?inline:(inline = "")
     ?output_vars:(output_vars = "RAX,EAX")
+    ?pre_cond:(pre_cond = "(assert true)")
+    ?post_cond:(post_cond = "(assert true)")
     (test_ctx : test_ctxt)
   : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
@@ -57,6 +59,8 @@ let test_compare_elf (elf_dir : string) (expected : string)
       Format.sprintf "--wp-check-calls=%b" check_calls;
       Format.sprintf "--wp-inline=%s" inline;
       Format.sprintf "--wp-output-vars=%s" output_vars;
+      Format.sprintf "--wp-precond=%s" pre_cond;
+      Format.sprintf "--wp-postcond=%s" post_cond;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
@@ -66,7 +70,8 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
     ?func:(func = "main")
     ?check_calls:(check_calls = false)
     ?inline:(inline = "")
-    ?post:(post = "")
+    ?post:(post = "(assert true)")
+    ?pre:(pre = "(assert true)")
     (test_ctx : test_ctxt)
   : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
@@ -78,6 +83,7 @@ let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
       Format.sprintf "--wp-check-calls=%b" check_calls;
       Format.sprintf "--wp-inline=%s" inline;
       Format.sprintf "--wp-postcond=%s" post;
+      Format.sprintf "--wp-precond=%s" pre;
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target; elf_name];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
@@ -98,6 +104,8 @@ let test_update_num_unroll (new_unroll : int option) (test_ctx : test_ctxt) : un
 let suite = [
   "Equiv Null Check"               >:: test_compare_elf "equiv_null_check" "SAT!";
   "Equiv Argc"                     >:: test_compare_elf "equiv_argc" "SAT!";
+  "Precondition: Force 2"          >:: test_compare_elf "equiv_argc" ~pre_cond:"(assert (= RDI_mod #x0000000000000002))  (assert (= RDI_orig #x0000000000000002))" "SAT!";
+  "Precondition: Disallow 2"       >:: test_compare_elf "equiv_argc" ~pre_cond:"(assert (and (= #x0000000000000000 (bvand RDI_mod #xFFFFFFFF00000000 )) (not (= RDI_mod #x0000000000000002))))" "UNSAT!";
   "Diff Ret Val"                   >:: test_compare_elf "diff_ret_val" "SAT!";
   "Diff Pointer Val"               >:: test_compare_elf "diff_pointer_val" "SAT!";
   "Switch Case Assignments"        >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
@@ -109,6 +117,7 @@ let suite = [
   "Retrowrite Stub No Ret in Call" >:: test_compare_elf "retrowrite_stub_no_ret" "UNSAT!";
 
   "Simple WP"                      >:: test_single_elf "simple_wp" "main" "SAT!";
+  "Simple WP: Precondition"        >:: test_single_elf "simple_wp" "main" ~pre:"(assert (= RDI #x0000000000000002))" "UNSAT!";
   "Verifier Assume SAT"            >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
   "Verifier Assume UNSAT"          >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
   "Verifier Nondet"                >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";

@@ -274,6 +274,9 @@ let get_subs (env : t) : Sub.t Seq.t =
 let get_var_map (env : t) : Constr.z3_expr EnvMap.t =
   env.var_map
 
+let find_var (env : t) (var : Var.t) : Constr.z3_expr option =
+  EnvMap.find env.var_map var
+
 let get_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let mv = EnvMap.find env.var_map var in
   match mv with
@@ -331,27 +334,3 @@ let is_x86 (a : Arch.t) : bool =
 
 let use_input_regs (env : t) : bool =
   env.fun_input_regs
-
-let get_decls_and_symbols (env : t) : ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) = 
-  let var_map = get_var_map env in
-  let ctx = get_context env in
-  EnvMap.fold var_map ~init:[]
-    ~f:(fun ~key:_ ~data:z3_var decls ->
-        assert (Z3.Expr.is_const z3_var);
-        let decl = Z3.FuncDecl.mk_const_decl_s ctx
-            (Z3.Expr.to_string z3_var)
-            (Z3.Expr.get_sort z3_var) in
-        let sym =  Z3.Symbol.mk_string ctx (Z3.Expr.to_string z3_var) in
-        (decl,sym)::decls
-      )
-
-let mk_smtlib2_single (env : t) (smt_post : string) : Constr.t =
-  let var_map = get_var_map env in
-  let smt_post = EnvMap.fold var_map ~init:smt_post 
-      ~f:(fun ~key:var ~data:z3_var smt_post ->
-          String.substr_replace_all smt_post ~pattern:((Var.name var) ^ " ") ~with_:((Z3.Expr.to_string z3_var) ^ " ")
-        ) in
-  info "New smt-lib string : %s\n" smt_post;
-  let decl_syms = get_decls_and_symbols env in
-  let ctx = get_context env in
-  Constr.mk_smtlib2 ctx smt_post decl_syms 

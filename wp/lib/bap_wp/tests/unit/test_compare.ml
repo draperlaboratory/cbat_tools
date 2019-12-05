@@ -123,7 +123,7 @@ let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton z in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_pre:"" in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -163,7 +163,7 @@ let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton z in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_pre:"" in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.SATISFIABLE
@@ -197,7 +197,7 @@ let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton z in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_pre:"" in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -234,7 +234,7 @@ let test_sub_pair_4 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton y in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_pre:"" in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -271,7 +271,7 @@ let test_sub_pair_5 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton y in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_pre:"" in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.SATISFIABLE
@@ -462,7 +462,7 @@ let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton ret_var in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) ~smtlib_post:"" ~smtlib_pre:"" in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
@@ -495,7 +495,7 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton ret_var in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) ~smtlib_post:"" ~smtlib_pre:"" in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
@@ -533,7 +533,8 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton rax in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) 
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
@@ -571,7 +572,8 @@ let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton rax in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) 
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
@@ -599,7 +601,7 @@ let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton mem in
   let compare_prop, _, _ = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_pre:"" in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.SATISFIABLE

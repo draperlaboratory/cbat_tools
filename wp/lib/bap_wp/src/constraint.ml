@@ -271,22 +271,3 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
 
 
-let mk_smtlib2 (ctx : Z3.context) (smtlib_str : string) (decl_syms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : t =
-  let fun_decls, fun_symbols = List.unzip decl_syms in
-  let sort_symbols = [] in
-  let sorts = [] in
-  let asts = Z3.SMT.parse_smtlib2_string ctx smtlib_str
-      sort_symbols
-      sorts
-      fun_symbols
-      fun_decls
-  in
-  let goals = List.map (Z3.AST.ASTVector.to_expr_list asts)
-      ~f:(fun e ->
-          e
-          |> mk_goal (Expr.to_string e)
-          |> mk_constr)
-  in
-  mk_clause [] goals
-
-
