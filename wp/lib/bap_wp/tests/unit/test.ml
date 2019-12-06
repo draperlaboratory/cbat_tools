@@ -15,10 +15,10 @@ open OUnit2
 
 let suite =
   "Unit Tests" >::: [
-    "Precondition" >::: Test_precondition.suite;
+    (* "Precondition" >::: Test_precondition.suite; *)
     "Compare"      >::: Test_compare.suite;
-    "Constraint"   >::: Test_constraint.suite;
-    "Output"       >::: Test_output.suite; 
+    (* "Constraint"   >::: Test_constraint.suite; *)
+    (* "Output"       >::: Test_output.suite;  *)
   ]
 
 let _ = run_test_tt_main suite

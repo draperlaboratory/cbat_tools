@@ -155,7 +155,6 @@ let main (file1 : string) (file2 : string)
     ~print_path:(print_path : bool)
     ~fun_input_regs:(fun_input_regs : bool)
     (proj : project) : unit =
-  Log.start ~logdir:"/dev/stdout" ();
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let solver = Z3.Solver.mk_simple_solver ctx in

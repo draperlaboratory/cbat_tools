@@ -547,6 +547,46 @@ let default_fun_specs (to_inline : Sub.t Seq.t) :
   [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
    spec_inline to_inline; spec_arg_terms; spec_chaos_caller_saved; spec_rax_out]
 
+let default_stack_range : int * int = 0x00007fffffff0000, 0x00007fffffffffff
+
+let default_heap_range : int * int = 0x0000000000000000, 0x00000000ffffffff
+
+let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
+  : Constr.z3_expr list =
+  let ctx = Env.get_context env2 in
+  let visitor =
+    begin
+      object inherit [Constr.z3_expr list] Exp.visitor
+        method! visit_load ~mem:mem ~addr:addr endian size conds =
+          let width = match Type.infer_exn addr with
+            | Imm n -> n
+            | Mem _ -> error "Expected %s to be an address word!%!" (Exp.to_string addr);
+              failwith "Error: in collect_non_null_expr, got a memory read instead of a word"
+            | Unk ->
+              error "Unk type: Unable to determine if %s is an address word.%!" (Exp.to_string addr);
+              failwith "Error: in collect_non_null_expr: addr's type is not representable by Type.t"
+          in
+          let null = BV.mk_numeral ctx "0" width in
+          let addr_val,_,_,_ = exp_to_z3 addr env2 in
+          Format.printf "Address: %s\n%!" (Expr.to_string addr_val);
+          let non_null_addr = Bool.mk_not ctx (Bool.mk_eq ctx null addr_val) in
+          non_null_addr :: conds
+      end
+    end
+  in
+  visitor#visit_exp exp []
+
+(* The value of a memory read at address [a] in the original binary is equal to
+   the memory read of the modified binary at address [a + d]. *)
+let mem_read_assert (env_orig : Env.t) : Env.exp_cond =
+  fun env_mod exp ->
+  let ctx = Env.get_context env_mod in
+  let conds = collect_mem_read_expr env_orig env_mod exp in
+  if List.is_empty conds then
+    None
+  else
+    Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
+
 let mk_env
     ?subs:(subs = Seq.empty)
     ?to_inline:(to_inline = Seq.empty)
@@ -559,11 +599,13 @@ let mk_env
     ?arch:(arch = `x86_64)
     ?freshen_vars:(freshen_vars = false)
     ?fun_input_regs:(fun_input_regs = true)
+    ?stack_range:(stack_range = default_stack_range)
+    ?heap_range:(heap_range = default_heap_range)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds
-    ~num_loop_unroll ~arch ~freshen_vars ~fun_input_regs ctx var_gen
+  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
+    ~arch ~freshen_vars ~fun_input_regs ~stack_range ~heap_range ctx var_gen
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in
@@ -849,7 +891,6 @@ let non_null_assert : Env.exp_cond = fun env exp ->
     None
   else
     Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
-
 
 let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     (pre : Constr.t) : Solver.status =

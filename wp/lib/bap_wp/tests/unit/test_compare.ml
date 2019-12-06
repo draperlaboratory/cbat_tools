@@ -57,7 +57,7 @@ let test_block_pair_1 (test_ctx : test_ctxt) : unit =
   in
   let input_vars = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
   let output_vars = Var.Set.singleton z in
-  let compare_prop, _, _ = Comp.compare_blocks
+  let compare_prop, env1, env2 = Comp.compare_blocks
       ~input:input_vars ~output:output_vars
       ~original:(blk1,env1) ~modified:(blk2,env2) in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -68,8 +68,8 @@ let test_block_pair_1 (test_ctx : test_ctxt) : unit =
 let test_block_pair_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen  in
-  let env2 = Pre.mk_env ctx var_gen  in
+  let env1 = Pre.mk_env ctx var_gen in
+  let env2 = Pre.mk_env ctx var_gen in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let z = Var.create "z" reg32_t in
@@ -80,7 +80,7 @@ let test_block_pair_2 (test_ctx : test_ctxt) : unit =
   in
   let input_vars = Var.Set.singleton x in
   let output_vars = Var.Set.singleton z in
-  let compare_prop, _, _ = Comp.compare_blocks
+  let compare_prop, env1, env2 = Comp.compare_blocks
       ~input:input_vars ~output:output_vars
       ~original:(blk1,env1) ~modified:(blk2,env2) in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -91,8 +91,8 @@ let test_block_pair_2 (test_ctx : test_ctxt) : unit =
 let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen  in
-  let env2 = Pre.mk_env ctx var_gen  in
+  let env1 = Pre.mk_env ctx var_gen in
+  let env2 = Pre.mk_env ctx var_gen in
   let def_y_tid = Tid.create () in
   let blk1 = Blk.create () in
   let blk2 = Blk.create () in
@@ -121,7 +121,7 @@ let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
   let sub2 = mk_sub [blk1; blk2'; blk3'; blk4] in
   let input_vars = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
   let output_vars = Var.Set.singleton z in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -132,8 +132,8 @@ let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
 let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen  in
-  let env2 = Pre.mk_env ctx var_gen  in
+  let env1 = Pre.mk_env ctx var_gen in
+  let env2 = Pre.mk_env ctx var_gen in
   let def_y_tid = Tid.create () in
   let blk1 = Blk.create () in
   let blk2 = Blk.create () in
@@ -161,7 +161,7 @@ let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
   let sub2 = mk_sub [blk1; blk2; blk3; blk4'] in
   let input_vars = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
   let output_vars = Var.Set.singleton z in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -172,8 +172,8 @@ let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
 let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen  in
-  let env2 = Pre.mk_env ctx var_gen  in
+  let env1 = Pre.mk_env ctx var_gen in
+  let env2 = Pre.mk_env ctx var_gen in
   let blk1 = Blk.create () in
   let blk2 = Blk.create () in
   let blk1' = Blk.create () in
@@ -195,7 +195,7 @@ let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
   let sub2 = mk_sub [blk1'; blk2'] in
   let input_vars = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
   let output_vars = Var.Set.singleton z in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -206,8 +206,8 @@ let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
 let test_sub_pair_4 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen  in
-  let env2 = Pre.mk_env ctx var_gen  in
+  let env1 = Pre.mk_env ctx var_gen in
+  let env2 = Pre.mk_env ctx var_gen in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let sub1 = Bil.(
@@ -232,7 +232,7 @@ let test_sub_pair_4 (test_ctx : test_ctxt) : unit =
   in
   let input_vars = Var.Set.singleton x in
   let output_vars = Var.Set.singleton y in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -243,8 +243,8 @@ let test_sub_pair_4 (test_ctx : test_ctxt) : unit =
 let test_sub_pair_5 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen  in
-  let env2 = Pre.mk_env ctx var_gen  in
+  let env1 = Pre.mk_env ctx var_gen in
+  let env2 = Pre.mk_env ctx var_gen in
   let blk1 = Blk.create () in
   let blk2 = Blk.create () in
   let blk3 = Blk.create () in
@@ -269,7 +269,7 @@ let test_sub_pair_5 (test_ctx : test_ctxt) : unit =
   let sub2 = mk_sub [blk1'] in
   let input_vars = Var.Set.singleton x in
   let output_vars = Var.Set.singleton y in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -280,15 +280,15 @@ let test_sub_pair_5 (test_ctx : test_ctxt) : unit =
 let test_sub_pair_6 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen  ~exp_conds:[Pre.non_null_assert] in
-  let env2 = Pre.mk_env ctx var_gen  ~exp_conds:[Pre.non_null_vc] in
+  let env1 = Pre.mk_env ctx var_gen ~exp_conds:[Pre.non_null_assert] in
+  let env2 = Pre.mk_env ctx var_gen ~exp_conds:[Pre.non_null_vc] in
   let mem = Var.create "mem" (mem32_t `r32) in
   let loc = Var.create "loc" reg32_t in
   let read = Bil.(load ~mem:(var mem) ~addr:(var loc) LittleEndian `r32) in
   let sub1 = Bil.([if_ (read = i32 12)[][]]) |> bil_to_sub in
   let sub2 = Bil.([if_ (read = i32 3) [if_ (read = i32 4) [][]] []]) |> bil_to_sub in
   let vars = Var.Set.of_list [mem; loc] in
-  let compare_prop, _, _ = Comp.compare_subs_empty_post ~input:vars
+  let compare_prop, env1, env2 = Comp.compare_subs_empty_post ~input:vars
       ~original:(sub1, env1) ~modified:(sub2, env2) in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -298,8 +298,8 @@ let test_sub_pair_6 (test_ctx : test_ctxt) : unit =
 let test_sub_pair_7 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen  ~exp_conds:[Pre.non_null_assert] in
-  let env2 = Pre.mk_env ctx var_gen  ~exp_conds:[Pre.non_null_vc] in
+  let env1 = Pre.mk_env ctx var_gen ~exp_conds:[Pre.non_null_assert] in
+  let env2 = Pre.mk_env ctx var_gen ~exp_conds:[Pre.non_null_vc] in
   let mem = Var.create "mem" (mem32_t `r32) in
   let loc = Var.create "loc" reg32_t in
   let read = Bil.(load ~mem:(var mem) ~addr:(var loc) LittleEndian `r32) in
@@ -307,7 +307,7 @@ let test_sub_pair_7 (test_ctx : test_ctxt) : unit =
   let sub1 = Bil.([if_ (read = i32 3)[][]]) |> bil_to_sub in
   let sub2 = Bil.([if_ (read = i32 3) [if_ (read' = i32 4) [][]] []]) |> bil_to_sub in
   let vars = Var.Set.of_list [mem; loc] in
-  let compare_prop, _, _ = Comp.compare_subs_empty_post ~input:vars
+  let compare_prop, env1, env2 = Comp.compare_subs_empty_post ~input:vars
       ~original:(sub1, env1) ~modified:(sub2, env2) in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -331,9 +331,9 @@ let test_sub_pair_fun_1 (test_ctx : test_ctxt) : unit =
   let blk3 = blk3 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call_sub)) in
   let main_sub1 = mk_sub ~tid:sub1_tid ~name:"main_sub" [blk1; blk2] in
   let main_sub2 = mk_sub ~tid:sub2_tid ~name:"main_sub" [blk3; blk4] in
-  let env1 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub1; call_sub]) in
-  let env2 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub2; call_sub]) in
-  let compare_prop, _, _ = Comp.compare_subs_fun
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub]) in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub]) in
+  let compare_prop, env1, env2 = Comp.compare_subs_fun
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
@@ -356,9 +356,9 @@ let test_sub_pair_fun_2 (test_ctx : test_ctxt) : unit =
   let blk3 = blk3 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call_sub)) in
   let main_sub1 = mk_sub ~tid:sub1_tid ~name:"main_sub" [blk1; blk2] in
   let main_sub2 = mk_sub ~tid:sub2_tid ~name:"main_sub" [blk3; blk4] in
-  let env1 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub1; call_sub]) in
-  let env2 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub2; call_sub]) in
-  let compare_prop, _, _ = Comp.compare_subs_fun
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub]) in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub]) in
+  let compare_prop, env1, env2 = Comp.compare_subs_fun
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
@@ -391,11 +391,11 @@ let test_sub_pair_fun_3 (test_ctx : test_ctxt) : unit =
   let blk3 = blk3 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call2_sub)) in
   let main_sub1 = mk_sub ~tid:sub1_tid ~name:"main_sub" [blk1; blk2; blk3; blk4] in
   let main_sub2 = mk_sub ~tid:sub2_tid ~name:"main_sub" [blk1'; blk2; blk3; blk4] in
-  let env1 = Pre.mk_env ctx var_gen 
+  let env1 = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub1; call1_sub; call2_sub]) in
-  let env2 = Pre.mk_env ctx var_gen 
+  let env2 = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub2; call1_sub; call2_sub]) in
-  let compare_prop, _, _ = Comp.compare_subs_fun
+  let compare_prop, env1, env2 = Comp.compare_subs_fun
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
@@ -429,11 +429,11 @@ let test_sub_pair_fun_4 (test_ctx : test_ctxt) : unit =
   let blk2' = blk2' |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call2_sub)) in
   let main_sub1 = mk_sub ~tid:sub1_tid ~name:"main_sub" [blk1; blk2; blk3; blk4] in
   let main_sub2 = mk_sub ~tid:sub2_tid ~name:"main_sub" [blk1'; blk2'; blk4] in
-  let env1 = Pre.mk_env ctx var_gen 
+  let env1 = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub1; call1_sub; call2_sub]) in
-  let env2 = Pre.mk_env ctx var_gen 
+  let env2 = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub2; call1_sub; call2_sub]) in
-  let compare_prop, _, _ = Comp.compare_subs_fun
+  let compare_prop, env1, env2 = Comp.compare_subs_fun
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
@@ -456,11 +456,11 @@ let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
   let main_sub2 = Bil.(
       [ jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t)  ]
     ) |> bil_to_sub in
-  let env1 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub1; call_sub1]) in
-  let env2 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub2; call_sub2]) in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub1]) in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2]) in
   let input_vars = Var.Set.of_list (ret_var :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton ret_var in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -489,11 +489,11 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
         rsi := i64 3;
         jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t)  ]
     ) |> bil_to_sub in
-  let env1 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub1; call_sub1]) in
-  let env2 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [main_sub2; call_sub2]) in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub1]) in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2]) in
   let input_vars = Var.Set.of_list (ret_var :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton ret_var in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -531,9 +531,9 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
       ~subs:(Seq.of_list [main_sub2; call_sub2]) in
   let input_vars = Var.Set.of_list (rax :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton rax in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) 
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
       ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
@@ -570,9 +570,9 @@ let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
       ~subs:(Seq.of_list [main_sub2; call_sub2]) ~fun_input_regs:false in
   let input_vars = Var.Set.of_list (rax :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton rax in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) 
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
       ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
@@ -595,11 +595,11 @@ let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
   let blk2 = blk2 |> mk_def mem store2 in
   let sub1 = mk_sub ~name:"main_sub" [blk1] in
   let sub2 = mk_sub ~name:"main_sub" [blk2] in
-  let env1 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [sub1]) in
-  let env2 = Pre.mk_env ctx var_gen  ~subs:(Seq.of_list [sub2]) in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [sub1]) in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [sub2]) in
   let input_vars = Var.Set.of_list [mem; loc1] in
   let output_vars = Var.Set.singleton mem in
-  let compare_prop, _, _ = Comp.compare_subs_eq
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -607,27 +607,73 @@ let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
     compare_prop Z3.Solver.SATISFIABLE
 
 
+let test_memory_model_1 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let mem = Var.create "mem" (mem64_t `r64) in
+  let rsp = Var.create "RSP" reg64_t in
+  let rax = Var.create "RAX" reg64_t in
+  let sub1 = Bil.(
+      [ rsp := var rsp - i64 0x98;
+        mem := store ~mem:(var mem) ~addr:(var rsp) (i64 2) LittleEndian `r64;
+        mem := store ~mem:(var mem) ~addr:(var rsp + i64 0x8) (i64 3) LittleEndian `r64;
+        mem := store ~mem:(var mem) ~addr:(var rsp + i64 0x10) (i64 4) LittleEndian `r64;
+        rax := load ~mem:(var mem) ~addr:(i64 0x600160) LittleEndian `r64;
+        rax := var rax + load ~mem:(var mem) ~addr:(var rsp + i64 0x10) LittleEndian `r64;
+        rax := var rax + load ~mem:(var mem) ~addr:(var rsp + i64 0x8) LittleEndian `r64;
+        rax := var rax + load ~mem:(var mem) ~addr:(var rsp) LittleEndian `r64;
+        rsp := var rsp + i64 0x98;
+      ]
+    ) |> bil_to_sub in
+  let sub2 = Bil.(
+      [ rsp := var rsp - i64 0x98;
+        mem := store ~mem:(var mem) ~addr:(var rsp) (i64 2) LittleEndian `r64;
+        mem := store ~mem:(var mem) ~addr:(var rsp + i64 0x8) (i64 3) LittleEndian `r64;
+        mem := store ~mem:(var mem) ~addr:(var rsp + i64 0x10) (i64 4) LittleEndian `r64;
+        rax := load ~mem:(var mem) ~addr:(i64 0x600161) LittleEndian `r64;
+        rax := var rax + load ~mem:(var mem) ~addr:(var rsp + i64 0x10) LittleEndian `r64;
+        rax := var rax + load ~mem:(var mem) ~addr:(var rsp + i64 0x8) LittleEndian `r64;
+        rax := var rax + load ~mem:(var mem) ~addr:(var rsp) LittleEndian `r64;
+        rsp := var rsp + i64 0x98;
+      ]
+    ) |> bil_to_sub in
+  let env1 = Pre.mk_env ctx var_gen
+      ~subs:(Seq.singleton sub1) ~exp_conds:[] in
+  let env2 = Pre.mk_env ctx var_gen
+      ~subs:(Seq.singleton sub2) ~exp_conds:[Pre.mem_read_assert env1] in
+  let input_vars = Var.Set.of_list [rsp; rax] in
+  let output_vars = Var.Set.singleton rax in
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
+      ~input:input_vars ~output:output_vars
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
+  assert_z3_compare test_ctx ~orig:env1 ~modif:env2
+    (Sub.to_string sub1) (Sub.to_string sub2)
+    compare_prop Z3.Solver.UNSATISFIABLE
+
+
 let suite = [
-  "z = x+y; and x = x+1; y = y-1; z = x+y;"  >:: test_block_pair_1;
-  "z = x; and y = x; z = y;"                 >:: test_block_pair_2;
+  (* "z = x+y; and x = x+1; y = y-1; z = x+y;"  >:: test_block_pair_1; *)
+  (* "z = x; and y = x; z = y;"                 >:: test_block_pair_2; *)
+  (*  *)
+  (* "Remove dead assignments"                  >:: test_sub_pair_1; *)
+  (* "Remove needed assignments"                >:: test_sub_pair_2; *)
+  (* "Arithmetic across different blocks"       >:: test_sub_pair_3; *)
+  (* "Squashing assignments"                    >:: test_sub_pair_4; *)
+  (* "Jump to opposite block"                   >:: test_sub_pair_5; *)
+  (* "Assert in original, VC in modified UNSAT" >:: test_sub_pair_6; *)
+  (* "Assert in original, VC in modified SAT"   >:: test_sub_pair_7; *)
+  (*  *)
+  (* "Same subroutines"                         >:: test_sub_pair_fun_1; *)
+  (* "Fun called in modified sub"               >:: test_sub_pair_fun_2; *)
+  (* "Branches with fun calls"                  >:: test_sub_pair_fun_3; *)
+  (* "Fun called in branch"                     >:: test_sub_pair_fun_4; *)
+  (*  *)
+  (* "Function output substitution: UNSAT"      >:: test_fun_outputs_1; *)
+  (* "Function output substitution: SAT"        >:: test_fun_outputs_2; *)
+  (* "Function output: all input regs SAT"      >:: test_fun_outputs_3; *)
+  (* "Function output: no input regss UNSAT"    >:: test_fun_outputs_4; *)
+  (*  *)
+  (* "Compare memory layout"                    >:: test_sub_pair_mem_1; *)
 
-  "Remove dead assignments"                  >:: test_sub_pair_1;
-  "Remove needed assignments"                >:: test_sub_pair_2;
-  "Arithmetic across different blocks"       >:: test_sub_pair_3;
-  "Squashing assignments"                    >:: test_sub_pair_4;
-  "Jump to opposite block"                   >:: test_sub_pair_5;
-  "Assert in original, VC in modified UNSAT" >:: test_sub_pair_6;
-  "Assert in original, VC in modified SAT"   >:: test_sub_pair_7;
-
-  "Same subroutines"                         >:: test_sub_pair_fun_1;
-  "Fun called in modified sub"               >:: test_sub_pair_fun_2;
-  "Branches with fun calls"                  >:: test_sub_pair_fun_3;
-  "Fun called in branch"                     >:: test_sub_pair_fun_4;
-
-  "Function output substitution: UNSAT"      >:: test_fun_outputs_1;
-  "Function output substitution: SAT"        >:: test_fun_outputs_2;
-  "Function output: all input regs SAT"      >:: test_fun_outputs_3;
-  "Function output: no input regss UNSAT"    >:: test_fun_outputs_4;
-
-  "Compare memory layout"                    >:: test_sub_pair_mem_1;
+  "Same memory at different location: UNSAT" >:: test_memory_model_1;
 ]

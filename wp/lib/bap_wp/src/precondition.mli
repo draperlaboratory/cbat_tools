@@ -161,6 +161,11 @@ val non_null_vc : Env.exp_cond
 (** This spec {e assumes} each memory read to be on a non-null address. *)
 val non_null_assert : Env.exp_cond
 
+(** This spec {e assumes} that the value of a memory read at address [a] in the
+    original binary is equal to the memory read of the modified binary at address
+    [a + d]. *)
+val mem_read_assert : Env.t -> Env.exp_cond
+
 (** Constant which determines the number of loop unrollings.
 
     We use the default value [!num_unroll = 5]. *)
@@ -192,6 +197,8 @@ val mk_env
   -> ?arch:Bap.Std.Arch.t
   -> ?freshen_vars:bool
   -> ?fun_input_regs:bool
+  -> ?stack_range:int * int
+  -> ?heap_range:int * int
   -> Z3.context
   -> Env.var_gen
   -> Env.t

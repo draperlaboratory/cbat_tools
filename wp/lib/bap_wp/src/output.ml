@@ -27,12 +27,21 @@ module Constr = Constraint
 
 module VarMap = Var.Map
 
-let format_model (model : Model.model) (env1 : Env.t) (_env2 : Env.t) : string =
+let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
+  let arch = Env.get_arch env1 in
+  let module Target = (val target_of_arch arch) in
   let var_map = Env.get_var_map env1 in
   let key_val = Env.EnvMap.fold var_map ~init:[]
       ~f:(fun ~key ~data pairs ->
-          let value = Constr.eval_model_exn model data in
-          (key, value)::pairs)
+          let key_str = Var.to_string key in
+          if Target.CPU.is_mem key then
+            let mem_mod, _ = Env.get_var env2 key in
+            let val_orig = Constr.eval_model_exn model data in
+            let val_mod = Constr.eval_model_exn model mem_mod in
+            (key_str ^ "_orig", val_orig) :: (key_str ^ "_mod", val_mod) :: pairs
+          else
+            let value = Constr.eval_model_exn model data in
+            (key_str, value) :: pairs)
   in
   let fmt = Format.str_formatter in
   Constr.format_values fmt key_val;
@@ -89,7 +98,7 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
     None
 
 let print_result (solver : Solver.solver) (status : Solver.status) (goals: Constr.t)
-    ~print_path:(print_path : bool)  ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
+    ~print_path:(print_path : bool) ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
   match status with
   | Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
   | Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"

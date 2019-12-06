@@ -49,14 +49,13 @@ let get_model_exn (solver : Solver.solver) : Model.model =
 let goal_to_string (g : goal) : string =
   Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
 
-let format_values (fmt : Format.formatter) (vals : (Var.t * z3_expr) list) : unit =
+let format_values (fmt : Format.formatter) (vals : (string * z3_expr) list) : unit =
   List.iter vals
     ~f:(fun (var, value) ->
-        let var_str = Var.to_string var in
-        let pad_size = Int.max (5 - (String.length var_str)) 1 in
+        let pad_size = Int.max (9 - (String.length var)) 1 in
         let pad = String.make pad_size ' ' in
         Format.fprintf fmt
-          "\t%s%s|->  @[%s@]@\n" var_str pad (Expr.to_string value))
+          "\t%s%s|->  @[%s@]@\n" var pad (Expr.to_string value))
 
 let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
     (var_map : z3_expr Var.Map.t) : unit =
@@ -67,7 +66,7 @@ let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
         ~f:(fun ~key ~data pairs ->
             match List.find regs ~f:(fun (r, _) -> Expr.equal data r) with
             | None -> pairs
-            | Some (_, value) -> (key, value) :: pairs)
+            | Some (_, value) -> (Var.to_string key, value) :: pairs)
     in
     format_values fmt reg_vals;
     Format.fprintf fmt "\n%!"

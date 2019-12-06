@@ -17,6 +17,8 @@ open Graphlib.Std
 
 include Self()
 
+module Bool = Z3.Boolean
+module BV = Z3.BitVector
 module Expr = Z3.Expr
 module Constr = Constraint
 
@@ -42,7 +44,10 @@ type t = {
   loop_handler : loop_handler;
   exp_conds : exp_cond list;
   arch : Arch.t;
-  fun_input_regs : bool
+  fun_input_regs : bool;
+  stack : Constr.z3_expr -> Constr.z3_expr;
+  heap : Constr.z3_expr -> Constr.z3_expr;
+  read_addrs: Constr.z3_expr Exp.Map.t
 }
 
 and fun_spec_type =
@@ -205,6 +210,12 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       unroll
   }
 
+let init_mem_range ctx arch (min, max) : Constr.z3_expr -> Constr.z3_expr =
+  let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
+  let min = Expr.mk_numeral_int ctx min sort in
+  let max = Expr.mk_numeral_int ctx max sort in
+  fun addr -> Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ule ctx addr max]
+
 let mk_env
     ~subs:(subs : Sub.t Seq.t)
     ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
@@ -216,6 +227,8 @@ let mk_env
     ~arch:(arch : Arch.t)
     ~freshen_vars:(freshen_vars : bool)
     ~fun_input_regs:(fun_input_regs : bool)
+    ~stack_range:(stack_range : int * int)
+    ~heap_range:(heap_range : int * int)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -234,7 +247,10 @@ let mk_env
     loop_handler = init_loop_unfold num_loop_unroll;
     exp_conds = exp_conds;
     arch = arch;
-    fun_input_regs = fun_input_regs
+    fun_input_regs = fun_input_regs;
+    stack = init_mem_range ctx arch stack_range;
+    heap = init_mem_range ctx arch heap_range;
+    read_addrs = Exp.Map.empty
   }
 
 let env_to_string (env : t) : string =
@@ -255,7 +271,7 @@ let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }
 let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
 
-let remove_var (env :t) (v : Var.t) : t =
+let remove_var (env : t) (v : Var.t) : t =
   { env with var_map = EnvMap.remove env.var_map v }
 
 let mk_exp_conds (env : t) (e : exp) : Constr.goal list * Constr.goal list =
@@ -264,6 +280,9 @@ let mk_exp_conds (env : t) (e : exp) : Constr.goal list * Constr.goal list =
   let conds = List.filter_opt conds in
   List.partition_map conds
     ~f:(function | Assume cond -> `Fst cond | Verify cond -> `Snd cond)
+
+let add_read_addr (env : t) (addr : Exp.t) (z3_addr : Constr.z3_expr) : t =
+  { env with read_addrs = Exp.Map.set env.read_addrs ~key:addr ~data:z3_addr }
 
 let get_var_gen (env : t) : var_gen =
   env.var_gen
@@ -334,3 +353,9 @@ let is_x86 (a : Arch.t) : bool =
 
 let use_input_regs (env : t) : bool =
   env.fun_input_regs
+
+let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
+  env.stack
+
+let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
+  env.heap
