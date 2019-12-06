@@ -96,6 +96,8 @@ val mk_env
   -> arch:Bap.Std.Arch.t
   -> freshen_vars:bool
   -> fun_input_regs:bool
+  -> stack_range:int * int
+  -> heap_range:int * int
   -> Z3.context
   -> var_gen
   -> t
@@ -139,6 +141,9 @@ val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
 (** Creates a verifier checker for a {!Constr.z3_expr}, returning first the assumptions, then the
     VCs. *)
 val mk_exp_conds : t -> Bap.Std.Exp.t -> Constr.goal list * Constr.goal list
+
+(** Adds the address of a memory read and its {!Constr.z3_expr} equivalent to the environment. *)
+val add_read_addr : t -> Bap.Std.Exp.t -> Constr.z3_expr -> t
 
 (** Obtains the Z3 context within a given environment. *)
 val get_context : t -> Z3.context
@@ -200,6 +205,14 @@ val is_x86 : Bap.Std.Arch.t -> bool
 (** Checks to see if the environment supports using all possible input registers
     when generating symbols in the function specs at a function call site. *)
 val use_input_regs : t -> bool
+
+(** Obtains a Z3 expression that checks if an address is within the stack region
+    of memory: i.e. `stack_min <= addr <= stack_max`. *)
+val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
+
+(** Obtains a Z3 expression that checks if an address is within the heap region
+    of memory: i.e. `heap_min <= addr <= heap_max`. *)
+val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
 
 (*-------- Z3 constant creation utilities ----------*)
 

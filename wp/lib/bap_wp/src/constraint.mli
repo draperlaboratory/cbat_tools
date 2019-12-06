@@ -62,8 +62,9 @@ val goal_to_string : goal -> string
 (** Creates a string representation of a path. *)
 val path_to_string : path -> string
 
-(** Creates a string representation of a mapping of BAP variables to their [z3_expr]s. *)
-val format_values : Format.formatter -> (Bap.Std.Var.t * z3_expr) list -> unit
+(** Creates a string representation of a mapping of BAP variable names to their
+    [z3_expr]s. *)
+val format_values : Format.formatter -> (string * z3_expr) list -> unit
 
 (** Creates a string representation of a goal that has been refuted given the model.
     This string shows the lhs and rhs of a goal that compares two values. If print_path
