@@ -640,7 +640,7 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   let env1 = Pre.mk_env ctx var_gen
       ~subs:(Seq.singleton sub1) ~exp_conds:[] in
   let env2 = Pre.mk_env ctx var_gen
-      ~subs:(Seq.singleton sub2) ~exp_conds:[Pre.mem_read_assert env1] in
+      ~subs:(Seq.singleton sub2) ~exp_conds:[Pre.mem_read_assert env1 1] in
   let input_vars = Var.Set.of_list [rsp; rax] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
@@ -652,28 +652,28 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
 
 
 let suite = [
-  (* "z = x+y; and x = x+1; y = y-1; z = x+y;"  >:: test_block_pair_1; *)
-  (* "z = x; and y = x; z = y;"                 >:: test_block_pair_2; *)
-  (*  *)
-  (* "Remove dead assignments"                  >:: test_sub_pair_1; *)
-  (* "Remove needed assignments"                >:: test_sub_pair_2; *)
-  (* "Arithmetic across different blocks"       >:: test_sub_pair_3; *)
-  (* "Squashing assignments"                    >:: test_sub_pair_4; *)
-  (* "Jump to opposite block"                   >:: test_sub_pair_5; *)
-  (* "Assert in original, VC in modified UNSAT" >:: test_sub_pair_6; *)
-  (* "Assert in original, VC in modified SAT"   >:: test_sub_pair_7; *)
-  (*  *)
-  (* "Same subroutines"                         >:: test_sub_pair_fun_1; *)
-  (* "Fun called in modified sub"               >:: test_sub_pair_fun_2; *)
-  (* "Branches with fun calls"                  >:: test_sub_pair_fun_3; *)
-  (* "Fun called in branch"                     >:: test_sub_pair_fun_4; *)
-  (*  *)
-  (* "Function output substitution: UNSAT"      >:: test_fun_outputs_1; *)
-  (* "Function output substitution: SAT"        >:: test_fun_outputs_2; *)
-  (* "Function output: all input regs SAT"      >:: test_fun_outputs_3; *)
-  (* "Function output: no input regss UNSAT"    >:: test_fun_outputs_4; *)
-  (*  *)
-  (* "Compare memory layout"                    >:: test_sub_pair_mem_1; *)
+  "z = x+y; and x = x+1; y = y-1; z = x+y;"  >:: test_block_pair_1;
+  "z = x; and y = x; z = y;"                 >:: test_block_pair_2;
+
+  "Remove dead assignments"                  >:: test_sub_pair_1;
+  "Remove needed assignments"                >:: test_sub_pair_2;
+  "Arithmetic across different blocks"       >:: test_sub_pair_3;
+  "Squashing assignments"                    >:: test_sub_pair_4;
+  "Jump to opposite block"                   >:: test_sub_pair_5;
+  "Assert in original, VC in modified UNSAT" >:: test_sub_pair_6;
+  "Assert in original, VC in modified SAT"   >:: test_sub_pair_7;
+
+  "Same subroutines"                         >:: test_sub_pair_fun_1;
+  "Fun called in modified sub"               >:: test_sub_pair_fun_2;
+  "Branches with fun calls"                  >:: test_sub_pair_fun_3;
+  "Fun called in branch"                     >:: test_sub_pair_fun_4;
+
+  "Function output substitution: UNSAT"      >:: test_fun_outputs_1;
+  "Function output substitution: SAT"        >:: test_fun_outputs_2;
+  "Function output: all input regs SAT"      >:: test_fun_outputs_3;
+  "Function output: no input regss UNSAT"    >:: test_fun_outputs_4;
+
+  "Compare memory layout"                    >:: test_sub_pair_mem_1;
 
   "Same memory at different location: UNSAT" >:: test_memory_model_1;
 ]

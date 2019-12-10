@@ -551,26 +551,32 @@ let default_stack_range : int * int = 0x00007fffffff0000, 0x00007fffffffffff
 
 let default_heap_range : int * int = 0x0000000000000000, 0x00000000ffffffff
 
-let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
+let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (offset : int) (exp : Exp.t)
   : Constr.z3_expr list =
-  let ctx = Env.get_context env2 in
+  let ctx = Env.get_context env1 in
   let visitor =
     begin
       object inherit [Constr.z3_expr list] Exp.visitor
         method! visit_load ~mem:mem ~addr:addr endian size conds =
-          let width = match Type.infer_exn addr with
-            | Imm n -> n
-            | Mem _ -> error "Expected %s to be an address word!%!" (Exp.to_string addr);
-              failwith "Error: in collect_non_null_expr, got a memory read instead of a word"
-            | Unk ->
-              error "Unk type: Unable to determine if %s is an address word.%!" (Exp.to_string addr);
-              failwith "Error: in collect_non_null_expr: addr's type is not representable by Type.t"
+          let addr1, _, _, _ = exp_to_z3 addr env1 in
+          let addr2, _, _, _ = exp_to_z3 addr env2 in
+          let width = Size.in_bits size in
+          let offset = BV.mk_numeral ctx (string_of_int offset) width in
+          let compare_mem in_region addr addr_off =
+            let mem1, _, _, _ = exp_to_z3 mem env1 in
+            let mem2, _, _, _ = exp_to_z3 mem env2 in
+            let init_mem1 = Option.value_exn (Env.get_init_mem env1 mem1) in
+            let init_mem2 = Option.value_exn (Env.get_init_mem env2 mem2) in
+            let mem_orig =
+              load_z3_mem ctx ~word_size:width ~mem:init_mem1 ~addr:addr endian in
+            let mem_mod =
+              load_z3_mem ctx ~word_size:width ~mem:init_mem2 ~addr:addr_off endian in
+            Bool.mk_implies ctx (in_region addr) (Bool.mk_eq ctx mem_orig mem_mod)
           in
-          let null = BV.mk_numeral ctx "0" width in
-          let addr_val,_,_,_ = exp_to_z3 addr env2 in
-          Format.printf "Address: %s\n%!" (Expr.to_string addr_val);
-          let non_null_addr = Bool.mk_not ctx (Bool.mk_eq ctx null addr_val) in
-          non_null_addr :: conds
+          let heap = compare_mem (Env.in_heap env1) addr1 (BV.mk_add ctx addr2 offset) in
+          let stack = compare_mem (Env.in_stack env1) addr1 addr2 in
+          let addr_eq = Bool.mk_eq ctx addr1 addr2 in
+          [heap; stack; addr_eq] @ conds
       end
     end
   in
@@ -578,14 +584,15 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
 
 (* The value of a memory read at address [a] in the original binary is equal to
    the memory read of the modified binary at address [a + d]. *)
-let mem_read_assert (env_orig : Env.t) : Env.exp_cond =
+let mem_read_assert (env_orig : Env.t) (offset : int) : Env.exp_cond =
+  let env_orig = Env.new_init_mem env_orig "orig" in
   fun env_mod exp ->
-  let ctx = Env.get_context env_mod in
-  let conds = collect_mem_read_expr env_orig env_mod exp in
-  if List.is_empty conds then
-    None
-  else
-    Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
+    let ctx = Env.get_context env_mod in
+    let conds = collect_mem_read_expr env_orig env_mod offset exp in
+    if List.is_empty conds then
+      None
+    else
+      Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
 
 let mk_env
     ?subs:(subs = Seq.empty)

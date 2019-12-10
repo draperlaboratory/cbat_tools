@@ -142,9 +142,6 @@ val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
     VCs. *)
 val mk_exp_conds : t -> Bap.Std.Exp.t -> Constr.goal list * Constr.goal list
 
-(** Adds the address of a memory read and its {!Constr.z3_expr} equivalent to the environment. *)
-val add_read_addr : t -> Bap.Std.Exp.t -> Constr.z3_expr -> t
-
 (** Obtains the Z3 context within a given environment. *)
 val get_context : t -> Z3.context
 
@@ -213,6 +210,23 @@ val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
 (** Obtains a Z3 expression that checks if an address is within the heap region
     of memory: i.e. `heap_min <= addr <= heap_max`. *)
 val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
+
+(** [mk_init_mem env mem suffix] creates a fresh Z3 variable that represents the
+    initial state of memory [mem] with suffix 'orig' for the original binary and
+    'mod' for the modified binary. *)
+val mk_init_mem : t -> Constr.z3_expr -> string -> Constr.z3_expr
+
+(** Adds a mapping of the Z3 variable that represents memory to the Z3 variable
+    that represents the initial state of the memory to the environment. *)
+val set_init_mem : t -> mem:Constr.z3_expr -> init_mem:Constr.z3_expr -> t
+
+(** A wrapper around {! mk_init_mem} and {! set_init_mem} that create a new [init_mem]
+    Z3 variable and adds it to the environment. *)
+val new_init_mem : t -> string -> t
+
+(** [get_init_mem mem] obtains the Z3 variable that represents the initial state
+    of memory given the Z3 variable that represents the current memory [mem]. *)
+val get_init_mem : t -> Constr.z3_expr -> Constr.z3_expr option
 
 (*-------- Z3 constant creation utilities ----------*)
 

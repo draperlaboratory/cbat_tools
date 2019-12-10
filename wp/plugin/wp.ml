@@ -116,11 +116,14 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = find_func_err subs1 func in
   let main_sub2 = find_func_err subs2 func in
-  let env1, env2 =
+  let env1 =
     let to_inline1 = match_inline to_inline subs1 in
+    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs
+  in
+  let env2 =
     let to_inline2 = match_inline to_inline subs2 in
-    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs,
     Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2 ~fun_input_regs
+      ~exp_conds:[Pre.mem_read_assert env1 1]
   in
   let pre, env1, env2 =
     if check_calls then
@@ -172,7 +175,8 @@ let main (file1 : string) (file2 : string)
     | None -> ()
     | Some f ->
       Printf.printf "Dumping gdb script to file: %s\n" f;
-      Output.output_gdb solver result env2 ~func:func ~filename:f in
+      Output.output_gdb solver result env1 ~func:func ~filename:("1_" ^ f);
+      Output.output_gdb solver result env2 ~func:func ~filename:("2_" ^ f) in
   Output.print_result solver result pre ~print_path ~orig:env1 ~modif:env2
 
 
