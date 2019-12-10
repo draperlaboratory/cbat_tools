@@ -18,6 +18,7 @@ include Self()
 
 module Expr = Z3.Expr
 module Bool = Z3.Boolean
+module BV = Z3.BitVector
 module Env = Environment
 module Pre = Precondition
 module Constr = Constraint
@@ -51,17 +52,29 @@ let init_mem (env1 : Env.t) (env2 : Env.t) : Constr.t list * Env.t * Env.t =
   let ctx = Env.get_context env1 in
   let arch = Env.get_arch env1 in
   let module Target = (val target_of_arch arch) in
-  let mem1, env1 = Env.get_var env1 Target.CPU.mem in
-  let mem2, env2 = Env.get_var env2 Target.CPU.mem in
-  let init mem suffix =
-    let mem_sort = Expr.get_sort mem in
-    let name = Format.sprintf "init_%s_%s" (Expr.to_string mem) suffix in
-    let init_mem = Expr.mk_const_s ctx name mem_sort in
-    Bool.mk_eq ctx mem init_mem
-    |> Constr.mk_goal (Format.sprintf "%s = %s" (Expr.to_string mem) name)
-    |> Constr.mk_constr
+  let init env suffix =
+    let mem, env = Env.get_var env Target.CPU.mem in
+    let init_mem = Env.mk_init_mem env mem suffix in
+    let env = Env.set_init_mem env ~mem:mem ~init_mem:init_mem in
+    let constr =
+      Bool.mk_eq ctx mem init_mem
+      |> Constr.mk_goal
+        (Format.sprintf "%s = %s" (Expr.to_string mem) (Expr.to_string init_mem))
+      |> Constr.mk_constr
+    in
+    constr, env
   in
-  [init mem1 "orig"; init mem2 "mod"], env1, env2
+  let init_mem1, env1 = init env1 "orig" in
+  let init_mem2, env2 = init env2 "mod" in
+  [init_mem1; init_mem2], env1, env2
+
+let set_sp_range (env : Env.t) : Constr.t =
+  let arch = Env.get_arch env in
+  let module Target = (val target_of_arch arch) in
+  let sp, _ = Env.get_var env Target.CPU.sp in
+  Env.in_stack env sp
+  |> Constr.mk_goal "SP points to stack"
+  |> Constr.mk_constr
 
 let compare_blocks
     ~input:(input : Var.Set.t)
@@ -100,10 +113,10 @@ let compare_subs
       (Pre.get_vars sub1) (Pre.get_vars sub2) in
   let post, env1, env2 =
     postcond ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
-  printf "\nPostcondition:\n%s\n%!" (Constr.to_string post);
+  info "\nPostcondition:\n%s\n%!" (Constr.to_string post);
   let hyps, env1, env2 =
     hyps ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
-  printf "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
+  info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
   let pre_mod, _ = Pre.visit_sub env2 post sub2 in
   let pre_combined, _ = Pre.visit_sub env1 pre_mod sub1 in
   let goal = Constr.mk_clause [hyps] [pre_combined] in
@@ -137,16 +150,16 @@ let compare_subs_empty_post
   in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
 
-(** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used 
+(** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
     as a comparison predicate between an original and modified binary. *)
 let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
   let var_map1 = (Env.get_var_map env1) in
   let var_map2 = (Env.get_var_map env2) in
-  let smtlib_str = Env.EnvMap.fold var_map1 ~init:smtlib_str 
+  let smtlib_str = Env.EnvMap.fold var_map1 ~init:smtlib_str
       ~f:(fun ~key:var ~data:z3_var smtlib_str ->
           String.substr_replace_all smtlib_str ~pattern:((Var.name var) ^ "_orig") ~with_:(Z3.Expr.to_string z3_var)
         ) in
-  let smtlib_str = Env.EnvMap.fold var_map2 ~init:smtlib_str 
+  let smtlib_str = Env.EnvMap.fold var_map2 ~init:smtlib_str
       ~f:(fun ~key:var ~data:z3_var smtlib_str ->
           String.substr_replace_all smtlib_str ~pattern:((Var.name var) ^ "_mod") ~with_:(Z3.Expr.to_string z3_var)
         ) in
@@ -173,8 +186,9 @@ let compare_subs_eq
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
     let init_mem, env1, env2 = init_mem env1 env2 in
+    let sp_range = set_sp_range env1 in
     let pre' = mk_smtlib2_compare env1 env2 smtlib_hyp in
-    Constr.mk_clause [] (pre' :: init_mem @ pre_eqs), env1, env2
+    Constr.mk_clause [] ([pre'; sp_range] @ init_mem @ pre_eqs), env1, env2
   in
   compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
 
