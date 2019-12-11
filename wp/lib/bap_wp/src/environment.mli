@@ -220,12 +220,12 @@ val mk_init_mem : t -> Constr.z3_expr -> string -> Constr.z3_expr
     that represents the initial state of the memory to the environment. *)
 val set_init_mem : t -> mem:Constr.z3_expr -> init_mem:Constr.z3_expr -> t
 
-(** A wrapper around {! mk_init_mem} and {! set_init_mem} that create a new [init_mem]
-    Z3 variable and adds it to the environment. *)
+(** A wrapper around {! mk_init_mem} and {! set_init_mem} that creates a new
+    [init_mem] Z3 variable and adds it to the environment. *)
 val new_init_mem : t -> string -> t
 
 (** [get_init_mem mem] obtains the Z3 variable that represents the initial state
-    of memory given the Z3 variable that represents the current memory [mem]. *)
+    of memory given the current memory [mem]. *)
 val get_init_mem : t -> Constr.z3_expr -> Constr.z3_expr option
 
 (*-------- Z3 constant creation utilities ----------*)

@@ -60,7 +60,8 @@ val get_vars : Bap.Std.Sub.t -> Bap.Std.Var.Set.t
     given the name of each variable. *)
 val get_output_vars : Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t
 
-(** Create a Z3 expression that denotes a load in memory [mem] at address [addr]. *)
+(** Create a Z3 expression that denotes a load in memory [mem] at address [addr]
+    with word size of [word_size] bits. *)
 val load_z3_mem
   :  Z3.context
   -> word_size:int
