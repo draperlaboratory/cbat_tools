@@ -35,10 +35,15 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
       ~f:(fun ~key ~data pairs ->
           let key_str = Var.to_string key in
           if Target.CPU.is_mem key then
-            let mem_mod, _ = Env.get_var env2 key in
-            let val_orig = Constr.eval_model_exn model data in
-            let val_mod = Constr.eval_model_exn model mem_mod in
-            (key_str ^ "_orig", val_orig) :: (key_str ^ "_mod", val_mod) :: pairs
+            begin
+              let mem_mod, _ = Env.get_var env2 key in
+              let val_orig = Constr.eval_model_exn model data in
+              let val_mod = Constr.eval_model_exn model mem_mod in
+              if Expr.equal val_orig val_mod then
+                (key_str, val_orig) :: pairs
+              else
+                (key_str ^ "_orig", val_orig) :: (key_str ^ "_mod", val_mod) :: pairs
+            end
           else
             let value = Constr.eval_model_exn model data in
             (key_str, value) :: pairs)

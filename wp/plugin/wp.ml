@@ -123,7 +123,6 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let env2 =
     let to_inline2 = match_inline to_inline subs2 in
     Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2 ~fun_input_regs
-      ~exp_conds:[Pre.mem_read_assert env1 1]
   in
   let pre, env1, env2 =
     if check_calls then

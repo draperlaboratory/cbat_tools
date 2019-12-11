@@ -50,12 +50,20 @@ let goal_to_string (g : goal) : string =
   Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
 
 let format_values (fmt : Format.formatter) (vals : (string * z3_expr) list) : unit =
-  List.iter vals
-    ~f:(fun (var, value) ->
-        let pad_size = Int.max (9 - (String.length var)) 1 in
-        let pad = String.make pad_size ' ' in
-        Format.fprintf fmt
-          "\t%s%s|->  @[%s@]@\n" var pad (Expr.to_string value))
+  let max_str_length =
+    vals
+    |> List.map ~f:(fun (v, _) -> String.length v)
+    |> List.max_elt ~compare:Int.compare
+  in
+  match max_str_length with
+  | None -> ()
+  | Some length ->
+    List.iter vals
+      ~f:(fun (var, value) ->
+          let pad_size = length - (String.length var) + 1 in
+          let pad = String.make pad_size ' ' in
+          Format.fprintf fmt
+            "\t%s%s|->  @[%s@]@\n" var pad (Expr.to_string value))
 
 let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
     (var_map : z3_expr Var.Map.t) : unit =
