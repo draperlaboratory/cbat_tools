@@ -47,7 +47,6 @@ let update_default_num_unroll (num_unroll : int option) : unit =
   | Some n -> Pre.num_unroll := n
   | None -> ()
 
-
 let match_inline (to_inline : string option) (subs : (Sub.t Seq.t)) : Sub.t Seq.t =
   match to_inline with
   | None -> Seq.empty
@@ -97,6 +96,11 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     (Sub.to_string main_sub) Constr.pp_constr pre;
   (pre, env, env)
 
+let get_exp_conds (env : Env.t) (mem_offset : int option) : Env.exp_cond list =
+  match mem_offset with
+  | None -> []
+  | Some off -> [Pre.mem_read_assert env off]
+
 let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
     ~func:(func : string)
@@ -106,6 +110,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     ~fun_input_regs:(fun_input_regs : bool)
     ~pre_cond:(pre_cond : string)
     ~post_cond:(post_cond : string)
+    ~mem_offset:(mem_offset : int option)
   : Constr.t * Env.t * Env.t =
   let prog1 = Program.Io.read file1 in
   let prog2 = Program.Io.read file2 in
@@ -120,9 +125,11 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     let to_inline1 = match_inline to_inline subs1 in
     Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs
   in
+  let exp_conds = get_exp_conds env1 mem_offset in
   let env2 =
     let to_inline2 = match_inline to_inline subs2 in
     Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2 ~fun_input_regs
+      ~exp_conds
   in
   let pre, env1, env2 =
     if check_calls then
@@ -156,6 +163,7 @@ let main (file1 : string) (file2 : string)
     ~gdb_filename:(gdb_filename : string option)
     ~print_path:(print_path : bool)
     ~fun_input_regs:(fun_input_regs : bool)
+    ~mem_offset:(mem_offset : int option)
     (proj : project) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -165,7 +173,7 @@ let main (file1 : string) (file2 : string)
   let pre, env1, env2 =
     if compare || has_files_to_compare then
       compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~to_inline
-        ~output_vars ~fun_input_regs ~post_cond ~pre_cond
+        ~output_vars ~fun_input_regs ~post_cond ~pre_cond ~mem_offset
     else
       analyze_proj proj var_gen ctx ~func ~to_inline ~fun_input_regs ~post_cond ~pre_cond 
   in
@@ -174,8 +182,7 @@ let main (file1 : string) (file2 : string)
     | None -> ()
     | Some f ->
       Printf.printf "Dumping gdb script to file: %s\n" f;
-      Output.output_gdb solver result env1 ~func:func ~filename:("1_" ^ f);
-      Output.output_gdb solver result env2 ~func:func ~filename:("2_" ^ f) in
+      Output.output_gdb solver result env2 ~func:func ~filename:f in
   Output.print_result solver result pre ~print_path ~orig:env1 ~modif:env2
 
 
@@ -248,6 +255,10 @@ module Cmdline = struct
             that represents the result of the function call. If set to false, no \
             registers will be used. Defaults to true."
 
+  let mem_offset = param (some int) "mem-offset" ~default:None
+      ~doc:"If set, adds an assumption to the precondition that memory of the \
+            modified binary is the same as the original binary at an offset `d`."
+
 
   let () = when_ready (fun {get=(!!)} ->
       Project.register_pass' @@
@@ -263,6 +274,7 @@ module Cmdline = struct
         ~gdb_filename:!!gdb_filename
         ~print_path:!!print_path
         ~fun_input_regs:!!fun_input_regs
+        ~mem_offset:!!mem_offset
     )
 
   let () = manpage [

@@ -637,11 +637,10 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
         rsp := var rsp + i64 0x98;
       ]
     ) |> bil_to_sub in
-  let env1 = Pre.mk_env ctx var_gen
-      ~subs:(Seq.singleton sub1) ~exp_conds:[] in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1) ~exp_conds:[] in
   let env2 = Pre.mk_env ctx var_gen
       ~subs:(Seq.singleton sub2) ~exp_conds:[Pre.mem_read_assert env1 1] in
-  let input_vars = Var.Set.of_list [rsp; rax] in
+  let input_vars = Var.Set.of_list [rsp; rax; mem] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
