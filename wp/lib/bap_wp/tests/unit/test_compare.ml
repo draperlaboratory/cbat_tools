@@ -610,41 +610,60 @@ let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
 let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let mem = Var.create "mem" (mem64_t `r64) in
-  let rsp = Var.create "RSP" reg64_t in
+  let module Target = (val target_of_arch `x86_64) in
+  let mem = Target.CPU.mem in
   let rax = Var.create "RAX" reg64_t in
+  let addr1 = 0x600160 in
+  let addr2 = 0x600161 in
   let sub1 = Bil.(
-      [ rsp := var rsp - i64 0x98;
-        mem := store ~mem:(var mem) ~addr:(var rsp) (i64 2) LittleEndian `r64;
-        mem := store ~mem:(var mem) ~addr:(var rsp + i64 0x8) (i64 3) LittleEndian `r64;
-        mem := store ~mem:(var mem) ~addr:(var rsp + i64 0x10) (i64 4) LittleEndian `r64;
-        rax := load ~mem:(var mem) ~addr:(i64 0x600160) LittleEndian `r64;
-        rax := var rax + load ~mem:(var mem) ~addr:(var rsp + i64 0x10) LittleEndian `r64;
-        rax := var rax + load ~mem:(var mem) ~addr:(var rsp + i64 0x8) LittleEndian `r64;
-        rax := var rax + load ~mem:(var mem) ~addr:(var rsp) LittleEndian `r64;
-        rsp := var rsp + i64 0x98;
-      ]
+      [ rax := load ~mem:(var mem) ~addr:(i64 addr1) LittleEndian `r64; ]
     ) |> bil_to_sub in
   let sub2 = Bil.(
-      [ rsp := var rsp - i64 0x98;
-        mem := store ~mem:(var mem) ~addr:(var rsp) (i64 2) LittleEndian `r64;
-        mem := store ~mem:(var mem) ~addr:(var rsp + i64 0x8) (i64 3) LittleEndian `r64;
-        mem := store ~mem:(var mem) ~addr:(var rsp + i64 0x10) (i64 4) LittleEndian `r64;
-        rax := load ~mem:(var mem) ~addr:(i64 0x600161) LittleEndian `r64;
-        rax := var rax + load ~mem:(var mem) ~addr:(var rsp + i64 0x10) LittleEndian `r64;
-        rax := var rax + load ~mem:(var mem) ~addr:(var rsp + i64 0x8) LittleEndian `r64;
-        rax := var rax + load ~mem:(var mem) ~addr:(var rsp) LittleEndian `r64;
-        rsp := var rsp + i64 0x98;
-      ]
+      [ rax := load ~mem:(var mem) ~addr:(i64 addr2) LittleEndian `r64; ]
     ) |> bil_to_sub in
-  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1) ~exp_conds:[] in
-  let env2 = Pre.mk_env ctx var_gen
-      ~subs:(Seq.singleton sub2) ~exp_conds:[Pre.mem_read_assert env1 1] in
-  let input_vars = Var.Set.of_list [rsp; rax; mem] in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
+      ~exp_conds:[Pre.mem_read_assert env2 1] in
+  let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
+      ~original:(sub1,env1) ~modified:(sub2,env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
+  assert_z3_compare test_ctx ~orig:env1 ~modif:env2
+    (Sub.to_string sub1) (Sub.to_string sub2)
+    compare_prop Z3.Solver.UNSATISFIABLE
+
+
+let test_memory_model_2 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let module Target = (val target_of_arch `x86_64) in
+  let mem = Target.CPU.mem in
+  let rax = Var.create "RAX" reg64_t in
+  let addr1 = 0x600160 in
+  let addr2 = 0x600161 in
+  let sub1 = Bil.(
+      [
+        rax := i64 addr1;
+        rax := load ~mem:(var mem) ~addr:(var rax) LittleEndian `r64;
+      ]
+    ) |> bil_to_sub in
+  let sub2 = Bil.(
+      [
+        rax := i64 addr2;
+        rax := load ~mem:(var mem) ~addr:(var rax) LittleEndian `r64;
+      ]
+    ) |> bil_to_sub in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
+      ~exp_conds:[Pre.mem_read_assert env2 1] in
+  let input_vars = Var.Set.of_list [rax; mem] in
+  let output_vars = Var.Set.singleton rax in
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
+      ~input:input_vars ~output:output_vars
+      ~original:(sub1,env1) ~modified:(sub2,env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -674,5 +693,6 @@ let suite = [
 
   "Compare memory layout"                    >:: test_sub_pair_mem_1;
 
-  "Same memory at different location: UNSAT" >:: test_memory_model_1;
+  "Diff data location: UNSAT"                >:: test_memory_model_1;
+  "Diff data location, substitution: UNSAT"  >:: test_memory_model_2;
 ]
