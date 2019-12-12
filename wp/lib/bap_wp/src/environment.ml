@@ -360,7 +360,7 @@ let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
 let mk_init_mem (env : t) (mem : Constr.z3_expr) (suffix : string) : Constr.z3_expr =
   let ctx = get_context env in
   let sort = Expr.get_sort mem in
-  let name = Format.sprintf "init_%s_%s" (Expr.to_string mem) suffix in
+  let name = Format.sprintf "init_mem_%s" suffix in
   Expr.mk_const_s ctx name sort
 
 let set_init_mem (env : t) ~mem:(mem : Constr.z3_expr)

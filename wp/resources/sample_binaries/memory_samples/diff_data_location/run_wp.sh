@@ -12,7 +12,8 @@ run () {
     --wp-file1=main_1.bpj \
     --wp-file2=main_2.bpj \
     --wp-function=main \
-    --wp-gdb-filename=diff_data_location.gdb
+    --wp-gdb-filename=diff_data_location.gdb \
+    --wp-mem-offset=1
 }
 
 compile && run

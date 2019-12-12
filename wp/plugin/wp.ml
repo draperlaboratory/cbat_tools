@@ -121,15 +121,14 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = find_func_err subs1 func in
   let main_sub2 = find_func_err subs2 func in
-  let env1 =
-    let to_inline1 = match_inline to_inline subs1 in
-    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs
-  in
-  let exp_conds = get_exp_conds env1 mem_offset in
   let env2 =
     let to_inline2 = match_inline to_inline subs2 in
     Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2 ~fun_input_regs
-      ~exp_conds
+  in
+  let env1 =
+    let to_inline1 = match_inline to_inline subs1 in
+    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs
+      ~exp_conds:(get_exp_conds env2 mem_offset)
   in
   let pre, env1, env2 =
     if check_calls then
@@ -144,7 +143,8 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
         debug "Input: %s%!" (varset_to_string input_vars);
         debug "Output: %s%!" (varset_to_string output_vars);
         Comp.compare_subs_eq ~input:input_vars ~output:output_vars
-          ~original:(main_sub1,env1) ~modified:(main_sub2,env2) ~smtlib_post:post_cond ~smtlib_hyp:pre_cond
+          ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
+          ~smtlib_post:post_cond ~smtlib_hyp:pre_cond
       end
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"

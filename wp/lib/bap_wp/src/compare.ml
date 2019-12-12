@@ -60,7 +60,7 @@ let init_mem (env1 : Env.t) (env2 : Env.t) : Constr.t list =
       (Format.sprintf "%s = %s" (Expr.to_string mem) (Expr.to_string init_mem))
     |> Constr.mk_constr
   in
-  [init env2 "orig"; init env2 "mod"]
+  [init env1 "orig"; init env2 "mod"]
 
 let set_sp_range (env : Env.t) : Constr.t =
   let arch = Env.get_arch env in

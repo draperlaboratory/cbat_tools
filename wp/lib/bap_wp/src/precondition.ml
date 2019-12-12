@@ -659,6 +659,7 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     let rhs = Def.rhs def in
     let rhs_exp, assume, vcs, env = exp_to_z3 rhs env in
     let z3_var, env = Env.get_var env var in
+    let post = Constr.substitute_one post z3_var rhs_exp in
     let post = post::vcs in
     (* Here we add the assumptions as a hypothesis if there
        are any. *)
@@ -666,7 +667,7 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     debug "Visiting def:\nlhs = %s : <%d>    rhs = %s : <%d>%!"
       (Expr.to_string z3_var) (var |> Var.typ |> typ_size)
       (Expr.to_string rhs_exp) (rhs |> Type.infer_exn |> typ_size);
-    Constr.substitute_one post z3_var rhs_exp, Env.add_var env var z3_var
+    post, Env.add_var env var z3_var
   | `Jmp jmp ->
     visit_jmp env post jmp
   | `Phi _ ->
@@ -878,10 +879,9 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (offset : int) (exp : Ex
               load_z3_mem ctx ~word_size:width ~mem:init_mem2 ~addr:addr_off endian in
             Bool.mk_implies ctx (in_region addr) (Bool.mk_eq ctx mem_orig mem_mod)
           in
-          let heap = compare_mem (Env.in_heap env1) addr1 (BV.mk_add ctx addr2 offset) in
+          let heap = compare_mem (Env.in_heap env1) addr1 (BV.mk_add ctx addr1 offset) in
           let stack = compare_mem (Env.in_stack env1) addr1 addr2 in
-          let addr_eq = Bool.mk_eq ctx addr1 addr2 in
-          [heap; stack; addr_eq] @ conds
+          [heap; stack] @ conds
       end
     end
   in
@@ -889,8 +889,7 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (offset : int) (exp : Ex
 
 (* The value of a memory read at address [a] in the original binary is equal to
    the memory read of the modified binary at address [a + d] where [d] is in bytes. *)
-let mem_read_assert (env1 : Env.t) (offset : int) : Env.exp_cond =
-  fun env2 exp ->
+let mem_read_assert (env2 : Env.t) (offset : int) : Env.exp_cond = fun env1 exp ->
   let ctx = Env.get_context env1 in
   let env1 = Env.new_init_mem env1 "orig" in
   let env2 = Env.new_init_mem env2 "mod" in

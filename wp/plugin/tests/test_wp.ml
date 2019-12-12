@@ -122,6 +122,7 @@ let suite = [
   "Retrowrite Stub: Pop RSP"       >:: test_compare_elf "retrowrite_stub" "UNSAT!";
   "Retrowrite Stub No Ret in Call" >:: test_compare_elf "retrowrite_stub_no_ret" "UNSAT!";
   "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "UNSAT!" ~mem_offset:(Some 1);
+  "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "SAT!" ~mem_offset:(Some 2);
 
   "Simple WP"                      >:: test_single_elf "simple_wp" "main" "SAT!";
   "Simple WP: Precondition"        >:: test_single_elf "simple_wp" "main" ~pre:"(assert (= RDI #x0000000000000002))" "UNSAT!";
