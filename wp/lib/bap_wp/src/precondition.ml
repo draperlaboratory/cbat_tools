@@ -151,7 +151,7 @@ let bv_to_bool (bv : Constr.z3_expr) (ctx : Z3.context) (width : int) : Constr.z
   let zero = z3_expr_zero ctx width in
   Bool.mk_not ctx (Bool.mk_eq ctx bv zero)
 
-let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Constr.t list * Constr.t list * Env.t =
+let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Env.hook list * Env.hook list * Env.t =
   let ctx = Env.get_context env in
   let open Bap.Std.Bil.Types in
   let rec exp_to_z3_body exp env : Constr.z3_expr * Env.t =
@@ -246,9 +246,7 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Constr.t list * Con
       let w2_val, env = exp_to_z3_body w2 env in
       BV.mk_concat ctx w1_val w2_val, env
   in
-  let a, v = Env.mk_exp_conds env exp in
-  let assume = List.map a ~f:Constr.mk_constr in
-  let verify = List.map v ~f:Constr.mk_constr in
+  let assume, verify = Env.mk_exp_conds env exp in
   let z3_exp, new_env = exp_to_z3_body exp env in
   z3_exp, assume, verify, new_env
 
@@ -602,13 +600,15 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
             let cond = Jmp.cond jmp in
             let cond_val, assume, vcs, env = exp_to_z3 cond env in
             debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
-              (Expr.to_string cond_val) (List.to_string ~f:Constr.to_string vcs)
-              (List.to_string ~f:Constr.to_string assume);
+              (Expr.to_string cond_val) (List.to_string ~f:Env.hook_to_string vcs)
+              (List.to_string ~f:Env.hook_to_string assume);
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
             let ite = Constr.mk_ite jmp (Bool.mk_not ctx false_cond) l_pre post in
-            let post = ite::vcs in
-            Constr.mk_clause assume post, env
+            let assume_enter, assume_exit = Env.eval_hooks assume in
+            let vcs_enter, vcs_exit = Env.eval_hooks vcs in
+            let post = ite :: (vcs_enter @ vcs_exit) in
+            Constr.mk_clause (assume_enter @ assume_exit) post, env
           (* TODO: evaluate the indirect jump and
              enumerate the possible concrete values, relate to tids
              (probably tough...) *)
@@ -659,14 +659,20 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     let rhs = Def.rhs def in
     let rhs_exp, assume, vcs, env = exp_to_z3 rhs env in
     let z3_var, env = Env.get_var env var in
-    let post = Constr.substitute_one post z3_var rhs_exp in
-    let post = post::vcs in
-    (* Here we add the assumptions as a hypothesis if there
-       are any. *)
-    let post = Constr.mk_clause assume post in
     debug "Visiting def:\nlhs = %s : <%d>    rhs = %s : <%d>%!"
       (Expr.to_string z3_var) (var |> Var.typ |> typ_size)
       (Expr.to_string rhs_exp) (rhs |> Type.infer_exn |> typ_size);
+    let vcs_enter, vcs_exit = Env.eval_hooks vcs in
+    let assume_enter, assume_exit = Env.eval_hooks assume in
+    (* Adding any assumptions and VCs to the postcondition upon entering the
+       expression. *)
+    let post = post :: vcs_enter in
+    let post = Constr.mk_clause assume_enter post in
+    let post = Constr.substitute_one post z3_var rhs_exp in
+    (* Adding the assumptions and VCs to the postcondition upon exiting the
+       expression. *)
+    let post = post :: vcs_exit in
+    let post = Constr.mk_clause assume_exit post in
     post, Env.add_var env var z3_var
   | `Jmp jmp ->
     visit_jmp env post jmp
@@ -818,8 +824,8 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
                     let cond = Jmp.cond jmp in
                     let cond_val, assume, vcs, env = exp_to_z3 cond env in
                     debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
-                      (Expr.to_string cond_val) (List.to_string ~f:Constr.to_string vcs)
-                      (List.to_string ~f:Constr.to_string assume);
+                      (Expr.to_string cond_val) (List.to_string ~f:Env.hook_to_string vcs)
+                      (List.to_string ~f:Env.hook_to_string assume);
                     let cond_size = BV.get_size (Expr.get_sort cond_val) in
                     let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
                     let constr = if data then
@@ -833,8 +839,10 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
                          |> Constr.mk_constr;
                          post]
                     in
-                    let post = constr @ vcs in
-                    Some (Constr.mk_clause assume post, env)
+                    let assume_enter, assume_exit = Env.eval_hooks assume in
+                    let vcs_enter, vcs_exit = Env.eval_hooks vcs in
+                    let post = constr @ vcs_enter @ vcs_exit in
+                    Some (Constr.mk_clause (assume_enter @ assume_exit) post, env)
                   | Indirect _ -> None
                 end
               | _ -> assert false
@@ -847,7 +855,7 @@ let non_null_vc : Env.exp_cond = fun env exp ->
   if List.is_empty conds then
     None
   else
-    Some (Verify (Constr.mk_goal "verify" (Bool.mk_and ctx conds)))
+    Some (Verify (OnEnter (Constr.mk_goal "verify" (Bool.mk_and ctx conds))))
 
 let non_null_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -855,7 +863,7 @@ let non_null_assert : Env.exp_cond = fun env exp ->
   if List.is_empty conds then
     None
   else
-    Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
+    Some (Assume (OnEnter (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
 
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (offset : int) (exp : Exp.t)
   : Constr.z3_expr list =
@@ -897,7 +905,7 @@ let mem_read_assert (env2 : Env.t) (offset : int) : Env.exp_cond = fun env1 exp 
   if List.is_empty conds then
     None
   else
-    Some (Assume (Constr.mk_goal "assume" (Bool.mk_and ctx conds)))
+    Some (Assume (OnExit (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
 
 let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     (pre : Constr.t) : Solver.status =
