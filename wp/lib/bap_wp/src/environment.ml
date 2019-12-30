@@ -69,7 +69,9 @@ and loop_handler = {
   handle : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
 }
 
-and cond_type = Verify of Constr.goal | Assume of Constr.goal
+and hook = OnEnter of Constr.goal | OnExit of Constr.goal
+
+and cond_type = Verify of hook | Assume of hook
 
 and exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 
@@ -274,12 +276,22 @@ let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
 let remove_var (env : t) (v : Var.t) : t =
   { env with var_map = EnvMap.remove env.var_map v }
 
-let mk_exp_conds (env : t) (e : exp) : Constr.goal list * Constr.goal list =
+let mk_exp_conds (env : t) (e : exp) : hook list * hook list =
   let { exp_conds; _ } = env in
   let conds = List.map exp_conds ~f:(fun gen -> gen env e) in
   let conds = List.filter_opt conds in
   List.partition_map conds
     ~f:(function | Assume cond -> `Fst cond | Verify cond -> `Snd cond)
+
+let eval_hooks (hooks : hook list) : Constr.t list * Constr.t list =
+  List.partition_map hooks ~f:(function
+      | OnEnter g -> `Fst (Constr.mk_constr g)
+      | OnExit g -> `Snd (Constr.mk_constr g))
+
+let hook_to_string (h : hook) : string =
+  match h with
+  | OnEnter g -> Format.sprintf "On Enter: %s" (Constr.goal_to_string g)
+  | OnExit g -> Format.sprintf "On Exit: %s" (Constr.goal_to_string g)
 
 let get_var_gen (env : t) : var_gen =
   env.var_gen

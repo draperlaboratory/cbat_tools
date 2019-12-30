@@ -62,10 +62,15 @@ type loop_handler = {
   handle : t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
 }
 
+(** Condition generated when exploring an expression:
+    [OnEnter] will generate the condition before any substitution is made, and
+    [OnExit] will generate the condition after all substitutions are completed. *)
+type hook = OnEnter of Constr.goal | OnExit of Constr.goal
+
 (** Conditions generated when exploring an expression: if it is a [Verify],
     this represents an additional proof obligation, an [Assume]
     represents an assumption, typically about the definedness of the expression. *)
-type cond_type = Verify of Constr.goal | Assume of Constr.goal
+type cond_type = Verify of hook | Assume of hook
 
 (** Type that generates a Verification Condition on encountering a given pattern,
     typically a correctness constraint, like no overflow or no null dereference. *)
@@ -140,7 +145,15 @@ val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
 
 (** Creates a verifier checker for a {!Constr.z3_expr}, returning first the assumptions, then the
     VCs. *)
-val mk_exp_conds : t -> Bap.Std.Exp.t -> Constr.goal list * Constr.goal list
+val mk_exp_conds : t -> Bap.Std.Exp.t -> hook list * hook list
+
+(** Generates lists of {! Constr.t}s from a list of hooks, returning first the
+    hooks to be run on entering an expression, then the hooks to be run on
+    exiting an expression. *)
+val eval_hooks : hook list -> Constr.t list * Constr.t list
+
+(** Creates a string representation of a hook. *)
+val hook_to_string : hook -> string
 
 (** Obtains the Z3 context within a given environment. *)
 val get_context : t -> Z3.context
