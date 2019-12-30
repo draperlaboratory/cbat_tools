@@ -68,7 +68,7 @@ let mk_sub ?tid:(tid = Tid.create ()) ?args:(args = []) ?name:(name = "")
   Sub.Builder.result blk_build
 
 let mk_z3_expr (env : Env.t) (e : Exp.t) : Constr.z3_expr =
-  let e, _, _, _ = Pre.exp_to_z3 e env in e
+  let e, _, _ = Pre.exp_to_z3 e env in e
 
 let mk_z3_var (env : Env.t) (v : Var.t) : Constr.z3_expr =
   fst (Env.get_var env v)

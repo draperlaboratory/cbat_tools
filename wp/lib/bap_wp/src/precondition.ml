@@ -151,7 +151,7 @@ let bv_to_bool (bv : Constr.z3_expr) (ctx : Z3.context) (width : int) : Constr.z
   let zero = z3_expr_zero ctx width in
   Bool.mk_not ctx (Bool.mk_eq ctx bv zero)
 
-let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Env.hook list * Env.hook list * Env.t =
+let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Env.hooks * Env.t =
   let ctx = Env.get_context env in
   let open Bap.Std.Bil.Types in
   let rec exp_to_z3_body exp env : Constr.z3_expr * Env.t =
@@ -246,9 +246,9 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Env.hook list * Env
       let w2_val, env = exp_to_z3_body w2 env in
       BV.mk_concat ctx w1_val w2_val, env
   in
-  let assume, verify = Env.mk_exp_conds env exp in
+  let hooks = Env.mk_exp_conds env exp in
   let z3_exp, new_env = exp_to_z3_body exp env in
-  z3_exp, assume, verify, new_env
+  z3_exp, hooks, new_env
 
 let typ_size (t : Type.t) : int =
   match t with
@@ -598,17 +598,16 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
                            The loop handler should have added the precondition for the node");
             in
             let cond = Jmp.cond jmp in
-            let cond_val, assume, vcs, env = exp_to_z3 cond env in
-            debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
-              (Expr.to_string cond_val) (List.to_string ~f:Env.hook_to_string vcs)
-              (List.to_string ~f:Env.hook_to_string assume);
+            let cond_val, hooks, env = exp_to_z3 cond env in
+            debug "\n\nJump when %s:\n%s\n%!"
+              (Expr.to_string cond_val) (Env.hooks_to_string hooks);
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
             let ite = Constr.mk_ite jmp (Bool.mk_not ctx false_cond) l_pre post in
-            let assume_enter, assume_exit = Env.eval_hooks assume in
-            let vcs_enter, vcs_exit = Env.eval_hooks vcs in
-            let post = ite :: (vcs_enter @ vcs_exit) in
-            Constr.mk_clause (assume_enter @ assume_exit) post, env
+            let vcs = hooks.verify_enter @ hooks.verify_exit in
+            let assume = hooks.assume_enter @ hooks.assume_exit in
+            let post = ite :: vcs in
+            Constr.mk_clause assume post, env
           (* TODO: evaluate the indirect jump and
              enumerate the possible concrete values, relate to tids
              (probably tough...) *)
@@ -657,22 +656,20 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
   | `Def def ->
     let var = Def.lhs def in
     let rhs = Def.rhs def in
-    let rhs_exp, assume, vcs, env = exp_to_z3 rhs env in
+    let rhs_exp, hooks, env = exp_to_z3 rhs env in
     let z3_var, env = Env.get_var env var in
     debug "Visiting def:\nlhs = %s : <%d>    rhs = %s : <%d>%!"
       (Expr.to_string z3_var) (var |> Var.typ |> typ_size)
       (Expr.to_string rhs_exp) (rhs |> Type.infer_exn |> typ_size);
-    let vcs_enter, vcs_exit = Env.eval_hooks vcs in
-    let assume_enter, assume_exit = Env.eval_hooks assume in
     (* Adding any assumptions and VCs to the postcondition upon entering the
        expression. *)
-    let post = post :: vcs_enter in
-    let post = Constr.mk_clause assume_enter post in
+    let post = post :: hooks.verify_enter in
+    let post = Constr.mk_clause hooks.assume_enter post in
     let post = Constr.substitute_one post z3_var rhs_exp in
     (* Adding the assumptions and VCs to the postcondition upon exiting the
        expression. *)
-    let post = post :: vcs_exit in
-    let post = Constr.mk_clause assume_exit post in
+    let post = post :: hooks.verify_exit in
+    let post = Constr.mk_clause hooks.assume_exit post in
     post, Env.add_var env var z3_var
   | `Jmp jmp ->
     visit_jmp env post jmp
@@ -789,7 +786,7 @@ let collect_non_null_expr (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
               failwith "Error: in collect_non_null_expr: addr's type is not representable by Type.t"
           in
           let null = BV.mk_numeral ctx "0" width in
-          let addr_val,_,_,_ = exp_to_z3 addr env in
+          let addr_val,_,_ = exp_to_z3 addr env in
           let non_null_addr = Bool.mk_not ctx (Bool.mk_eq ctx null addr_val) in
           non_null_addr :: conds
       end
@@ -822,10 +819,9 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
                     in
                     let ctx = Env.get_context env in
                     let cond = Jmp.cond jmp in
-                    let cond_val, assume, vcs, env = exp_to_z3 cond env in
-                    debug "\n\nJump when %s:\nVCs:%s\nAssumptions:%s\n\n%!"
-                      (Expr.to_string cond_val) (List.to_string ~f:Env.hook_to_string vcs)
-                      (List.to_string ~f:Env.hook_to_string assume);
+                    let cond_val, hooks, env = exp_to_z3 cond env in
+                    debug "\n\nJump when %s:\n%s\n%!"
+                      (Expr.to_string cond_val) (Env.hooks_to_string hooks);
                     let cond_size = BV.get_size (Expr.get_sort cond_val) in
                     let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
                     let constr = if data then
@@ -839,10 +835,10 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
                          |> Constr.mk_constr;
                          post]
                     in
-                    let assume_enter, assume_exit = Env.eval_hooks assume in
-                    let vcs_enter, vcs_exit = Env.eval_hooks vcs in
-                    let post = constr @ vcs_enter @ vcs_exit in
-                    Some (Constr.mk_clause (assume_enter @ assume_exit) post, env)
+                    let assume = hooks.assume_enter @ hooks.assume_exit in
+                    let vcs = hooks.verify_enter @ hooks.verify_exit in
+                    let post = constr @ vcs in
+                    Some (Constr.mk_clause assume post, env)
                   | Indirect _ -> None
                 end
               | _ -> assert false
@@ -872,13 +868,13 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (offset : int) (exp : Ex
     begin
       object inherit [Constr.z3_expr list] Exp.visitor
         method! visit_load ~mem:mem ~addr:addr endian size conds =
-          let addr1, _, _, _ = exp_to_z3 addr env1 in
-          let addr2, _, _, _ = exp_to_z3 addr env2 in
+          let addr1, _, _ = exp_to_z3 addr env1 in
+          let addr2, _, _ = exp_to_z3 addr env2 in
           let width = Size.in_bits size in
           let offset = BV.mk_numeral ctx (string_of_int offset) width in
           let compare_mem in_region addr addr_off =
-            let mem1, _, _, _ = exp_to_z3 mem env1 in
-            let mem2, _, _, _ = exp_to_z3 mem env2 in
+            let mem1, _, _ = exp_to_z3 mem env1 in
+            let mem2, _, _ = exp_to_z3 mem env2 in
             let init_mem1 = Option.value_exn (Env.get_init_mem env1 mem1) in
             let init_mem2 = Option.value_exn (Env.get_init_mem env2 mem2) in
             let mem_orig =

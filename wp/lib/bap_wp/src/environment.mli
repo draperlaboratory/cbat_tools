@@ -62,19 +62,30 @@ type loop_handler = {
   handle : t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
 }
 
-(** Condition generated when exploring an expression:
-    [OnEnter] will generate the condition before any substitution is made, and
-    [OnExit] will generate the condition after all substitutions are completed. *)
-type hook = OnEnter of Constr.goal | OnExit of Constr.goal
+(** Condition generated when exploring an expression: [OnEnter] will generate a
+    {! Constr.goal} to be added to the postcondition before any substitution is made,
+    and [OnExit] will generate the goal to be added after all substitutions are
+    completed. *)
+type cond = OnEnter of Constr.goal | OnExit of Constr.goal
 
 (** Conditions generated when exploring an expression: if it is a [Verify],
     this represents an additional proof obligation, an [Assume]
     represents an assumption, typically about the definedness of the expression. *)
-type cond_type = Verify of hook | Assume of hook
+type cond_type = Verify of cond | Assume of cond
 
 (** Type that generates a Verification Condition on encountering a given pattern,
     typically a correctness constraint, like no overflow or no null dereference. *)
 type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
+
+(** A record of constraint lists generated from the {! exp_cond}s mapped to assumptions
+    and verification conditions and whether those constraints should be added to the
+    postcondition upon entering or exiting an expression. *)
+type hooks = {
+  assume_enter : Constr.t list;
+  assume_exit : Constr.t list;
+  verify_enter : Constr.t list;
+  verify_exit : Constr.t list;
+}
 
 (** Creates a new environment with
     - a sequence of subroutines in the program used to initialize function specs
@@ -143,17 +154,12 @@ val find_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 (** Add a precondition to be associated to a block b to the environment. *)
 val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
 
-(** Creates a verifier checker for a {!Constr.z3_expr}, returning first the assumptions, then the
-    VCs. *)
-val mk_exp_conds : t -> Bap.Std.Exp.t -> hook list * hook list
+(** Creates a verifier checker for a {!Constr.z3_expr}, returning a record of hooks for
+    the assumptions and VCs on enter and exit. *)
+val mk_exp_conds : t -> Bap.Std.Exp.t -> hooks
 
-(** Generates lists of {! Constr.t}s from a list of hooks, returning first the
-    hooks to be run on entering an expression, then the hooks to be run on
-    exiting an expression. *)
-val eval_hooks : hook list -> Constr.t list * Constr.t list
-
-(** Creates a string representation of a hook. *)
-val hook_to_string : hook -> string
+(** Creates a string representation of hooks. *)
+val hooks_to_string : hooks -> string
 
 (** Obtains the Z3 context within a given environment. *)
 val get_context : t -> Z3.context
