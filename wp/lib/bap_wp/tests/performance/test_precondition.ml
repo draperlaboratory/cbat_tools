@@ -26,7 +26,7 @@ module BV = Z3.BitVector
 
 (* To run these tests: `make test.performance` in bap_wp directory *)
 
-let mk_z3_expr e env = let e_val, _, _, _ = Pre.exp_to_z3 e env in e_val
+let mk_z3_expr e env = let e_val, _, _ = Pre.exp_to_z3 e env in e_val
 
 let hook_slowdown_msg (time1 : float) (time2 : float) : string =
   Format.sprintf "Time with hooks is slower than time without hooks:\n \
