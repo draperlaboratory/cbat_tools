@@ -145,6 +145,9 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
         Comp.compare_subs_eq ~input:input_vars ~output:output_vars
           ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
           ~smtlib_post:post_cond ~smtlib_hyp:pre_cond
+          ~compare_mem:(Option.is_none mem_offset)
+          (* If no memory offset is specified, we should compare the memory in
+             the hypothesis. *)
       end
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
