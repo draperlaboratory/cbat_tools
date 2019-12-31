@@ -28,6 +28,13 @@ module Constr = Constraint
 
 exception Not_implemented of string
 
+type hooks = {
+  assume_before : Constr.t list;
+  assume_after : Constr.t list;
+  verify_before : Constr.t list;
+  verify_after : Constr.t list;
+}
+
 let z3_expr_zero (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "0" size
 let z3_expr_one (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "1" size
 
@@ -151,7 +158,30 @@ let bv_to_bool (bv : Constr.z3_expr) (ctx : Z3.context) (width : int) : Constr.z
   let zero = z3_expr_zero ctx width in
   Bool.mk_not ctx (Bool.mk_eq ctx bv zero)
 
-let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Env.hooks * Env.t =
+let mk_hooks (conds : Env.cond_type list) : hooks =
+  let hooks =
+    { assume_before = []; assume_after = []; verify_before = []; verify_after = [] } in
+  List.fold conds ~init:hooks ~f:(fun hooks cond ->
+      match cond with
+      | Assume (BeforeExec c) ->
+        { hooks with assume_before = Constr.mk_constr c :: hooks.assume_before }
+      | Assume (AfterExec c) ->
+        { hooks with assume_after = Constr.mk_constr c :: hooks.assume_after }
+      | Verify (BeforeExec c) ->
+        { hooks with verify_before = Constr.mk_constr c :: hooks.verify_before }
+      | Verify (AfterExec c) ->
+        { hooks with verify_after = Constr.mk_constr c :: hooks.verify_after }
+    )
+
+let hooks_to_string (h : hooks) : string =
+  Format.sprintf "VCs before exec:%s\nVCs after exec:%s\n \
+                  Assumptions before exec:%s\nAssumptions after exec:%s\n%!"
+    (List.to_string ~f:Constr.to_string h.verify_before)
+    (List.to_string ~f:Constr.to_string h.verify_after)
+    (List.to_string ~f:Constr.to_string h.assume_before)
+    (List.to_string ~f:Constr.to_string h.assume_after)
+
+let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
   let ctx = Env.get_context env in
   let open Bap.Std.Bil.Types in
   let rec exp_to_z3_body exp env : Constr.z3_expr * Env.t =
@@ -246,7 +276,8 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * Env.hooks * Env.t =
       let w2_val, env = exp_to_z3_body w2 env in
       BV.mk_concat ctx w1_val w2_val, env
   in
-  let hooks = Env.mk_exp_conds env exp in
+  let exp_conds = Env.mk_exp_conds env exp in
+  let hooks = mk_hooks exp_conds in
   let z3_exp, new_env = exp_to_z3_body exp env in
   z3_exp, hooks, new_env
 
@@ -600,12 +631,12 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
             let cond = Jmp.cond jmp in
             let cond_val, hooks, env = exp_to_z3 cond env in
             debug "\n\nJump when %s:\n%s\n%!"
-              (Expr.to_string cond_val) (Env.hooks_to_string hooks);
+              (Expr.to_string cond_val) (hooks_to_string hooks);
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
             let ite = Constr.mk_ite jmp (Bool.mk_not ctx false_cond) l_pre post in
-            let vcs = hooks.verify_enter @ hooks.verify_exit in
-            let assume = hooks.assume_enter @ hooks.assume_exit in
+            let vcs = hooks.verify_before @ hooks.verify_after in
+            let assume = hooks.assume_before @ hooks.assume_after in
             let post = ite :: vcs in
             Constr.mk_clause assume post, env
           (* TODO: evaluate the indirect jump and
@@ -661,15 +692,15 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     debug "Visiting def:\nlhs = %s : <%d>    rhs = %s : <%d>%!"
       (Expr.to_string z3_var) (var |> Var.typ |> typ_size)
       (Expr.to_string rhs_exp) (rhs |> Type.infer_exn |> typ_size);
-    (* Adding any assumptions and VCs to the postcondition upon entering the
-       expression. *)
-    let post = post :: hooks.verify_enter in
-    let post = Constr.mk_clause hooks.assume_enter post in
+    (* Adding the specified assumptions and VCs to the postcondition before applying
+       the substitution. *)
+    let post = post :: hooks.verify_before in
+    let post = Constr.mk_clause hooks.assume_before post in
     let post = Constr.substitute_one post z3_var rhs_exp in
-    (* Adding the assumptions and VCs to the postcondition upon exiting the
-       expression. *)
-    let post = post :: hooks.verify_exit in
-    let post = Constr.mk_clause hooks.assume_exit post in
+    (* Adding the specified assumptions and VCs to the postcondition after applying
+       the substitution. *)
+    let post = post :: hooks.verify_after in
+    let post = Constr.mk_clause hooks.assume_after post in
     post, Env.add_var env var z3_var
   | `Jmp jmp ->
     visit_jmp env post jmp
@@ -821,7 +852,7 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
                     let cond = Jmp.cond jmp in
                     let cond_val, hooks, env = exp_to_z3 cond env in
                     debug "\n\nJump when %s:\n%s\n%!"
-                      (Expr.to_string cond_val) (Env.hooks_to_string hooks);
+                      (Expr.to_string cond_val) (hooks_to_string hooks);
                     let cond_size = BV.get_size (Expr.get_sort cond_val) in
                     let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
                     let constr = if data then
@@ -835,8 +866,8 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
                          |> Constr.mk_constr;
                          post]
                     in
-                    let assume = hooks.assume_enter @ hooks.assume_exit in
-                    let vcs = hooks.verify_enter @ hooks.verify_exit in
+                    let assume = hooks.assume_before @ hooks.assume_after in
+                    let vcs = hooks.verify_before @ hooks.verify_after in
                     let post = constr @ vcs in
                     Some (Constr.mk_clause assume post, env)
                   | Indirect _ -> None
@@ -851,7 +882,7 @@ let non_null_vc : Env.exp_cond = fun env exp ->
   if List.is_empty conds then
     None
   else
-    Some (Verify (OnEnter (Constr.mk_goal "verify" (Bool.mk_and ctx conds))))
+    Some (Verify (BeforeExec (Constr.mk_goal "verify" (Bool.mk_and ctx conds))))
 
 let non_null_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -859,7 +890,7 @@ let non_null_assert : Env.exp_cond = fun env exp ->
   if List.is_empty conds then
     None
   else
-    Some (Assume (OnEnter (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
+    Some (Assume (BeforeExec (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
 
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (offset : int) (exp : Exp.t)
   : Constr.z3_expr list =
@@ -903,7 +934,7 @@ let mem_read_assert (env2 : Env.t) (offset : int) : Env.exp_cond = fun env1 exp 
   if List.is_empty conds then
     None
   else
-    Some (Assume (OnExit (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
+    Some (Assume (AfterExec (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
 
 let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     (pre : Constr.t) : Solver.status =

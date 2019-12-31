@@ -69,18 +69,11 @@ and loop_handler = {
   handle : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
 }
 
-and cond = OnEnter of Constr.goal | OnExit of Constr.goal
+and cond = BeforeExec of Constr.goal | AfterExec of Constr.goal
 
 and cond_type = Verify of cond | Assume of cond
 
 and exp_cond = t -> Bap.Std.Exp.t -> cond_type option
-
-and hooks = {
-  assume_enter : Constr.t list;
-  assume_exit : Constr.t list;
-  verify_enter : Constr.t list;
-  verify_exit : Constr.t list;
-}
 
 let mk_ctx () : Z3.context = Z3.mk_context []
 
@@ -283,31 +276,9 @@ let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
 let remove_var (env : t) (v : Var.t) : t =
   { env with var_map = EnvMap.remove env.var_map v }
 
-let mk_exp_conds (env : t) (e : exp) : hooks =
+let mk_exp_conds (env : t) (e : exp) : cond_type list =
   let { exp_conds; _ } = env in
-  let conds = List.map exp_conds ~f:(fun gen -> gen env e) in
-  let conds = List.filter_opt conds in
-  let hooks =
-    { assume_enter = []; assume_exit = []; verify_enter = []; verify_exit = [] } in
-  List.fold conds ~init:hooks ~f:(fun hooks cond ->
-      match cond with
-      | Assume (OnEnter c) ->
-        { hooks with assume_enter = Constr.mk_constr c :: hooks.assume_enter }
-      | Assume (OnExit c) ->
-        { hooks with assume_exit = Constr.mk_constr c :: hooks.assume_exit }
-      | Verify (OnEnter c) ->
-        { hooks with verify_enter = Constr.mk_constr c :: hooks.verify_enter }
-      | Verify (OnExit c) ->
-        { hooks with verify_exit = Constr.mk_constr c :: hooks.verify_exit }
-    )
-
-let hooks_to_string (h : hooks) : string =
-  Format.sprintf "VCs on Enter:%s\nVCs on Exit:%s\n \
-                  Assumptions on Enter:%s\nAssumptions on Exit:%s\n%!"
-    (List.to_string ~f:Constr.to_string h.verify_enter)
-    (List.to_string ~f:Constr.to_string h.verify_exit)
-    (List.to_string ~f:Constr.to_string h.assume_enter)
-    (List.to_string ~f:Constr.to_string h.assume_exit)
+  List.filter_map exp_conds ~f:(fun gen -> gen env e)
 
 let get_var_gen (env : t) : var_gen =
   env.var_gen
