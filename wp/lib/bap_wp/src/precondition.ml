@@ -885,6 +885,8 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (offset : int) (exp : Ex
           in
           let heap = compare_mem (Env.in_heap env1) addr1 (BV.mk_add ctx addr1 offset) in
           let stack = compare_mem (Env.in_stack env1) addr1 addr2 in
+          debug "Adding assumptions:\nHeap: %s\nStack: %s\n%!"
+            (Expr.to_string heap) (Expr.to_string stack);
           [heap; stack] @ conds
       end
     end
