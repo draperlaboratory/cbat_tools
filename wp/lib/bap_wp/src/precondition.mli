@@ -170,7 +170,7 @@ val non_null_assert : Env.exp_cond
 (** This spec {e assumes} that the value of a memory read at address [a] in the
     original binary is equal to the memory read of the modified binary at address
     [a + d]. *)
-val mem_read_assert : Env.t -> int -> Env.exp_cond
+val mem_read_offsets : Env.t -> (Constr.z3_expr -> Constr.z3_expr) -> Env.exp_cond
 
 (** Constant which determines the number of loop unrollings.
 
