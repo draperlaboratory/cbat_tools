@@ -217,22 +217,18 @@ val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
     of memory: i.e. `heap_min <= addr <= heap_max`. *)
 val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
 
-(** [mk_init_mem env mem suffix] creates a fresh Z3 variable that represents the
-    initial state of memory [mem] with suffix 'orig' for the original binary and
-    'mod' for the modified binary. *)
-val mk_init_mem : t -> Constr.z3_expr -> string -> Constr.z3_expr
+(** [mk_init_var env var suffix] creates a fresh Z3 variable that represents the
+    initial state of variable [var] with suffix 'orig' for the original binary
+    and 'mod' for the modified binary. *)
+val mk_init_var : t -> Bap.Std.Var.t -> string -> Constr.z3_expr
 
-(** Adds a mapping of the Z3 variable that represents memory to the Z3 variable
-    that represents the initial state of the memory to the environment. *)
-val set_init_mem : t -> mem:Constr.z3_expr -> init_mem:Constr.z3_expr -> t
+(** Adds a mapping of a Z3 variable to another Z3 variable which represents
+    its initial state to the environment. *)
+val set_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
 
-(** A wrapper around {! mk_init_mem} and {! set_init_mem} that creates a new
-    [init_mem] Z3 variable and adds it to the environment. *)
-val new_init_mem : t -> string -> t
-
-(** [get_init_mem mem] obtains the Z3 variable that represents the initial state
-    of memory given the current memory [mem]. *)
-val get_init_mem : t -> Constr.z3_expr -> Constr.z3_expr option
+(** [get_init_var var] obtains the Z3 variable that represents the initial state
+    of a Z3 variable given the current variable [var]. *)
+val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
 (*-------- Z3 constant creation utilities ----------*)
 

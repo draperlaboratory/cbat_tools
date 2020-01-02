@@ -47,7 +47,7 @@ type t = {
   fun_input_regs : bool;
   stack : Constr.z3_expr -> Constr.z3_expr;
   heap : Constr.z3_expr -> Constr.z3_expr;
-  init_mem : (Constr.z3_expr * Constr.z3_expr) list
+  init_vars : Constr.z3_expr EnvMap.t
 }
 
 and fun_spec_type =
@@ -252,7 +252,7 @@ let mk_env
     fun_input_regs = fun_input_regs;
     stack = init_mem_range ctx arch stack_range;
     heap = init_mem_range ctx arch heap_range;
-    init_mem = []
+    init_vars = EnvMap.empty
   }
 
 let env_to_string (env : t) : string =
@@ -356,28 +356,15 @@ let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
 let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
   env.heap
 
-let mk_init_mem (env : t) (mem : Constr.z3_expr) (suffix : string) : Constr.z3_expr =
+let mk_init_var (env : t) (var : Var.t) (suffix : string) : Constr.z3_expr =
   let ctx = get_context env in
-  let sort = Expr.get_sort mem in
-  let name = Format.sprintf "init_mem_%s" suffix in
+  let z3_var, _ = get_var env var in
+  let sort = Expr.get_sort z3_var in
+  let name = Format.sprintf "init_%s_%s" (Var.to_string var) suffix in
   Expr.mk_const_s ctx name sort
 
-let set_init_mem (env : t) ~mem:(mem : Constr.z3_expr)
-    ~init_mem:(init_mem : Constr.z3_expr) : t =
-  { env with init_mem = (mem, init_mem) :: env.init_mem }
+let set_init_var (env : t) (var : Var.t) (init_var : Constr.z3_expr) : t =
+  { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var }
 
-let new_init_mem (env : t) (suffix : string) : t =
-  let arch = get_arch env in
-  let module Target = (val target_of_arch arch) in
-  let mem, env = get_var env Target.CPU.mem in
-  let init_mem = mk_init_mem env mem suffix in
-  set_init_mem env ~mem:mem ~init_mem:init_mem
-
-let get_init_mem (env : t) (mem : Constr.z3_expr) : Constr.z3_expr option =
-  List.find_map env.init_mem
-    ~f:(fun (m, init_m) ->
-        if Expr.equal mem m then
-          Some init_m
-        else
-          None)
-
+let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
+  EnvMap.find env.init_vars var
