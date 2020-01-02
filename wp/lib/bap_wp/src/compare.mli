@@ -55,7 +55,6 @@ val compare_subs_eq
   -> modified:(Bap.Std.Sub.t * Env.t)
   -> smtlib_post:string
   -> smtlib_hyp:string
-  -> compare_mem:bool
   -> Constr.t * Env.t * Env.t
 
 (** Compare two subroutines by composition for an empty postcondition:

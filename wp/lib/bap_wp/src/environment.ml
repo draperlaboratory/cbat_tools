@@ -47,7 +47,8 @@ type t = {
   fun_input_regs : bool;
   stack : Constr.z3_expr -> Constr.z3_expr;
   heap : Constr.z3_expr -> Constr.z3_expr;
-  init_vars : Constr.z3_expr EnvMap.t
+  init_vars : Constr.z3_expr EnvMap.t;
+  compare_mem: bool
 }
 
 and fun_spec_type =
@@ -218,7 +219,6 @@ let init_mem_range ctx arch (min, max) : Constr.z3_expr -> Constr.z3_expr =
   let max = Expr.mk_numeral_int ctx max sort in
   fun addr -> Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ule ctx addr max]
 
-
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
    - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -233,6 +233,7 @@ let init_mem_range ctx arch (min, max) : Constr.z3_expr -> Constr.z3_expr =
    - the option to use all input registers when generating function symbols at a call site
    - the range of addresses of the stack
    - the range of addresses of the heap
+   - the option to compare memory in the hypothesis of a comparative analysis
    - a Z3 context
    - and a variable generator. *)
 let mk_env
@@ -248,6 +249,7 @@ let mk_env
     ~fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : int * int)
     ~heap_range:(heap_range : int * int)
+    ~compare_mem:(compare_mem : bool)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -269,7 +271,8 @@ let mk_env
     fun_input_regs = fun_input_regs;
     stack = init_mem_range ctx arch stack_range;
     heap = init_mem_range ctx arch heap_range;
-    init_vars = EnvMap.empty
+    init_vars = EnvMap.empty;
+    compare_mem = compare_mem
   }
 
 let env_to_string (env : t) : string =
@@ -372,6 +375,9 @@ let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
 
 let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
   env.heap
+
+let compare_mem (env : t) : bool =
+  env.compare_mem
 
 let mk_init_var (env : t) (var : Var.t) (suffix : string) : Constr.z3_expr =
   let ctx = get_context env in

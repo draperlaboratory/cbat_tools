@@ -123,10 +123,7 @@ let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton z in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -166,10 +163,7 @@ let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton z in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.SATISFIABLE
@@ -203,10 +197,7 @@ let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton z in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -243,10 +234,7 @@ let test_sub_pair_4 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton y in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -283,10 +271,7 @@ let test_sub_pair_5 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton y in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.SATISFIABLE
@@ -477,10 +462,7 @@ let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton ret_var in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
@@ -513,10 +495,7 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton ret_var in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
@@ -555,9 +534,7 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
@@ -596,9 +573,7 @@ let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
     (Sub.to_string main_sub2)
@@ -626,15 +601,15 @@ let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton mem in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
-      ~original:(sub1,env1) ~modified:(sub2,env2)
-      ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:true
-  in
+      ~original:(sub1,env1) ~modified:(sub2,env2) ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.SATISFIABLE
 
 
+(* RAX := mem[0x600160, el]:u64
+   vs
+   RAX := mem[0x600161, el]:u64 *)
 let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -656,21 +631,62 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] ~compare_mem:false in
   let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2)
       ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:false
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
 
 
+(* RAX := mem[0x600160, el]:u64
+   vs
+   RAX := mem[0x600161, el]:u64 *)
 let test_memory_model_2 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let module Target = (val target_of_arch `x86_64) in
+  let mem = Target.CPU.mem in
+  let rax = Var.create "RAX" reg64_t in
+  let addr1 = 0x600160 in
+  let addr2 = 0x600161 in
+  let sub1 = Bil.(
+      [ rax := load ~mem:(var mem) ~addr:(i64 addr1) LittleEndian `r64; ]
+    ) |> bil_to_sub in
+  let sub2 = Bil.(
+      [ rax := load ~mem:(var mem) ~addr:(i64 addr2) LittleEndian `r64; ]
+    ) |> bil_to_sub in
+  let offset = fun addr ->
+    let width = addr |> Z3.Expr.get_sort |> Z3.BitVector.get_size in
+    let offset = Z3.BitVector.mk_numeral ctx "22" width in
+    Z3.BitVector.mk_add ctx addr offset
+  in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] ~compare_mem:false in
+  let input_vars = Var.Set.of_list [rax; mem] in
+  let output_vars = Var.Set.singleton rax in
+  let compare_prop, env1, env2 = Comp.compare_subs_eq
+      ~input:input_vars ~output:output_vars
+      ~original:(sub1,env1) ~modified:(sub2,env2)
+      ~smtlib_post:"" ~smtlib_hyp:""
+  in
+  assert_z3_compare test_ctx ~orig:env1 ~modif:env2
+    (Sub.to_string sub1) (Sub.to_string sub2)
+    compare_prop Z3.Solver.SATISFIABLE
+
+
+(* RAX := 0x600160
+   RAX := mem[RAX, el]:u64
+   vs
+   RAX := 0x600161
+   RAX := mem[RAX, el]:u64 *)
+let test_memory_model_3 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let module Target = (val target_of_arch `x86_64) in
@@ -697,14 +713,13 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
   in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] ~compare_mem:false in
   let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2)
       ~smtlib_post:"" ~smtlib_hyp:""
-      ~compare_mem:false
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -736,5 +751,6 @@ let suite = [
   "Compare memory layout"                    >:: test_sub_pair_mem_1;
 
   "Diff data location: UNSAT"                >:: test_memory_model_1;
-  "Diff data location, substitution: UNSAT"  >:: test_memory_model_2;
+  "Diff data location: SAT"                  >:: test_memory_model_2;
+  "Diff data location, substitution: UNSAT"  >:: test_memory_model_3;
 ]

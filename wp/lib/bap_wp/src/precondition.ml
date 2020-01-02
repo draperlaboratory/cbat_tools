@@ -597,11 +597,12 @@ let mk_env
     ?fun_input_regs:(fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
     ?heap_range:(heap_range = default_heap_range)
+    ?compare_mem:(compare_mem = true)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
   Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
-    ~arch ~freshen_vars ~fun_input_regs ~stack_range ~heap_range ctx var_gen
+    ~arch ~freshen_vars ~fun_input_regs ~stack_range ~heap_range ~compare_mem ctx var_gen
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in
