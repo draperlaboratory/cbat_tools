@@ -89,6 +89,8 @@ type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
     - the architecture of the binary
     - the option to freshen variable names
     - the option to use all input registers when generating function symbols at a call site
+    - the range of addresses of the stack
+    - the range of addresses of the heap
     - a Z3 context
     - and a variable generator. *)
 val mk_env

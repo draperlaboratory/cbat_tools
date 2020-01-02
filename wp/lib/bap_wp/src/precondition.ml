@@ -158,6 +158,9 @@ let bv_to_bool (bv : Constr.z3_expr) (ctx : Z3.context) (width : int) : Constr.z
   let zero = z3_expr_zero ctx width in
   Bool.mk_not ctx (Bool.mk_eq ctx bv zero)
 
+(* Sorts a list of [cond_type]s into a record which separates each hook into assumptions,
+   VCs, and whether these conditions should be added to the postcondition before or
+   after execution. *)
 let mk_hooks (conds : Env.cond_type list) : hooks =
   let hooks =
     { assume_before = []; assume_after = []; verify_before = []; verify_after = [] } in
@@ -892,6 +895,9 @@ let non_null_assert : Env.exp_cond = fun env exp ->
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
 
+(* At a memory read, add two VCs of the form:
+   Heap(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
+   Stack(x) => init_mem_orig[x] == init_mem_mod[x] *)
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
     (offset : Constr.z3_expr -> Constr.z3_expr) : Constr.z3_expr list =
   let ctx = Env.get_context env1 in
@@ -922,8 +928,8 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
   in
   visitor#visit_exp exp []
 
-(* The value of a memory read at address [a] in the original binary is equal to
-   the memory read of the modified binary at address [offset a]. *)
+(* The exp_cond to add to the environment in order to invoke the hooks regarding
+   memory read offsets. *)
 let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   : Env.exp_cond =
   fun env1 exp ->
