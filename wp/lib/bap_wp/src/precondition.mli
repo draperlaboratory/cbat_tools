@@ -190,6 +190,7 @@ val num_unroll : int ref
     - and using all function input registers when generating function symbols at a call site
     - the default range of addresses of the stack: [0x00007fffffff0000, 0x00007fffffffffff]
     - the default range of addresses of the heap: [0x0000000000000000, 0x00000000ffffffff]
+    - the option to compare memory in the hypothesis of a comparative analysis set to true
 
     unless specified. A Z3 context and var_gen are required to generate Z3
     expressions and create fresh variables. *)
@@ -207,6 +208,7 @@ val mk_env
   -> ?fun_input_regs:bool
   -> ?stack_range:int * int
   -> ?heap_range:int * int
+  -> ?compare_mem:bool
   -> Z3.context
   -> Env.var_gen
   -> Env.t

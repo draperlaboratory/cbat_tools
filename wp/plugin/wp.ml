@@ -137,7 +137,8 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let env1 =
     let to_inline1 = match_inline to_inline subs1 in
     Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs
-      ~exp_conds:(get_exp_conds env2 mem_offset)
+      ~exp_conds:(get_exp_conds env2 mem_offset) ~compare_mem:(Option.is_none mem_offset)
+      (* If no memory offset is specified, we should compare memory in the hypothesis. *)
   in
   let pre, env1, env2 =
     if check_calls then
@@ -152,11 +153,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
         debug "Input: %s%!" (varset_to_string input_vars);
         debug "Output: %s%!" (varset_to_string output_vars);
         Comp.compare_subs_eq ~input:input_vars ~output:output_vars
-          ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
-          ~smtlib_post:post_cond ~smtlib_hyp:pre_cond
-          ~compare_mem:(Option.is_none mem_offset)
-          (* If no memory offset is specified, we should compare the memory in
-             the hypothesis. *)
+          ~original:(main_sub1,env1) ~modified:(main_sub2,env2) ~smtlib_post:post_cond ~smtlib_hyp:pre_cond
       end
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"

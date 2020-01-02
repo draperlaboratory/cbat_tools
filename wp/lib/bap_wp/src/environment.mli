@@ -91,6 +91,7 @@ type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
     - the option to use all input registers when generating function symbols at a call site
     - the range of addresses of the stack
     - the range of addresses of the heap
+    - the option to compare memory in the hypothesis of a comparative analysis
     - a Z3 context
     - and a variable generator. *)
 val mk_env
@@ -106,6 +107,7 @@ val mk_env
   -> fun_input_regs:bool
   -> stack_range:int * int
   -> heap_range:int * int
+  -> compare_mem:bool
   -> Z3.context
   -> var_gen
   -> t
@@ -219,17 +221,22 @@ val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
     of memory: i.e. `heap_min <= addr <= heap_max`. *)
 val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
 
+(** Returns true if [mem_orig == mem_mod] should be compared in the hypothesis
+    while comparing two subroutines. Should return false in the case where we are
+    running [mem_read_offset] hooks. *)
+val compare_mem : t -> bool
+
 (** [mk_init_var env var suffix] creates a fresh Z3 variable that represents the
     initial state of variable [var] with suffix 'orig' for the original binary
     and 'mod' for the modified binary. *)
 val mk_init_var : t -> Bap.Std.Var.t -> string -> Constr.z3_expr
 
-(** Adds a mapping of a Z3 variable to another Z3 variable which represents
-    its initial state to the environment. *)
+(** Add a new binding to the environment for a bap variable to a Z3 expression
+    that represents its initial state. *)
 val set_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
 
-(** [get_init_var var] obtains the Z3 variable that represents the initial state
-    of a Z3 variable given the current variable [var]. *)
+(** [get_init_var var] obtains the Z3 expression that represents the initial state
+    of a bap variable [var]. *)
 val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
 (*-------- Z3 constant creation utilities ----------*)

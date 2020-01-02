@@ -23,14 +23,9 @@ module Env = Environment
 module Pre = Precondition
 module Constr = Constraint
 
-(* FIXME: Temporarily have the parameter, [compare_mem] which is false when we are
-   running the [mem_read_offset] hooks. Plan to remove this when we refactor the
-   env type, so we can use the env to determine whether we need to include mem. *)
-
 (* We return an updated pair of environments here, since if we are generating
    fresh variables, we want to keep those same fresh names in the analysis *)
-let set_to_eqs ?compare_mem:(compare_mem = true) (env1 : Env.t) (env2 : Env.t)
-    (vars : Var.Set.t) : Constr.t list * Env.t * Env.t =
+let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list * Env.t * Env.t =
   let ctx = Env.get_context env1 in
   let arch = Env.get_arch env1 in
   let module Target = (val target_of_arch arch) in
@@ -43,7 +38,8 @@ let set_to_eqs ?compare_mem:(compare_mem = true) (env1 : Env.t) (env2 : Env.t)
     ~f:(fun (eqs, env1, env2) v ->
         let var1, env1 = Env.get_var env1 v in
         let var2, env2 = Env.get_var env2 v in
-        if (not compare_mem) && (Target.CPU.is_mem v) then
+        (* We do not compare memory when we assume that memory is equal at an offset. *)
+        if not (Env.compare_mem env1) && Target.CPU.is_mem v then
           eqs, env1, env2
         else
           let eq = Bool.mk_eq ctx var1 var2
@@ -53,6 +49,7 @@ let set_to_eqs ?compare_mem:(compare_mem = true) (env1 : Env.t) (env2 : Env.t)
           in (eq::eqs, env1, env2)
       )
 
+(* Adds the hypothesis: [var == init_var]. *)
 let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.t list) : Constr.t list =
   let ctx = Env.get_context env1 in
   List.fold vars ~init:[] ~f:(fun init_vars v ->
@@ -66,6 +63,8 @@ let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.t list) : Constr.t list 
       in
       init env1 v "orig" :: init env2 v "mod" :: init_vars)
 
+(* Adds hypothesis that the stack pointer is within the valid range of the stack
+   according to the environment. *)
 let set_sp_range (env : Env.t) : Constr.t =
   let arch = Env.get_arch env in
   let module Target = (val target_of_arch arch) in
@@ -168,7 +167,6 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let ctx = Env.get_context env1 in
   Z3_utils.mk_smtlib2 ctx smtlib_str declsym
 
-(* FIXME: Remove the [compare_mem] argument when we refactor env. *)
 let compare_subs_eq
     ~input:(input : Var.Set.t)
     ~output:(output : Var.Set.t)
@@ -176,7 +174,6 @@ let compare_subs_eq
     ~modified:(modified : Sub.t * Env.t)
     ~smtlib_post:(smtlib_post : string)
     ~smtlib_hyp:(smtlib_hyp : string)
-    ~compare_mem:(compare_mem : bool)
   : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let post_eqs, env1, env2 = set_to_eqs env1 env2 output in
@@ -184,8 +181,9 @@ let compare_subs_eq
     Constr.mk_clause [] (post' :: post_eqs), env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let module Target = (val target_of_arch (Env.get_arch env1)) in
-    let pre_eqs, env1, env2 = set_to_eqs env1 env2 input ~compare_mem in
+    let arch = Env.get_arch env1 in
+    let module Target = (val target_of_arch arch) in
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
     let init_mem = init_vars env1 env2 [Target.CPU.mem] in
     let sp_range = set_sp_range env1 in
     let pre' = mk_smtlib2_compare env1 env2 smtlib_hyp in
