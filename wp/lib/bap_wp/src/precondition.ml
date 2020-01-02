@@ -895,18 +895,17 @@ let non_null_assert : Env.exp_cond = fun env exp ->
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
     (offset : Constr.z3_expr -> Constr.z3_expr) : Constr.z3_expr list =
   let ctx = Env.get_context env1 in
+  let module Target = (val target_of_arch (Env.get_arch env1)) in
   let visitor =
     begin
       object inherit [Constr.z3_expr list] Exp.visitor
-        method! visit_load ~mem:mem ~addr:addr endian size conds =
+        method! visit_load ~mem:_ ~addr:addr endian size conds =
           let addr1, _, _ = exp_to_z3 addr env1 in
           let addr2, _, _ = exp_to_z3 addr env2 in
           let width = Size.in_bits size in
           let compare_mem in_region addr addr_off =
-            let mem1, _, _ = exp_to_z3 mem env1 in
-            let mem2, _, _ = exp_to_z3 mem env2 in
-            let init_mem1 = Option.value_exn (Env.get_init_mem env1 mem1) in
-            let init_mem2 = Option.value_exn (Env.get_init_mem env2 mem2) in
+            let init_mem1 = Option.value_exn (Env.get_init_var env1 Target.CPU.mem) in
+            let init_mem2 = Option.value_exn (Env.get_init_var env2 Target.CPU.mem) in
             let mem_orig =
               load_z3_mem ctx ~word_size:width ~mem:init_mem1 ~addr:addr endian in
             let mem_mod =
@@ -929,8 +928,12 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   : Env.exp_cond =
   fun env1 exp ->
   let ctx = Env.get_context env1 in
-  let env1 = Env.new_init_mem env1 "orig" in
-  let env2 = Env.new_init_mem env2 "mod" in
+  let arch = Env.get_arch env1 in
+  let module Target = (val target_of_arch arch) in
+  let init_mem1 = Env.mk_init_var env1 Target.CPU.mem "orig" in
+  let init_mem2 = Env.mk_init_var env2 Target.CPU.mem "mod" in
+  let env1 = Env.set_init_var env1 Target.CPU.mem init_mem1 in
+  let env2 = Env.set_init_var env2 Target.CPU.mem init_mem2 in
   let conds = collect_mem_read_expr env1 env2 exp offset in
   if List.is_empty conds then
     None

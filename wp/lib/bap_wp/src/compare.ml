@@ -49,19 +49,18 @@ let set_to_eqs ?compare_mem:(compare_mem = true) (env1 : Env.t) (env2 : Env.t)
           in (eq::eqs, env1, env2)
       )
 
-let init_mem (env1 : Env.t) (env2 : Env.t) : Constr.t list =
+let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.t list) : Constr.t list =
   let ctx = Env.get_context env1 in
-  let arch = Env.get_arch env1 in
-  let module Target = (val target_of_arch arch) in
-  let init env suffix =
-    let mem, _ = Env.get_var env Target.CPU.mem in
-    let init_mem = Env.mk_init_mem env mem suffix in
-    Bool.mk_eq ctx mem init_mem
-    |> Constr.mk_goal
-      (Format.sprintf "%s = %s" (Expr.to_string mem) (Expr.to_string init_mem))
-    |> Constr.mk_constr
-  in
-  [init env1 "orig"; init env2 "mod"]
+  List.fold vars ~init:[] ~f:(fun init_vars v ->
+      let init env var suffix =
+        let z3_var, _ = Env.get_var env var in
+        let init_var = Env.mk_init_var env var suffix in
+        Bool.mk_eq ctx z3_var init_var
+        |> Constr.mk_goal
+          (Format.sprintf "%s = %s" (Expr.to_string z3_var) (Expr.to_string init_var))
+        |> Constr.mk_constr
+      in
+      init env1 v "orig" :: init env2 v "mod" :: init_vars)
 
 let set_sp_range (env : Env.t) : Constr.t =
   let arch = Env.get_arch env in
@@ -180,8 +179,9 @@ let compare_subs_eq
     Constr.mk_clause [] (post' :: post_eqs), env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    let module Target = (val target_of_arch (Env.get_arch env1)) in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 input ~compare_mem in
-    let init_mem = init_mem env1 env2 in
+    let init_mem = init_vars env1 env2 [Target.CPU.mem] in
     let sp_range = set_sp_range env1 in
     let pre' = mk_smtlib2_compare env1 env2 smtlib_hyp in
     Constr.mk_clause [] ([pre'; sp_range] @ init_mem @ pre_eqs), env1, env2
