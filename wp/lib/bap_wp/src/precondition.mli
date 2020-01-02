@@ -34,8 +34,8 @@ module Env = Environment
 
 module Constr = Constraint
 
-(** A record of constraint lists generated mapped to assumptions and verification
-    conditions and whether those constraints should be added to the postcondition
+(** A record of generated constraint lists mapped to assumptions and verification
+    conditions, and whether those constraints should be added to the postcondition
     before or after executing an expression. *)
 type hooks
 
@@ -188,6 +188,8 @@ val num_unroll : int ref
     - an architecture of x86_64
     - freshening variables set to false
     - and using all function input registers when generating function symbols at a call site
+    - the default range of addresses of the stack: [0x00007fffffff0000, 0x00007fffffffffff]
+    - the default range of addresses of the heap: [0x0000000000000000, 0x00000000ffffffff]
 
     unless specified. A Z3 context and var_gen are required to generate Z3
     expressions and create fresh variables. *)

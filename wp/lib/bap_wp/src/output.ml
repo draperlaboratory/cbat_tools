@@ -34,6 +34,8 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   let key_val = Env.EnvMap.fold var_map ~init:[]
       ~f:(fun ~key ~data pairs ->
           let key_str = Var.to_string key in
+          (* Memory does not have to be equivalent between both binaries, and in the
+             case where they differ, show both orig and mod memories. *)
           if Target.CPU.is_mem key then
             begin
               let mem_mod, _ = Env.get_var env2 key in

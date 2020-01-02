@@ -218,6 +218,23 @@ let init_mem_range ctx arch (min, max) : Constr.z3_expr -> Constr.z3_expr =
   let max = Expr.mk_numeral_int ctx max sort in
   fun addr -> Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ule ctx addr max]
 
+
+(* Creates a new environment with
+   - a sequence of subroutines in the program used to initialize function specs
+   - a list of {!fun_spec}s that each summarize the precondition for its mapped function
+   - the default fun_spec in the case a function does not satisfy the requirements
+     of the other fun_specs
+   - a {!jmp_spec} for handling branches
+   - an {!int_spec} for handling interrupts
+   - a list of {!exp_cond}s to satisfy
+   - the number of times to unroll a loop
+   - the architecture of the binary
+   - the option to freshen variable names
+   - the option to use all input registers when generating function symbols at a call site
+   - the range of addresses of the stack
+   - the range of addresses of the heap
+   - a Z3 context
+   - and a variable generator. *)
 let mk_env
     ~subs:(subs : Sub.t Seq.t)
     ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)

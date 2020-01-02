@@ -23,6 +23,10 @@ module Env = Environment
 module Pre = Precondition
 module Constr = Constraint
 
+(* FIXME: Temporarily have the parameter, [compare_mem] which is false when we are
+   running the [mem_read_offset] hooks. Plan to remove this when we refactor the
+   env type, so we can use the env to determine whether we need to include mem. *)
+
 (* We return an updated pair of environments here, since if we are generating
    fresh variables, we want to keep those same fresh names in the analysis *)
 let set_to_eqs ?compare_mem:(compare_mem = true) (env1 : Env.t) (env2 : Env.t)
@@ -110,7 +114,7 @@ let compare_subs
   info "\nPostcondition:\n%s\n%!" (Constr.to_string post);
   let hyps, env1, env2 =
     hyps ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
-  printf "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
+  info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
   let pre_mod, _ = Pre.visit_sub env2 post sub2 in
   let pre_combined, _ = Pre.visit_sub env1 pre_mod sub1 in
   let goal = Constr.mk_clause [hyps] [pre_combined] in
@@ -164,6 +168,7 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let ctx = Env.get_context env1 in
   Z3_utils.mk_smtlib2 ctx smtlib_str declsym
 
+(* FIXME: Remove the [compare_mem] argument when we refactor env. *)
 let compare_subs_eq
     ~input:(input : Var.Set.t)
     ~output:(output : Var.Set.t)

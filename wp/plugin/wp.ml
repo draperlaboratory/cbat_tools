@@ -96,6 +96,8 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
     (Sub.to_string main_sub) Constr.pp_constr pre;
   (pre, env, env)
 
+(* If an offset is specified, generates a function of the address of a memory read in
+   the original binary to the address plus an offset in the modified binary. *)
 let get_exp_conds (env : Env.t) (mem_offset : int option) : Env.exp_cond list =
   match mem_offset with
   | None -> []
