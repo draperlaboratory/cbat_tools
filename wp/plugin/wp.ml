@@ -83,7 +83,7 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   (* call visit sub with a dummy postcondition to fill the
      environment with variables *)
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
-  let _, env' = Pre.visit_sub env true_constr main_sub in 
+  let _, env' = Pre.visit_sub env true_constr main_sub in
   let post =
     if String.(post_cond = "") then
       true_constr
@@ -99,7 +99,14 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
 let get_exp_conds (env : Env.t) (mem_offset : int option) : Env.exp_cond list =
   match mem_offset with
   | None -> []
-  | Some off -> [Pre.mem_read_assert env off]
+  | Some off ->
+    let ctx = Env.get_context env in
+    let addr_offset = fun addr ->
+      let width = addr |> Z3.Expr.get_sort |> Z3.BitVector.get_size in
+      let offset = Z3.BitVector.mk_numeral ctx (string_of_int off) width in
+      Z3.BitVector.mk_add ctx addr offset
+    in
+    [Pre.mem_read_offsets env addr_offset]
 
 let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
