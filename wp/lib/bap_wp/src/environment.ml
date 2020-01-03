@@ -48,7 +48,6 @@ type t = {
   stack : Constr.z3_expr -> Constr.z3_expr;
   heap : Constr.z3_expr -> Constr.z3_expr;
   init_vars : Constr.z3_expr EnvMap.t;
-  compare_mem: bool
 }
 
 and fun_spec_type =
@@ -249,7 +248,6 @@ let mk_env
     ~fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : int * int)
     ~heap_range:(heap_range : int * int)
-    ~compare_mem:(compare_mem : bool)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -271,8 +269,7 @@ let mk_env
     fun_input_regs = fun_input_regs;
     stack = init_mem_range ctx arch stack_range;
     heap = init_mem_range ctx arch heap_range;
-    init_vars = EnvMap.empty;
-    compare_mem = compare_mem
+    init_vars = EnvMap.empty
   }
 
 let env_to_string (env : t) : string =
@@ -375,9 +372,6 @@ let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
 
 let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
   env.heap
-
-let compare_mem (env : t) : bool =
-  env.compare_mem
 
 let mk_init_var (env : t) (var : Var.t) (suffix : string) : Constr.z3_expr =
   let ctx = get_context env in

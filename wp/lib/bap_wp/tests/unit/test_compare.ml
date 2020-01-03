@@ -631,7 +631,7 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] ~compare_mem:false in
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
@@ -668,7 +668,7 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
   in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] ~compare_mem:false in
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
@@ -713,7 +713,7 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
   in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] ~compare_mem:false in
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq

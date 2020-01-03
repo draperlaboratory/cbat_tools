@@ -38,8 +38,7 @@ let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list 
     ~f:(fun (eqs, env1, env2) v ->
         let var1, env1 = Env.get_var env1 v in
         let var2, env2 = Env.get_var env2 v in
-        (* We do not compare memory when we assume that memory is equal at an offset. *)
-        if not (Env.compare_mem env1) && Target.CPU.is_mem v then
+        if Target.CPU.is_mem v then
           eqs, env1, env2
         else
           let eq = Bool.mk_eq ctx var1 var2

@@ -597,12 +597,11 @@ let mk_env
     ?fun_input_regs:(fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
     ?heap_range:(heap_range = default_heap_range)
-    ?compare_mem:(compare_mem = true)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
   Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
-    ~arch ~freshen_vars ~fun_input_regs ~stack_range ~heap_range ~compare_mem ctx var_gen
+    ~arch ~freshen_vars ~fun_input_regs ~stack_range ~heap_range ctx var_gen
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in
@@ -922,7 +921,8 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
           let heap = compare_mem (Env.in_heap env1) addr1 (offset addr1) in
           let stack = compare_mem (Env.in_stack env1) addr1 addr2 in
           debug "Adding assumptions:\nHeap: %s\nStack: %s\n%!"
-            (Expr.to_string heap) (Expr.to_string stack);
+            (Expr.to_string (Expr.simplify heap None))
+            (Expr.to_string (Expr.simplify stack None));
           [heap; stack] @ conds
       end
     end

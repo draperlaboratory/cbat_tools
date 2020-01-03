@@ -56,7 +56,6 @@ let match_inline (to_inline : string option) (subs : (Sub.t Seq.t)) : Sub.t Seq.
         info "Inlining functions: %s\n"  (filter_subs |> Seq.to_list |> List.to_string ~f:(fun sub -> (Sub.name sub)))
       else
         warning "No matches on inlining\n"
-
     in
     filter_subs
 
@@ -98,17 +97,14 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
 
 (* If an offset is specified, generates a function of the address of a memory read in
    the original binary to the address plus an offset in the modified binary. *)
-let get_exp_conds (env : Env.t) (mem_offset : int option) : Env.exp_cond list =
-  match mem_offset with
-  | None -> []
-  | Some off ->
-    let ctx = Env.get_context env in
-    let addr_offset = fun addr ->
-      let width = addr |> Z3.Expr.get_sort |> Z3.BitVector.get_size in
-      let offset = Z3.BitVector.mk_numeral ctx (string_of_int off) width in
-      Z3.BitVector.mk_add ctx addr offset
-    in
-    [Pre.mem_read_offsets env addr_offset]
+let get_exp_conds (env : Env.t) (offset : int) : Env.exp_cond list =
+  let ctx = Env.get_context env in
+  let addr_offset = fun addr ->
+    let width = addr |> Z3.Expr.get_sort |> Z3.BitVector.get_size in
+    let offset = Z3.BitVector.mk_numeral ctx (string_of_int offset) width in
+    Z3.BitVector.mk_add ctx addr offset
+  in
+  [Pre.mem_read_offsets env addr_offset]
 
 let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
@@ -119,7 +115,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     ~fun_input_regs:(fun_input_regs : bool)
     ~pre_cond:(pre_cond : string)
     ~post_cond:(post_cond : string)
-    ~mem_offset:(mem_offset : int option)
+    ~mem_offset:(mem_offset : int)
   : Constr.t * Env.t * Env.t =
   let prog1 = Program.Io.read file1 in
   let prog2 = Program.Io.read file2 in
@@ -137,8 +133,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let env1 =
     let to_inline1 = match_inline to_inline subs1 in
     Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs
-      ~exp_conds:(get_exp_conds env2 mem_offset) ~compare_mem:(Option.is_none mem_offset)
-      (* If no memory offset is specified, we should compare memory in the hypothesis. *)
+      ~exp_conds:(get_exp_conds env2 mem_offset)
   in
   let pre, env1, env2 =
     if check_calls then
@@ -172,7 +167,7 @@ let main (file1 : string) (file2 : string)
     ~gdb_filename:(gdb_filename : string option)
     ~print_path:(print_path : bool)
     ~fun_input_regs:(fun_input_regs : bool)
-    ~mem_offset:(mem_offset : int option)
+    ~mem_offset:(mem_offset : int)
     (proj : project) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -264,9 +259,10 @@ module Cmdline = struct
             that represents the result of the function call. If set to false, no \
             registers will be used. Defaults to true."
 
-  let mem_offset = param (some int) "mem-offset" ~default:None
-      ~doc:"If set, adds an assumption to the precondition that memory of the \
-            modified binary is the same as the original binary at an offset `d`."
+  let mem_offset = param int "mem-offset" ~default:0
+      ~doc:"Adds an assumption to the precondition that memory of the modified \
+            binary is the same as the original binary at an offset `d`. Defaults \
+            to an offset of 0."
 
 
   let () = when_ready (fun {get=(!!)} ->
