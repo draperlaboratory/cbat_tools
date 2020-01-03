@@ -208,7 +208,6 @@ val mk_env
   -> ?fun_input_regs:bool
   -> ?stack_range:int * int
   -> ?heap_range:int * int
-  -> ?compare_mem:bool
   -> Z3.context
   -> Env.var_gen
   -> Env.t

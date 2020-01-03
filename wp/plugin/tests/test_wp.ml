@@ -46,7 +46,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
     ?output_vars:(output_vars = "RAX,EAX")
     ?pre_cond:(pre_cond = "(assert true)")
     ?post_cond:(post_cond = "(assert true)")
-    ?mem_offset:(mem_offset = None)
+    ?mem_offset:(mem_offset = 0)
     (test_ctx : test_ctxt)
   : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
@@ -62,12 +62,8 @@ let test_compare_elf (elf_dir : string) (expected : string)
       Format.sprintf "--wp-output-vars=%s" output_vars;
       Format.sprintf "--wp-precond=%s" pre_cond;
       Format.sprintf "--wp-postcond=%s" post_cond;
+      Format.sprintf "--wp-mem-offset=%d" mem_offset
     ] in
-  let args =
-    match mem_offset with
-    | None -> args
-    | Some mem -> List.cons (Format.sprintf "--wp-mem-offset=%d" mem) args
-  in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
     ~backtrace:true ~ctxt:test_ctx "bap" args
@@ -121,8 +117,8 @@ let suite = [
   "Retrowrite Stub: inline all"    >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:".*";
   "Retrowrite Stub: Pop RSP"       >:: test_compare_elf "retrowrite_stub" "UNSAT!";
   "Retrowrite Stub No Ret in Call" >:: test_compare_elf "retrowrite_stub_no_ret" "UNSAT!";
-  "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "UNSAT!" ~mem_offset:(Some 1);
-  "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "SAT!" ~mem_offset:(Some 2);
+  "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "UNSAT!" ~mem_offset:1;
+  "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "SAT!" ~mem_offset:2;
 
   "Simple WP"                      >:: test_single_elf "simple_wp" "main" "SAT!";
   "Simple WP: Precondition"        >:: test_single_elf "simple_wp" "main" ~pre:"(assert (= RDI #x0000000000000002))" "UNSAT!";

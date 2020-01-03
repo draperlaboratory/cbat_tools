@@ -107,7 +107,6 @@ val mk_env
   -> fun_input_regs:bool
   -> stack_range:int * int
   -> heap_range:int * int
-  -> compare_mem:bool
   -> Z3.context
   -> var_gen
   -> t
@@ -220,11 +219,6 @@ val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
 (** Obtains a Z3 expression that checks if an address is within the heap region
     of memory: i.e. `heap_min <= addr <= heap_max`. *)
 val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
-
-(** Returns true if [mem_orig == mem_mod] should be compared in the hypothesis
-    while comparing two subroutines. Should return false in the case where we are
-    running [mem_read_offset] hooks. *)
-val compare_mem : t -> bool
 
 (** [mk_init_var env var suffix] creates a fresh Z3 variable that represents the
     initial state of variable [var] with suffix 'orig' for the original binary
