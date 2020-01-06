@@ -48,19 +48,12 @@ let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list 
           in (eq::eqs, env1, env2)
       )
 
-(* Adds the hypothesis: [var == init_var]. *)
-let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.t list) : Constr.t list =
-  let ctx = Env.get_context env1 in
-  List.fold vars ~init:[] ~f:(fun init_vars v ->
-      let init env var suffix =
-        let z3_var, _ = Env.get_var env var in
-        let init_var = Env.mk_init_var env var suffix in
-        Bool.mk_eq ctx z3_var init_var
-        |> Constr.mk_goal
-          (Format.sprintf "%s = %s" (Expr.to_string z3_var) (Expr.to_string init_var))
-        |> Constr.mk_constr
-      in
-      init env1 v "orig" :: init env2 v "mod" :: init_vars)
+(* Adds the hypothesis: [var == init_var] for each variable in the set. *)
+let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t)
+  : Constr.t list * Env.t * Env.t =
+  let inits1, env1 = Pre.init_vars vars env1 "_orig" in
+  let inits2, env2 = Pre.init_vars vars env2 "_mod" in
+  (inits1 @ inits2), env1, env2
 
 (* Adds hypothesis that the stack pointer is within the valid range of the stack
    according to the environment. *)
@@ -183,7 +176,7 @@ let compare_subs_eq
     let arch = Env.get_arch env1 in
     let module Target = (val target_of_arch arch) in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
-    let init_mem = init_vars env1 env2 [Target.CPU.mem] in
+    let init_mem, env1, env2 = init_vars env1 env2 (Var.Set.singleton Target.CPU.mem) in
     let sp_range = set_sp_range env1 in
     let pre' = mk_smtlib2_compare env1 env2 smtlib_hyp in
     Constr.mk_clause [] ([pre'; sp_range] @ init_mem @ pre_eqs), env1, env2

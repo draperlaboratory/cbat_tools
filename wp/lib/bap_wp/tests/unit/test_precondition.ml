@@ -1267,6 +1267,56 @@ let test_output_vars_2 (test_ctx : test_ctxt) : unit =
     (Var.Set.of_list [x; y]) vars
 
 
+(* x := x + 1
+   Post: x == init_x + 1 *)
+let test_init_vars_1 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let sub = Bil.([ x := var x + i32 1; ]) |> bil_to_sub in
+  let env = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub) in
+  let z3_x, env = Env.get_var env x in
+  let init_x = Env.mk_init_var env x "" in
+  let post =
+    Bool.mk_eq ctx z3_x (BV.mk_add ctx init_x (BV.mk_numeral ctx "1" 32))
+    |> Constr.mk_goal "x == init_x + 1"
+    |> Constr.mk_constr
+  in
+  let pre, _ = Pre.visit_sub env post sub in
+  let hyp =
+    Bool.mk_eq ctx z3_x init_x
+    |> Constr.mk_goal "x == init_x"
+    |> Constr.mk_constr
+  in
+  let goal = Constr.mk_clause [hyp] [pre] in
+  assert_z3_result test_ctx env (Sub.to_string sub) post goal Z3.Solver.UNSATISFIABLE
+
+
+(* x := x + 1
+   Post: x == init_x + 2 *)
+let test_init_vars_2 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let sub = Bil.([ x := var x + i32 1; ]) |> bil_to_sub in
+  let env = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub) in
+  let z3_x, env = Env.get_var env x in
+  let init_x = Env.mk_init_var env x "" in
+  let post =
+    Bool.mk_eq ctx z3_x (BV.mk_add ctx init_x (BV.mk_numeral ctx "2" 32))
+    |> Constr.mk_goal "x == init_x + 2"
+    |> Constr.mk_constr
+  in
+  let pre, _ = Pre.visit_sub env post sub in
+  let hyp =
+    Bool.mk_eq ctx z3_x init_x
+    |> Constr.mk_goal "x == init_x"
+    |> Constr.mk_constr
+  in
+  let goal = Constr.mk_clause [hyp] [pre] in
+  assert_z3_result test_ctx env (Sub.to_string sub) post goal Z3.Solver.SATISFIABLE
+
+
 let suite = [
   "Empty Block" >:: test_empty_block;
   "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
@@ -1374,4 +1424,7 @@ let suite = [
 
   "Test get output variables by name" >:: test_output_vars_1;
   "z not in subroutine" >:: test_output_vars_2;
+
+  "Compare init and current vals of var: UNSAT" >:: test_init_vars_1;
+  "Compare init and current vals of var: SAT" >:: test_init_vars_2;
 ]
