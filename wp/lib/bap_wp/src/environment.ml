@@ -377,7 +377,7 @@ let mk_init_var (env : t) (var : Var.t) (suffix : string) : Constr.z3_expr =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
-  let name = Format.sprintf "init_%s_%s" (Var.to_string var) suffix in
+  let name = Format.sprintf "init_%s%s" (Var.to_string var) suffix in
   Expr.mk_const_s ctx name sort
 
 let set_init_var (env : t) (var : Var.t) (init_var : Constr.z3_expr) : t =

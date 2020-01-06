@@ -929,6 +929,21 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
   in
   visitor#visit_exp exp []
 
+let init_vars (vars : Var.Set.t) (env : Env.t) (suffix : string) : Constr.t list * Env.t =
+  let ctx = Env.get_context env in
+  Var.Set.fold vars ~init:([], env)
+    ~f:(fun (inits, env) v ->
+        let z3_v, env = Env.get_var env v in
+        let init_v = Env.mk_init_var env v suffix in
+        let comp =
+          Bool.mk_eq ctx z3_v init_v
+          |> Constr.mk_goal
+            (Format.sprintf "%s = %s" (Expr.to_string z3_v) (Expr.to_string init_v))
+          |> Constr.mk_constr
+        in
+        debug "Initializing var: %s\n%!" (Constr.to_string comp);
+        comp :: inits, Env.set_init_var env v init_v)
+
 (* The exp_cond to add to the environment in order to invoke the hooks regarding
    memory read offsets. *)
 let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
@@ -937,10 +952,9 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   let ctx = Env.get_context env1 in
   let arch = Env.get_arch env1 in
   let module Target = (val target_of_arch arch) in
-  let init_mem1 = Env.mk_init_var env1 Target.CPU.mem "orig" in
-  let init_mem2 = Env.mk_init_var env2 Target.CPU.mem "mod" in
-  let env1 = Env.set_init_var env1 Target.CPU.mem init_mem1 in
-  let env2 = Env.set_init_var env2 Target.CPU.mem init_mem2 in
+  let mem = Var.Set.singleton Target.CPU.mem in
+  let _, env1 = init_vars mem env1 "_orig" in
+  let _, env2 = init_vars mem env2 "_mod" in
   let conds = collect_mem_read_expr env1 env2 exp offset in
   if List.is_empty conds then
     None
