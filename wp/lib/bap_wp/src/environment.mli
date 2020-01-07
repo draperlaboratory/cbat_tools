@@ -163,6 +163,10 @@ val get_subs : t -> Bap.Std.Sub.t Bap.Std.Seq.t
 (** Obtains the var_map containing a mapping of BIR variables to Z3 variables. *)
 val get_var_map : t -> Constr.z3_expr EnvMap.t
 
+(** Obtains the var_map containing a mapping of BIR variables to the Z3 variables
+    that represent their initial states. *)
+val get_init_var_map : t -> Constr.z3_expr EnvMap.t
+
 (** Looks up the Z3 variable that represents a BIR variable. Produces fresh z3_expr if not found. *)
 val get_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
 
@@ -220,10 +224,9 @@ val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
     of memory: i.e. `heap_min <= addr <= heap_max`. *)
 val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
 
-(** [mk_init_var env var suffix] creates a fresh Z3 variable that represents the
-    initial state of variable [var] with suffix 'orig' for the original binary
-    and 'mod' for the modified binary. *)
-val mk_init_var : t -> Bap.Std.Var.t -> string -> Constr.z3_expr
+(** [mk_init_var env var] creates a fresh Z3 variable that represents the
+    initial state of variable [var]. *)
+val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr
 
 (** Add a new binding to the environment for a bap variable to a Z3 expression
     that represents its initial state. *)

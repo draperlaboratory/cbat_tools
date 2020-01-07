@@ -119,6 +119,8 @@ let suite = [
   "Retrowrite Stub No Ret in Call" >:: test_compare_elf "retrowrite_stub_no_ret" "UNSAT!";
   "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "UNSAT!" ~mem_offset:1;
   "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "SAT!" ~mem_offset:2;
+  "Init var compare: UNSAT"        >:: test_compare_elf "init_var_compare" "UNSAT!" ~post_cond:"(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000001)))";
+  "Init var compare: SAT"          >:: test_compare_elf "init_var_compare" "SAT!" ~post_cond:"(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000002)))";
 
   "Simple WP"                      >:: test_single_elf "simple_wp" "main" "SAT!";
   "Simple WP: Precondition"        >:: test_single_elf "simple_wp" "main" ~pre:"(assert (= RDI #x0000000000000002))" "UNSAT!";
@@ -133,6 +135,8 @@ let suite = [
   "Nested Function Calls"          >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:"foo|bar";
   "Nested Calls: inline all"       >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:".*";
   "User Defined Postcondition"     >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX #x0000000000000000))";
+  "Init var value in post: UNSAT:" >:: test_single_elf "init_var" "main" "UNSAT!" ~func:"foo" ~post:"(assert (= RAX (bvadd init_RDI #x0000000000000001)))";
+  "Init var value in post: SAT"    >:: test_single_elf "init_var" "main" "SAT!" ~func:"foo" ~post:"(assert (= RAX (bvadd init_RDI #x0000000000000002)))";
 
   "Update Number of Unrolls"       >:: test_update_num_unroll (Some 3);
   "Original Number of Unrolls"     >:: test_update_num_unroll None;

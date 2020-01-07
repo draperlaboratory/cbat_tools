@@ -83,6 +83,7 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
      environment with variables *)
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let _, env' = Pre.visit_sub env true_constr main_sub in
+  let hyps, env' = Pre.init_vars (Pre.get_vars main_sub) env' in
   let post =
     if String.(post_cond = "") then
       true_constr
@@ -91,6 +92,7 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
   in
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env' pre_cond] [pre] in
+  let pre = Constr.mk_clause hyps [pre] in
   Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
     (Sub.to_string main_sub) Constr.pp_constr pre;
   (pre, env, env)
@@ -128,12 +130,18 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let main_sub2 = find_func_err subs2 func in
   let env2 =
     let to_inline2 = match_inline to_inline subs2 in
-    Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2 ~fun_input_regs
+    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
+        ~fun_input_regs in
+    let env2 = Env.set_freshen env2 true in
+    let _, env2 = Pre.init_vars (Pre.get_vars main_sub2) env2 in
+    env2
   in
   let env1 =
     let to_inline1 = match_inline to_inline subs1 in
-    Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1 ~fun_input_regs
-      ~exp_conds:(get_exp_conds env2 mem_offset)
+    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1
+        ~fun_input_regs ~exp_conds:(get_exp_conds env2 mem_offset) in
+    let _, env1 = Pre.init_vars (Pre.get_vars main_sub1) env1 in
+    env1
   in
   let pre, env1, env2 =
     if check_calls then
