@@ -28,17 +28,19 @@ module Env = Environment
 module Constr = Constraint
 
 let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) list) = 
-  let var_map = Env.get_var_map env in
   let ctx = Env.get_context env in
-  Env.EnvMap.fold var_map ~init:[]
-    ~f:(fun ~key:_ ~data:z3_var decls ->
-        assert (Expr.is_const z3_var);
-        let decl = FuncDecl.mk_const_decl_s ctx
-            (Expr.to_string z3_var)
-            (Expr.get_sort z3_var) in
-        let sym =  Symbol.mk_string ctx (Expr.to_string z3_var) in
-        (decl,sym)::decls
-      )
+  let var_to_decl ~key:_ ~data:z3_var decls =
+    assert (Expr.is_const z3_var);
+    let decl = FuncDecl.mk_const_decl_s ctx
+        (Expr.to_string z3_var)
+        (Expr.get_sort z3_var) in
+    let sym =  Symbol.mk_string ctx (Expr.to_string z3_var) in
+    (decl,sym)::decls
+  in
+  let var_map = Env.get_var_map env in
+  let init_var_map = Env.get_init_var_map env in
+  let var_decls = Env.EnvMap.fold var_map ~init:[] ~f:var_to_decl in
+  Env.EnvMap.fold init_var_map ~init:var_decls ~f:var_to_decl
 
 let mk_smtlib2 (ctx : Z3.context) (smtlib_str : string) (decl_syms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : Constr.t =
   let fun_decls, fun_symbols = List.unzip decl_syms in

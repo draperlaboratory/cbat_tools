@@ -629,11 +629,14 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
     let offset = Z3.BitVector.mk_numeral ctx "1" width in
     Z3.BitVector.mk_add ctx addr offset
   in
-  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
-  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
+  let env2 = Env.set_freshen env2 true in
+  let _, env2 = Pre.init_vars input_vars env2 in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
+  let _, env1 = Pre.init_vars input_vars env1 in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2)
@@ -666,11 +669,14 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
     let offset = Z3.BitVector.mk_numeral ctx "22" width in
     Z3.BitVector.mk_add ctx addr offset
   in
-  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
-  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
+  let env2 = Env.set_freshen env2 true in
+  let _, env2 = Pre.init_vars input_vars env2 in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
+  let _, env1 = Pre.init_vars input_vars env1 in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2)
@@ -711,11 +717,14 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
     let offset = Z3.BitVector.mk_numeral ctx "1" width in
     Z3.BitVector.mk_add ctx addr offset
   in
-  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
-  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let input_vars = Var.Set.of_list [rax; mem] in
   let output_vars = Var.Set.singleton rax in
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
+  let env2 = Env.set_freshen env2 true in
+  let _, env2 = Pre.init_vars input_vars env2 in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
+      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
+  let _, env1 = Pre.init_vars input_vars env1 in
   let compare_prop, env1, env2 = Comp.compare_subs_eq
       ~input:input_vars ~output:output_vars
       ~original:(sub1,env1) ~modified:(sub2,env2)

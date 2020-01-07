@@ -65,16 +65,15 @@ val get_vars : Bap.Std.Sub.t -> Bap.Std.Var.Set.t
     given the name of each variable. *)
 val get_output_vars : Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t
 
-(** Generates a list of constraints: [var == init_var_suffix] where [init_var_suffix]
-    refers to the initial state of the variable [var] with suffix "orig" for the
-    original binary or suffix "mod" for the modified binary. Also updates the
-    environment to contain a mapping of Bap variables to their generated init variables.
+(** Generates a list of constraints: [var == init_var] where init_var refers to
+    the initial state of the variable var. Also updates the environment to contain
+    a mapping of Bap variables to their generated init variables.
 
     Can be used in the specs using {!Env.mk_init_var} and {!Env.get_init_var}.
     e.g. `BV.mk_ult ctx (Env.get_init_var env var) z3_var` is the constraint stating
     the value of the variable at its initial state is less than its value at the
     current state. *)
-val init_vars : Bap.Std.Var.Set.t -> Env.t -> string -> Constr.t list * Env.t
+val init_vars : Bap.Std.Var.Set.t -> Env.t -> Constr.t list * Env.t
 
 (** Create a Z3 expression that denotes a load in memory [mem] at address [addr]
     with word size of [word_size] bits. *)

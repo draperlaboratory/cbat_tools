@@ -314,9 +314,16 @@ let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
   else
     post, env
 
+let var_of_arg_t (arg : Arg.t) : Var.t =
+  let vars = arg |> Arg.rhs |> Exp.free_vars in
+  assert (Var.Set.length vars = 1);
+  Var.Set.choose_exn vars
+
 let get_vars (t : Sub.t) : Var.Set.t =
   let visitor =
     (object inherit [Var.Set.t] Term.visitor
+      method! visit_arg arg vars =
+        Var.Set.add vars (var_of_arg_t arg)
       method! visit_def def vars =
         let vars = Var.Set.add vars (Def.lhs def) in
         let vars = Var.Set.union vars (Def.free_vars def) in
@@ -349,11 +356,6 @@ let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
   in
   let subs_from, subs_to = List.unzip outputs in
   Constr.substitute post subs_from subs_to
-
-let var_of_arg_t (arg : Arg.t) : Var.t =
-  let vars = arg |> Arg.rhs |> Exp.free_vars in
-  assert (Var.Set.length vars = 1);
-  Var.Set.choose_exn vars
 
 let input_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -929,12 +931,12 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
   in
   visitor#visit_exp exp []
 
-let init_vars (vars : Var.Set.t) (env : Env.t) (suffix : string) : Constr.t list * Env.t =
+let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
   let ctx = Env.get_context env in
   Var.Set.fold vars ~init:([], env)
     ~f:(fun (inits, env) v ->
         let z3_v, env = Env.get_var env v in
-        let init_v = Env.mk_init_var env v suffix in
+        let init_v = Env.mk_init_var env v in
         let comp =
           Bool.mk_eq ctx z3_v init_v
           |> Constr.mk_goal
@@ -950,11 +952,6 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   : Env.exp_cond =
   fun env1 exp ->
   let ctx = Env.get_context env1 in
-  let arch = Env.get_arch env1 in
-  let module Target = (val target_of_arch arch) in
-  let mem = Var.Set.singleton Target.CPU.mem in
-  let _, env1 = init_vars mem env1 "_orig" in
-  let _, env2 = init_vars mem env2 "_mod" in
   let conds = collect_mem_read_expr env1 env2 exp offset in
   if List.is_empty conds then
     None
@@ -972,7 +969,6 @@ let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     else
       pre'
   in
-  info "Z3 Query:\n%s\n" (Z3.Expr.to_string (Z3.Expr.simplify is_correct None));
   let () = Z3.Solver.add solver [is_correct] in
   Z3.Solver.check solver []
 

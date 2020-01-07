@@ -306,6 +306,9 @@ let get_subs (env : t) : Sub.t Seq.t =
 let get_var_map (env : t) : Constr.z3_expr EnvMap.t =
   env.var_map
 
+let get_init_var_map (env : t) : Constr.z3_expr EnvMap.t =
+  env.init_vars
+
 let find_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.var_map var
 
@@ -373,11 +376,11 @@ let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
 let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
   env.heap
 
-let mk_init_var (env : t) (var : Var.t) (suffix : string) : Constr.z3_expr =
+let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
-  let name = Format.sprintf "init_%s%s" (Var.to_string var) suffix in
+  let name = Format.sprintf "init_%s" (Expr.to_string z3_var) in
   Expr.mk_const_s ctx name sort
 
 let set_init_var (env : t) (var : Var.t) (init_var : Constr.z3_expr) : t =
