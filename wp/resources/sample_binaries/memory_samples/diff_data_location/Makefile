@@ -2,7 +2,7 @@ BASE=main
 PROG1=$(BASE)_1
 PROG2=$(BASE)_2
 
-FLAGS=-nostdlib
+FLAGS=-nostdlib -no-pie
 
 all: $(PROG1) $(PROG1).bpj $(PROG2) $(PROG2).bpj
 
