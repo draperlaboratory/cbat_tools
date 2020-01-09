@@ -62,7 +62,7 @@ let set_sp_range (env : Env.t) : Constr.t =
   let module Target = (val target_of_arch arch) in
   let sp, _ = Env.get_var env Target.CPU.sp in
   Env.in_stack env sp
-  |> Constr.mk_goal "SP points to stack"
+  |> Constr.mk_goal "SP within stack"
   |> Constr.mk_constr
 
 let compare_blocks

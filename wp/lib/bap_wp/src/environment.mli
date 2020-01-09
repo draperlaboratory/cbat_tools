@@ -89,9 +89,8 @@ type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
     - the architecture of the binary
     - the option to freshen variable names
     - the option to use all input registers when generating function symbols at a call site
-    - the range of addresses of the stack
-    - the range of addresses of the heap
-    - the option to compare memory in the hypothesis of a comparative analysis
+    - the concrete range of addresses of the stack
+    - the concrete range of addresses of the heap
     - a Z3 context
     - and a variable generator. *)
 val mk_env
@@ -104,7 +103,7 @@ val mk_env
   -> num_loop_unroll:int
   -> arch:Bap.Std.Arch.t
   -> freshen_vars:bool
-  -> fun_input_regs:bool
+  -> use_fun_input_regs:bool
   -> stack_range:int * int
   -> heap_range:int * int
   -> Z3.context
@@ -147,8 +146,8 @@ val find_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 (** Add a precondition to be associated to a block b to the environment. *)
 val add_precond : t -> Bap.Std.Tid.t -> Constr.t -> t
 
-(** Creates a verifier checker for a {!Constr.z3_expr}, returning first the assumptions, then the
-    VCs. *)
+(** Creates a list of assumptions and verification conditions as hooks on an expression
+    being visited during analysis. *)
 val mk_exp_conds : t -> Bap.Std.Exp.t -> cond_type list
 
 (** Obtains the Z3 context within a given environment. *)
@@ -216,21 +215,18 @@ val is_x86 : Bap.Std.Arch.t -> bool
     when generating symbols in the function specs at a function call site. *)
 val use_input_regs : t -> bool
 
-(** Obtains a Z3 expression that checks if an address is within the stack region
-    of memory: i.e. `stack_min <= addr <= stack_max`. *)
+(** [in_stack env addr] is the constraint [STACK_MIN <= addr <= STACK_MAX] as
+    defined by the concrete range of the stack in the env. *)
 val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
 
-(** Obtains a Z3 expression that checks if an address is within the heap region
-    of memory: i.e. `heap_min <= addr <= heap_max`. *)
+(** [in_heap env addr] is the constraint [HEAP_MIN <= addr <= HEAP_MAX] as
+    defined by the concrete range of the heap in the env. *)
 val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
 
 (** [mk_init_var env var] creates a fresh Z3 variable that represents the
-    initial state of variable [var]. *)
-val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr
-
-(** Add a new binding to the environment for a bap variable to a Z3 expression
-    that represents its initial state. *)
-val set_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr -> t
+    initial state of variable [var]. Adds a new binding to [env] for the bap
+    variable to is generated init variable. *)
+val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
 
 (** [get_init_var var] obtains the Z3 expression that represents the initial state
     of a bap variable [var]. *)

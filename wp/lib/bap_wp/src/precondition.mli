@@ -34,10 +34,15 @@ module Env = Environment
 
 module Constr = Constraint
 
-(** A record of generated constraint lists mapped to assumptions and verification
-    conditions, and whether those constraints should be added to the postcondition
-    before or after executing an expression. *)
-type hooks
+(** Constraints that can be added to the precondition as either assumptions or
+    verification conditions, and when to apply those constraints during a visit
+    to an instruction. *)
+type hooks = {
+  assume_before : Constr.t list;
+  assume_after : Constr.t list;
+  verify_before : Constr.t list;
+  verify_after : Constr.t list;
+}
 
 (** Create the Z3 BitVector zero value of width [i]. *)
 val z3_expr_zero : Z3.context -> int -> Constr.z3_expr
@@ -76,7 +81,7 @@ val get_output_vars : Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t
 val init_vars : Bap.Std.Var.Set.t -> Env.t -> Constr.t list * Env.t
 
 (** Create a Z3 expression that denotes a load in memory [mem] at address [addr]
-    with word size of [word_size] bits. *)
+    with a word size of [word_size] bits and endianness [endian]. *)
 val load_z3_mem
   :  Z3.context
   -> word_size:int
@@ -86,7 +91,7 @@ val load_z3_mem
   -> Constr.z3_expr
 
 (** Create a Z3 expression that denotes a write in memory [mem] at address [addr], writing
-    the value [content]. *)
+    the value [content] with a word size of [word_size] bits and endianness [endian]. *)
 val store_z3_mem
   :  Z3.context
   -> word_size:int
@@ -190,17 +195,23 @@ val num_unroll : int ref
 (** Creates an environment with
     - an empty sequence of subroutines to initialize function specs
     - an empty sequence of subroutines to inline
-    - the default list of {!Environment.fun_spec}s
-    - the default {!Environment.jmp_spec}
-    - the default {!Environment.int_spec}
-    - an empty list of {!Environment.exp_cond}s
-    - a loop unroll count of 5
-    - an architecture of x86_64
-    - freshening variables set to false
-    - and using all function input registers when generating function symbols at a call site
-    - the default range of addresses of the stack: [0x00007fffffff0000, 0x00007fffffffffff]
-    - the default range of addresses of the heap: [0x0000000000000000, 0x00000000ffffffff]
-    - the option to compare memory in the hypothesis of a comparative analysis set to true
+    - the default list of {!Environment.fun_spec}s that summarize the precondition for a
+      function call
+    - the default {!Environment.jmp_spec} that summarizes the precondition at a jump
+    - the default {!Environment.int_spec} that summarizes the precondition for an
+      interrupt
+    - an empty list of {!Environment.exp_cond}s which adds assumptions and VCs to
+      the precondition as hooks on certain instructions
+    - a loop unroll count of 5 for use when reaching a back edge during analysis
+    - an architecture of x86_64 for architecture specific constraints and specs
+    - freshening variables set to false. Should be set to true in order to represent the
+      variables in the modified binary
+    - the option to use all function input registers when generating function symbols
+      at a call site set to true
+    - the default concrete range of addresses of the stack for constraints about
+      the stack: [0x00007fffffff0000, 0x00007fffffffffff]
+    - the default concreate range of addresses of the heap for constraints about
+      the heap: [0x0000000000000000, 0x00000000ffffffff]
 
     unless specified. A Z3 context and var_gen are required to generate Z3
     expressions and create fresh variables. *)
@@ -215,7 +226,7 @@ val mk_env
   -> ?num_loop_unroll:int
   -> ?arch:Bap.Std.Arch.t
   -> ?freshen_vars:bool
-  -> ?fun_input_regs:bool
+  -> ?use_fun_input_regs:bool
   -> ?stack_range:int * int
   -> ?heap_range:int * int
   -> Z3.context

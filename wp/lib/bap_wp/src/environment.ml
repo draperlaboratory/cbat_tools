@@ -44,8 +44,8 @@ type t = {
   loop_handler : loop_handler;
   exp_conds : exp_cond list;
   arch : Arch.t;
-  fun_input_regs : bool;
-  stack : Constr.z3_expr -> Constr.z3_expr;
+  use_fun_input_regs : bool;
+  stack : Constr.z3_expr -> Constr.z3_expr; (* takes in a memory address as a z3_var *)
   heap : Constr.z3_expr -> Constr.z3_expr;
   init_vars : Constr.z3_expr EnvMap.t;
 }
@@ -212,11 +212,14 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       unroll
   }
 
-let init_mem_range ctx arch (min, max) : Constr.z3_expr -> Constr.z3_expr =
+let init_mem_range (ctx : Z3.context) (arch : Arch.t) ((min, max) : int * int)
+  : Constr.z3_expr -> Constr.z3_expr =
   let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
   let min = Expr.mk_numeral_int ctx min sort in
   let max = Expr.mk_numeral_int ctx max sort in
-  fun addr -> Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ule ctx addr max]
+  fun addr ->
+    assert (BV.is_bv addr);
+    Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ule ctx addr max]
 
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
@@ -232,7 +235,6 @@ let init_mem_range ctx arch (min, max) : Constr.z3_expr -> Constr.z3_expr =
    - the option to use all input registers when generating function symbols at a call site
    - the range of addresses of the stack
    - the range of addresses of the heap
-   - the option to compare memory in the hypothesis of a comparative analysis
    - a Z3 context
    - and a variable generator. *)
 let mk_env
@@ -245,7 +247,7 @@ let mk_env
     ~num_loop_unroll:(num_loop_unroll : int)
     ~arch:(arch : Arch.t)
     ~freshen_vars:(freshen_vars : bool)
-    ~fun_input_regs:(fun_input_regs : bool)
+    ~use_fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : int * int)
     ~heap_range:(heap_range : int * int)
     (ctx : Z3.context)
@@ -266,7 +268,7 @@ let mk_env
     loop_handler = init_loop_unfold num_loop_unroll;
     exp_conds = exp_conds;
     arch = arch;
-    fun_input_regs = fun_input_regs;
+    use_fun_input_regs = fun_input_regs;
     stack = init_mem_range ctx arch stack_range;
     heap = init_mem_range ctx arch heap_range;
     init_vars = EnvMap.empty
@@ -368,7 +370,7 @@ let is_x86 (a : Arch.t) : bool =
   | _ -> false
 
 let use_input_regs (env : t) : bool =
-  env.fun_input_regs
+  env.use_fun_input_regs
 
 let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
   env.stack
@@ -376,15 +378,14 @@ let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
 let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
   env.heap
 
-let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr =
+let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
   let name = Format.sprintf "init_%s" (Expr.to_string z3_var) in
-  Expr.mk_const_s ctx name sort
-
-let set_init_var (env : t) (var : Var.t) (init_var : Constr.z3_expr) : t =
-  { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var }
+  let init_var = Expr.mk_const_s ctx name sort in
+  let env = { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var } in
+  init_var, env
 
 let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.init_vars var
