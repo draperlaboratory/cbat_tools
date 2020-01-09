@@ -1276,7 +1276,7 @@ let test_init_vars_1 (test_ctx : test_ctxt) : unit =
   let sub = Bil.([ x := var x + i32 1; ]) |> bil_to_sub in
   let env = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub) in
   let z3_x, env = Env.get_var env x in
-  let init_x = Env.mk_init_var env x in
+  let init_x, env = Env.mk_init_var env x in
   let post =
     Bool.mk_eq ctx z3_x (BV.mk_add ctx init_x (BV.mk_numeral ctx "1" 32))
     |> Constr.mk_goal "x == init_x + 1"
@@ -1301,7 +1301,7 @@ let test_init_vars_2 (test_ctx : test_ctxt) : unit =
   let sub = Bil.([ x := var x + i32 1; ]) |> bil_to_sub in
   let env = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub) in
   let z3_x, env = Env.get_var env x in
-  let init_x = Env.mk_init_var env x in
+  let init_x, env = Env.mk_init_var env x in
   let post =
     Bool.mk_eq ctx z3_x (BV.mk_add ctx init_x (BV.mk_numeral ctx "2" 32))
     |> Constr.mk_goal "x == init_x + 2"

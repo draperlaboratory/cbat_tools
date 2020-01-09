@@ -352,7 +352,7 @@ The various options are:
   goal and the register values at each jump in the path. It also contains information
   about whehter a jump has been taken and the address of the jump if found.
 
-- `--wp-fun-input-regs=[true|false].` If present, at a function call site, uses
+- `--wp-use-fun-input-regs=[true|false].` If present, at a function call site, uses
   all possible input registers as arguments to a function symbol generated for
   an output register that represents the result of the function call. If set to
   false, no registers will be used. Defaults to true.

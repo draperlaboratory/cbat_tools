@@ -565,9 +565,9 @@ let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
         jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t) ]
     ) |> bil_to_sub in
   let env1 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
-      ~subs:(Seq.of_list [main_sub1; call_sub1]) ~fun_input_regs:false in
+      ~subs:(Seq.of_list [main_sub1; call_sub1]) ~use_fun_input_regs:false in
   let env2 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
-      ~subs:(Seq.of_list [main_sub2; call_sub2]) ~fun_input_regs:false in
+      ~subs:(Seq.of_list [main_sub2; call_sub2]) ~use_fun_input_regs:false in
   let input_vars = Var.Set.of_list (rax :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton rax in
   let compare_prop, env1, env2 = Comp.compare_subs_eq

@@ -596,14 +596,14 @@ let mk_env
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
     ?arch:(arch = `x86_64)
     ?freshen_vars:(freshen_vars = false)
-    ?fun_input_regs:(fun_input_regs = true)
+    ?use_fun_input_regs:(use_fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
     ?heap_range:(heap_range = default_heap_range)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
   Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
-    ~arch ~freshen_vars ~fun_input_regs ~stack_range ~heap_range ctx var_gen
+    ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~heap_range ctx var_gen
 
 let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
   let fmt = Format.str_formatter in
@@ -640,6 +640,8 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
             let ite = Constr.mk_ite jmp (Bool.mk_not ctx false_cond) l_pre post in
+            (* If we add a PC variable, we should separate the befores and afters
+               similarly to how we did in visit_def *)
             let vcs = hooks.verify_before @ hooks.verify_after in
             let assume = hooks.assume_before @ hooks.assume_after in
             let post = ite :: vcs in
@@ -897,7 +899,7 @@ let non_null_assert : Env.exp_cond = fun env exp ->
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
 
-(* At a memory read, add two VCs of the form:
+(* At a memory read, add two assumptions of the form:
    Heap(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
    Stack(x) => init_mem_orig[x] == init_mem_mod[x] *)
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
@@ -936,7 +938,7 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
   Var.Set.fold vars ~init:([], env)
     ~f:(fun (inits, env) v ->
         let z3_v, env = Env.get_var env v in
-        let init_v = Env.mk_init_var env v in
+        let init_v, env = Env.mk_init_var env v in
         let comp =
           Bool.mk_eq ctx z3_v init_v
           |> Constr.mk_goal
@@ -944,7 +946,7 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
           |> Constr.mk_constr
         in
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
-        comp :: inits, Env.set_init_var env v init_v)
+        comp :: inits, env)
 
 (* The exp_cond to add to the environment in order to invoke the hooks regarding
    memory read offsets. *)
@@ -953,10 +955,11 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   fun env1 exp ->
   let ctx = Env.get_context env1 in
   let conds = collect_mem_read_expr env1 env2 exp offset in
+  let name = "Assume memory equivalence at offset" in
   if List.is_empty conds then
     None
   else
-    Some (Assume (AfterExec (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
+    Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
 let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     (pre : Constr.t) : Solver.status =
