@@ -14,7 +14,7 @@ homepage: "https://github.com/draperlaboratory/cbat_tools"
 bug-reports: "https://github.com/draperlaboratory/cbat_tools"
 dev-repo: "git+https://github.com/draperlaboratory/cbat_tools"
 depends: [
-  "bap" {>= "master"}
+  "bap" {>= "2.0.0"}
   "core" {>= "0.11"}
   "ppx_deriving"
   "ppx_bin_prot"

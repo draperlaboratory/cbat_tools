@@ -9,7 +9,7 @@ Build
 
 Before installing `value_set`, the following requirements must be met:
 
-* BAP 2.0.0-alpha+ must be available. Confirm with `bap --version`.
+* BAP 2.0.0+ must be available. Confirm with `bap --version`.
 * core 0.11+ must be available. Confirm with `ocamlfind query core`.
 * ppx\_deriving must be available. Confirm with `ocamlfind query ppx_deriving`
 * oUnit must be available to `findlib` under the name `oUnit`
