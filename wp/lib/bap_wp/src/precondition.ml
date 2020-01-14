@@ -324,6 +324,7 @@ let var_of_arg_t (arg : Arg.t) : Var.t =
    representing the output variable. *)
 let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
     ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
+  debug "Chaosing outputs for %s:%!" (Sub.name sub);
   let ctx = Env.get_context env in
   let inputs = List.map inputs
       ~f:(fun i ->
@@ -337,6 +338,7 @@ let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
           let z3_v, _ = Env.get_var env o in
           let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort z3_v) in
           let application = FuncDecl.apply func_decl inputs in
+          debug "\t%s%!" (Expr.to_string application);
           (z3_v, application))
   in
   let subs_from, subs_to = List.unzip outputs in
@@ -553,6 +555,32 @@ let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option 
   else
     None
 
+let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+  if String.equal (Sub.name sub) "__afl_maybe_log" then
+    begin
+      match arch with
+      | `x86_64 ->
+        let open Env in
+        Some {
+          spec_name = "spec_afl_maybe_log";
+          spec = Summary
+              (fun env post tid ->
+                 let post = set_fun_called post env tid in
+                 let post, env = increment_stack_ptr post env in
+                 let inputs = if Env.use_input_regs env then input_regs arch else [] in
+                 let outputs =
+                   let open X86_cpu.AMD64 in
+                   [rax; rcx; rdx]
+                 in
+                 subst_fun_outputs env sub post ~inputs ~outputs, env)
+        }
+      | _ ->
+        raise (Not_implemented "spec_afl_maybe_log: The spec for afl_maybe_log only \
+                                supports x86_64.")
+    end
+  else
+    None
+
 let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
   let open Env in
   {
@@ -585,7 +613,7 @@ let num_unroll : int ref = ref 5
 
 let default_fun_specs (to_inline : Sub.t Seq.t) :
   (Sub.t -> Arch.t -> Env.fun_spec option) list =
-  [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet;
+  [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet; spec_afl_maybe_log;
    spec_inline to_inline; spec_arg_terms; spec_chaos_caller_saved; spec_rax_out]
 
 let default_stack_range : int * int = 0x00007fffffff0000, 0x00007fffffffffff

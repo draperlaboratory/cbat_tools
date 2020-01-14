@@ -155,6 +155,11 @@ val spec_chaos_rax : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
     for all caller-saved registers given with the input registers as arguments. *)
 val spec_chaos_caller_saved : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
 
+(** This spec is used for the function [__afl_maybe_log]. It chaoses the registers
+    RAX, RCX, and RDX. In retrowrite, these registers are stored on the stack,
+    [__afl_maybe_log] is called, and then the registers are restored. *)
+val spec_afl_maybe_log : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
 (** This spec is used to inline a function call. It calls {! visit_sub} on the
     target function being called. *)
 val spec_inline :
