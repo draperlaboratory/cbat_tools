@@ -64,7 +64,7 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   let arch = Env.get_arch env1 in
   let module Target = (val target_of_arch arch) in
   let var_map = Env.get_var_map env1 in
-  let mem_map, reg_map = Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data -> Target.CPU.is_mem key) in
+  let mem_map, reg_map = Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data:_ -> Target.CPU.is_mem key) in
   let key_val = Env.EnvMap.fold reg_map ~init:[]
       ~f:(fun ~key ~data pairs ->
           let key_str = Var.to_string key in
@@ -86,7 +86,8 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
         begin
           Format.fprintf fmt "\t%s_mod |-> [\n" key_str;
           format_mem_model fmt (extract_array val_mod)
-        end else (Format.fprintf fmt "\t%s_mod = %_orig" key_str);
+        end 
+      else (Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str);
     );
   let fun_defs =
     model
