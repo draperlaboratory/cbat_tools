@@ -27,45 +27,12 @@ module Constr = Constraint
 
 module VarMap = Var.Map
 
-let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
-  let arch = Env.get_arch env1 in
-  let module Target = (val target_of_arch arch) in
-  let var_map = Env.get_var_map env1 in
-  let key_val = Env.EnvMap.fold var_map ~init:[]
-      ~f:(fun ~key ~data pairs ->
-          let key_str = Var.to_string key in
-          (* Memory does not have to be equivalent between both binaries, and in the
-             case where they differ, show both orig and mod memories. *)
-          if Target.CPU.is_mem key then
-            begin
-              let mem_mod, _ = Env.get_var env2 key in
-              let val_orig = Constr.eval_model_exn model data in
-              let val_mod = Constr.eval_model_exn model mem_mod in
-              if Expr.equal val_orig val_mod then
-                (key_str, val_orig) :: pairs
-              else
-                (key_str ^ "_orig", val_orig) :: (key_str ^ "_mod", val_mod) :: pairs
-            end
-          else
-            let value = Constr.eval_model_exn model data in
-            (key_str, value) :: pairs)
-  in
-  let fmt = Format.str_formatter in
-  Constr.format_values fmt key_val;
-  let fun_defs =
-    model
-    |> Model.get_func_decls
-    |> List.map ~f:(fun def ->
-        let interp = Option.value_exn (Model.get_func_interp model def) in
-        (def, interp))
-  in
-  Format.fprintf fmt "\n";
-  List.iter fun_defs ~f:(fun (def, interp) ->
-      Format.fprintf fmt "%s  %s\n" (Fun.to_string def) (FInterp.to_string interp));
-  Format.flush_str_formatter ()
-
 type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
 
+let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
+  List.iter (mem_model.model) ~f:(fun (key, data) -> Format.fprintf fmt "\t\t%s |-> %s ;\n" (Expr.to_string key) (Expr.to_string data ));
+  Format.fprintf fmt "\t\telse |-> %s]\n" (Expr.to_string (mem_model.default));
+  ()
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
@@ -92,6 +59,46 @@ let extract_array (e : Constr.z3_expr) : mem_model  =
     end
   in
   extract_array' [] e
+
+let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
+  let arch = Env.get_arch env1 in
+  let module Target = (val target_of_arch arch) in
+  let var_map = Env.get_var_map env1 in
+  let mem_map, reg_map = Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data -> Target.CPU.is_mem key) in
+  let key_val = Env.EnvMap.fold reg_map ~init:[]
+      ~f:(fun ~key ~data pairs ->
+          let key_str = Var.to_string key in
+          let value = Constr.eval_model_exn model data in
+          (key_str, value) :: pairs)
+  in
+  let fmt = Format.str_formatter in
+  Constr.format_values fmt key_val;
+  Env.EnvMap.iteri mem_map ~f:(fun ~key ~data:mem_orig -> 
+      let key_str = Var.to_string key in
+      let mem_mod, _ = Env.get_var env2 key in
+      let val_orig = Constr.eval_model_exn model mem_orig in 
+      let val_mod = Constr.eval_model_exn model mem_mod in
+      Format.fprintf fmt "\t%s_orig |-> [\n" key_str;
+      format_mem_model fmt (extract_array val_orig);
+      (* Memory does not have to be equivalent between both binaries, and in the
+         case where they differ, show both orig and mod memories. *)
+      if not (Expr.equal val_orig val_mod) then
+        begin
+          Format.fprintf fmt "\t%s_mod |-> [\n" key_str;
+          format_mem_model fmt (extract_array val_mod)
+        end else (Format.fprintf fmt "\t%s_mod = %_orig" key_str);
+    );
+  let fun_defs =
+    model
+    |> Model.get_func_decls
+    |> List.map ~f:(fun def ->
+        let interp = Option.value_exn (Model.get_func_interp model def) in
+        (def, interp))
+  in
+  Format.fprintf fmt "\n";
+  List.iter fun_defs ~f:(fun (def, interp) ->
+      Format.fprintf fmt "%s  %s\n" (Fun.to_string def) (FInterp.to_string interp));
+  Format.flush_str_formatter ()
 
 let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
   let arch = Env.get_arch env in
