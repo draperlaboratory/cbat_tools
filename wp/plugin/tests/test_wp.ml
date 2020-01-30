@@ -46,7 +46,6 @@ let test_compare_elf (elf_dir : string) (expected : string)
     ?output_vars:(output_vars = "RAX,EAX")
     ?pre_cond:(pre_cond = "(assert true)")
     ?post_cond:(post_cond = "(assert true)")
-    ?mem_offset:(mem_offset = 0)
     (test_ctx : test_ctxt)
   : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
@@ -61,8 +60,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
       Format.sprintf "--wp-inline=%s" inline;
       Format.sprintf "--wp-output-vars=%s" output_vars;
       Format.sprintf "--wp-precond=%s" pre_cond;
-      Format.sprintf "--wp-postcond=%s" post_cond;
-      Format.sprintf "--wp-mem-offset=%d" mem_offset
+      Format.sprintf "--wp-postcond=%s" post_cond
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
@@ -117,8 +115,9 @@ let suite = [
   "Retrowrite Stub: inline all"    >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:".*";
   "Retrowrite Stub: Pop RSP"       >:: test_compare_elf "retrowrite_stub" "UNSAT!";
   "Retrowrite Stub No Ret in Call" >:: test_compare_elf "retrowrite_stub_no_ret" "UNSAT!";
-  "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "UNSAT!" ~mem_offset:1;
-  "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "SAT!" ~mem_offset:2;
+  "Mem: Same Data, Diff Location"  >:: test_compare_elf "memory_samples/diff_data_location" "UNSAT!";
+  "Mem: Arrays in Data Section"    >:: test_compare_elf "memory_samples/arrays" "SAT!" ~func:"foo_get";
+  "Mem: Arrays in Data Section"    >:: test_compare_elf "memory_samples/arrays" "UNSAT!" ~func:"foo_get" ~pre_cond:"(assert (bvult RDI_orig #x000000000000000a))";
   "Init var compare: UNSAT"        >:: test_compare_elf "init_var_compare" "UNSAT!" ~post_cond:"(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000001)))";
   "Init var compare: SAT"          >:: test_compare_elf "init_var_compare" "SAT!" ~post_cond:"(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000002)))";
 
