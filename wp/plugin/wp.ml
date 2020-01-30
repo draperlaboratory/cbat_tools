@@ -99,14 +99,15 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
 
 (* If an offset is specified, generates a function of the address of a memory read in
    the original binary to the address plus an offset in the modified binary. *)
-let get_exp_conds (env : Env.t) (offset : int) : Env.exp_cond list =
-  let ctx = Env.get_context env in
-  let addr_offset = fun addr ->
-    let width = addr |> Z3.Expr.get_sort |> Z3.BitVector.get_size in
-    let offset = Z3.BitVector.mk_numeral ctx (string_of_int offset) width in
-    Z3.BitVector.mk_add ctx addr offset
+let get_mem_offsets (ctx : Z3.context) (file1 : string) (file2 : string)
+  : Constr.z3_expr -> Constr.z3_expr =
+  let get_symbols file =
+    Symbols.chop_bpj_ext_exn file
+    |> Symbols.get_symbols ctx
   in
-  [Pre.mem_read_offsets env addr_offset]
+  let syms_orig = get_symbols file1 in
+  let syms_mod = get_symbols file2 in
+  Symbols.get_offsets ctx syms_orig syms_mod
 
 let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
@@ -117,7 +118,6 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     ~use_fun_input_regs:(use_fun_input_regs : bool)
     ~pre_cond:(pre_cond : string)
     ~post_cond:(post_cond : string)
-    ~mem_offset:(mem_offset : int)
   : Constr.t * Env.t * Env.t =
   let prog1 = Program.Io.read file1 in
   let prog2 = Program.Io.read file2 in
@@ -128,6 +128,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = find_func_err subs1 func in
   let main_sub2 = find_func_err subs2 func in
+  let mem_offsets = get_mem_offsets ctx file1 file2 in
   let env2 =
     let to_inline2 = match_inline to_inline subs2 in
     let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
@@ -139,7 +140,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let env1 =
     let to_inline1 = match_inline to_inline subs1 in
     let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1
-        ~use_fun_input_regs ~exp_conds:(get_exp_conds env2 mem_offset) in
+        ~use_fun_input_regs ~exp_conds:[Pre.mem_read_offsets env2 mem_offsets] in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
   in
@@ -175,7 +176,6 @@ let main (file1 : string) (file2 : string)
     ~gdb_filename:(gdb_filename : string option)
     ~print_path:(print_path : bool)
     ~use_fun_input_regs:(use_fun_input_regs : bool)
-    ~mem_offset:(mem_offset : int)
     (proj : project) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -185,7 +185,7 @@ let main (file1 : string) (file2 : string)
   let pre, env1, env2 =
     if compare || has_files_to_compare then
       compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~to_inline
-        ~output_vars ~use_fun_input_regs ~post_cond ~pre_cond ~mem_offset
+        ~output_vars ~use_fun_input_regs ~post_cond ~pre_cond
     else
       analyze_proj proj var_gen ctx ~func ~to_inline ~use_fun_input_regs ~post_cond ~pre_cond
   in
@@ -267,11 +267,6 @@ module Cmdline = struct
             that represents the result of the function call. If set to false, no \
             registers will be used. Defaults to true."
 
-  let mem_offset = param int "mem-offset" ~default:0
-      ~doc:"Adds an assumption to the precondition that memory of the modified \
-            binary is the same as the original binary at an offset `d`. Defaults \
-            to an offset of 0."
-
 
   let () = when_ready (fun {get=(!!)} ->
       Project.register_pass' @@
@@ -287,7 +282,6 @@ module Cmdline = struct
         ~gdb_filename:!!gdb_filename
         ~print_path:!!print_path
         ~use_fun_input_regs:!!use_fun_input_regs
-        ~mem_offset:!!mem_offset
     )
 
   let () = manpage [

@@ -30,9 +30,13 @@ module VarMap = Var.Map
 type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
 
 let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
-  List.iter (mem_model.model) ~f:(fun (key, data) -> Format.fprintf fmt "\t\t%s |-> %s ;\n" (Expr.to_string key) (Expr.to_string data ));
-  Format.fprintf fmt "\t\telse |-> %s]\n" (Expr.to_string (mem_model.default));
-  ()
+  mem_model.model
+  |> List.sort ~compare:(fun (addr1, _) (addr2, _) ->
+      String.compare (Expr.to_string addr1) (Expr.to_string addr2))
+  |> List.iter ~f:(fun (key, data) ->
+      Format.fprintf fmt "\t\t%s |-> %s ;\n" (Expr.to_string key) (Expr.to_string data ));
+  Format.fprintf fmt "\t\telse |-> %s]\n" (Expr.to_string (mem_model.default))
+
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
