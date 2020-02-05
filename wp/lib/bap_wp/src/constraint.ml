@@ -183,11 +183,14 @@ let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
     let e' = Expr.substitute e olds news in
     Bool.mk_ite ctx e' (eval_aux c1 olds news ctx) (eval_aux c2 olds news ctx)
   | Clause (hyps, concs) ->
-    let hyps_expr = List.map hyps ~f:(fun h -> eval_aux h olds news ctx)
-                    |> Bool.mk_and ctx in
     let concs_expr = List.map concs ~f:(fun c -> eval_aux c olds news ctx)
                      |> Bool.mk_and ctx in
-    Bool.mk_implies ctx hyps_expr concs_expr
+    if List.is_empty hyps then
+      concs_expr
+    else
+      let hyps_expr = List.map hyps ~f:(fun h -> eval_aux h olds news ctx)
+                      |> Bool.mk_and ctx in
+      Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
     let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
     eval_aux c (olds @ o) (news @ n') ctx
