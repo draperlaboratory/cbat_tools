@@ -99,15 +99,20 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
 
 (* If an offset is specified, generates a function of the address of a memory read in
    the original binary to the address plus an offset in the modified binary. *)
-let get_mem_offsets (ctx : Z3.context) (file1 : string) (file2 : string)
-  : Constr.z3_expr -> Constr.z3_expr =
-  let get_symbols file =
-    Symbols.chop_bpj_ext_exn file
-    |> Symbols.get_symbols ctx
-  in
-  let syms_orig = get_symbols file1 in
-  let syms_mod = get_symbols file2 in
-  Symbols.get_offsets ctx syms_orig syms_mod
+let get_mem_offsets (calc_offsets : bool) (ctx : Z3.context) (file1 : string)
+    (file2 : string) : Constr.z3_expr -> Constr.z3_expr =
+  if calc_offsets then
+    let get_symbols file =
+      (* Chopping off the bpj to get the original binaries rather than the saved
+         project files. *)
+      String.chop_suffix_exn file ~suffix:".bpj"
+      |> Symbols.get_symbols ctx
+    in
+    let syms_orig = get_symbols file1 in
+    let syms_mod = get_symbols file2 in
+    Symbols.get_offsets ctx syms_orig syms_mod
+  else
+    fun addr -> addr
 
 let compare_projs (proj : project) (file1: string) (file2 : string)
     (var_gen : Env.var_gen) (ctx : Z3.context)
@@ -118,6 +123,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     ~use_fun_input_regs:(use_fun_input_regs : bool)
     ~pre_cond:(pre_cond : string)
     ~post_cond:(post_cond : string)
+    ~mem_offset:(mem_offset : bool)
   : Constr.t * Env.t * Env.t =
   let prog1 = Program.Io.read file1 in
   let prog2 = Program.Io.read file2 in
@@ -128,7 +134,7 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = find_func_err subs1 func in
   let main_sub2 = find_func_err subs2 func in
-  let mem_offsets = get_mem_offsets ctx file1 file2 in
+  let mem_offsets = get_mem_offsets mem_offset ctx file1 file2 in
   let env2 =
     let to_inline2 = match_inline to_inline subs2 in
     let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
@@ -176,6 +182,7 @@ let main (file1 : string) (file2 : string)
     ~gdb_filename:(gdb_filename : string option)
     ~print_path:(print_path : bool)
     ~use_fun_input_regs:(use_fun_input_regs : bool)
+    ~mem_offset:(mem_offset : bool)
     (proj : project) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -185,7 +192,7 @@ let main (file1 : string) (file2 : string)
   let pre, env1, env2 =
     if compare || has_files_to_compare then
       compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~to_inline
-        ~output_vars ~use_fun_input_regs ~post_cond ~pre_cond
+        ~output_vars ~use_fun_input_regs ~post_cond ~pre_cond ~mem_offset
     else
       analyze_proj proj var_gen ctx ~func ~to_inline ~use_fun_input_regs ~post_cond ~pre_cond
   in
@@ -261,11 +268,17 @@ module Cmdline = struct
             at each jump in the path. The path contains information about whether \
             a jump has been taken and the address of the jump if found."
 
-  let use_fun_input_regs = param bool "use-fun-input-regs" ~default:true
+  let use_fun_input_regs = param bool "use-fun-input-regs" ~as_flag:true  ~default:true
       ~doc:"If set, at a function call site, uses all possible input registers \
             as arguments to a function symbol generated for an output register \
             that represents the result of the function call. If set to false, no \
             registers will be used. Defaults to true."
+
+  let mem_offset = param bool "mem-offset" ~as_flag:true ~default:true
+      ~doc:"If set, at every memory read, adds an assumption to the precondition that \
+            memory of the modified binary is the same as the original binary at an \
+            offset calculated by aligning the data and bss sections of the binary. \
+            Defaults to true."
 
 
   let () = when_ready (fun {get=(!!)} ->
@@ -282,6 +295,7 @@ module Cmdline = struct
         ~gdb_filename:!!gdb_filename
         ~print_path:!!print_path
         ~use_fun_input_regs:!!use_fun_input_regs
+        ~mem_offset:!!mem_offset
     )
 
   let () = manpage [

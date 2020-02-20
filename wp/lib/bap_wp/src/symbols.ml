@@ -50,9 +50,6 @@ let get_symbols (ctx : Z3.context) (filename : string) : symbol list =
   |> run_command
   |> parse_result ctx
 
-let chop_bpj_ext_exn (filename : string) : string =
-  String.chop_suffix_exn filename ~suffix:".bpj"
-
 let get_offsets (ctx : Z3.context) (syms_orig : symbol list) (syms_mod : symbol list)
   : Constr.z3_expr -> Constr.z3_expr =
   fun addr ->

@@ -324,7 +324,7 @@ let var_of_arg_t (arg : Arg.t) : Var.t =
    representing the output variable. *)
 let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
     ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
-  debug "Chaosing outputs for %s:%!" (Sub.name sub);
+  debug "Chaosing outputs for %s%!" (Sub.name sub);
   let ctx = Env.get_context env in
   let inputs = List.map inputs
       ~f:(fun i ->

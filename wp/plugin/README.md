@@ -357,6 +357,12 @@ The various options are:
   an output register that represents the result of the function call. If set to
   false, no registers will be used. Defaults to true.
 
+- `--wp-mem-offset=[true|false]`. If present, at a memory read, adds an assumption to
+  the precondition that the memory of the modified binary is the same as the original
+  binary at an offset calculated by aligning the data and bss sections of the binary.
+  We do this by invoking `objdump` on both binaries, and determining the starting
+  addresses of the symbols in these sections. If this flag is set to false, we assume
+  that memory between both binaries are equal during a memory read.
 
 ## C checking API
 
