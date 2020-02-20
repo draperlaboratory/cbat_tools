@@ -46,6 +46,7 @@ let test_compare_elf (elf_dir : string) (expected : string)
     ?output_vars:(output_vars = "RAX,EAX")
     ?pre_cond:(pre_cond = "(assert true)")
     ?post_cond:(post_cond = "(assert true)")
+    ?mem_offset:(mem_offset = true)
     (test_ctx : test_ctxt)
   : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
@@ -60,7 +61,8 @@ let test_compare_elf (elf_dir : string) (expected : string)
       Format.sprintf "--wp-inline=%s" inline;
       Format.sprintf "--wp-output-vars=%s" output_vars;
       Format.sprintf "--wp-precond=%s" pre_cond;
-      Format.sprintf "--wp-postcond=%s" post_cond
+      Format.sprintf "--wp-postcond=%s" post_cond;
+      Format.sprintf "--wp-mem-offset=%b" mem_offset
     ] in
   assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
