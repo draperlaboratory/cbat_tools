@@ -83,7 +83,7 @@ let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
      environment with variables *)
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let _, env' = Pre.visit_sub env true_constr main_sub in
-  let hyps, env' = Pre.init_vars (Pre.get_vars main_sub) env' in
+  let hyps, env' = Pre.init_vars (Pre.get_vars env' main_sub) env' in
   let post =
     if String.(post_cond = "") then
       true_constr
@@ -133,14 +133,14 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
         ~use_fun_input_regs in
     let env2 = Env.set_freshen env2 true in
-    let _, env2 = Pre.init_vars (Pre.get_vars main_sub2) env2 in
+    let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
     env2
   in
   let env1 =
     let to_inline1 = match_inline to_inline subs1 in
     let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1
         ~use_fun_input_regs ~exp_conds:(get_exp_conds env2 mem_offset) in
-    let _, env1 = Pre.init_vars (Pre.get_vars main_sub1) env1 in
+    let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
   in
   let pre, env1, env2 =
@@ -149,10 +149,10 @@ let compare_projs (proj : project) (file1: string) (file2 : string)
     else
       begin
         let output_vars = Var.Set.union
-            (Pre.get_output_vars main_sub1 output_vars)
-            (Pre.get_output_vars main_sub2 output_vars) in
+            (Pre.get_output_vars env1 main_sub1 output_vars)
+            (Pre.get_output_vars env2 main_sub2 output_vars) in
         let input_vars = Var.Set.union
-            (Pre.get_vars main_sub1) (Pre.get_vars main_sub2) in
+            (Pre.get_vars env1 main_sub1) (Pre.get_vars env2 main_sub2) in
         debug "Input: %s%!" (varset_to_string input_vars);
         debug "Output: %s%!" (varset_to_string output_vars);
         Comp.compare_subs_eq ~input:input_vars ~output:output_vars

@@ -64,11 +64,11 @@ val cast : Z3.context -> Bap.Std.cast -> int -> Constr.z3_expr -> Constr.z3_expr
 val lookup_sub : Bap.Std.Label.t -> Constr.t -> Env.t -> Constr.t * Env.t
 
 (** Get {e every} variable from a subroutine. *)
-val get_vars : Bap.Std.Sub.t -> Bap.Std.Var.Set.t
+val get_vars : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
 
 (** Find the set of BAP variables in a subroutine for equivalence checking
     given the name of each variable. *)
-val get_output_vars : Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t
+val get_output_vars : Env.t -> Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t
 
 (** Generates a list of constraints: [var == init_var] where init_var refers to
     the initial state of the variable var. Also updates the environment to contain

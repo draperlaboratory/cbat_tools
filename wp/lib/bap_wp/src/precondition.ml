@@ -319,21 +319,6 @@ let var_of_arg_t (arg : Arg.t) : Var.t =
   assert (Var.Set.length vars = 1);
   Var.Set.choose_exn vars
 
-let get_vars (t : Sub.t) : Var.Set.t =
-  let visitor =
-    (object inherit [Var.Set.t] Term.visitor
-      method! visit_arg arg vars =
-        Var.Set.add vars (var_of_arg_t arg)
-      method! visit_def def vars =
-        let vars = Var.Set.add vars (Def.lhs def) in
-        let vars = Var.Set.union vars (Def.free_vars def) in
-        vars
-      method! visit_jmp jmp vars =
-        Var.Set.union vars (Jmp.free_vars jmp)
-    end)
-  in
-  visitor#visit_sub t Var.Set.empty
-
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It substitutes the original z3_expr
    representing the output variable. *)
@@ -392,6 +377,27 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
   | _ ->
     raise (Not_implemented "callee_saved_regs: Callee-saved registers have not been \
                             implemented for non-x86_64 architectures.")
+
+let get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
+  let vars =
+    if Env.use_input_regs env then
+      env |> Env.get_arch |> input_regs |> Var.Set.of_list
+    else
+      Var.Set.empty
+  in
+  let visitor =
+    (object inherit [Var.Set.t] Term.visitor
+      method! visit_arg arg vars =
+        Var.Set.add vars (var_of_arg_t arg)
+      method! visit_def def vars =
+        let vars = Var.Set.add vars (Def.lhs def) in
+        let vars = Var.Set.union vars (Def.free_vars def) in
+        vars
+      method! visit_jmp jmp vars =
+        Var.Set.union vars (Jmp.free_vars jmp)
+    end)
+  in
+  visitor#visit_sub t vars
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let name = Sub.name sub in
@@ -986,8 +992,8 @@ let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_ex
     (Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
   check solver ctx pre
 
-let get_output_vars (t : Sub.t) (var_names : string list) : Var.Set.t =
-  let all_vars = get_vars t in
+let get_output_vars (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
+  let all_vars = get_vars env t in
   let has_name name var = String.equal name (Var.to_string var) in
   List.fold var_names ~init:Var.Set.empty ~f:(fun vars name ->
       match Var.Set.find all_vars ~f:(has_name name) with
