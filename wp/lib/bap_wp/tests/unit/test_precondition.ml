@@ -1233,6 +1233,46 @@ let test_exclude_1 (test_ctx : test_ctxt) : unit =
         (not (Expr.equal v value)))
 
 
+let test_get_vars_1 (test_ctx : test_ctxt) : unit =
+  let rdi = Var.create "RDI" reg64_t in
+  let rsi = Var.create "RSI" reg64_t in
+  let rdx = Var.create "RDX" reg64_t in
+  let rcx = Var.create "RCX" reg64_t in
+  let r8 = Var.create "R8" reg64_t in
+  let r9 = Var.create "R9" reg64_t in
+  let x = Var.create "x" reg64_t in
+  let sub = Bil.(
+      [
+        x := i64 1;
+      ]
+    ) |> bil_to_sub
+  in
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:true in
+  let vars = Pre.get_vars env sub in
+  assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
+    ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
+    (Var.Set.of_list [rdi; rsi; rdx; rcx; r8; r9; x]) vars
+
+
+let test_get_vars_2 (test_ctx : test_ctxt) : unit =
+  let x = Var.create "x" reg64_t in
+  let sub = Bil.(
+      [
+        x := i64 1;
+      ]
+    ) |> bil_to_sub
+  in
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false in
+  let vars = Pre.get_vars env sub in
+  assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
+    ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
+    (Var.Set.of_list [x]) vars
+
+
 let test_output_vars_1 (test_ctx : test_ctxt) : unit =
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
@@ -1245,7 +1285,10 @@ let test_output_vars_1 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let vars = Pre.get_output_vars sub ["x"; "y"; "z"] in
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env = Pre.mk_env ctx var_gen in
+  let vars = Pre.get_output_vars env sub ["x"; "y"; "z"] in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
     (Var.Set.of_list [x; y; z]) vars
@@ -1261,7 +1304,10 @@ let test_output_vars_2 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let vars = Pre.get_output_vars sub ["x"; "y"; "z"] in
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env = Pre.mk_env ctx var_gen in
+  let vars = Pre.get_output_vars env sub ["x"; "y"; "z"] in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
     (Var.Set.of_list [x; y]) vars
@@ -1421,6 +1467,9 @@ let suite = [
   "Test jmp_spec_reach UNSAT" >:: test_jmp_spec_reach_2;
 
   "Test exclude" >:: test_exclude_1;
+
+  "Use fun input registers in get_vars" >:: test_get_vars_1;
+  "Don't use fun input registers in get_vars" >:: test_get_vars_2;
 
   "Test get output variables by name" >:: test_output_vars_1;
   "z not in subroutine" >:: test_output_vars_2;
