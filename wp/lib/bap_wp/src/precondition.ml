@@ -491,6 +491,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
                      | Some Both -> var :: ins, var :: outs
                      | None -> ins, outs)
              in
+             let inputs = if Env.use_input_regs env then inputs else [] in
              subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs, env)
     }
   else
