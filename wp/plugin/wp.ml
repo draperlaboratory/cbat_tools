@@ -105,12 +105,13 @@ let get_mem_offsets (calc_offsets : bool) (ctx : Z3.context) (file1 : string)
     let get_symbols file =
       (* Chopping off the bpj to get the original binaries rather than the saved
          project files. *)
-      String.chop_suffix_exn file ~suffix:".bpj"
-      |> Symbols.get_symbols ctx
+      file
+      |> String.chop_suffix_exn ~suffix:".bpj"
+      |> Symbol.get_symbols
     in
     let syms_orig = get_symbols file1 in
     let syms_mod = get_symbols file2 in
-    Symbols.get_offsets ctx syms_orig syms_mod
+    Symbol.offset_constraint ~orig:syms_orig ~modif:syms_mod ctx
   else
     fun addr -> addr
 
@@ -274,7 +275,7 @@ module Cmdline = struct
             that represents the result of the function call. If set to false, no \
             registers will be used. Defaults to true."
 
-  let mem_offset = param bool "mem-offset" ~as_flag:true ~default:true
+  let mem_offset = param bool "mem-offset" ~as_flag:true ~default:false
       ~doc:"If set, at every memory read, adds an assumption to the precondition that \
             memory of the modified binary is the same as the original binary at an \
             offset calculated by aligning the data and bss sections of the binary. \

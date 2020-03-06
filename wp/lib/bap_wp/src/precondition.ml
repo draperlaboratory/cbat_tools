@@ -184,6 +184,12 @@ let hooks_to_string (h : hooks) : string =
     (List.to_string ~f:Constr.to_string h.assume_before)
     (List.to_string ~f:Constr.to_string h.assume_after)
 
+let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
+  let fmt = Format.str_formatter in
+  Word.pp_dec fmt w;
+  let s = Format.flush_str_formatter () in
+  BV.mk_numeral ctx s (Word.bitwidth w)
+
 let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
   let ctx = Env.get_context env in
   let open Bap.Std.Bil.Types in
@@ -237,10 +243,7 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
       Env.get_var env v
     | Bil.Types.Int w ->
       debug "Visiting int: %s%!" (Word.to_string w);
-      let fmt = Format.str_formatter in
-      Word.pp_dec fmt w;
-      let s = Format.flush_str_formatter () in
-      BV.mk_numeral ctx s (Word.bitwidth w), env
+      word_to_z3 ctx w, env
     | Cast (cst, i, x) ->
       debug "Visiting cast: %s from %d to %s%!"
         (Bil.string_of_cast cst) i (Exp.to_string x);
@@ -639,12 +642,6 @@ let mk_env
   : Env.t =
   Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
     ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~heap_range ctx var_gen
-
-let word_to_z3 (ctx : Z3.context) (w : Word.t) : Constr.z3_expr =
-  let fmt = Format.str_formatter in
-  Word.pp_dec fmt w;
-  let s = Format.flush_str_formatter () in
-  BV.mk_numeral ctx s (Word.bitwidth w)
 
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
   let jmp_spec = Env.get_jmp_handler env in

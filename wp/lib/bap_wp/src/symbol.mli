@@ -21,15 +21,15 @@
 
 module Constr = Constraint
 
-(** [symbol] is a mapping of a name to its starting addresses. *)
-type symbol = string * Constr.z3_expr
+(** [symbol] is a mapping of a name to its starting address. *)
+type t
 
 (** [get_symbols filename] creates a map of the names of symbols in the
     .data and .bss sections of a binary mapped to their addresses. *)
-val get_symbols : Z3.context -> string -> symbol list
+val get_symbols : string -> t list
 
 (** Given a list of symbols from the original and modified binaries,
     returns a function that maps the address of a memory read in the
     original binary to the address of the read in the modified binary. *)
-val get_offsets :
-  Z3.context -> symbol list -> symbol list -> Constr.z3_expr -> Constr.z3_expr
+val offset_constraint :
+  orig:(t list) -> modif:(t list) -> Z3.context -> Constr.z3_expr -> Constr.z3_expr
