@@ -5,7 +5,7 @@
 Depends on:
 
     - ocaml 4.05.0
-    - core_kernel 0.11
+    - core_kernel 0.12.4+
     - bap 2.0.0
     - ounit 2.0.8
     - z3 4.8.6

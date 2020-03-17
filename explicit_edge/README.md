@@ -11,7 +11,7 @@ Build
 Before installing `explicit_edge`, the following requirements must be met:
 
 * BAP 2.0.0-alpha+ must be available. Confirm with `bap --version`.
-* core 0.11+ must be available. Confirm with `ocamlfind query core`.
+* core 0.12.4+ must be available. Confirm with `ocamlfind query core`.
 * ppx\_deriving must be available. Confirm with `ocamlfind query ppx_deriving`
 * cbat\_value\_set must be available. Confirm with `ocamlfind query cbat_value_set`
 * Dune 1.6+ must be available. Confirm with `dune --version`.
