@@ -185,7 +185,7 @@ module Key = struct
      an ordered sequence of non-overlapping keys with the side they came from.
   *)
   let seq_product (s1 : t seq) (s2 : t seq) : (side * t) seq =
-    let combined = Seq.merge_with_duplicates s1 s2 ~cmp:compare in
+    let combined = Seq.merge_with_duplicates s1 s2 ~compare:compare in
     Seq.unfold_step ~init:combined ~f:begin fun s ->
       Option.value_map ~default:Seq.Step.Done (Seq.next s) ~f: begin
         fun (hd, tl) -> match hd with
