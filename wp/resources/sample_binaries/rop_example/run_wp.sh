@@ -11,7 +11,7 @@ run () {
     --wp-compare=true \
     --wp-file1=main-original.bpj \
     --wp-file2=main-rop.bpj \
-    --wp-inline=true
+    --wp-inline=.*
 }
 
 compile && run

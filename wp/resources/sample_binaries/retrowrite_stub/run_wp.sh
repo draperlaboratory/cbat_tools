@@ -12,7 +12,7 @@ run () {
     --wp-file1=main_1.bpj \
     --wp-file2=main_2.bpj \
     --wp-function=main \
-    --wp-inline=true
+    --wp-inline=.*
 }
 
 compile && run
