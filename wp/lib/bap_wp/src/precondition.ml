@@ -942,24 +942,25 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
     begin
       object inherit [Constr.z3_expr list] Exp.visitor
         method! visit_load ~mem:_ ~addr:addr endian size conds =
-          let addr1, _, _ = exp_to_z3 addr env1 in
-          let addr2, _, _ = exp_to_z3 addr env2 in
-          let width = Size.in_bits size in
-          let compare_mem in_region addr addr_off =
+          let addr, _, _ = exp_to_z3 addr env1 in
+          let word_size = Size.in_bits size in
+          let compare_mem addr1 addr2 =
             let init_mem1 = Option.value_exn (Env.get_init_var env1 Target.CPU.mem) in
             let init_mem2 = Option.value_exn (Env.get_init_var env2 Target.CPU.mem) in
-            let mem_orig =
-              load_z3_mem ctx ~word_size:width ~mem:init_mem1 ~addr:addr endian in
-            let mem_mod =
-              load_z3_mem ctx ~word_size:width ~mem:init_mem2 ~addr:addr_off endian in
-            Bool.mk_implies ctx (in_region addr) (Bool.mk_eq ctx mem_orig mem_mod)
+            let mem_orig = load_z3_mem ctx ~word_size ~mem:init_mem1 ~addr:addr1 endian in
+            let mem_mod = load_z3_mem ctx ~word_size ~mem:init_mem2 ~addr:addr2 endian in
+            Bool.mk_eq ctx mem_orig mem_mod
           in
-          let heap = compare_mem (Env.in_heap env1) addr1 (offset addr1) in
-          let stack = compare_mem (Env.in_stack env1) addr1 addr2 in
-          debug "Adding assumptions:\nHeap: %s\nStack: %s\n%!"
-            (Expr.to_string (Expr.simplify heap None))
-            (Expr.to_string (Expr.simplify stack None));
-          [heap; stack] @ conds
+          let mem_eq_offset = compare_mem addr (offset addr) in
+          let mem_eq = compare_mem addr addr in
+          let constr =
+            Bool.mk_ite ctx (Env.in_stack env1 addr) mem_eq
+              (Bool.mk_ite ctx (Env.in_heap env1 addr) mem_eq_offset
+                 mem_eq)
+          in
+          debug "Adding assumptions:\n%s\n%!"
+            (Expr.to_string (Expr.simplify constr None));
+          constr :: conds
       end
     end
   in
