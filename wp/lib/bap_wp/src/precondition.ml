@@ -472,7 +472,10 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
                | None -> failwith "Verifier headerfile must be specified with --api-path" in
              let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
              let v = Var.Set.choose_exn vars in
-             subst_fun_outputs env sub post ~inputs:[] ~outputs:[v], env)
+             let z3_v, env = Env.get_var env v in
+             let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string z3_v) in
+             let fresh = new_z3_expr env ~name:name (Var.typ v) in
+             Constr.substitute_one post z3_v fresh, env)
     }
   else
     None
@@ -996,9 +999,9 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
 
 let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     (pre : Constr.t) : Solver.status =
-  info "Evaluating precondition.%!";
+  printf "Evaluating precondition.\n%!";
   let pre' = Constr.eval pre ctx in
-  info "Checking precondition with Z3.\n%!";
+  printf "Checking precondition with Z3.\n%!";
   let is_correct =
     if refute then
       Bool.mk_implies ctx pre' (Bool.mk_false ctx)
