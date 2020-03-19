@@ -77,6 +77,7 @@ let test_skip (msg : string) (_ : test_ctxt -> unit) (_ : test_ctxt) : unit =
   skip_if true msg
 
 let suite = [
+<<<<<<< HEAD
 
   (* Test elf comparison *)
 
@@ -119,7 +120,7 @@ let suite = [
 
   "No stack protection"            >:: test_plugin "no_stack_protection" sat;
 
-  "Pointer input"                  >:: test_skip not_added_msg (test_plugin "pointer_input" unsat);
+  "Pointer input"                  >:: test_plugin "pointer_input" unsat;
 
   "Retrowrite stub: pop RSP"       >:: test_plugin "retrowrite_stub" unsat;
   "Retrowrite stub: inline AFL"    >:: test_plugin "retrowrite_stub" unsat ~script:"run_wp_inline_afl.sh";
@@ -141,9 +142,8 @@ let suite = [
   "Function spec: inline all "     >:: test_plugin "function_spec" unsat ~script:"run_wp_inline_all.sh";
   "Function spec: inline garbage"  >:: test_plugin "function_spec" sat ~script:"run_wp_inline_garbage.sh";
 
-  "Goto string"                    >:: test_skip not_added_msg (test_plugin "goto_string" sat);
-  "Goto string: inline all"        >:: test_skip not_added_msg (test_plugin "goto_string" sat
-                                                                  ~script:"run_wp_inline.sh");
+  "Goto string"                    >:: test_plugin "goto_string" sat;
+  "Goto string: inline all"        >:: test_plugin "goto_string" sat ~script:"run_wp_inline.sh";
 
   "Init var value in post: UNSAT:" >:: test_plugin "init_var" unsat;
   "Init var value in post: SAT"    >:: test_plugin "init_var" sat ~script:"run_wp_sat.sh";
