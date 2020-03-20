@@ -77,7 +77,6 @@ let test_skip (msg : string) (_ : test_ctxt -> unit) (_ : test_ctxt) : unit =
   skip_if true msg
 
 let suite = [
-<<<<<<< HEAD
 
   (* Test elf comparison *)
 
