@@ -480,6 +480,31 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
+let spec_calloc (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+  if String.equal (Sub.name sub) "calloc" then
+    let open Env in
+    Some {
+      spec_name = "spec_calloc";
+      spec = Summary
+        (* Currently stubbing this spec to mirror that of spec_verifier_nondet. *)
+        (fun env post tid ->
+             let post = set_fun_called post env tid in
+             let post, env = increment_stack_ptr post env in
+             let args = Term.enum arg_t sub in
+             let output =
+               match Seq.find args ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out) with
+               | Some o -> o
+               | None -> failwith "Verifier headerfile must be specified with --api-path" in
+             let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
+             let v = Var.Set.choose_exn vars in
+             let z3_v, env = Env.get_var env v in
+             let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string z3_v) in
+             let fresh = new_z3_expr env ~name:name (Var.typ v) in
+             Constr.substitute_one post z3_v fresh, env)
+    }
+  else
+    None
+
 let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   if Term.first arg_t sub <> None then
     let open Env in
@@ -620,7 +645,7 @@ let num_unroll : int ref = ref 5
 let default_fun_specs (to_inline : Sub.t Seq.t) :
   (Sub.t -> Arch.t -> Env.fun_spec option) list =
   [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet; spec_afl_maybe_log;
-   spec_inline to_inline; spec_arg_terms; spec_chaos_caller_saved; spec_rax_out]
+   spec_calloc; spec_inline to_inline; spec_arg_terms; spec_chaos_caller_saved; spec_rax_out]
 
 let default_stack_range : int * int = 0x00007fffffff0000, 0x00007fffffffffff
 
