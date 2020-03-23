@@ -5,7 +5,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-inline=.* --wp-func=main --wp-print-path=true
+  bap main --pass=wp --wp-func=main --wp-print-path=true
 }
 
 compile && run

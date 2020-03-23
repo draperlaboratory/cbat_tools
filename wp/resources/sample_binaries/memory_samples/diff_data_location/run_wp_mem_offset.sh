@@ -11,7 +11,8 @@ run () {
     --wp-compare=true \
     --wp-file1=main_1.bpj \
     --wp-file2=main_2.bpj \
-    --wp-function=main
+    --wp-function=main \
+    --wp-mem-offset
 }
 
 compile && run

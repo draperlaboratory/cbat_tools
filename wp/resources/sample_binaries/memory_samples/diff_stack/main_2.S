@@ -10,8 +10,6 @@ main:
     movq    $0x3,        (%rsp)
     movq    $0x4,        0x8(%rsp)
     movq    $0x5,        0x10(%rsp)
-    movq    $val,        %rax
-    mov     (%rax),      %rax
     addq    0x10(%rsp),  %rax
     addq    0x8(%rsp),   %rax
     addq    (%rsp),      %rax
@@ -23,9 +21,3 @@ _start:
     mov     $0x3c,       %rax
     xor     %rdi,        %rdi
     syscall
-
-
-.data
-
-val:
-    .int    1
