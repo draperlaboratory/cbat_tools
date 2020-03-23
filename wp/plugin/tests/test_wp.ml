@@ -39,57 +39,16 @@ let check_result (stream : char Stream.t) (expected : string) (test_ctx : test_c
       | chr -> Buffer.add_char buff chr)
     stream
 
-let test_compare_elf (elf_dir : string) (expected : string)
-    ?func:(func = "main")
-    ?check_calls:(check_calls = false)
-    ?inline:(inline = "")
-    ?output_vars:(output_vars = "RAX,EAX")
-    ?pre_cond:(pre_cond = "(assert true)")
-    ?post_cond:(post_cond = "(assert true)")
-    ?mem_offset:(mem_offset = false)
+let test_plugin
+    ?script:(script = "run_wp.sh")
+    (elf_dir : string)
+    (expected : string)
     (test_ctx : test_ctxt)
-  : unit =
+    : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
-  let args =
-    [ Format.sprintf "%s/dummy/hello_world.out" bin_dir;
-      Format.sprintf "--pass=%s" "wp";
-      Format.sprintf "--wp-compare=%b" true;
-      Format.sprintf "--wp-file1=%s/main_1.bpj" target;
-      Format.sprintf "--wp-file2=%s/main_2.bpj" target;
-      Format.sprintf "--wp-function=%s" func;
-      Format.sprintf "--wp-check-calls=%b" check_calls;
-      Format.sprintf "--wp-inline=%s" inline;
-      Format.sprintf "--wp-output-vars=%s" output_vars;
-      Format.sprintf "--wp-precond=%s" pre_cond;
-      Format.sprintf "--wp-postcond=%s" post_cond;
-      Format.sprintf "--wp-mem-offset=%b" mem_offset
-    ] in
-  assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target];
+  let script = Format.sprintf "./%s" script in
   assert_command ~foutput:(fun res -> check_result res expected test_ctx)
-    ~backtrace:true ~ctxt:test_ctx "bap" args
-
-let test_single_elf (elf_dir : string) (elf_name : string) (expected : string)
-    ?func:(func = "main")
-    ?check_calls:(check_calls = false)
-    ?inline:(inline = "")
-    ?post:(post = "(assert true)")
-    ?pre:(pre = "(assert true)")
-    (test_ctx : test_ctxt)
-  : unit =
-  let target = Format.sprintf "%s/%s" bin_dir elf_dir in
-  let args =
-    [ Format.sprintf "%s/%s" target elf_name;
-      Format.sprintf "--pass=%s" "wp";
-      Format.sprintf "--wp-compare=%b" false;
-      Format.sprintf "--wp-function=%s" func;
-      Format.sprintf "--wp-check-calls=%b" check_calls;
-      Format.sprintf "--wp-inline=%s" inline;
-      Format.sprintf "--wp-postcond=%s" post;
-      Format.sprintf "--wp-precond=%s" pre;
-    ] in
-  assert_command ~backtrace:true ~ctxt:test_ctx "make" ["-C"; target; elf_name];
-  assert_command ~foutput:(fun res -> check_result res expected test_ctx)
-    ~backtrace:true ~ctxt:test_ctx "bap" args
+    ~backtrace:true ~chdir:target ~ctxt:test_ctx script []
 
 let test_update_num_unroll (new_unroll : int option) (test_ctx : test_ctxt) : unit =
   let original = !Wp.Pre.num_unroll in
@@ -104,43 +63,84 @@ let test_update_num_unroll (new_unroll : int option) (test_ctx : test_ctxt) : un
     assert_equal ~ctxt:test_ctx ~cmp:Int.equal ~msg:fail_msg updated original
 
 let suite = [
-  "Equiv Null Check"               >:: test_compare_elf "equiv_null_check" "SAT!";
-  "Equiv Argc"                     >:: test_compare_elf "equiv_argc" "SAT!";
-  "Precondition: Force 2"          >:: test_compare_elf "equiv_argc" ~pre_cond:"(assert (= RDI_mod #x0000000000000002))  (assert (= RDI_orig #x0000000000000002))" "SAT!";
-  "Precondition: Disallow 2"       >:: test_compare_elf "equiv_argc" ~pre_cond:"(assert (and (= #x0000000000000000 (bvand RDI_mod #xFFFFFFFF00000000 )) (not (= RDI_mod #x0000000000000002))))" "UNSAT!";
-  "Diff Ret Val"                   >:: test_compare_elf "diff_ret_val" "SAT!";
-  "Diff Pointer Val"               >:: test_compare_elf "diff_pointer_val" "SAT!";
-  "Switch Case Assignments"        >:: test_compare_elf "switch_case_assignments" "SAT!" ~func:"process_status";
-  "Switch Cases"                   >:: test_compare_elf "switch_cases" "SAT!" ~func:"process_message" ~check_calls:true;
-  "No Stack Protection"            >:: test_compare_elf "no_stack_protection" "SAT!" ~output_vars:"RSI,RAX";
-  "Retrowrite Stub"                >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:"__afl_maybe_log";
-  "Retrowrite Stub: inline all"    >:: test_compare_elf "retrowrite_stub" "UNSAT!" ~inline:".*";
-  "Retrowrite Stub: Pop RSP"       >:: test_compare_elf "retrowrite_stub" "UNSAT!";
-  "Retrowrite Stub No Ret in Call" >:: test_compare_elf "retrowrite_stub_no_ret" "UNSAT!";
-  "Init var compare: UNSAT"        >:: test_compare_elf "init_var_compare" "UNSAT!" ~post_cond:"(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000001)))";
-  "Init var compare: SAT"          >:: test_compare_elf "init_var_compare" "SAT!" ~post_cond:"(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000002)))";
-  "Same Data, Diff Location"       >:: test_compare_elf "memory_samples/diff_data_location" "UNSAT!" ~mem_offset:true;
-  "Same Data, Diff Location"       >:: test_compare_elf "memory_samples/diff_data_location" "SAT!" ~mem_offset:false;
-  "Arrays in Data Section"         >:: test_compare_elf "memory_samples/arrays" "SAT!" ~func:"foo_get" ~mem_offset:true;
-  "Arrays in Data Section"         >:: test_compare_elf "memory_samples/arrays" "SAT!" ~func:"foo_get" ~mem_offset:false;
-  "Arrays in Data Section"         >:: test_compare_elf "memory_samples/arrays" "UNSAT!" ~func:"foo_get" ~pre_cond:"(assert (bvult RDI_orig #x000000000000000a))" ~mem_offset:true;
-  "Arrays in Data Section"         >:: test_compare_elf "memory_samples/arrays" "SAT!" ~func:"foo_get" ~pre_cond:"(assert (bvult RDI_orig #x000000000000000a))" ~mem_offset:false;
 
-  "Simple WP"                      >:: test_single_elf "simple_wp" "main" "SAT!";
-  "Simple WP: Precondition"        >:: test_single_elf "simple_wp" "main" ~pre:"(assert (= RDI #x0000000000000002))" "UNSAT!";
-  "Verifier Assume SAT"            >:: test_single_elf "verifier_calls" "verifier_assume_sat" "SAT!";
-  "Verifier Assume UNSAT"          >:: test_single_elf "verifier_calls" "verifier_assume_unsat" "UNSAT!";
-  "Verifier Nondet"                >:: test_single_elf "verifier_calls" "verifier_nondet" "SAT!";
-  "Function Call"                  >:: test_single_elf "function_call" "main" "SAT!" ~inline:"foo";
-  "Function Call: inline all"      >:: test_single_elf "function_call" "main" "SAT!" ~inline:".*";
-  "Function Spec"                  >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:"foo";
-  "Function Spec: inline all "     >:: test_single_elf "function_spec" "main" "UNSAT!" ~inline:".*";
-  "Function Spec: no inlining"     >:: test_single_elf "function_spec" "main" "SAT!" ~inline:"NONEXISTENTGARBAGE";
-  "Nested Function Calls"          >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:"foo|bar";
-  "Nested Calls: inline all"       >:: test_single_elf "nested_function_calls" "main" "SAT!" ~inline:".*";
-  "User Defined Postcondition"     >:: test_single_elf "return_argc" "main" "SAT!" ~post:"(assert (= RAX #x0000000000000000))";
-  "Init var value in post: UNSAT:" >:: test_single_elf "init_var" "main" "UNSAT!" ~func:"foo" ~post:"(assert (= RAX (bvadd init_RDI #x0000000000000001)))";
-  "Init var value in post: SAT"    >:: test_single_elf "init_var" "main" "SAT!" ~func:"foo" ~post:"(assert (= RAX (bvadd init_RDI #x0000000000000002)))";
+  (* Test elf comparison *)
+  "Multicompiler: csmith"          >:: test_plugin "cbat-multicompiler-samples/csmith" "UNSAT!";
+  "Multicompiler: csmith inline"   >:: test_plugin "cbat-multicompiler-samples/csmith" "UNSAT!"
+    ~script:"run_wp_inline.sh"; (* fails! *)
+  "Multicompiler: equiv argc"      >:: test_plugin "cbat-multicompiler-samples/equiv_argc" "UNSAT!";
+  "Multicompiler: switch cases"    >:: test_plugin "cbat-multicompiler-samples/switch_case_assignments" "UNSAT!";
+
+  "Diff pointer val"               >:: test_plugin "diff_pointer_val" "SAT!";
+  "Diff ret val"                   >:: test_plugin "diff_ret_val" "SAT!";
+  "Double dereference"             >:: (fun ctx -> skip_if true "times out"; test_plugin "double_dereference" "UNSAT!" ctx);
+  "Equiv argc"                     >:: test_plugin "equiv_argc" "SAT!";
+  "Precondition: force 2"          >:: test_plugin "equiv_argc" "SAT!" ~script:"run_wp_force_2.sh";
+  "Precondition: disallow 2"       >:: test_plugin "equiv_argc" "UNSAT!" ~script:"run_wp_disallow_2.sh";
+  "Equiv null check"               >:: test_plugin "equiv_null_check" "SAT!";
+
+  "Init var compare: UNSAT"        >:: test_plugin "init_var_compare" "UNSAT!";
+  "Init var compare: SAT"          >:: test_plugin "init_var_compare" "SAT!" ~script:"run_wp_sat.sh";
+
+  "Arrays in sata section"         >:: test_plugin "memory_samples/arrays" "SAT!";
+  "Arrays in data section"         >:: test_plugin "memory_samples/arrays" "SAT!" ~script:"run_wp_mem_offset.sh";
+  "Arrays in data section"         >:: test_plugin "memory_samples/arrays" "SAT!" ~script:"run_wp_pre.sh";
+  "Arrays in data section"         >:: test_plugin "memory_samples/arrays" "UNSAT!" ~script:"run_wp_pre_mem_offset.sh";
+
+  "Data/BSS sections"              >:: test_plugin "memory_samples/data_bss_sections" "SAT!";
+  "Data/BSS sections"              >:: test_plugin "memory_samples/data_bss_sections" "UNSAT!"
+    ~script:"run_wp_mem_offset.sh";
+
+  "Diff data section"              >:: test_plugin "memory_samples/diff_data" "SAT!"; (* fails *)
+
+  "Same data, diff location"       >:: test_plugin "memory_samples/diff_data_location" "SAT!";
+  "Same data, diff location"       >:: test_plugin "memory_samples/diff_data_location" "UNSAT!"
+    ~script:"run_wp_mem_offset.sh";
+
+  "Diff stack values"              >:: test_plugin "memory_samples/diff_stack" "SAT!";
+
+  "No Stack Protection"            >:: test_plugin "no_stack_protection" "SAT!";
+  "Pointer input" >:: (fun ctx -> skip_if true "not added"; test_plugin "pointer_input" "UNSAT!" ctx);
+
+  "Retrowrite Stub: pop RSP"       >:: test_plugin "retrowrite_stub" "UNSAT!";
+  "Retrowrite Stub: inline AFL"    >:: test_plugin "retrowrite_stub" "UNSAT!" ~script:"run_wp_inline_afl.sh";
+  "Retrowrite Stub: inline all"    >:: test_plugin "retrowrite_stub" "UNSAT!" ~script:"run_wp_inline_all.sh";
+  "Retrowrite Stub No Ret in Call" >:: test_plugin "retrowrite_stub_no_ret" "UNSAT!";
+
+  "ROP example"                    >:: test_plugin "rop_example" "UNSAT!"; (* fails *)
+  "Switch case assignments"        >:: test_plugin "switch_case_assignments" "SAT!";
+  "Switch Cases"                   >:: test_plugin "switch_cases" "SAT!";
+
+  (* Test single elf *)
+  "Function Call"                  >:: test_plugin "function_call" "SAT!" ~script:"run_wp_inline_foo.sh";
+  "Function Call: inline all"      >:: test_plugin "function_call" "SAT!" ~script:"run_wp_inline_all.sh";
+  "Function Spec: no inlining"     >:: test_plugin "function_spec" "SAT!";
+  "Function Spec: inline foo"      >:: test_plugin "function_spec" "UNSAT!" ~script:"run_wp_inline_foo.sh";
+  "Function Spec: inline all "     >:: test_plugin "function_spec" "UNSAT!" ~script:"run_wp_inline_all.sh";
+  "Function Spec: inline garbage"  >:: test_plugin "function_spec" "SAT!" ~script:"run_wp_inline_garbage.sh";
+
+  "Goto string"                    >:: (fun ctx -> skip_if true "not added"; test_plugin "goto_string" "SAT!" ctx);
+  "Goto string: inline all"        >:: (fun ctx -> skip_if true "not added"; test_plugin "goto_string" "SAT!"
+                                    ~script:"run_wp_inline.sh" ctx);
+
+  "Init var value in post: UNSAT:" >:: test_plugin "init_var" "UNSAT!";
+  "Init var value in post: SAT"    >:: test_plugin "init_var" "SAT!" ~script:"run_wp_sat.sh";
+
+  "Nested function calls"               >:: test_plugin "nested_function_calls" "UNSAT!";
+  "Nested function calls: inline regex" >:: test_plugin "nested_function_calls" "SAT!" ~script:"run_wp_inline_regex.sh";
+  "Nested function calls: inline all"   >:: test_plugin "nested_function_calls" "SAT!" ~script:"run_wp_inline_all.sh";
+
+  "Nested ifs"                     >:: test_plugin "nested_ifs" "UNSAT!";
+  "Nested ifs: inline"             >:: test_plugin "nested_ifs" "UNSAT!" ~script:"run_wp_inline.sh";
+
+  "User defined postcondition"     >:: test_plugin "return_argc" "SAT!";
+
+  "Simple WP"                      >:: test_plugin "simple_wp" "SAT!";
+  "Simple WP: precondition"        >:: test_plugin "simple_wp" "UNSAT!" ~script:"run_wp_pre.sh";
+
+  "Verifier assume SAT"            >:: test_plugin "verifier_calls" "SAT!" ~script:"run_wp_assume_sat.sh";
+  "Verifier assume UNSAT"          >:: test_plugin "verifier_calls" "UNSAT!" ~script:"run_wp_assume_unsat.sh";
+  "Verifier nondent"               >:: test_plugin "verifier_calls" "SAT!" ~script:"run_wp_nondet.sh";
 
   "Update Number of Unrolls"       >:: test_update_num_unroll (Some 3);
   "Original Number of Unrolls"     >:: test_update_num_unroll None;

@@ -5,7 +5,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-func=main
+  bap verifier_nondet --pass=wp
 }
 
 compile && run

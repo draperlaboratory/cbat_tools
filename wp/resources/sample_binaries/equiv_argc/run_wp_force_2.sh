@@ -1,6 +1,6 @@
 set -x
 
-dummy_dir=../../dummy
+dummy_dir=../dummy
 
 compile () {
   make
@@ -11,7 +11,7 @@ run () {
     --wp-compare=true \
     --wp-file1=main_1.bpj \
     --wp-file2=main_2.bpj \
-    --wp-function=main
+    --wp-precond="(assert (= RDI_mod #x0000000000000002)) (assert (= RDI_orig #x0000000000000002))"
 }
 
 compile && run

@@ -9,9 +9,10 @@ compile () {
 run () {
   bap $dummy_dir/hello_world.out --pass=wp \
     --wp-compare=true \
-    --wp-file1=main_1.bpj \
-    --wp-file2=main_2.bpj \
-    --wp-function=main
+    --wp-use-fun-input-regs=true \
+    --wp-inline=.* \
+    --wp-file1=csmith-10684.bpj \
+    --wp-file2=csmith-16812.bpj
 }
 
 compile && run
