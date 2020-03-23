@@ -62,6 +62,14 @@ let test_update_num_unroll (new_unroll : int option) (test_ctx : test_ctxt) : un
     let fail_msg = Format.sprintf "Num unroll was updated from %d but should have been unchanged" original in
     assert_equal ~ctxt:test_ctx ~cmp:Int.equal ~msg:fail_msg updated original
 
+let timeout_msg : string = "Test times out!"
+
+let not_added_msg : string = "Test not yet added to sample_binaries directory!"
+
+let test_skip (msg : string) (test : test_ctxt -> unit) (ctx : test_ctxt) =
+  skip_if true msg;
+  test ctx
+
 let suite = [
 
   (* Test elf comparison *)
@@ -73,7 +81,7 @@ let suite = [
 
   "Diff pointer val"               >:: test_plugin "diff_pointer_val" "SAT!";
   "Diff ret val"                   >:: test_plugin "diff_ret_val" "SAT!";
-  "Double dereference"             >:: (fun ctx -> skip_if true "times out"; test_plugin "double_dereference" "UNSAT!" ctx);
+  "Double dereference"             >:: test_skip timeout_msg (test_plugin "double_dereference" "UNSAT!");
   "Equiv argc"                     >:: test_plugin "equiv_argc" "SAT!";
   "Precondition: force 2"          >:: test_plugin "equiv_argc" "SAT!" ~script:"run_wp_force_2.sh";
   "Precondition: disallow 2"       >:: test_plugin "equiv_argc" "UNSAT!" ~script:"run_wp_disallow_2.sh";
@@ -99,29 +107,29 @@ let suite = [
 
   "Diff stack values"              >:: test_plugin "memory_samples/diff_stack" "SAT!";
 
-  "No Stack Protection"            >:: test_plugin "no_stack_protection" "SAT!";
-  "Pointer input" >:: (fun ctx -> skip_if true "not added"; test_plugin "pointer_input" "UNSAT!" ctx);
+  "No stack protection"            >:: test_plugin "no_stack_protection" "SAT!";
+  "Pointer input"                  >:: test_skip not_added_msg (test_plugin "pointer_input" "UNSAT!");
 
-  "Retrowrite Stub: pop RSP"       >:: test_plugin "retrowrite_stub" "UNSAT!";
-  "Retrowrite Stub: inline AFL"    >:: test_plugin "retrowrite_stub" "UNSAT!" ~script:"run_wp_inline_afl.sh";
-  "Retrowrite Stub: inline all"    >:: test_plugin "retrowrite_stub" "UNSAT!" ~script:"run_wp_inline_all.sh";
-  "Retrowrite Stub No Ret in Call" >:: test_plugin "retrowrite_stub_no_ret" "UNSAT!";
+  "Retrowrite stub: pop RSP"       >:: test_plugin "retrowrite_stub" "UNSAT!";
+  "Retrowrite stub: inline AFL"    >:: test_plugin "retrowrite_stub" "UNSAT!" ~script:"run_wp_inline_afl.sh";
+  "Retrowrite stub: inline all"    >:: test_plugin "retrowrite_stub" "UNSAT!" ~script:"run_wp_inline_all.sh";
+  "Retrowrite stub no ret in call" >:: test_plugin "retrowrite_stub_no_ret" "UNSAT!";
 
   "ROP example"                    >:: test_plugin "rop_example" "UNSAT!"; (* fails *)
   "Switch case assignments"        >:: test_plugin "switch_case_assignments" "SAT!";
   "Switch Cases"                   >:: test_plugin "switch_cases" "SAT!";
 
   (* Test single elf *)
-  "Function Call"                  >:: test_plugin "function_call" "SAT!" ~script:"run_wp_inline_foo.sh";
-  "Function Call: inline all"      >:: test_plugin "function_call" "SAT!" ~script:"run_wp_inline_all.sh";
-  "Function Spec: no inlining"     >:: test_plugin "function_spec" "SAT!";
-  "Function Spec: inline foo"      >:: test_plugin "function_spec" "UNSAT!" ~script:"run_wp_inline_foo.sh";
-  "Function Spec: inline all "     >:: test_plugin "function_spec" "UNSAT!" ~script:"run_wp_inline_all.sh";
-  "Function Spec: inline garbage"  >:: test_plugin "function_spec" "SAT!" ~script:"run_wp_inline_garbage.sh";
+  "Function call"                  >:: test_plugin "function_call" "SAT!" ~script:"run_wp_inline_foo.sh";
+  "Function call: inline all"      >:: test_plugin "function_call" "SAT!" ~script:"run_wp_inline_all.sh";
+  "Function spec: no inlining"     >:: test_plugin "function_spec" "SAT!";
+  "Function spec: inline foo"      >:: test_plugin "function_spec" "UNSAT!" ~script:"run_wp_inline_foo.sh";
+  "Function spec: inline all "     >:: test_plugin "function_spec" "UNSAT!" ~script:"run_wp_inline_all.sh";
+  "Function spec: inline garbage"  >:: test_plugin "function_spec" "SAT!" ~script:"run_wp_inline_garbage.sh";
 
-  "Goto string"                    >:: (fun ctx -> skip_if true "not added"; test_plugin "goto_string" "SAT!" ctx);
-  "Goto string: inline all"        >:: (fun ctx -> skip_if true "not added"; test_plugin "goto_string" "SAT!"
-                                    ~script:"run_wp_inline.sh" ctx);
+  "Goto string"                    >:: test_skip not_added_msg (test_plugin "goto_string" "SAT!");
+  "Goto string: inline all"        >:: test_skip not_added_msg (test_plugin "goto_string" "SAT!"
+                                                                  ~script:"run_wp_inline.sh");
 
   "Init var value in post: UNSAT:" >:: test_plugin "init_var" "UNSAT!";
   "Init var value in post: SAT"    >:: test_plugin "init_var" "SAT!" ~script:"run_wp_sat.sh";
@@ -142,6 +150,7 @@ let suite = [
   "Verifier assume UNSAT"          >:: test_plugin "verifier_calls" "UNSAT!" ~script:"run_wp_assume_unsat.sh";
   "Verifier nondent"               >:: test_plugin "verifier_calls" "SAT!" ~script:"run_wp_nondet.sh";
 
+  (* Test updating number of unrolls *)
   "Update Number of Unrolls"       >:: test_update_num_unroll (Some 3);
   "Original Number of Unrolls"     >:: test_update_num_unroll None;
 ]
