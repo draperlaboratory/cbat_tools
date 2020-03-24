@@ -1,6 +1,3 @@
-# Tests having different locations for the data section and same values on the stack
-# Should return UNSAT
-
 .global _start
 
 .text

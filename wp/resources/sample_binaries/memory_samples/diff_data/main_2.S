@@ -1,6 +1,3 @@
-# Tests having a different value in the data section and the same values on the stack
-# Should return SAT
-
 .global _start
 
 .text

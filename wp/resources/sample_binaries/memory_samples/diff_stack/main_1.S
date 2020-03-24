@@ -1,6 +1,3 @@
-# Tests the same data section and different values on the stack
-# Should return SAT
-
 .global _start
 
 .text
@@ -21,9 +18,3 @@ _start:
     mov     $0x3c,       %rax
     xor     %rdi,        %rdi
     syscall
-
-
-.data
-
-val:
-    .int    1

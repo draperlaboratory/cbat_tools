@@ -224,7 +224,7 @@ module Cmdline = struct
             which can be generated via the save-project plugin. If both `file1' and \
             `file2' are specified, wp will automatically run the comparative analysis."
 
-  let func = param string "function" ~default:"main"
+  let func = param string "function" ~synonyms:["func"] ~default:"main"
       ~doc:"Function to run the wp analysis on. `main' by default. If the function \
             cannot be found in the binary or both binaries in the comparison \
             case, wp analysis should fail."
