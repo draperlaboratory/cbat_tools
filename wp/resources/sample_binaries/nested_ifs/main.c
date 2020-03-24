@@ -37,7 +37,7 @@ void nestedIfExample()
 {
     char *string1, *string2, *string3, *string4, *string5;
 
-    if (string1 = (char*) calloc(STRING_MAX, sizeof(char))) 
+    if (string1 = (char*) calloc(STRING_MAX, sizeof(char)))
     {
         if (string2 = (char*) calloc(STRING_MAX, sizeof(char)))
         {

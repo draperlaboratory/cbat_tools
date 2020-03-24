@@ -1,3 +1,10 @@
+# This test analyzes both the gotoExample and nestedIfExample.
+
+# This test inlines all the calls to calloc rather than running the calloc
+# function spec.
+
+# Should return UNSAT
+
 set -x
 
 compile () {
@@ -5,7 +12,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-inline=.* --wp-func=main --wp-print-path=true
+  bap main --pass=wp --wp-inline=.*
 }
 
 compile && run
