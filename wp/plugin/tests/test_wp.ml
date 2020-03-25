@@ -148,6 +148,8 @@ let suite = [
   "Init var value in post: UNSAT:" >:: test_plugin "init_var" unsat;
   "Init var value in post: SAT"    >:: test_plugin "init_var" sat ~script:"run_wp_sat.sh";
 
+  "Loop"                           >:: test_skip fail_msg (test_plugin "loop" sat);
+
   "Nested function calls"               >:: test_plugin "nested_function_calls" unsat;
   "Nested function calls: inline regex" >:: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh";
   "Nested function calls: inline all"   >:: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_all.sh";
