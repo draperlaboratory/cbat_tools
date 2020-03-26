@@ -1,4 +1,4 @@
-# Stubs the lines of asssembly that retrowrite addsto the beginning of each
+# Stubs the lines of assembly that retrowrite adds to the beginning of each
 # label. At the end of the subroutine, the registers between both binaries
 # should be equal.
 
