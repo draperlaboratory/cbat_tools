@@ -20,8 +20,6 @@ let bin_dir : string = "../resources/sample_binaries"
 
 let timeout_msg : string = "Test times out!"
 
-let not_added_msg : string = "Test not yet added to sample_binaries directory!"
-
 let fail_msg : string = "Test currently fails!"
 
 let sat : string = "SAT!"

@@ -3,9 +3,9 @@
 # that frees the memory region. If the program does not jump to any of the gotos,
 # there is an assert that the results of the function calls are non-null.
 
-# This tests the default function spec that chaoses the caller-saved registers
-# at a function call. This shows that it is possible for string1 to be NULL while
-# string2 is non-null, reaching the assert_fail.
+# This tests inlining my_string_alloc in order to analyze the call to
+# __VERIFIER_nondet_long, and show that the non-deterministic nature of
+# __VERIFIER_nondet_long can cause execution to reach assert_fail.
 
 # Should return SAT
 
@@ -16,7 +16,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp
+  bap main --pass=wp --wp-inline=.*
 }
 
 compile && run
