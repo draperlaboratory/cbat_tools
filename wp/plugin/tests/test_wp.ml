@@ -55,7 +55,7 @@ let test_plugin
     (elf_dir : string)
     (expected : string)
     (ctxt : test_ctxt)
-    : unit =
+  : unit =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let script = Format.sprintf "./%s" script in
   assert_command ~foutput:(fun res -> check_result res expected ctxt)
@@ -81,8 +81,8 @@ let suite = [
   (* Test elf comparison *)
 
   "Multicompiler: csmith"          >:: test_plugin "cbat-multicompiler-samples/csmith" unsat;
-  "Multicompiler: csmith inline"   >:: test_skip fail_msg (test_plugin "cbat-multicompiler-samples/csmith" unsat
-    ~script:"run_wp_inline.sh");
+  "Multicompiler: csmith inline"   >:: test_skip timeout_msg (test_plugin "cbat-multicompiler-samples/csmith" unsat
+                                                                ~script:"run_wp_inline.sh");
   "Multicompiler: equiv argc"      >:: test_plugin "cbat-multicompiler-samples/equiv_argc" unsat;
   "Multicompiler: switch cases"    >:: test_plugin "cbat-multicompiler-samples/switch_case_assignments" unsat;
 

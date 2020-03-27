@@ -51,6 +51,7 @@ let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list 
 (* Adds the hypothesis: [var == init_var] for each variable in the set. *)
 let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t)
   : Constr.t list * Env.t * Env.t =
+  let vars = Set.filter vars ~f:Var.is_physical in
   let inits1, env1 = Pre.init_vars vars env1 in
   let inits2, env2 = Pre.init_vars vars env2 in
   (inits1 @ inits2), env1, env2

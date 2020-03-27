@@ -383,7 +383,7 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
     raise (Not_implemented "callee_saved_regs: Callee-saved registers have not been \
                             implemented for non-x86_64 architectures.")
 
-let get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
+let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   let vars =
     if Env.use_input_regs env then
       env |> Env.get_arch |> input_regs |> Var.Set.of_list
@@ -399,6 +399,25 @@ let get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
         let vars = Var.Set.union vars (Def.free_vars def) in
         vars
       method! visit_jmp jmp vars =
+        (* If the jump is a call to a target that is to be inlined, visit and
+           collect the variables in the target. *)
+        let vars = match Jmp.kind jmp with
+          | Call call ->
+            begin
+              match Call.target call with
+              | Direct tid ->
+                begin
+                  match Env.get_sub_handler env tid with
+                  | Some Inline ->
+                    let subs = Env.get_subs env in
+                    let target = Seq.find_exn subs ~f:(fun s -> Tid.equal (Term.tid s) tid) in
+                    Var.Set.union vars (get_vars env target)
+                  | _ -> vars
+                end
+              | Indirect _ -> vars
+            end
+          | _ -> vars
+        in
         Var.Set.union vars (Jmp.free_vars jmp)
     end)
   in
