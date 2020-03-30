@@ -1273,6 +1273,33 @@ let test_get_vars_2 (test_ctx : test_ctxt) : unit =
     (Var.Set.of_list [x]) vars
 
 
+let test_get_vars_inline_1 (test_ctx : test_ctxt) : unit =
+  let x = Var.create "x" reg64_t in
+  let y = Var.create "y" reg64_t in
+  let loc = Var.create "loc" reg64_t in
+  let mem = Var.create "mem" (mem64_t `r64) in
+  let call_sub = Bil.(
+      [
+        mem := (store ~mem:(var mem) ~addr:(var loc) (var x) LittleEndian `r64)
+      ]
+    ) |> bil_to_sub in
+  let sub = Bil.(
+      [
+        y := i64 2;
+        jmp (unknown (call_sub |> Term.tid |> Tid.to_string) reg64_t)
+      ]
+    ) |> bil_to_sub
+  in
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
+      ~to_inline:(Seq.singleton call_sub) ~subs:(Seq.of_list [sub; call_sub]) in
+  let vars = Pre.get_vars env sub in
+  assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
+    ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
+    (Var.Set.of_list [x; y; loc; mem]) vars
+
+
 let test_output_vars_1 (test_ctx : test_ctxt) : unit =
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
@@ -1470,6 +1497,7 @@ let suite = [
 
   "Use fun input registers in get_vars" >:: test_get_vars_1;
   "Don't use fun input registers in get_vars" >:: test_get_vars_2;
+  "Collect vars from inlined functions" >:: test_get_vars_inline_1;
 
   "Test get output variables by name" >:: test_output_vars_1;
   "z not in subroutine" >:: test_output_vars_2;
