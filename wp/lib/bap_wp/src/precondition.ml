@@ -475,9 +475,9 @@ let spec_verifier_assume (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
 
 let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let is_nondet name = String.(
-    (is_prefix name ~prefix:"__VERIFIER_nondet_")
-    || (equal name "calloc")
-    || (equal name "malloc"))
+      (is_prefix name ~prefix:"__VERIFIER_nondet_")
+      || (equal name "calloc")
+      || (equal name "malloc"))
   in
   if is_nondet (Sub.name sub) then
     let open Env in
@@ -948,7 +948,8 @@ let non_null_vc : Env.exp_cond = fun env exp ->
   if List.is_empty conds then
     None
   else
-    Some (Verify (BeforeExec (Constr.mk_goal "verify" (Bool.mk_and ctx conds))))
+    Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem reference"
+                                (Bool.mk_and ctx conds))))
 
 let non_null_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -956,7 +957,8 @@ let non_null_assert : Env.exp_cond = fun env exp ->
   if List.is_empty conds then
     None
   else
-    Some (Assume (BeforeExec (Constr.mk_goal "assume" (Bool.mk_and ctx conds))))
+    Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem reference"
+                                (Bool.mk_and ctx conds))))
 
 (* At a memory read, add two assumptions of the form:
    Heap(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
@@ -1056,3 +1058,11 @@ let get_output_vars (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Se
         warning "%s not in sub and will not be added to the postcondition" name;
         vars
     )
+
+let set_sp_range (env : Env.t) : Constr.t =
+  let arch = Env.get_arch env in
+  let module Target = (val target_of_arch arch) in
+  let sp, _ = Env.get_var env Target.CPU.sp in
+  Env.in_stack env sp
+  |> Constr.mk_goal "SP within stack"
+  |> Constr.mk_constr

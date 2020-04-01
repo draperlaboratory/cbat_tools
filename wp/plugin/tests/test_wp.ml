@@ -155,6 +155,9 @@ let suite = [
   "Nested ifs: goto"               >:: test_plugin "nested_ifs" unsat ~script:"run_wp_goto.sh";
   "Nested ifs: inline"             >:: test_plugin "nested_ifs" unsat ~script:"run_wp_inline.sh";
 
+  "Null dereference: no check"     >:: test_plugin "null_deref" unsat;
+  "Null dereference: with check"   >:: test_plugin "null_deref" sat ~script:"run_wp_null_deref.sh";
+
   "User defined postcondition"     >:: test_plugin "return_argc" sat;
 
   "Simple WP"                      >:: test_plugin "simple_wp" sat;
