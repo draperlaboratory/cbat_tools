@@ -282,3 +282,7 @@ val exclude
   -> var:Constr.z3_expr
   -> pre:Constr.t
   -> Z3.Solver.status
+
+(** Hypothesis that the stack pointer is within the valid range of the stack
+    according to the environment. *)
+val set_sp_range : Env.t -> Constr.t

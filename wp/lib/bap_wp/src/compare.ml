@@ -56,16 +56,6 @@ let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t)
   let inits2, env2 = Pre.init_vars vars env2 in
   (inits1 @ inits2), env1, env2
 
-(* Adds hypothesis that the stack pointer is within the valid range of the stack
-   according to the environment. *)
-let set_sp_range (env : Env.t) : Constr.t =
-  let arch = Env.get_arch env in
-  let module Target = (val target_of_arch arch) in
-  let sp, _ = Env.get_var env Target.CPU.sp in
-  Env.in_stack env sp
-  |> Constr.mk_goal "SP within stack"
-  |> Constr.mk_constr
-
 let compare_blocks
     ~input:(input : Var.Set.t)
     ~output:(output : Var.Set.t)
@@ -178,7 +168,7 @@ let compare_subs_eq
     let module Target = (val target_of_arch arch) in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
     let init_mem, env1, env2 = init_vars env1 env2 input in
-    let sp_range = set_sp_range env1 in
+    let sp_range = Pre.set_sp_range env1 in
     let pre' = mk_smtlib2_compare env1 env2 smtlib_hyp in
     Constr.mk_clause [] ([pre'; sp_range] @ init_mem @ pre_eqs), env1, env2
   in
