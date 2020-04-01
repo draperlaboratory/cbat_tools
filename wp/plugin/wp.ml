@@ -21,6 +21,25 @@ module Pre = Precondition
 module Env = Environment
 module Constr = Constraint
 
+type flags =
+  {
+    compare: bool;
+    file1 : string;
+    file2 : string;
+    func : string;
+    check_calls : bool;
+    inline : string option;
+    pre_cond : string;
+    post_cond : string;
+    num_unroll : int option;
+    output_vars : string list;
+    gdb_filename : string option;
+    print_path : bool;
+    use_fun_input_regs : bool;
+    mem_offset : bool;
+    check_null_deref : bool
+  }
+
 let missing_func_msg (func : string) : string =
   Format.sprintf "Missing function: %s is not in binary." func
 
@@ -59,52 +78,17 @@ let match_inline (to_inline : string option) (subs : (Sub.t Seq.t)) : Sub.t Seq.
     in
     filter_subs
 
-
 let varset_to_string (vs : Var.Set.t) : string =
   vs
   |> Var.Set.to_sequence
   |> Seq.to_list
   |> List.to_string ~f:Var.to_string
 
-
-let analyze_proj (proj : project) (var_gen : Env.var_gen) (ctx : Z3.context)
-    ~func:(func : string)
-    ~to_inline:(to_inline : string option)
-    ~pre_cond:(pre_cond : string)
-    ~post_cond:(post_cond : string)
-    ~use_fun_input_regs:(use_fun_input_regs : bool)
-    ~check_null_deref:(check_null_deref : bool)
-  : Constr.t * Env.t * Env.t =
-  let arch = Project.arch proj in
-  let subs = proj |> Project.program |> Term.enum sub_t in
-  let main_sub = find_func_err subs func in
-  let to_inline = match_inline to_inline subs in
-  let exp_conds = if check_null_deref then [Pre.non_null_vc] else [] in
-  let env = Pre.mk_env ctx var_gen ~subs ~arch ~to_inline ~use_fun_input_regs ~exp_conds in
-  (* call visit sub with a dummy postcondition to fill the
-     environment with variables *)
-  let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
-  let _, env' = Pre.visit_sub env true_constr main_sub in
-  let hyps, env' = Pre.init_vars (Pre.get_vars env' main_sub) env' in
-  let hyps = (Pre.set_sp_range env') :: hyps in
-  let post =
-    if String.(post_cond = "") then
-      true_constr
-    else
-      Z3_utils.mk_smtlib2_single env' post_cond
-  in
-  let pre, env = Pre.visit_sub env post main_sub in
-  let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env' pre_cond] [pre] in
-  let pre = Constr.mk_clause hyps [pre] in
-  Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
-    (Sub.to_string main_sub) Constr.pp_constr pre;
-  (pre, env, env)
-
 (* If an offset is specified, generates a function of the address of a memory read in
    the original binary to the address plus an offset in the modified binary. *)
-let get_mem_offsets (calc_offsets : bool) (ctx : Z3.context) (file1 : string)
-    (file2 : string) : Constr.z3_expr -> Constr.z3_expr =
-  if calc_offsets then
+let get_mem_offsets (ctx : Z3.context) (flags : flags)
+  : Constr.z3_expr -> Constr.z3_expr =
+  if flags.mem_offset then
     let get_symbols file =
       (* Chopping off the bpj to get the original binaries rather than the saved
          project files. *)
@@ -112,114 +96,133 @@ let get_mem_offsets (calc_offsets : bool) (ctx : Z3.context) (file1 : string)
       |> String.chop_suffix_exn ~suffix:".bpj"
       |> Symbol.get_symbols
     in
-    let syms_orig = get_symbols file1 in
-    let syms_mod = get_symbols file2 in
+    let syms_orig = get_symbols flags.file1 in
+    let syms_mod = get_symbols flags.file2 in
     Symbol.offset_constraint ~orig:syms_orig ~modif:syms_mod ctx
   else
     fun addr -> addr
 
-let compare_exp_conds
-    ~check_null_deref:(check_null_deref : bool)
-  : Env.exp_cond list * Env.exp_cond list =
-  if check_null_deref then
-    [Pre.non_null_assert], [Pre.non_null_vc]
+(* Generate the exp_conds for the original binary based on the flags passed in
+   from the CLI. Generating the memory offsets requires the environment of
+   the modified binary. *)
+let exp_conds_orig (flags : flags) (env_mod : Env.t) : Env.exp_cond list =
+  let ctx = Env.get_context env_mod in
+  let offsets =
+    get_mem_offsets ctx flags
+    |> Pre.mem_read_offsets env_mod
+  in
+  if flags.check_null_deref then
+    [Pre.non_null_assert; offsets]
   else
-    [], []
+    [offsets]
 
-let compare_projs (proj : project) (file1: string) (file2 : string)
-    (var_gen : Env.var_gen) (ctx : Z3.context)
-    ~func:(func : string)
-    ~check_calls:(check_calls : bool)
-    ~to_inline:(to_inline : string option)
-    ~output_vars:(output_vars : string list)
-    ~use_fun_input_regs:(use_fun_input_regs : bool)
-    ~pre_cond:(pre_cond : string)
-    ~post_cond:(post_cond : string)
-    ~mem_offset:(mem_offset : bool)
-    ~check_null_deref:(check_null_deref : bool)
-  : Constr.t * Env.t * Env.t =
-  let prog1 = Program.Io.read file1 in
-  let prog2 = Program.Io.read file2 in
+(* Generate the exp_conds for the modified binary based on the flags passed in
+   from the CLI. *)
+let exp_conds_mod (flags : flags) : Env.exp_cond list =
+  if flags.check_null_deref then
+    [Pre.non_null_vc]
+  else
+    []
+
+let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
+    (flags : flags) : Constr.t * Env.t * Env.t =
+  let arch = Project.arch proj in
+  let subs = proj |> Project.program |> Term.enum sub_t in
+  let main_sub = find_func_err subs flags.func in
+  let to_inline = match_inline flags.inline subs in
+  let exp_conds = exp_conds_mod flags in
+  let env = Pre.mk_env ctx var_gen ~subs ~arch ~to_inline
+      ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds in
+  (* call visit sub with a dummy postcondition to fill the
+     environment with variables *)
+  let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+  let _, env' = Pre.visit_sub env true_constr main_sub in
+  let hyps, env' = Pre.init_vars (Pre.get_vars env' main_sub) env' in
+  let hyps = (Pre.set_sp_range env') :: hyps in
+  let post =
+    if String.is_empty flags.post_cond then
+      true_constr
+    else
+      Z3_utils.mk_smtlib2_single env' flags.post_cond
+  in
+  let pre, env = Pre.visit_sub env post main_sub in
+  let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env' flags.pre_cond] [pre] in
+  let pre = Constr.mk_clause hyps [pre] in
+  Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
+    (Sub.to_string main_sub) Constr.pp_constr pre;
+  (pre, env, env)
+
+let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
+    (flags : flags) : Constr.t * Env.t * Env.t =
+  let prog1 = Program.Io.read flags.file1 in
+  let prog2 = Program.Io.read flags.file2 in
   (* Currently using the dummy binary's project to determine the architecture
      until we discover a better way of determining the architecture from a program. *)
   let arch = Project.arch proj in
   let subs1 = Term.enum sub_t prog1 in
   let subs2 = Term.enum sub_t prog2 in
-  let main_sub1 = find_func_err subs1 func in
-  let main_sub2 = find_func_err subs2 func in
-  let mem_offsets = get_mem_offsets mem_offset ctx file1 file2 in
-  let exp_conds1, exp_conds2 = compare_exp_conds ~check_null_deref in
+  let main_sub1 = find_func_err subs1 flags.func in
+  let main_sub2 = find_func_err subs2 flags.func in
   let env2 =
-    let to_inline2 = match_inline to_inline subs2 in
+    let to_inline2 = match_inline flags.inline subs2 in
+    let exp_conds2 = exp_conds_mod flags in
     let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
-        ~use_fun_input_regs ~exp_conds:exp_conds2 in
+        ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds2 in
     let env2 = Env.set_freshen env2 true in
     let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
     env2
   in
   let env1 =
-    let to_inline1 = match_inline to_inline subs1 in
+    let to_inline1 = match_inline flags.inline subs1 in
+    let exp_conds1 = exp_conds_orig flags env2 in
     let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1
-        ~use_fun_input_regs
-        ~exp_conds:((Pre.mem_read_offsets env2 mem_offsets) :: exp_conds1) in
+        ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
   in
   let pre, env1, env2 =
-    if check_calls then
+    if flags.check_calls then
       Comp.compare_subs_fun ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
     else
       begin
         let output_vars = Var.Set.union
-            (Pre.get_output_vars env1 main_sub1 output_vars)
-            (Pre.get_output_vars env2 main_sub2 output_vars) in
+            (Pre.get_output_vars env1 main_sub1 flags.output_vars)
+            (Pre.get_output_vars env2 main_sub2 flags.output_vars) in
         let input_vars = Var.Set.union
             (Pre.get_vars env1 main_sub1) (Pre.get_vars env2 main_sub2) in
         debug "Input: %s%!" (varset_to_string input_vars);
         debug "Output: %s%!" (varset_to_string output_vars);
         Comp.compare_subs_eq ~input:input_vars ~output:output_vars
-          ~original:(main_sub1,env1) ~modified:(main_sub2,env2) ~smtlib_post:post_cond ~smtlib_hyp:pre_cond
+          ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
+          ~smtlib_post:flags.post_cond ~smtlib_hyp:flags.pre_cond
       end
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
     (Sub.to_string main_sub1) (Sub.to_string main_sub2);
   (pre, env1, env2)
 
-let main (file1 : string) (file2 : string)
-    ~func:(func : string)
-    ~check_calls:(check_calls : bool)
-    ~compare:(compare : bool)
-    ~inline:(to_inline : string option)
-    ~pre_cond:(pre_cond : string)
-    ~post_cond:(post_cond : string)
-    ~num_unroll:(num_unroll : int option)
-    ~output_vars:(output_vars : string list)
-    ~gdb_filename:(gdb_filename : string option)
-    ~print_path:(print_path : bool)
-    ~use_fun_input_regs:(use_fun_input_regs : bool)
-    ~mem_offset:(mem_offset : bool)
-    ~check_null_deref:(check_null_deref : bool)
-    (proj : project) : unit =
+let should_compare { compare = compare; file1 = file1; file2 = file2 } : bool =
+  compare || ((not @@ String.is_empty file1) && (not @@ String.is_empty file2))
+
+let main (flags : flags) (proj : project) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let solver = Z3.Solver.mk_simple_solver ctx in
-  update_default_num_unroll num_unroll;
-  let has_files_to_compare = String.(file1 <> "" && file2 <> "") in
+  update_default_num_unroll flags.num_unroll;
   let pre, env1, env2 =
-    if compare || has_files_to_compare then
-      compare_projs proj file1 file2 var_gen ctx ~func ~check_calls ~to_inline
-        ~output_vars ~use_fun_input_regs ~post_cond ~pre_cond ~mem_offset ~check_null_deref
+    if should_compare flags then
+      compare_projs ctx var_gen proj flags
     else
-      analyze_proj proj var_gen ctx ~func ~to_inline ~use_fun_input_regs ~post_cond
-        ~pre_cond ~check_null_deref
+      analyze_proj ctx var_gen proj flags
   in
   let result = Pre.check solver ctx pre in
-  let () = match gdb_filename with
+  let () = match flags.gdb_filename with
     | None -> ()
     | Some f ->
       Printf.printf "Dumping gdb script to file: %s\n" f;
-      Output.output_gdb solver result env2 ~func:func ~filename:f in
-  Output.print_result solver result pre ~print_path ~orig:env1 ~modif:env2
+      Output.output_gdb solver result env2 ~func:flags.func ~filename:f in
+  Output.print_result solver result pre ~print_path:flags.print_path
+    ~orig:env1 ~modif:env2
 
 
 module Cmdline = struct
@@ -301,23 +304,28 @@ module Cmdline = struct
       ~doc:"If set, the WP analysis will check for inputs that would result in \
             dereferencing a NULL value. Defaults to false."
 
-
   let () = when_ready (fun {get=(!!)} ->
+      let flags =
+        {
+          compare = !!compare;
+          file1 = !!file1;
+          file2 = !!file2;
+          func = !!func;
+          check_calls = !!check_calls;
+          inline = !!inline;
+          pre_cond = !!pre_cond;
+          post_cond = !!post_cond;
+          num_unroll = !!num_unroll;
+          output_vars = !!output_vars;
+          gdb_filename = !!gdb_filename;
+          print_path = !!print_path;
+          use_fun_input_regs = !!use_fun_input_regs;
+          mem_offset = !!mem_offset;
+          check_null_deref = !!check_null_deref
+        }
+      in
       Project.register_pass' @@
-      main !!file1 !!file2
-        ~func:!!func
-        ~check_calls:!!check_calls
-        ~compare:!!compare
-        ~inline:!!inline
-        ~pre_cond:!!pre_cond
-        ~post_cond:!!post_cond
-        ~num_unroll:!!num_unroll
-        ~output_vars:!!output_vars
-        ~gdb_filename:!!gdb_filename
-        ~print_path:!!print_path
-        ~use_fun_input_regs:!!use_fun_input_regs
-        ~mem_offset:!!mem_offset
-        ~check_null_deref:!!check_null_deref
+      main flags
     )
 
   let () = manpage [
