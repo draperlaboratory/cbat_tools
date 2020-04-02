@@ -117,6 +117,9 @@ let suite = [
 
   "No stack protection"            >:: test_plugin "no_stack_protection" sat;
 
+  "Null dereference: no check"     >:: test_plugin "non_null_check" unsat;
+  "Null dereference: with check"   >:: test_plugin "non_null_check" sat ~script:"run_wp_null_deref.sh";
+
   "Pointer input"                  >:: test_plugin "pointer_input" unsat;
 
   "Retrowrite stub: pop RSP"       >:: test_plugin "retrowrite_stub" unsat;
