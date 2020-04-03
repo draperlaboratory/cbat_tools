@@ -112,7 +112,7 @@ let exp_conds_orig (flags : flags) (env_mod : Env.t) : Env.exp_cond list =
     |> Pre.mem_read_offsets env_mod
   in
   if flags.check_null_deref then
-    [Pre.non_null_assert; offsets]
+    [Pre.non_null_load_assert; Pre.non_null_store_assert; offsets]
   else
     [offsets]
 
@@ -120,7 +120,7 @@ let exp_conds_orig (flags : flags) (env_mod : Env.t) : Env.exp_cond list =
    from the CLI. *)
 let exp_conds_mod (flags : flags) : Env.exp_cond list =
   if flags.check_null_deref then
-    [Pre.non_null_vc]
+    [Pre.non_null_load_vc; Pre.non_null_store_vc]
   else
     []
 
@@ -201,8 +201,8 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (Sub.to_string main_sub1) (Sub.to_string main_sub2);
   (pre, env1, env2)
 
-let should_compare { compare = compare; file1 = file1; file2 = file2 } : bool =
-  compare || ((not @@ String.is_empty file1) && (not @@ String.is_empty file2))
+let should_compare (f : flags) : bool =
+  f.compare || ((not @@ String.is_empty f.file1) && (not @@ String.is_empty f.file2))
 
 let main (flags : flags) (proj : project) : unit =
   let ctx = Env.mk_ctx () in

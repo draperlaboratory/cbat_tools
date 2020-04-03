@@ -868,25 +868,35 @@ let _  = inline_func :=
       let post = set_fun_called post env tid in
       visit_sub env post target_sub
 
-let collect_non_null_expr (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
+(* Creates the z3_expr (not (= addr null)) *)
+let non_null_expr (env : Env.t) (addr : Exp.t) : Constr.z3_expr =
   let ctx = Env.get_context env in
+  let width = match Type.infer_exn addr with
+    | Imm n -> n
+    | Mem _ -> error "Expected %s to be an address word!%!" (Exp.to_string addr);
+      failwith "Error: in collect_non_null_expr, got a memory read instead of a word"
+    | Unk ->
+      error "Unk type: Unable to determine if %s is an address word.%!" (Exp.to_string addr);
+      failwith "Error: in collect_non_null_expr: addr's type is not representable by Type.t"
+  in
+  let null = BV.mk_numeral ctx "0" width in
+  let addr_val,_,_ = exp_to_z3 addr env in
+  Bool.mk_not ctx (Bool.mk_eq ctx null addr_val)
+
+let collect_non_null_loads (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   let visitor =
-    begin
-      object inherit [Constr.z3_expr list] Exp.visitor
-        method! visit_load ~mem:_ ~addr:addr _ _ conds =
-          let width = match Type.infer_exn addr with
-            | Imm n -> n
-            | Mem _ -> error "Expected %s to be an address word!%!" (Exp.to_string addr);
-              failwith "Error: in collect_non_null_expr, got a memory read instead of a word"
-            | Unk ->
-              error "Unk type: Unable to determine if %s is an address word.%!" (Exp.to_string addr);
-              failwith "Error: in collect_non_null_expr: addr's type is not representable by Type.t"
-          in
-          let null = BV.mk_numeral ctx "0" width in
-          let addr_val,_,_ = exp_to_z3 addr env in
-          let non_null_addr = Bool.mk_not ctx (Bool.mk_eq ctx null addr_val) in
-          non_null_addr :: conds
-      end
+    object inherit [Constr.z3_expr list] Exp.visitor
+      method! visit_load ~mem:_ ~addr:addr _ _ conds =
+        (non_null_expr env addr) :: conds
+    end
+  in
+  visitor#visit_exp exp []
+
+let collect_non_null_stores (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
+  let visitor =
+    object inherit [Constr.z3_expr list] Exp.visitor
+      method! visit_store ~mem:_ ~addr:addr ~exp:_ _ _ conds =
+        (non_null_expr env addr) :: conds
     end
   in
   visitor#visit_exp exp []
@@ -941,23 +951,42 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
               | _ -> assert false
             end)
 
-(* This adds a non-null condition for every memory reference in the term *)
-let non_null_vc : Env.exp_cond = fun env exp ->
+(* This adds a non-null condition for every memory read in the term *)
+let non_null_load_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_non_null_expr env exp in
+  let conds = collect_non_null_loads env exp in
   if List.is_empty conds then
     None
   else
-    Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem reference"
+    Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem load"
                                 (Bool.mk_and ctx conds))))
 
-let non_null_assert : Env.exp_cond = fun env exp ->
+let non_null_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_non_null_expr env exp in
+  let conds = collect_non_null_loads env exp in
   if List.is_empty conds then
     None
   else
-    Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem reference"
+    Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem load"
+                                (Bool.mk_and ctx conds))))
+
+(* This adds a non-null condition for every memory write in the term *)
+let non_null_store_vc : Env.exp_cond = fun env exp ->
+  let ctx = Env.get_context env in
+  let conds = collect_non_null_stores env exp in
+  if List.is_empty conds then
+    None
+  else
+    Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem store"
+                                (Bool.mk_and ctx conds))))
+
+let non_null_store_assert : Env.exp_cond = fun env exp ->
+  let ctx = Env.get_context env in
+  let conds = collect_non_null_stores env exp in
+  if List.is_empty conds then
+    None
+  else
+    Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem store"
                                 (Bool.mk_and ctx conds))))
 
 (* At a memory read, add two assumptions of the form:

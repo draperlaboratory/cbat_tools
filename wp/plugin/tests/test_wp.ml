@@ -148,6 +148,9 @@ let suite = [
   "Init var value in post: UNSAT:" >:: test_plugin "init_var" unsat;
   "Init var value in post: SAT"    >:: test_plugin "init_var" sat ~script:"run_wp_sat.sh";
 
+  "Linked list: no mem check"      >:: test_plugin "linked_list" unsat;
+  "Linked list: with mem check"    >:: test_plugin "linked_list" sat ~script:"run_wp_null_deref.sh";
+
   "Loop"                           >:: test_skip fail_msg (test_plugin "loop" sat);
 
   "Nested function calls"               >:: test_plugin "nested_function_calls" unsat;
