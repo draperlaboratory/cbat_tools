@@ -182,10 +182,16 @@ val jmp_spec_reach : Constr.path -> Env.jmp_spec
 val int_spec_default : Env.int_spec
 
 (** This spec enforces each memory read to be on a non-null address. *)
-val non_null_vc : Env.exp_cond
+val non_null_load_vc : Env.exp_cond
 
 (** This spec {e assumes} each memory read to be on a non-null address. *)
-val non_null_assert : Env.exp_cond
+val non_null_load_assert : Env.exp_cond
+
+(** This spec enforces each memory write to be on a non-null address. *)
+val non_null_store_vc : Env.exp_cond
+
+(** This spec {e assumes} each memory write to be on a non-null address. *)
+val non_null_store_assert : Env.exp_cond
 
 (** This spec {e assumes} that the value of a memory read at address [a] in the
     original binary is equal to the memory read of the modified binary at address
