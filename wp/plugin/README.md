@@ -364,6 +364,13 @@ The various options are:
   addresses of the symbols in these sections. If this flag is set to false, we assume
   that memory between both binaries are equal during a memory read.
 
+- `--wp-check-null-deref=[true|false]` If present, in the case of a single binary
+  analysis, WP will check for inputs that would result in dereferencing a NULL address
+  during a memory read or write. In the case of a comparative analysis, adds the
+  contraint that if a memory read or write dereferences a non-null address in the
+  original binary, then that same address is also non-null in the modified binary.
+  Defaults to false.
+
 ## C checking API
 
 There is a `cbat.h` file in the `api/c` folder which contains headers
