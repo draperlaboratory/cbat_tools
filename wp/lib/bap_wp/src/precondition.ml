@@ -873,11 +873,16 @@ let non_null_expr (env : Env.t) (addr : Exp.t) : Constr.z3_expr =
   let ctx = Env.get_context env in
   let width = match Type.infer_exn addr with
     | Imm n -> n
-    | Mem _ -> error "Expected %s to be an address word!%!" (Exp.to_string addr);
-      failwith "Error: in collect_non_null_expr, got a memory read instead of a word"
+    | Mem _ ->
+      let err_msg = Format.sprintf "Error in non_null_expr: %s is a memory read \
+                                    instead of a word" (Exp.to_string addr) in
+      error "%s" err_msg;
+      failwith err_msg
     | Unk ->
-      error "Unk type: Unable to determine if %s is an address word.%!" (Exp.to_string addr);
-      failwith "Error: in collect_non_null_expr: addr's type is not representable by Type.t"
+      let err_msg = Format.sprintf "Error in non_null_expr: %s is of Unknown type"
+          (Exp.to_string addr) in
+      error "%s" err_msg;
+      failwith err_msg
   in
   let null = BV.mk_numeral ctx "0" width in
   let addr_val,_,_ = exp_to_z3 addr env in
