@@ -115,6 +115,8 @@ let suite = [
 
   "Diff stack values"              >:: test_plugin "memory_samples/diff_stack" sat;
 
+  "Name matching"                  >:: test_plugin "memory_samples/name_matching" unsat;
+
   "No stack protection"            >:: test_plugin "no_stack_protection" sat;
 
   "Null dereference: no check"     >:: test_plugin "non_null_check" unsat;

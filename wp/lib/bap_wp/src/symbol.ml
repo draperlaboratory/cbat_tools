@@ -54,10 +54,19 @@ let get_symbols (filename : string) : t list =
 let addrs_to_z3 (ctx : Z3.context) (syms : t list) : (string * Constr.z3_expr) list =
   List.map syms ~f:(fun (name, addr) -> (name, Pre.word_to_z3 ctx addr))
 
-(* [find pre syms] finds the symbol in [syms] whose name contains the prefix [pre]. *)
-let find (prefix : string) (syms : (string * Constr.z3_expr) list)
+(* In retrowrite, a symbol's name could either be the same as the original or be
+   appended with an underscore and the original address. *)
+let retrowrite_pattern (name : string) : Re__.Core.re =
+  Format.sprintf "^%s(_[a-fA-F0-9]+)?$" name
+  |> Re.Posix.re
+  |> Re.Posix.compile
+
+(* Finds the symbol in the modified binary that matches the retrowrite pattern on
+   its name. *)
+let find (name_orig : string) (syms : (string * Constr.z3_expr) list)
   : (string * Constr.z3_expr) option =
-  List.find syms ~f:(fun (name, _) -> String.is_prefix name ~prefix)
+  List.find syms ~f:(fun (name_mod, _) ->
+      Re.execp (retrowrite_pattern name_orig) name_mod)
 
 let offset_constraint ~orig:(syms_orig : t list) ~modif:(syms_mod : t list)
     (ctx : Z3.context) : Constr.z3_expr -> Constr.z3_expr =
