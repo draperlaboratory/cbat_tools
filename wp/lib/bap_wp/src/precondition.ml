@@ -643,8 +643,15 @@ let num_unroll : int ref = ref 5
 
 let default_fun_specs (to_inline : Sub.t Seq.t) :
   (Sub.t -> Arch.t -> Env.fun_spec option) list =
-  [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet; spec_afl_maybe_log;
-   spec_inline to_inline; spec_arg_terms; spec_chaos_caller_saved; spec_rax_out]
+  [ spec_verifier_error;
+    spec_verifier_assume;
+    spec_verifier_nondet;
+    spec_afl_maybe_log;
+    spec_inline to_inline;
+    spec_arg_terms;
+    spec_chaos_caller_saved;
+    spec_rax_out
+  ]
 
 let default_stack_range : int * int = 0x00007fffffff0000, 0x00007fffffffffff
 
