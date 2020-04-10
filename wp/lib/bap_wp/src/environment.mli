@@ -41,7 +41,7 @@ type var_gen
     visiting it with {!Precondition.visit_sub}. *)
 type fun_spec_type =
   | Summary of (t -> Constr.t -> Bap.Std.Tid.t -> Constr.t * t)
-  | Inline
+  | Inline of Bap.Std.Tid.t
 
 (** Type that specifies what rules should be used when calculating
     the precondition of a subroutine. *)

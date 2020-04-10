@@ -52,7 +52,7 @@ type t = {
 
 and fun_spec_type =
   | Summary of (t -> Constr.t -> Tid.t -> Constr.t * t)
-  | Inline
+  | Inline of Tid.t
 
 and fun_spec = {
   spec_name : string;

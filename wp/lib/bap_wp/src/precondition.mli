@@ -165,6 +165,11 @@ val spec_afl_maybe_log : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
 val spec_inline :
   Bap.Std.Sub.t Bap.Std.Seq.t -> Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
 
+(** This spec is used to inline a function call that makes a lookup on the plt.
+    It calls {! visit_sub} on the target function of the lookup. *)
+val spec_inline_plt :
+  Bap.Std.Sub.t Bap.Std.Seq.t -> Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
 (** The default spec used when mapping subroutines to their preconditions. This
     spec sets the constraint representing the subroutine being called to true, and
     in x86 architectures, increments the value of the stack pointer on return

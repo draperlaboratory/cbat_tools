@@ -91,7 +91,7 @@ let lookup_sub (label : Label.t) (post : Constr.t) (env : Env.t) : Constr.t * En
     begin
       match Env.get_sub_handler env tid with
       | Some (Summary compute_func) -> compute_func env post tid
-      | Some Inline -> !inline_func post env tid
+      | Some (Inline target) -> !inline_func post env target
       | None -> post, env
     end
   (* TODO: Evaluate the expression for the indirect jump and
@@ -408,9 +408,9 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
               | Direct tid ->
                 begin
                   match Env.get_sub_handler env tid with
-                  | Some Inline ->
+                  | Some Inline target ->
                     let subs = Env.get_subs env in
-                    let target = Seq.find_exn subs ~f:(fun s -> Tid.equal (Term.tid s) tid) in
+                    let target = Seq.find_exn subs ~f:(fun s -> Tid.equal (Term.tid s) target) in
                     Var.Set.union vars (get_vars env target)
                   | _ -> vars
                 end
@@ -626,10 +626,28 @@ let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t)
   if Seq.mem to_inline sub ~equal:Sub.equal then
     Some {
       spec_name = "spec_inline";
-      spec = Inline
+      spec = Inline (Term.tid sub)
     }
   else
     None
+
+let spec_inline_plt (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch.t)
+  : Env.fun_spec option =
+  let plt_target =
+    Seq.find to_inline ~f:(fun inlined ->
+        let plt_pattern =
+          Format.sprintf "^%s@" (Sub.name inlined)
+          |> Re.Posix.re
+          |> Re.Posix.compile
+        in
+        Re.execp plt_pattern (Sub.name sub))
+  in
+  Option.bind plt_target ~f:(fun target ->
+      let open Env in
+      Some {
+        spec_name = "spec_inline_plt";
+        spec = Inline (Term.tid target)
+      })
 
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
@@ -643,8 +661,16 @@ let num_unroll : int ref = ref 5
 
 let default_fun_specs (to_inline : Sub.t Seq.t) :
   (Sub.t -> Arch.t -> Env.fun_spec option) list =
-  [spec_verifier_error; spec_verifier_assume; spec_verifier_nondet; spec_afl_maybe_log;
-   spec_inline to_inline; spec_arg_terms; spec_chaos_caller_saved; spec_rax_out]
+  [ spec_verifier_error;
+    spec_verifier_assume;
+    spec_verifier_nondet;
+    spec_afl_maybe_log;
+    spec_inline_plt to_inline;
+    spec_inline to_inline;
+    spec_arg_terms;
+    spec_chaos_caller_saved;
+    spec_rax_out
+  ]
 
 let default_stack_range : int * int = 0x00007fffffff0000, 0x00007fffffffffff
 

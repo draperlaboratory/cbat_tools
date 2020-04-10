@@ -117,12 +117,16 @@ let suite = [
 
   "Name matching"                  >:: test_plugin "memory_samples/name_matching" unsat;
 
+  "No position independent"        >:: test_plugin "no_position_independent" sat;
+
   "No stack protection"            >:: test_plugin "no_stack_protection" sat;
 
   "Null dereference: no check"     >:: test_plugin "non_null_check" unsat;
   "Null dereference: with check"   >:: test_plugin "non_null_check" sat ~script:"run_wp_null_deref.sh";
 
   "Pointer input"                  >:: test_plugin "pointer_input" unsat;
+
+  "Position independent"           >:: test_plugin "position_independent" sat;
 
   "Retrowrite stub: pop RSP"       >:: test_plugin "retrowrite_stub" unsat;
   "Retrowrite stub: inline AFL"    >:: test_plugin "retrowrite_stub" unsat ~script:"run_wp_inline_afl.sh";
