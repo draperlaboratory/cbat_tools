@@ -311,6 +311,9 @@ let get_var_map (env : t) : Constr.z3_expr EnvMap.t =
 let get_init_var_map (env : t) : Constr.z3_expr EnvMap.t =
   env.init_vars
 
+let get_call_map (env : t) : string TidMap.t =
+  env.call_map
+
 let find_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.var_map var
 

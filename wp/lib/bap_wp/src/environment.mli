@@ -166,6 +166,10 @@ val get_var_map : t -> Constr.z3_expr EnvMap.t
     that represent their initial states. *)
 val get_init_var_map : t -> Constr.z3_expr EnvMap.t
 
+(** Obtains the call_map that contains the names of all the Z3 constants that
+    represent whether a function was called or not. *)
+val get_call_map : t -> string Bap.Std.Tid.Map.t
+
 (** Looks up the Z3 variable that represents a BIR variable. Produces fresh z3_expr if not found. *)
 val get_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
 
