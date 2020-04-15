@@ -40,7 +40,7 @@ let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
-let extract_array (e : Constr.z3_expr) : mem_model  = 
+let extract_array (e : Constr.z3_expr) : mem_model =
   let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
     let numargs = Z3.Expr.get_num_args e in
     let args = Z3.Expr.get_args e in
@@ -64,11 +64,30 @@ let extract_array (e : Constr.z3_expr) : mem_model  =
   in
   extract_array' [] e
 
+(* We also want to print out the variables in the var_map of the modified binary's
+   if they already don't exist in the var_map of the original binary. *)
+let combine_maps (map1 : Constr.z3_expr Var.Map.t) (map2 : Constr.z3_expr Var.Map.t)
+  : Constr.z3_expr VarMap.t =
+  Var.Map.fold map2 ~init:map1 ~f:(fun ~key ~data map ->
+      match Var.Map.add map ~key ~data with
+      | `Ok m -> m
+      | `Duplicate -> map)
+
 let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   let arch = Env.get_arch env1 in
   let module Target = (val target_of_arch arch) in
-  let var_map = Env.get_var_map env1 in
-  let mem_map, reg_map = Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data:_ -> Target.CPU.is_mem key) in
+  let var_map1 = Env.get_var_map env1 in
+  let var_map2 = Env.get_var_map env2 in
+  let init_var_map1 = Env.get_init_var_map env1 in
+  let init_var_map2 = Env.get_init_var_map env2 in
+  let call_map1 = Env.get_call_map env1 in
+  let call_map2 = Env.get_call_map env2 in
+  let mem_map, reg_map =
+    combine_maps var_map1 var_map2
+    |> Env.EnvMap.partitioni_tf ~f:(fun ~key ~data:_ -> Target.CPU.is_mem key)
+  in
+
+  (* Print registers *)
   let key_val = Env.EnvMap.fold reg_map ~init:[]
       ~f:(fun ~key ~data pairs ->
           let key_str = Var.to_string key in
@@ -77,10 +96,12 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   in
   let fmt = Format.str_formatter in
   Constr.format_values fmt key_val;
-  Env.EnvMap.iteri mem_map ~f:(fun ~key ~data:mem_orig -> 
+
+  (* Print memory *)
+  Env.EnvMap.iteri mem_map ~f:(fun ~key ~data:mem_orig ->
       let key_str = Var.to_string key in
       let mem_mod, _ = Env.get_var env2 key in
-      let val_orig = Constr.eval_model_exn model mem_orig in 
+      let val_orig = Constr.eval_model_exn model mem_orig in
       let val_mod = Constr.eval_model_exn model mem_mod in
       Format.fprintf fmt "\t%s_orig |-> [\n" key_str;
       format_mem_model fmt (extract_array val_orig);
@@ -90,9 +111,39 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
         begin
           Format.fprintf fmt "\t%s_mod |-> [\n" key_str;
           format_mem_model fmt (extract_array val_mod)
-        end 
+        end
       else (Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str);
     );
+
+  (* Print other constant decls found in the model *)
+  let const_decls =
+    model
+    |> Model.get_const_decls
+    |> List.filter_map ~f:(fun decl ->
+        let exp = Fun.apply decl [] in
+        let name = Expr.to_string exp in
+        let interp = Option.value_exn (Model.get_const_interp model decl) in
+        (* Do not print decl if it is a register/mem that we already printed or is an
+           init variable that contains redundant information. *)
+        let in_map var =
+          List.exists [var_map1; var_map2; init_var_map1; init_var_map2]
+            ~f:(Var.Map.exists ~f:(fun z3_var -> Expr.equal var z3_var))
+        in
+        (* We have decls that represent whether a function has been called or not. We
+           do not print them if they are set to false. *)
+        let not_called var =
+          List.exists [call_map1; call_map2]
+            ~f:(Tid.Map.exists ~f:(fun name -> String.equal var name && Bool.is_false interp))
+        in
+        if in_map exp || not_called name then
+          None
+        else
+          Some (name, interp))
+  in
+  Format.fprintf fmt "\n%!";
+  Constr.format_values fmt const_decls;
+
+  (* Print function declarations found in the model *)
   let fun_defs =
     model
     |> Model.get_func_decls
