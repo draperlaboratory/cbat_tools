@@ -137,13 +137,10 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
      environment with variables *)
   let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
   let _, env = Pre.visit_sub env true_constr main_sub in
-  (* Initialize all the variables that have just been added to the environment. *)
-  let vars =
-    env
-    |> Env.get_var_map
-    |> Var.Map.fold ~init:Var.Set.empty ~f:(fun ~key:v ~data:_ set -> Var.Set.add set v)
-  in
-  let hyps, env = Pre.init_vars vars env in
+  (* Remove the constants generated and stored in the environment because they aren't
+     going to be used in the wp analysis. *)
+  let env = Env.clear_consts env in
+  let hyps, env = Pre.init_vars (Pre.get_vars env main_sub) env in
   let hyps = (Pre.set_sp_range env) :: hyps in
   let post =
     if String.is_empty flags.post_cond then
