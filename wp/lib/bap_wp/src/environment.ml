@@ -48,6 +48,7 @@ type t = {
   stack : Constr.z3_expr -> Constr.z3_expr; (* takes in a memory address as a z3_var *)
   heap : Constr.z3_expr -> Constr.z3_expr;
   init_vars : Constr.z3_expr EnvMap.t;
+  consts : Constr.z3_expr list
 }
 
 and fun_spec_type =
@@ -271,7 +272,8 @@ let mk_env
     use_fun_input_regs = fun_input_regs;
     stack = init_mem_range ctx arch stack_range;
     heap = init_mem_range ctx arch heap_range;
-    init_vars = EnvMap.empty
+    init_vars = EnvMap.empty;
+    consts = []
   }
 
 let env_to_string (env : t) : string =
@@ -291,6 +293,9 @@ let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }
 
 let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
+
+let add_const (env : t) (v : Constr.z3_expr) : t =
+  { env with consts = v :: env.consts }
 
 let remove_var (env : t) (v : Var.t) : t =
   { env with var_map = EnvMap.remove env.var_map v }
@@ -359,6 +364,9 @@ let get_int_handler (env : t) : int_spec =
 let get_loop_handler (env : t) :
   t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
   env.loop_handler.handle
+
+let get_consts (env : t) : Constr.z3_expr list =
+  env.consts
 
 let get_arch (env : t) : Arch.t =
   env.arch

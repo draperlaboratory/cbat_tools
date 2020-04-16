@@ -97,8 +97,8 @@ let compare_subs
   let hyps, env1, env2 =
     hyps ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
   info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
-  let pre_mod, _ = Pre.visit_sub env2 post sub2 in
-  let pre_combined, _ = Pre.visit_sub env1 pre_mod sub1 in
+  let pre_mod, env2 = Pre.visit_sub env2 post sub2 in
+  let pre_combined, env1 = Pre.visit_sub env1 pre_mod sub1 in
   let goal = Constr.mk_clause [hyps] [pre_combined] in
   goal, env1, env2
 
