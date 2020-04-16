@@ -68,7 +68,6 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   let arch = Env.get_arch env1 in
   let module Target = (val target_of_arch arch) in
   let var_map = Env.get_var_map env1 in
-  let consts = Env.get_consts env1 @ Env.get_consts env2 in
   let mem_map, reg_map = Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data:_ -> Target.CPU.is_mem key) in
 
   (* Print registers *)
@@ -102,18 +101,13 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
       else (Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str);
     );
 
-  (* Print constants generated in func specs *)
+  (* Print out constants that were generated during analysis. *)
+  let consts = Env.ExprSet.union (Env.get_consts env1) (Env.get_consts env2) in
   let const_vals =
-    model
-    |> Model.get_const_decls
-    |> List.fold ~init:[]~f:(fun pairs decl ->
-        let application = Fun.apply decl [] in
-        if List.exists consts ~f:(Expr.equal application) then
-          let name = Expr.to_string application in
-          let value = Constr.eval_model_exn model application in
-          (name, value) :: pairs
-        else
-          pairs)
+    Env.ExprSet.fold consts ~init:[] ~f:(fun pairs c ->
+        let name = Expr.to_string c in
+        let value = Constr.eval_model_exn model c in
+        (name, value) :: pairs)
   in
   Format.fprintf fmt "\n%!";
   Constr.format_values fmt const_vals;
