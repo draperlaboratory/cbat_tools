@@ -56,8 +56,8 @@ let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> C
   | AND -> BV.mk_and ctx
   | OR -> BV.mk_or ctx
   | XOR -> BV.mk_xor ctx
-  | EQ -> fun x y -> Bool.mk_ite ctx (Bool.mk_eq ctx x y) one zero
-  | NEQ -> fun x y -> Bool.mk_ite ctx (Bool.mk_eq ctx x y) zero one
+  | EQ -> fun x y -> BV.mk_not ctx @@ BV.mk_redor ctx @@ BV.mk_xor ctx x y
+  | NEQ -> fun x y -> BV.mk_redor ctx @@ BV.mk_xor ctx x y
   | LT -> fun x y -> Bool.mk_ite ctx (BV.mk_ult ctx x y) one zero
   | LE -> fun x y -> Bool.mk_ite ctx (BV.mk_ule ctx x y) one zero
   | SLT -> fun x y -> Bool.mk_ite ctx (BV.mk_slt ctx x y) one zero
