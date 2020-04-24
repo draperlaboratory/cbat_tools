@@ -56,80 +56,6 @@ let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t)
   let inits2, env2 = Pre.init_vars vars env2 in
   (inits1 @ inits2), env1, env2
 
-let compare_blocks
-    ~input:(input : Var.Set.t)
-    ~output:(output : Var.Set.t)
-    ~original:(blk1, env1 : Blk.t * Env.t)
-    ~modified:(blk2, env2 : Blk.t * Env.t)
-  : Constr.t * Env.t * Env.t =
-  (* We only freshen variables in blk2, leaving those of blk1 with
-     their original names. *)
-  let env2 = Env.set_freshen env2 true in
-  let output_eq_list, env1, env2 = set_to_eqs env1 env2 output in
-  let output_eq = Constr.mk_clause [] output_eq_list in
-  let input_eq_list, env1, env2 = set_to_eqs env1 env2 input in
-  let pre1, _ = Pre.visit_block env1 output_eq blk1 in
-  let pre2, _ = Pre.visit_block env2 pre1 blk2 in
-  let goal = Constr.mk_clause input_eq_list [pre2] in
-  goal, env1, env2
-
-(* The type of functions that generate a postcondition or hypothesis for comparative
-   analysis. Also updates the environments as needed. *)
-type comparator = original:(Sub.t * Env.t) -> modified:(Sub.t * Env.t) ->
-  rename_set:Var.Set.t -> Constr.t * Env.t * Env.t
-
-(* A generic function for generating a predicate that compares two subroutines.
-   Takes as input a postcondition generator, and a hypothesis generator.
-   this could be made even more generic, say by abstracting over the type of terms
-   being compared. *)
-let compare_subs
-    ~postcond:(postcond : comparator)
-    ~hyps:(hyps : comparator)
-    ~original:(sub1, env1 : Sub.t * Env.t)
-    ~modified:(sub2, env2 : Sub.t * Env.t)
-  : Constr.t * Env.t * Env.t =
-  let env2 = Env.set_freshen env2 true in
-  let vars = Var.Set.union
-      (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
-  let post, env1, env2 =
-    postcond ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
-  info "\nPostcondition:\n%s\n%!" (Constr.to_string post);
-  let hyps, env1, env2 =
-    hyps ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
-  info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
-  let pre_mod, env2 = Pre.visit_sub env2 post sub2 in
-  let pre_combined, env1 = Pre.visit_sub env1 pre_mod sub1 in
-  let goal = Constr.mk_clause [hyps] [pre_combined] in
-  goal, env1, env2
-
-let compare_subs_empty
-    ~original:(original : Sub.t * Env.t)
-    ~modified:(modified : Sub.t * Env.t)
-  : Constr.t * Env.t * Env.t =
-  let postcond ~original:(_, env1) ~modified:(_,env2) ~rename_set:_ =
-    let ctx = Env.get_context env1 in
-    let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
-    post, env1, env2
-  in
-  let hyps = postcond in
-  compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
-
-let compare_subs_empty_post
-    ~input:(_ : Var.Set.t)
-    ~original:(original : Sub.t * Env.t)
-    ~modified:(modified : Sub.t * Env.t)
-  : Constr.t * Env.t * Env.t =
-  let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let ctx = Env.get_context env1 in
-    let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
-    post, env1, env2
-  in
-  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
-    let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
-    Constr.mk_clause [] pre_eqs, env1, env2
-  in
-  compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
-
 (** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
     as a comparison predicate between an original and modified binary. *)
 let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
@@ -150,6 +76,100 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let ctx = Env.get_context env1 in
   Z3_utils.mk_smtlib2 ctx smtlib_str declsym
 
+let compare_blocks
+    ~input:(input : Var.Set.t)
+    ~output:(output : Var.Set.t)
+    ~original:(blk1, env1 : Blk.t * Env.t)
+    ~modified:(blk2, env2 : Blk.t * Env.t)
+    ~smtlib_post:(smtlib_post : string)
+    ~smtlib_hyp:(smtlib_hyp : string)
+  : Constr.t * Env.t * Env.t =
+  (* We only freshen variables in blk2, leaving those of blk1 with
+     their original names. *)
+  let env2 = Env.set_freshen env2 true in
+  let output_eq_list, env1, env2 = set_to_eqs env1 env2 output in
+  let smtlib_post = mk_smtlib2_compare env1 env2 smtlib_post in
+  let output_eq = Constr.mk_clause [] (smtlib_post :: output_eq_list) in
+  let input_eq_list, env1, env2 = set_to_eqs env1 env2 input in
+  let smtlib_hyp = mk_smtlib2_compare env1 env2 smtlib_hyp in
+  let pre1, _ = Pre.visit_block env1 output_eq blk1 in
+  let pre2, _ = Pre.visit_block env2 pre1 blk2 in
+  let goal = Constr.mk_clause (smtlib_hyp :: input_eq_list) [pre2] in
+  goal, env1, env2
+
+(* The type of functions that generate a postcondition or hypothesis for comparative
+   analysis. Also updates the environments as needed. *)
+type comparator = original:(Sub.t * Env.t) -> modified:(Sub.t * Env.t) ->
+  rename_set:Var.Set.t -> Constr.t * Env.t * Env.t
+
+(* A generic function for generating a predicate that compares two subroutines.
+   Takes as input a postcondition generator, and a hypothesis generator.
+   this could be made even more generic, say by abstracting over the type of terms
+   being compared. *)
+let compare_subs
+    ~postcond:(postcond : comparator)
+    ~hyps:(hyps : comparator)
+    ~original:(sub1, env1 : Sub.t * Env.t)
+    ~modified:(sub2, env2 : Sub.t * Env.t)
+    ~smtlib_post:(smtlib_post : string)
+    ~smtlib_hyp:(smtlib_hyp : string)
+  : Constr.t * Env.t * Env.t =
+  let env2 = Env.set_freshen env2 true in
+  let vars = Var.Set.union
+      (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
+  let post, env1, env2 =
+    let post, env1, env2 =
+      postcond ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
+    let smtlib_post = mk_smtlib2_compare env1 env2 smtlib_post in
+    Constr.mk_clause [] [post; smtlib_post], env1, env2
+  in
+  info "\nPostcondition:\n%s\n%!" (Constr.to_string post);
+  let hyps, env1, env2 =
+    let hyps, env1, env2 =
+      hyps ~original:(sub1, env1) ~modified:(sub2, env2) ~rename_set:vars in
+    let smtlib_hyp = mk_smtlib2_compare env1 env2 smtlib_hyp in
+    let sp_range = Pre.set_sp_range env1 in
+    let init_mem, env1, env2 = init_vars env1 env2 vars in
+    Constr.mk_clause [] (hyps :: smtlib_hyp :: sp_range :: init_mem), env1, env2
+  in
+  info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
+  let pre_mod, env2 = Pre.visit_sub env2 post sub2 in
+  let pre_combined, env1 = Pre.visit_sub env1 pre_mod sub1 in
+  let goal = Constr.mk_clause [hyps] [pre_combined] in
+  goal, env1, env2
+
+let compare_subs_empty
+    ~original:(original : Sub.t * Env.t)
+    ~modified:(modified : Sub.t * Env.t)
+    ~smtlib_post:(smtlib_post : string)
+    ~smtlib_hyp:(smtlib_hyp : string)
+  : Constr.t * Env.t * Env.t =
+  let postcond ~original:(_, env1) ~modified:(_,env2) ~rename_set:_ =
+    let ctx = Env.get_context env1 in
+    let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+    post, env1, env2
+  in
+  let hyps = postcond in
+  compare_subs ~postcond ~hyps ~original ~modified ~smtlib_post ~smtlib_hyp
+
+let compare_subs_empty_post
+    ~input:(_ : Var.Set.t)
+    ~original:(original : Sub.t * Env.t)
+    ~modified:(modified : Sub.t * Env.t)
+    ~smtlib_post:(smtlib_post : string)
+    ~smtlib_hyp:(smtlib_hyp : string)
+  : Constr.t * Env.t * Env.t =
+  let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    let ctx = Env.get_context env1 in
+    let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+    post, env1, env2
+  in
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
+    Constr.mk_clause [] pre_eqs, env1, env2
+  in
+  compare_subs ~postcond ~hyps ~original ~modified ~smtlib_post ~smtlib_hyp
+
 let compare_subs_eq
     ~input:(input : Var.Set.t)
     ~output:(output : Var.Set.t)
@@ -160,23 +180,19 @@ let compare_subs_eq
   : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let post_eqs, env1, env2 = set_to_eqs env1 env2 output in
-    let post' = mk_smtlib2_compare env1 env2 smtlib_post in
-    Constr.mk_clause [] (post' :: post_eqs), env1, env2
+    Constr.mk_clause [] post_eqs, env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let arch = Env.get_arch env1 in
-    let module Target = (val target_of_arch arch) in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
-    let init_mem, env1, env2 = init_vars env1 env2 input in
-    let sp_range = Pre.set_sp_range env1 in
-    let pre' = mk_smtlib2_compare env1 env2 smtlib_hyp in
-    Constr.mk_clause [] ([pre'; sp_range] @ init_mem @ pre_eqs), env1, env2
+    Constr.mk_clause [] pre_eqs, env1, env2
   in
-  compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
+  compare_subs ~postcond ~hyps ~original ~modified ~smtlib_post ~smtlib_hyp
 
 let compare_subs_fun
     ~original:(original : Sub.t * Env.t)
     ~modified:(modified : Sub.t * Env.t)
+    ~smtlib_post:(smtlib_post : string)
+    ~smtlib_hyp:(smtlib_hyp : string)
   : Constr.t * Env.t * Env.t =
   let mk_is_fun_called env f =
     let ctx = Env.get_context env in
@@ -227,4 +243,4 @@ let compare_subs_fun
     let eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
     Constr.mk_clause [] (eqs @ modified_not_called), env1, env2
   in
-  compare_subs ~postcond:postcond ~hyps:hyps ~original:original ~modified:modified
+  compare_subs ~postcond ~hyps ~original ~modified ~smtlib_post ~smtlib_hyp
