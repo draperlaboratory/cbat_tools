@@ -39,6 +39,8 @@ val compare_blocks
   -> output:Bap.Std.Var.Set.t
   -> original:(Bap.Std.Blk.t * Env.t)
   -> modified:(Bap.Std.Blk.t * Env.t)
+  -> smtlib_post:string
+  -> smtlib_hyp:string
   -> Constr.t * Env.t * Env.t
 
 (** Compare two subroutines by composition for equality of return
@@ -65,6 +67,8 @@ val compare_subs_eq
 val compare_subs_empty
   :  original:(Bap.Std.Sub.t * Env.t)
   -> modified:(Bap.Std.Sub.t * Env.t)
+  -> smtlib_post:string
+  -> smtlib_hyp:string
   -> Constr.t * Env.t * Env.t
 
 (** Compare two subroutines by composition for an empty
@@ -78,6 +82,8 @@ val compare_subs_empty_post
   :  input:Bap.Std.Var.Set.t
   -> original:(Bap.Std.Sub.t * Env.t)
   -> modified:(Bap.Std.Sub.t * Env.t)
+  -> smtlib_post:string
+  -> smtlib_hyp:string
   -> Constr.t * Env.t * Env.t
 
 (** Compare two subroutines by composition for conservation of function calls:
@@ -89,4 +95,6 @@ val compare_subs_empty_post
 val compare_subs_fun
   :  original:(Bap.Std.Sub.t * Env.t)
   -> modified:(Bap.Std.Sub.t * Env.t)
+  -> smtlib_post:string
+  -> smtlib_hyp:string
   -> Constr.t * Env.t * Env.t

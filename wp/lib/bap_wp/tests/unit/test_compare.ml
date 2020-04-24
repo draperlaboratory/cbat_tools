@@ -59,7 +59,8 @@ let test_block_pair_1 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton z in
   let compare_prop, env1, env2 = Comp.compare_blocks
       ~input:input_vars ~output:output_vars
-      ~original:(blk1,env1) ~modified:(blk2,env2) in
+      ~original:(blk1,env1) ~modified:(blk2,env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Blk.to_string blk1) (Blk.to_string blk2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -82,7 +83,8 @@ let test_block_pair_2 (test_ctx : test_ctxt) : unit =
   let output_vars = Var.Set.singleton z in
   let compare_prop, env1, env2 = Comp.compare_blocks
       ~input:input_vars ~output:output_vars
-      ~original:(blk1,env1) ~modified:(blk2,env2) in
+      ~original:(blk1,env1) ~modified:(blk2,env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Blk.to_string blk1) (Blk.to_string blk2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -289,7 +291,8 @@ let test_sub_pair_6 (test_ctx : test_ctxt) : unit =
   let sub2 = Bil.([if_ (read = i32 3) [if_ (read = i32 4) [][]] []]) |> bil_to_sub in
   let vars = Var.Set.of_list [mem; loc] in
   let compare_prop, env1, env2 = Comp.compare_subs_empty_post ~input:vars
-      ~original:(sub1, env1) ~modified:(sub2, env2) in
+      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -308,7 +311,8 @@ let test_sub_pair_7 (test_ctx : test_ctxt) : unit =
   let sub2 = Bil.([if_ (read = i32 3) [if_ (read' = i32 4) [][]] []]) |> bil_to_sub in
   let vars = Var.Set.of_list [mem; loc] in
   let compare_prop, env1, env2 = Comp.compare_subs_empty_post ~input:vars
-      ~original:(sub1, env1) ~modified:(sub2, env2) in
+      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.SATISFIABLE
@@ -334,7 +338,8 @@ let test_sub_pair_fun_1 (test_ctx : test_ctxt) : unit =
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub]) in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub]) in
   let compare_prop, env1, env2 = Comp.compare_subs_fun
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
@@ -359,7 +364,8 @@ let test_sub_pair_fun_2 (test_ctx : test_ctxt) : unit =
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub]) in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub]) in
   let compare_prop, env1, env2 = Comp.compare_subs_fun
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
     compare_prop Z3.Solver.SATISFIABLE
@@ -396,7 +402,8 @@ let test_sub_pair_fun_3 (test_ctx : test_ctxt) : unit =
   let env2 = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub2; call1_sub; call2_sub]) in
   let compare_prop, env1, env2 = Comp.compare_subs_fun
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
     compare_prop Z3.Solver.SATISFIABLE
@@ -434,7 +441,8 @@ let test_sub_pair_fun_4 (test_ctx : test_ctxt) : unit =
   let env2 = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub2; call1_sub; call2_sub]) in
   let compare_prop, env1, env2 = Comp.compare_subs_fun
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2) in
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
     compare_prop Z3.Solver.SATISFIABLE

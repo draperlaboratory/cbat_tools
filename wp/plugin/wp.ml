@@ -186,6 +186,7 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre, env1, env2 =
     if flags.check_calls then
       Comp.compare_subs_fun ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
+        ~smtlib_post:flags.post_cond ~smtlib_hyp:flags.pre_cond
     else
       begin
         let output_vars = Var.Set.union
@@ -254,7 +255,7 @@ module Cmdline = struct
   let check_calls = param bool "check-calls" ~as_flag:true ~default:false
       ~doc:"If set, compares which subroutines are invoked in the body of the \
             function. Otherwise, compares the return values computed in the function \
-            body."
+            body. This flag is only used in comparative analysis."
 
   let inline = param (some string) "inline" ~default:None
       ~doc:"Function calls to inline as specified by a POSIX regular expression. \
@@ -305,7 +306,10 @@ module Cmdline = struct
 
   let check_null_deref = param bool "check-null-deref" ~as_flag:true ~default:false
       ~doc:"If set, the WP analysis will check for inputs that would result in \
-            dereferencing a NULL value. Defaults to false."
+            dereferencing a NULL value. In the case of a comparative analysis, \
+            asserts that if a memory read or write in the original binary does \
+            not dereference a NULL, then that same read or write in the modified \
+            binary also does not dereference a NULL. Defaults to false."
 
   let () = when_ready (fun {get=(!!)} ->
       let flags =
