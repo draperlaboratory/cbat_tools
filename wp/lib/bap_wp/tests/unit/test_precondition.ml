@@ -907,7 +907,7 @@ let test_loop_1 (test_ctx : test_ctxt) : unit =
 let test_loop_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_env ctx var_gen  in
+  let env = Pre.mk_env ctx var_gen in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let sub = Bil.(
@@ -976,6 +976,68 @@ let test_loop_4 (test_ctx : test_ctxt) : unit =
   in
   let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "2" 32)
              |> Constr.mk_goal "x = 2"
+             |> Constr.mk_constr
+  in
+  let pre, _ = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+
+
+let test_loop_5 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env = Pre.mk_env ctx var_gen ~num_loop_unroll:1 in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let sub = Bil.(
+      [
+        x := zero;
+        y := i32 1;
+        while_ ( var y > zero )
+          [
+            x := var x + one;
+            y := var y - one;
+          ];
+        x := var x + i32 2;
+      ]
+    ) |> bil_to_sub
+  in
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "3" 32)
+             |> Constr.mk_goal "x = 3"
+             |> Constr.mk_constr
+  in
+  let pre, _ = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+
+
+let test_loop_6 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env = Pre.mk_env ctx var_gen ~num_loop_unroll:1 in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let start = Blk.create () in
+  let loop_header = Blk.create () in
+  let loop_body = Blk.create () in
+  let exit = Blk.create () in
+  let start = start
+              |> mk_def x zero
+              |> mk_def y (i32 1)
+              |> mk_jmp loop_header
+  in
+  let loop_header = loop_header
+                    |> mk_cond Bil.((zero < var y)) loop_body exit
+  in
+  let loop_body = loop_body
+                  |> mk_def x Bil.(var x + one)
+                  |> mk_def y Bil.(var y - one)
+                  |> mk_jmp loop_header
+  in
+  let exit = exit
+             |> mk_def x Bil.(var x + i32 2)
+  in
+  let sub = mk_sub [start; loop_header; loop_body; exit] in
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "3" 32)
+             |> Constr.mk_goal "x = 3"
              |> Constr.mk_constr
   in
   let pre, _ = Pre.visit_sub env post sub in
@@ -1476,6 +1538,14 @@ let suite = [
    b1: x = 0; y = 2; goto b2; \n\
    b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
    b3:" >:: test_loop_4;
+  "Loop: \n\
+   b1: x = 0; y = 1; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   b3: x = x + 2;" >:: test_loop_5;
+  "Loop: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when y > 0 goto b2; goto b3; \n\
+   b3: x = x + 2" >:: test_loop_6;
   "Read NULL; SAT:\n\
    x = mem[addr];" >:: test_exp_cond_1;
   "Read NULL; UNSAT:\n\

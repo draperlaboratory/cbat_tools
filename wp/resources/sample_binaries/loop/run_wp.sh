@@ -3,7 +3,7 @@ compile() {
 }
 
 run() {
-        bap main --pass=wp --wp-num-unroll=100
+        bap main --pass=wp --wp-num-unroll=2
 
 }
 
