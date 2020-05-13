@@ -62,12 +62,19 @@ let mk_smtlib2 (ctx : Z3.context) (smtlib_str : string) (decl_syms : (Z3.FuncDec
 
 let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   let var_map = Env.get_var_map env in
-  let smt_post = Env.EnvMap.fold var_map ~init:smt_post 
+  let smt_post = Env.EnvMap.fold var_map ~init:smt_post
       ~f:(fun ~key:var ~data:z3_var smt_post ->
-          String.substr_replace_all smt_post ~pattern:((Var.name var) ^ " ") ~with_:((Expr.to_string z3_var) ^ " ")
-        ) in
+          let name = Var.name var in
+          let z3_name = Expr.to_string z3_var in
+          let pattern = Re.Posix.compile_pat (Format.sprintf "%s[ \n\t\r]" name) in
+          let matches = Re.matches pattern smt_post in
+          List.fold matches ~init:smt_post
+            ~f:(fun post m ->
+                let m' = String.substr_replace_all m ~pattern:name ~with_:z3_name in
+                String.substr_replace_all post ~pattern:m ~with_:m'))
+  in
   info "New smt-lib string : %s\n" smt_post;
   let decl_syms = get_decls_and_symbols env in
   let ctx = Env.get_context env in
-  mk_smtlib2 ctx smt_post decl_syms 
+  mk_smtlib2 ctx smt_post decl_syms
 
