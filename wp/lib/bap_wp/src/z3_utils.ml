@@ -60,42 +60,29 @@ let mk_smtlib2 (ctx : Z3.context) (smtlib_str : string) (decl_syms : (Z3.FuncDec
   in
   Constr.mk_clause [] goals
 
-let is_special_char (c : char) : bool =
-  List.mem [' '; '\t'; '\n'; '('; ')'] c ~equal:Char.equal
-
-let read_symbol (chars : char list) : string =
-  let rec iter chars acc =
-    match chars with
-    | [] -> acc
-    | c :: _ when is_special_char c -> acc
-    | c :: cs -> iter cs (acc ^ Char.to_string c)
-  in
-  iter chars ""
-
 let tokenize (str : string) : string list =
-  let rec iter chars acc =
-    match chars with
-    | [] -> acc
-    | c :: cs when is_special_char c ->
-      iter cs ((String.of_char c) :: acc)
-    | c ->
-      let symbol = read_symbol c in
-      let sym_length = String.length symbol in
-      let cs = List.sub c ~pos:sym_length ~len:(List.length c - sym_length) in
-      iter cs (symbol :: acc)
-  in
-  iter (String.to_list str) []
+  let delim = Re.Posix.compile_pat "[ \n\r\t()]" in
+  let tokens = Re.split_full delim str in
+  List.rev_map tokens ~f:(function
+      | `Text t -> t
+      | `Delim g ->
+        (* There should always be one value in the group. If not, we will raise an
+           exception. *)
+        if Re.Group.nb_groups g <> 1 then
+          failwith "Number of groups in string delimeter is not 1"
+        else
+          Re.Group.get g 0)
+
+let replace (name : string) (z3_name : string) (tokens : string list) : string list =
+  List.map tokens ~f:(fun token ->
+      if String.equal name token then
+        z3_name
+      else
+        token)
 
 let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   let var_map = Env.get_var_map env in
   let init_var_map = Env.get_init_var_map env in
-  let replace name z3_name tokens =
-    List.map tokens ~f:(fun token ->
-        if String.equal name token then
-          z3_name
-        else
-          token)
-  in
   let smt_post = Env.EnvMap.fold var_map ~init:(tokenize smt_post)
       ~f:(fun ~key:var ~data:z3_var tokens ->
           let name = Var.name var in
