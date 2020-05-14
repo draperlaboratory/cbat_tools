@@ -88,12 +88,25 @@ let tokenize (str : string) : string list =
 
 let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   let var_map = Env.get_var_map env in
+  let init_var_map = Env.get_init_var_map env in
+  let replace name z3_name tokens =
+    List.map tokens ~f:(fun token ->
+        if String.equal name token then
+          z3_name
+        else
+          token)
+  in
   let smt_post = Env.EnvMap.fold var_map ~init:(tokenize smt_post)
       ~f:(fun ~key:var ~data:z3_var tokens ->
           let name = Var.name var in
           let z3_name = Expr.to_string z3_var in
-          List.map tokens ~f:(fun token ->
-              String.substr_replace_all token ~pattern:name ~with_:z3_name))
+          replace name z3_name tokens)
+  in
+  let smt_post = Env.EnvMap.fold init_var_map ~init:smt_post
+      ~f:(fun ~key:v ~data:init_var tokens ->
+          let name = "init_" ^ (Var.name v) in
+          let z3_name = Expr.to_string init_var in
+          replace name z3_name tokens)
   in
   let smt_post = List.fold smt_post ~init:"" ~f:(fun post token -> token ^ post) in
   info "New smt-lib string : %s\n" smt_post;
