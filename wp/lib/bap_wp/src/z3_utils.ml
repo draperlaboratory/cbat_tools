@@ -73,29 +73,38 @@ let tokenize (str : string) : string list =
         else
           Re.Group.get g 0)
 
-let replace (name : string) (z3_name : string) (tokens : string list) : string list =
-  List.map tokens ~f:(fun token ->
-      if String.equal name token then
-        z3_name
-      else
-        token)
+(* Looks up a Z3 variable in the map based off of the name in BIL notation.
+   Optionally adds a prefix in the case one is used in the variable name. *)
+let find_var ?prefix:(prefix = "") (map : Constr.z3_expr Var.Map.t)
+    (name : string) : Constr.z3_expr option =
+  map
+  |> Var.Map.to_alist
+  |> List.find_map
+    ~f:(fun (var, z3_var) ->
+        let var_name = prefix ^ (Var.name var) in
+        if String.equal name var_name then
+          Some z3_var
+        else
+          None)
 
 let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   let var_map = Env.get_var_map env in
   let init_var_map = Env.get_init_var_map env in
-  let smt_post = Env.EnvMap.fold var_map ~init:(tokenize smt_post)
-      ~f:(fun ~key:var ~data:z3_var tokens ->
-          let name = Var.name var in
-          let z3_name = Expr.to_string z3_var in
-          replace name z3_name tokens)
+  let smt_post =
+    smt_post
+    |> tokenize
+    |> List.map ~f:(fun token ->
+        match find_var var_map token with
+        | Some v -> Expr.to_string v
+        | None ->
+          begin
+            match find_var init_var_map token ~prefix:"init_" with
+            | Some v -> Expr.to_string v
+            | None -> token
+          end)
+    |> List.fold ~init:"" ~f:(fun post token ->
+        token ^ post)
   in
-  let smt_post = Env.EnvMap.fold init_var_map ~init:smt_post
-      ~f:(fun ~key:v ~data:init_var tokens ->
-          let name = "init_" ^ (Var.name v) in
-          let z3_name = Expr.to_string init_var in
-          replace name z3_name tokens)
-  in
-  let smt_post = List.fold smt_post ~init:"" ~f:(fun post token -> token ^ post) in
   info "New smt-lib string : %s\n" smt_post;
   let decl_syms = get_decls_and_symbols env in
   let ctx = Env.get_context env in
