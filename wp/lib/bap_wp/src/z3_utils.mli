@@ -22,6 +22,17 @@
 module Env = Environment
 module Constr = Constraint
 
+(** Splits up an smtlib2 string into a list of tokens that can be parsed. *)
+val tokenize : string -> string list
+
+(** Builds up an smtlib2 string from a list of tokens. *)
+val build_str : string list -> string
+
+(** Looks up a Z3 variable's name in the map based off of the name in BIL notation.
+    [fmt] is used to add prefixes and suffixes to a variable name. For example,
+    init_RDI_orig. *)
+val get_z3_name :
+  Constr.z3_expr Bap.Std.Var.Map.t -> string -> (Bap.Std.Var.t -> string) -> string option
 
 (** [get_decls_and_symbols] builds from a the var_map in an environment 
     a mapping of all Z3 func_decl to their symbol. This is a helper function for

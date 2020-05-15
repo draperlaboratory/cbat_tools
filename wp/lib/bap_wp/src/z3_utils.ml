@@ -73,17 +73,20 @@ let tokenize (str : string) : string list =
         else
           Re.Group.get g 0)
 
-(* Looks up a Z3 variable in the map based off of the name in BIL notation.
-   Optionally adds a prefix in the case one is used in the variable name. *)
-let find_var ?prefix:(prefix = "") (map : Constr.z3_expr Var.Map.t)
-    (name : string) : Constr.z3_expr option =
+let build_str (tokens : string list) : string =
+  List.fold tokens ~init:"" ~f:(fun post token -> token ^ post)
+
+(* Looks up a Z3 variable's name in the map based off of the name in BIL notation.
+   [fmt] is used to add prefixes and suffixes to a variable name. For example,
+   init_RDI_orig. *)
+let get_z3_name (map : Constr.z3_expr Var.Map.t) (name : string) (fmt : Var.t -> string)
+  : string option =
   map
   |> Var.Map.to_alist
   |> List.find_map
     ~f:(fun (var, z3_var) ->
-        let var_name = prefix ^ (Var.name var) in
-        if String.equal name var_name then
-          Some z3_var
+        if String.equal name (fmt var) then
+          Some (Expr.to_string z3_var)
         else
           None)
 
@@ -94,16 +97,15 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
     smt_post
     |> tokenize
     |> List.map ~f:(fun token ->
-        match find_var var_map token with
-        | Some v -> Expr.to_string v
+        match get_z3_name var_map token Var.name with
+        | Some n -> n
         | None ->
           begin
-            match find_var init_var_map token ~prefix:"init_" with
-            | Some v -> Expr.to_string v
+            match get_z3_name init_var_map token (fun v -> "init_" ^ Var.name v) with
+            | Some n -> n
             | None -> token
           end)
-    |> List.fold ~init:"" ~f:(fun post token ->
-        token ^ post)
+    |> build_str
   in
   info "New smt-lib string : %s\n" smt_post;
   let decl_syms = get_decls_and_symbols env in
