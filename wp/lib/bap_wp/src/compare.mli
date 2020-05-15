@@ -98,3 +98,7 @@ val compare_subs_fun
   -> smtlib_post:string
   -> smtlib_hyp:string
   -> Constr.t * Env.t * Env.t
+
+(** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
+    as a comparison predicate between an original and modified binary. *)
+val mk_smtlib2_compare : Env.t -> Env.t -> string -> Constr.t
