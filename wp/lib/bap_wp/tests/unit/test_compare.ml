@@ -22,7 +22,8 @@ module Pre = Precondition
 module Comp = Compare
 module Constr = Constraint
 module Env = Environment
-
+module Bool = Z3.Boolean
+module BV = Z3.BitVector
 
 (* To run these tests: `make test.unit` in bap_wp directory *)
 
@@ -743,6 +744,67 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
     compare_prop Z3.Solver.UNSATISFIABLE
 
 
+let test_mk_smtlib2_compare_1 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env1 = Pre.mk_env ctx var_gen in
+  let env2 = Pre.mk_env ctx var_gen in
+  let env2 = Env.set_freshen env2 true in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let x1, env1 = Env.get_var env1 x in
+  let _, env2 = Env.get_var env2 x in
+  let _, env1 = Env.get_var env1 y in
+  let y2, env2 = Env.get_var env2 y in
+  let init_x1, env1 = Env.mk_init_var env1 x in
+  let _, env2 = Env.mk_init_var env2 x in
+  let _, env1 = Env.mk_init_var env1 y in
+  let init_y2, env2 = Env.mk_init_var env2 y in
+  let cond = "(assert (and (= x_orig init_x_orig) (= y_mod init_y_mod)))" in
+  let expected =
+    let constr =
+      Bool.mk_and ctx [Bool.mk_eq ctx x1 init_x1; Bool.mk_eq ctx y2 init_y2]
+      |> Constr.mk_goal "(and (= x0 init_x0) (= y02 init_y02))"
+      |> Constr.mk_constr
+    in
+    Constr.mk_clause [] [constr]
+  in
+  let result = Compare.mk_smtlib2_compare env1 env2 cond in
+  assert_equal ~ctxt:test_ctx
+    ~printer:Constr.to_string
+    expected result
+
+
+let test_mk_smtlib2_compare_2 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let env1 = Pre.mk_env ctx var_gen in
+  let env2 = Pre.mk_env ctx var_gen in
+  let env2 = Env.set_freshen env2 true in
+  let x = Var.create "x" reg32_t in
+  let x1, env1 = Env.get_var env1 x in
+  let x2, env2 = Env.get_var env2 x in
+  let _, env1 = Env.mk_init_var env1 x in
+  let init_x2, env2 = Env.mk_init_var env2 x in
+  let x_orig123 = BV.mk_const_s ctx "x_orig123" 32 in
+  let cond =
+    "(declare-const x_orig123 (_ BitVec 32)) \n\
+     (assert (and (= x_orig x_orig123) (= x_mod init_x_mod)))"
+  in
+  let expected =
+    let constr =
+      Bool.mk_and ctx [Bool.mk_eq ctx x1 x_orig123; Bool.mk_eq ctx x2 init_x2]
+      |> Constr.mk_goal "(and (= x0 x_orig123) (= x01 init_x01))"
+      |> Constr.mk_constr
+    in
+    Constr.mk_clause [] [constr]
+  in
+  let result = Compare.mk_smtlib2_compare env1 env2 cond in
+  assert_equal ~ctxt:test_ctx
+    ~printer:Constr.to_string
+    expected result
+
+
 let suite = [
   "z = x+y; and x = x+1; y = y-1; z = x+y;"  >:: test_block_pair_1;
   "z = x; and y = x; z = y;"                 >:: test_block_pair_2;
@@ -770,4 +832,7 @@ let suite = [
   "Diff data location: UNSAT"                >:: test_memory_model_1;
   "Diff data location: SAT"                  >:: test_memory_model_2;
   "Diff data location, substitution: UNSAT"  >:: test_memory_model_3;
+
+  "Parsing smtlib compare expression"        >:: test_mk_smtlib2_compare_1;
+  "Should not overwrite x_orig123"           >:: test_mk_smtlib2_compare_2;
 ]
