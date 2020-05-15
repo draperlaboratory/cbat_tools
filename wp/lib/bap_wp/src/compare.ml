@@ -59,16 +59,25 @@ let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t)
 (** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
     as a comparison predicate between an original and modified binary. *)
 let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
-  let var_map1 = (Env.get_var_map env1) in
-  let var_map2 = (Env.get_var_map env2) in
-  let smtlib_str = Env.EnvMap.fold var_map1 ~init:smtlib_str
-      ~f:(fun ~key:var ~data:z3_var smtlib_str ->
-          String.substr_replace_all smtlib_str ~pattern:((Var.name var) ^ "_orig") ~with_:(Z3.Expr.to_string z3_var)
-        ) in
-  let smtlib_str = Env.EnvMap.fold var_map2 ~init:smtlib_str
-      ~f:(fun ~key:var ~data:z3_var smtlib_str ->
-          String.substr_replace_all smtlib_str ~pattern:((Var.name var) ^ "_mod") ~with_:(Z3.Expr.to_string z3_var)
-        ) in
+  let var_map1 = Env.get_var_map env1 in
+  let var_map2 = Env.get_var_map env2 in
+  let init_var_map1 = Env.get_init_var_map env1 in
+  let init_var_map2 = Env.get_init_var_map env2 in
+  let var_fmt1 = fun v -> Format.sprintf "%s_orig" (Var.name v) in
+  let var_fmt2 = fun v -> Format.sprintf "%s_mod" (Var.name v) in
+  let init_fmt1 = fun v -> Format.sprintf "init_%s_orig" (Var.name v) in
+  let init_fmt2 = fun v -> Format.sprintf "init_%s_mod" (Var.name v) in
+  let maps = [var_map1; var_map2; init_var_map1; init_var_map2] in
+  let fmts = [var_fmt1; var_fmt2; init_fmt1; init_fmt2] in
+  let names = List.zip_exn maps fmts in
+  let smtlib_str =
+    smtlib_str
+    |> Z3_utils.tokenize
+    |> List.map ~f:(fun token ->
+        List.find_map names ~f:(fun (map, fmt) -> Z3_utils.get_z3_name map token fmt)
+        |> Option.value ~default:token)
+    |> Z3_utils.build_str
+  in
   info "New smtlib string: %s \n" smtlib_str;
   let declsym1 = Z3_utils.get_decls_and_symbols env1 in
   let declsym2 = Z3_utils.get_decls_and_symbols env2 in
