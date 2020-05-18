@@ -13,6 +13,7 @@
 
 open !Core_kernel
 open Bap.Std
+open Graphlib.Std
 
 include Self()
 
@@ -791,7 +792,6 @@ let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t
 
 let visit_graph (env : Env.t) (post : Constr.t)
     ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
-  let module G = Graphlib.Std.Graphlib in
   let leave_node _ n (_, env) =
     let b = Graphs.Ir.Node.label n in
     visit_block env post b in
@@ -810,7 +810,7 @@ let visit_graph (env : Env.t) (post : Constr.t)
       end
     | _ -> p
   in
-  G.depth_first_search (module Graphs.Ir)
+  Graphlib.depth_first_search (module Graphs.Ir)
     ~enter_edge:enter_edge ~start:start ~leave_node:leave_node ~init:(post, env)
     g
 
@@ -822,7 +822,6 @@ let _ = Env.wp_rec_call :=
 (* BAP currently doesn't have a way to determine that exit does not return.
    This function removes the backedge after the call to exit. *)
 let filter (env : Env.t) (calls : string list) (cfg : Graphs.Ir.t) : Graphs.Ir.t =
-  let module G = Graphlib.Std.Graphlib in
   let enter_edge kind e cfg =
     match kind with
     | `Back -> begin
@@ -856,7 +855,7 @@ let filter (env : Env.t) (calls : string list) (cfg : Graphs.Ir.t) : Graphs.Ir.t
       end
     | _ -> cfg
   in
-  G.depth_first_search (module Graphs.Ir) ~enter_edge:enter_edge ~init:cfg cfg
+  Graphlib.depth_first_search (module Graphs.Ir) ~enter_edge:enter_edge ~init:cfg cfg
 
 let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   debug "Visiting sub:\n%s%!" (Sub.to_string sub);
