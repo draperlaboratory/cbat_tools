@@ -71,8 +71,9 @@ let match_inline (to_inline : string option) (subs : (Sub.t Seq.t)) : Sub.t Seq.
   | None -> Seq.empty
   | Some to_inline -> let inline_pat = Re.Posix.re to_inline |> Re.Posix.compile in
     let filter_subs = Seq.filter ~f:(fun s -> Re.execp inline_pat (Sub.name s)) subs in
-    let _ = if Seq.length_is_bounded_by ~min:1 filter_subs then
-        info "Inlining functions: %s\n"  (filter_subs |> Seq.to_list |> List.to_string ~f:(fun sub -> (Sub.name sub)))
+    let () =
+      if Seq.length_is_bounded_by ~min:1 filter_subs then
+        info "Inlining functions: %s\n" (filter_subs |> Seq.to_list |> List.to_string ~f:Sub.name)
       else
         warning "No matches on inlining\n"
     in
@@ -135,7 +136,7 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
       ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds in
   (* call visit sub with a dummy postcondition to fill the
      environment with variables *)
-  let true_constr = Pre.Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+  let true_constr = Env.trivial_constr env in
   let _, env = Pre.visit_sub env true_constr main_sub in
   (* Remove the constants generated and stored in the environment because they aren't
      going to be used in the wp analysis. *)
