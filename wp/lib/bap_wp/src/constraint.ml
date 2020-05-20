@@ -30,7 +30,7 @@ type goal = { goal_name : string; goal_val : z3_expr }
 
 type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
 
-let eval_model_exn (model : Model.model) (expr: z3_expr) : z3_expr =
+let eval_model_exn (model : Model.model) (expr : z3_expr) : z3_expr =
   Model.eval model expr true
   |> Option.value_exn
     ?here:None
@@ -183,13 +183,15 @@ let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
     let e' = Expr.substitute e olds news in
     Bool.mk_ite ctx e' (eval_aux c1 olds news ctx) (eval_aux c2 olds news ctx)
   | Clause (hyps, concs) ->
-    let concs_expr = List.map concs ~f:(fun c -> eval_aux c olds news ctx)
-                     |> Bool.mk_and ctx in
+    let eval_conjunction conj =
+      List.map conj ~f:(fun c -> eval_aux c olds news ctx)
+      |> Bool.mk_and ctx
+    in
+    let concs_expr = eval_conjunction concs in
     if List.is_empty hyps then
       concs_expr
     else
-      let hyps_expr = List.map hyps ~f:(fun h -> eval_aux h olds news ctx)
-                      |> Bool.mk_and ctx in
+      let hyps_expr = eval_conjunction hyps in
       Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
     let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
@@ -236,7 +238,7 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
         | Solver.SATISFIABLE -> Seq.empty
         | Solver.UNSATISFIABLE ->
           Seq.singleton
-            { goal = { g with goal_val = goal_val};
+            { goal = { g with goal_val = goal_val };
               path = current_path;
               reg_map = current_registers }
         | Solver.UNKNOWN ->
@@ -279,5 +281,3 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
       worker e current_path current_registers (olds @ o) (news @ n')
   in
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
-
-

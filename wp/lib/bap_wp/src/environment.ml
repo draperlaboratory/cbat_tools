@@ -153,9 +153,9 @@ let wp_rec_call :
   (t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
   ref (fun _ _ ~start:_ _ -> assert false)
 
-let trivial_pre (env : t) : Constr.t =
-  let ctx = get_context env in
-  Z3.Boolean.mk_true ctx
+let trivial_constr (env : t) : Constr.t =
+  get_context env
+  |> Z3.Boolean.mk_true
   |> Constr.mk_goal "true"
   |> Constr.mk_constr
 
@@ -211,7 +211,7 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
             | Some p -> p
             | None ->
               warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
-              trivial_pre env
+              trivial_constr env
           in
           add_precond env tid pre
         else

@@ -18,11 +18,12 @@
    [example]
 
    Note that not all BIL instructions are supported, only
-   [x := e], [while_ e b] and [if_ e a b] are for now. *)
+   [x := e], [while_ e b] and [if_ e a b] are for now.
+
+*)
 
 open !Core_kernel
 open Bap.Std
-
 
 let mk_assert_fail () : Sub.t * Exp.t =
   let call_tid = Tid.create () in
