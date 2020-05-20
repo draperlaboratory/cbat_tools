@@ -247,6 +247,9 @@ val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
     of a bap variable [var]. *)
 val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
+(** [trivial_constr] generates a trivial constraint of just [true]. *)
+val trivial_constr : t -> Constr.t
+
 (*-------- Z3 constant creation utilities ----------*)
 
 (** Create a constant Z3 expression of a type that corresponds to a bap type, where
