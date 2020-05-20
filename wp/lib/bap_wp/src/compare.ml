@@ -33,7 +33,7 @@ let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list 
      have arbitrary values unrelated to the concrete exectution
      (and in particular be of different types!)
   *)
-  let vars = Set.filter vars ~f:(fun v -> Var.is_physical v) in
+  let vars = Set.filter vars ~f:Var.is_physical in
   Var.Set.fold vars ~init:([], env1, env2)
     ~f:(fun (eqs, env1, env2) v ->
         let var1, env1 = Env.get_var env1 v in
@@ -70,12 +70,14 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let maps = [var_map1; var_map2; init_var_map1; init_var_map2] in
   let fmts = [var_fmt1; var_fmt2; init_fmt1; init_fmt2] in
   let names = List.zip_exn maps fmts in
+  let to_z3_name token =
+    List.find_map names ~f:(fun (map, fmt) -> Z3_utils.get_z3_name map token fmt)
+    |> Option.value ~default:token
+  in
   let smtlib_str =
     smtlib_str
     |> Z3_utils.tokenize
-    |> List.map ~f:(fun token ->
-        List.find_map names ~f:(fun (map, fmt) -> Z3_utils.get_z3_name map token fmt)
-        |> Option.value ~default:token)
+    |> List.map ~f:to_z3_name
     |> Z3_utils.build_str
   in
   info "New smtlib string: %s \n" smtlib_str;
@@ -154,8 +156,7 @@ let compare_subs_empty
     ~smtlib_hyp:(smtlib_hyp : string)
   : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_,env2) ~rename_set:_ =
-    let ctx = Env.get_context env1 in
-    let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+    let post = Env.trivial_constr env1 in
     post, env1, env2
   in
   let hyps = postcond in
@@ -169,8 +170,7 @@ let compare_subs_empty_post
     ~smtlib_hyp:(smtlib_hyp : string)
   : Constr.t * Env.t * Env.t =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let ctx = Env.get_context env1 in
-    let post = Bool.mk_true ctx |> Constr.mk_goal "true" |> Constr.mk_constr in
+    let post = Env.trivial_constr env1 in
     post, env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
@@ -230,7 +230,7 @@ let compare_subs_fun
               |> Constr.mk_constr
             in
             let clause = Constr.mk_clause [f_not_called_original] [f_not_called_modified] in
-            clause::goal
+            clause :: goal
           )
     in
     Constr.mk_clause [] no_additional_calls, env1, env2

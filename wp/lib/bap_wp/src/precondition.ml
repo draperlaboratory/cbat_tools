@@ -294,12 +294,15 @@ let typ_size (t : Type.t) : int =
   | Bil.Types.Mem (_, s) -> Size.in_bits s
   | Bil.Types.Unk ->
     error "Unk type: Unable to obtain type size.%!";
-    failwith "visit_elt: elt's type is not representable by Type.t"
+    failwith "typ_size: elt's type is not representable by Type.t"
 
 let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
   let ctx = Env.get_context env in
-  let fun_name = Bool.mk_const_s ctx (Env.get_called env tid |>
-                                      Option.value_exn ?here:None ?error:None ?message:None) in
+  let fun_name =
+    Env.get_called env tid
+    |> Option.value_exn ?here:None ?error:None ?message:None
+    |> Bool.mk_const_s ctx
+  in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
 let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
@@ -425,10 +428,11 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   visitor#visit_sub t vars
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
-  let name = Sub.name sub in
-  if name = "__VERIFIER_error" ||
-     name = "__assert_fail" then
-    let open Env in
+  let is_verifier_error name = String.(
+      name = "__VERIFIER_error" ||
+      name = "__assert_fail")
+  in
+  if is_verifier_error (Sub.name sub) then
     Some {
       spec_name = "spec_verifier_error";
       spec = Summary (fun env _ _ ->
@@ -445,8 +449,7 @@ let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
     None
 
 let spec_verifier_assume (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
-  if Sub.name sub = "__VERIFIER_assume" then
-    let open Env in
+  if String.equal (Sub.name sub) "__VERIFIER_assume" then
     Some {
       spec_name = "spec_verifier_assume";
       spec = Summary
@@ -455,10 +458,13 @@ let spec_verifier_assume (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
              let args = Term.enum arg_t sub in
+             let is_input arg =
+               match Arg.intent arg with
+               | Some In | Some Both -> true
+               | _ -> false
+             in
              let input =
-               match Seq.find args
-                       ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.In ||
-                                    Bap.Std.Arg.intent a = Some Bap.Std.Both) with
+               match Seq.find args ~f:is_input with
                | Some i -> i
                | None -> failwith "Verifier headerfile must be specified with --api-path" in
              let v = var_of_arg_t input in
@@ -481,7 +487,6 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
       || (equal name "malloc"))
   in
   if is_nondet (Sub.name sub) then
-    let open Env in
     Some {
       spec_name = "spec_verifier_nondet";
       spec = Summary
@@ -489,32 +494,34 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
              let args = Term.enum arg_t sub in
+             let is_output arg =
+               match Arg.intent arg with
+               | Some Out | Some Both -> true
+               | _ -> false
+             in
              let output =
-               match Seq.find args
-                       ~f:(fun a -> Bap.Std.Arg.intent a = Some Bap.Std.Out ||
-                                    Bap.Std.Arg.intent a = Some Bap.Std.Both) with
+               match Seq.find args ~f:is_output with
                | Some o -> o
                | None -> failwith "Verifier headerfile must be specified with --api-path" in
              let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
              let v = Var.Set.choose_exn vars in
              let z3_v, env = Env.get_var env v in
              let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string z3_v) in
-             let fresh = new_z3_expr env ~name:name (Var.typ v) in
+             let fresh = Env.new_z3_expr env ~name:name (Var.typ v) in
              Constr.substitute_one post z3_v fresh, Env.add_const env fresh)
     }
   else
     None
 
 let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
-  if Term.first arg_t sub <> None then
-    let open Env in
+  let args = Term.enum arg_t sub in
+  if not (Seq.is_empty args) then
     Some {
       spec_name = "spec_arg_terms";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             let args = Term.enum arg_t sub in
              let inputs, outputs = Seq.fold args ~init:([], [])
                  ~f:(fun (ins, outs) arg ->
                      let var = var_of_arg_t arg in
@@ -534,16 +541,15 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
     Term.enum blk_t sub
-    |> Seq.map ~f:(fun b -> Term.enum def_t b)
+    |> Seq.map ~f:(Term.enum def_t)
     |> Seq.concat
   in
   let is_rax def =
     let reg = Var.to_string (Def.lhs def) in
-    reg = "RAX" || reg = "EAX"
+    String.(reg = "RAX" || reg = "EAX")
   in
   if Seq.exists (defs sub) ~f:is_rax then
     (* RAX is a register that is used in the subroutine *)
-    let open Env in
     Some {
       spec_name = "spec_rax_out";
       spec = Summary
@@ -591,7 +597,6 @@ let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
     begin
       match arch with
       | `x86_64 ->
-        let open Env in
         Some {
           spec_name = "spec_afl_maybe_log";
           spec = Summary
@@ -613,7 +618,6 @@ let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
     None
 
 let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
-  let open Env in
   {
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
@@ -623,7 +627,6 @@ let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
 
 let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t)
   : Env.fun_spec option =
-  let open Env in
   if Seq.mem to_inline sub ~equal:Sub.equal then
     Some {
       spec_name = "spec_inline";
@@ -1074,7 +1077,7 @@ let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
     else
       pre'
   in
-  let () = Z3.Solver.add solver [is_correct] in
+  Z3.Solver.add solver [is_correct];
   Z3.Solver.check solver []
 
 let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)

@@ -34,21 +34,21 @@ val build_str : string list -> string
 val get_z3_name :
   Constr.z3_expr Bap.Std.Var.Map.t -> string -> (Bap.Std.Var.t -> string) -> string option
 
-(** [get_decls_and_symbols] builds from a the var_map in an environment 
+(** [get_decls_and_symbols] builds from a the var_map in an environment
     a mapping of all Z3 func_decl to their symbol. This is a helper function for
     [mk_smtlib2] *)
-val get_decls_and_symbols : Env.t -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) 
+val get_decls_and_symbols : Env.t -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)
 
 (** [mk_smtlib2_single env smtlib_str] takes in a string representing a
-    valid SMT-Lib-2 statement. 
+    valid SMT-Lib-2 statement.
     The variables in the SMT-Lib statements need to appear in the
     environment. The intended purpose of this function is generating hypothesis
      and postconditions for single binary analysis *)
 val mk_smtlib2_single : Env.t -> string -> Constr.t
 
-(** [mk_smtlib2] parses a smtlib2 string in the context that has a mapping of func_decl 
-    to symbols and returns a constraint [Constr.t] corresponding to the smtlib2 string. 
-    The [func_decl * symbol] mapping can be constructed from an [Env.t] using the 
+(** [mk_smtlib2] parses a smtlib2 string in the context that has a mapping of func_decl
+    to symbols and returns a constraint [Constr.t] corresponding to the smtlib2 string.
+    The [func_decl * symbol] mapping can be constructed from an [Env.t] using the
     [get_decls_and_symbols] function. *)
 
 val mk_smtlib2 : Z3.context -> string -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)  -> Constr.t

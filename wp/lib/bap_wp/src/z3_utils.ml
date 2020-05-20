@@ -27,7 +27,7 @@ module Solver = Z3.Solver
 module Env = Environment
 module Constr = Constraint
 
-let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) list) = 
+let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) list) =
   let ctx = Env.get_context env in
   let var_to_decl ~key:_ ~data:z3_var decls =
     assert (Expr.is_const z3_var);
@@ -35,14 +35,15 @@ let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) 
         (Expr.to_string z3_var)
         (Expr.get_sort z3_var) in
     let sym =  Symbol.mk_string ctx (Expr.to_string z3_var) in
-    (decl,sym)::decls
+    (decl, sym) :: decls
   in
   let var_map = Env.get_var_map env in
   let init_var_map = Env.get_init_var_map env in
   let var_decls = Env.EnvMap.fold var_map ~init:[] ~f:var_to_decl in
   Env.EnvMap.fold init_var_map ~init:var_decls ~f:var_to_decl
 
-let mk_smtlib2 (ctx : Z3.context) (smtlib_str : string) (decl_syms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : Constr.t =
+let mk_smtlib2 (ctx : Z3.context) (smtlib_str : string)
+    (decl_syms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : Constr.t =
   let fun_decls, fun_symbols = List.unzip decl_syms in
   let sort_symbols = [] in
   let sorts = [] in
@@ -68,10 +69,8 @@ let tokenize (str : string) : string list =
       | `Delim g ->
         (* There should always be one value in the group. If not, we will raise an
            exception. *)
-        if Re.Group.nb_groups g <> 1 then
-          failwith "Number of groups in string delimeter is not 1"
-        else
-          Re.Group.get g 0)
+        assert (Re.Group.nb_groups g = 1);
+        Re.Group.get g 0)
 
 let build_str (tokens : string list) : string =
   List.fold tokens ~init:"" ~f:(fun post token -> token ^ post)
