@@ -157,7 +157,8 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
   | Solver.SATISFIABLE ->
     let module Target = (val target_of_arch (Env.get_arch env1)) in
     let ctx = Env.get_context env1 in
-    let var_map = Env.get_var_map env1 in
+    let var_map1 = Env.get_var_map env1 in
+    let var_map2 = Env.get_var_map env2 in
     let model = Constr.get_model_exn solver in
     let mem1, _ = Env.get_var env1 Target.CPU.mem in
     let mem2, _ = Env.get_var env2 Target.CPU.mem in
@@ -172,7 +173,7 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
       Format.printf "\nRefuted goals:\n%!";
       Seq.iter refuted_goals ~f:(fun goal ->
           Format.printf "%s\n%!"
-            (Constr.format_refuted_goal goal model var_map ~print_path))
+            (Constr.format_refuted_goal goal model ~orig:var_map1 ~modif:var_map2 ~print_path))
     end
 
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a

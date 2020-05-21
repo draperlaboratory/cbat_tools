@@ -72,8 +72,13 @@ val format_values : Format.formatter -> (string * z3_expr) list -> unit
     This string shows the lhs and rhs of a goal that compares two values. If print_path
     is set, it also shows the path taken to reach the refuted goal and the register
     values along that path. *)
-val format_refuted_goal :
-  refuted_goal -> Z3.Model.model -> z3_expr Bap.Std.Var.Map.t -> print_path:bool -> string
+val format_refuted_goal
+  :  refuted_goal
+  -> Z3.Model.model
+  -> orig:(z3_expr Bap.Std.Var.Map.t)
+  -> modif:(z3_expr Bap.Std.Var.Map.t)
+  -> print_path:bool
+  -> string
 
 (** Obtains the goal data type from a refuted goal. *)
 val goal_of_refuted_goal : refuted_goal -> goal
