@@ -79,11 +79,18 @@ let format_values (fmt : Format.formatter) (vals : (string * z3_expr) list) : un
             "\t%s%s|->  @[%s@]@\n" var pad (expr_to_hex value))
 
 let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
-    (var_map : z3_expr Var.Map.t) : unit =
+    ~orig:(var_map1 : z3_expr Var.Map.t) ~modif:(var_map2 : z3_expr Var.Map.t) : unit =
+  let var_map =
+    Var.Map.merge var_map1 var_map2 ~f:(fun ~key:_ data ->
+        match data with
+        | `Both (v, _) -> Some v
+        | `Left v | `Right v -> Some v)
+  in
   match Jmp.Map.find regs jmp with
   | None -> ()
   | Some regs ->
-    let reg_vals = Var.Map.fold var_map ~init:[]
+    let reg_vals =
+      Var.Map.fold var_map ~init:[]
         ~f:(fun ~key ~data pairs ->
             match List.find regs ~f:(fun (r, _) -> Expr.equal data r) with
             | None -> pairs
@@ -92,8 +99,13 @@ let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
     format_values fmt reg_vals;
     Format.fprintf fmt "\n%!"
 
-let format_path (fmt : Format.formatter) (p : path) (regs : reg_map)
-    (var_map : z3_expr Var.Map.t) : unit =
+let format_path
+    (fmt : Format.formatter)
+    (p : path)
+    (regs : reg_map)
+    ~orig:(var_map1 : z3_expr Var.Map.t)
+    ~modif:(var_map2 : z3_expr Var.Map.t)
+  : unit =
   Format.fprintf fmt "\n\tPath:\n%!";
   Jmp.Map.iteri p
     ~f:(fun ~key:jmp ~data:taken ->
@@ -109,11 +121,11 @@ let format_path (fmt : Format.formatter) (p : path) (regs : reg_map)
             Format.fprintf fmt "\t%s %s (Address: %s)\n%!"
               jmp_str taken_str (Addr.to_string addr)
         end;
-        format_registers fmt regs jmp var_map)
+        format_registers fmt regs jmp ~orig:var_map1 ~modif:var_map2)
 
 let path_to_string (p : path) : string =
   let fmt = Format.str_formatter in
-  format_path fmt p Jmp.Map.empty Var.Map.empty;
+  format_path fmt p Jmp.Map.empty ~orig:Var.Map.empty ~modif:Var.Map.empty;
   Format.flush_str_formatter ()
 
 let format_goal (fmt : Format.formatter) (g : goal) (model : Model.model) : unit =
@@ -134,11 +146,16 @@ let format_goal (fmt : Format.formatter) (g : goal) (model : Model.model) : unit
     Format.fprintf fmt "\n\tZ3 Expression: %s"
       (Expr.to_string (Expr.simplify g.goal_val None))
 
-let format_refuted_goal (rg : refuted_goal) (model : Model.model)
-    (var_map : z3_expr Var.Map.t) ~print_path:(print_path : bool) : string =
+let format_refuted_goal
+    (rg : refuted_goal)
+    (model : Model.model)
+    ~orig:(var_map1 : z3_expr Var.Map.t)
+    ~modif:(var_map2 : z3_expr Var.Map.t)
+    ~print_path:(print_path : bool)
+  : string =
   let fmt = Format.str_formatter in
   format_goal fmt rg.goal model;
-  if print_path then format_path fmt rg.path rg.reg_map var_map;
+  if print_path then format_path fmt rg.path rg.reg_map ~orig:var_map1 ~modif:var_map2;
   Format.flush_str_formatter ()
 
 let goal_of_refuted_goal (rg : refuted_goal) : goal =
