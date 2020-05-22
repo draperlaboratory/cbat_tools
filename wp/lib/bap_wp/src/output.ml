@@ -101,9 +101,9 @@ let print_memory (fmt : Format.formatter) (model : Model.model)
 
 (* These are the constants that were generated during the analysis. *)
 let print_constants (fmt : Format.formatter) (model : Model.model)
-    (consts : Env.ExprSet.t) : unit =
+    (consts : Constr.ExprSet.t) : unit =
   let const_vals =
-    Env.ExprSet.fold consts ~init:[] ~f:(fun pairs c ->
+    Constr.ExprSet.fold consts ~init:[] ~f:(fun pairs c ->
         let name = Expr.to_string c in
         let value = Constr.eval_model_exn model c in
         (name, value) :: pairs)
@@ -131,7 +131,7 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   let mem_map, reg_map =
     Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data:_ -> Target.CPU.is_mem key)
   in
-  let consts = Env.ExprSet.union (Env.get_consts env1) (Env.get_consts env2) in
+  let consts = Constr.ExprSet.union (Env.get_consts env1) (Env.get_consts env2) in
   print_registers fmt model reg_map;
   print_memory fmt model mem_map env2;
   print_constants fmt model consts;

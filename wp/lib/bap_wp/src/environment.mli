@@ -27,8 +27,6 @@ module EnvMap = Bap.Std.Var.Map
 
 module Constr = Constraint
 
-module ExprSet : Core_kernel.Set.S with type Elt.t = Constr.z3_expr
-
 (** The state type which is maintained when creating preconditions. It contains, among
     other things, summaries for subroutines, the associations between BIR variables
     and Z3 constants, and preconditions for already visited blocks, if relevant. *)
@@ -224,7 +222,7 @@ val get_arch : t -> Bap.Std.Arch.t
 
 (** Obtains a list of all the {!Constr.z3_expr}s that represents constants that
     were generated during analysis. *)
-val get_consts : t -> ExprSet.t
+val get_consts : t -> Constr.ExprSet.t
 
 (** Performs a fold on the map of of function names to tids to generate a
     {!Constr.z3_expr}. *)

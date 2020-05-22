@@ -20,6 +20,8 @@ module BV = Z3.BitVector
 module Model = Z3.Model
 module Solver = Z3.Solver
 
+exception Not_implemented of string
+
 type z3_expr = Expr.expr
 
 type path = bool Jmp.Map.t
@@ -30,6 +32,14 @@ type reg_map = (z3_expr * z3_expr) list Jmp.Map.t
 type goal = { goal_name : string; goal_val : z3_expr }
 
 type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
+
+module ExprSet = Set.Make(
+  struct
+    type t = z3_expr
+    let compare = Expr.compare
+    let sexp_of_t _ = raise (Not_implemented "sexp_of_t for z3_expr not implemented")
+    let t_of_sexp _ = raise (Not_implemented "t_of_sexp for z3_expr not implemented")
+  end)
 
 let eval_model_exn (model : Model.model) (expr : z3_expr) : z3_expr =
   Model.eval model expr true
@@ -79,13 +89,7 @@ let format_values (fmt : Format.formatter) (vals : (string * z3_expr) list) : un
             "\t%s%s|->  @[%s@]@\n" var pad (expr_to_hex value))
 
 let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
-    ~orig:(var_map1 : z3_expr Var.Map.t) ~modif:(var_map2 : z3_expr Var.Map.t) : unit =
-  let var_map =
-    Var.Map.merge var_map1 var_map2 ~f:(fun ~key:_ data ->
-        match data with
-        | `Both (v, _) -> Some v
-        | `Left v | `Right v -> Some v)
-  in
+    (var_map : z3_expr Var.Map.t) : unit =
   match Jmp.Map.find regs jmp with
   | None -> ()
   | Some regs ->
@@ -99,6 +103,20 @@ let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
     format_values fmt reg_vals;
     Format.fprintf fmt "\n%!"
 
+(* Divide the path into the original path and the modified path. *)
+let partition_path (p : path) (regs : reg_map) ~orig:(_ : z3_expr Var.Map.t)
+    ~modif:(var_map2 : z3_expr Var.Map.t) : path * path =
+  Jmp.Map.partitioni_tf p
+    ~f:(fun ~key:jmp ~data:_ ->
+        let regs = Jmp.Map.find_exn regs jmp in
+        (* reg_maps that correspond to the original binary contain registers
+           found in var_map1. reg_maps that correspond to the modified binary
+           contain registers fround in both var_map1 and var_map2. *)
+        let at_jmp = regs |> List.unzip |> fst |> ExprSet.of_list in
+        let in_mod =
+          var_map2 |> Var.Map.to_alist |> List.unzip |> snd |> ExprSet.of_list in
+        ExprSet.is_empty @@ ExprSet.inter at_jmp in_mod)
+
 let format_path
     (fmt : Format.formatter)
     (p : path)
@@ -107,21 +125,34 @@ let format_path
     ~modif:(var_map2 : z3_expr Var.Map.t)
   : unit =
   Format.fprintf fmt "\n\tPath:\n%!";
-  Jmp.Map.iteri p
-    ~f:(fun ~key:jmp ~data:taken ->
-        let jmp_str =
-          jmp
-          |> Jmp.to_string
-          |> String.substr_replace_first ~pattern:"\n" ~with_:"" in
-        let taken_str = if taken then "(taken)" else "(not taken)" in
-        begin
-          match Term.get_attr jmp address with
-          | None -> Format.fprintf fmt "\t%s %s (Address not found)\n%!" jmp_str taken_str
-          | Some addr ->
-            Format.fprintf fmt "\t%s %s (Address: %s)\n%!"
-              jmp_str taken_str (Addr.to_string addr)
-        end;
-        format_registers fmt regs jmp ~orig:var_map1 ~modif:var_map2)
+  let print_path path var_map =
+    Jmp.Map.iteri path
+      ~f:(fun ~key:jmp ~data:taken ->
+          let jmp_str =
+            jmp
+            |> Jmp.to_string
+            |> String.substr_replace_first ~pattern:"\n" ~with_:"" in
+          let taken_str = if taken then "(taken)" else "(not taken)" in
+          begin
+            match Term.get_attr jmp address with
+            | None ->
+              Format.fprintf fmt "\t%s %s (Address not found)\n%!" jmp_str taken_str
+            | Some addr ->
+              Format.fprintf fmt "\t%s %s (Address: %s)\n%!"
+                jmp_str taken_str (Addr.to_string addr)
+          end;
+          format_registers fmt regs jmp var_map)
+  in
+  let path_orig, path_mod = partition_path p regs ~orig:var_map1 ~modif:var_map2 in
+  (* In the case of a single binary analysis, the path is stored in path_mod. *)
+  if Jmp.Map.is_empty path_orig then
+    print_path path_mod var_map2
+  else begin
+    Format.fprintf fmt "\n\tOriginal:\n%!";
+    print_path path_orig var_map1;
+    Format.fprintf fmt "\n\tModified:\n%!";
+    print_path path_mod var_map2
+  end
 
 let path_to_string (p : path) : string =
   let fmt = Format.str_formatter in
