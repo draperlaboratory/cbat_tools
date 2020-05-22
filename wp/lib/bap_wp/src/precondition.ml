@@ -712,7 +712,13 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
               (Expr.to_string cond_val) (hooks_to_string hooks);
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
-            let ite = Constr.mk_ite jmp (Bool.mk_not ctx false_cond) l_pre post in
+            let is_unconditional = Expr.equal cond_val (z3_expr_one ctx cond_size) in
+            let ite =
+              if is_unconditional then
+                l_pre
+              else
+                Constr.mk_ite jmp (Bool.mk_not ctx false_cond) l_pre post
+            in
             (* If we add a PC variable, we should separate the befores and afters
                similarly to how we did in visit_def *)
             let vcs = hooks.verify_before @ hooks.verify_after in
