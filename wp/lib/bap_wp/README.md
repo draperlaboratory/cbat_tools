@@ -9,8 +9,8 @@ A weakest-precondition analysis library, for BAP plugins/tools.
 
 Before installing `bap_wp`, the following requirements must be met:
 
-* BAP 2.0.0+ must be available. Confirm with `bap --version`.
-* z3 4.8.6+ must be available to `findlib` under the name `z3`
+* BAP 2.1.0+ must be available. Confirm with `bap --version`.
+* z3 4.8.8+ must be available to `findlib` under the name `z3`
   (note the lowercase `z`). Confirm with `ocamlfind query z3`.
 * core 0.12.4+ must be available. Confirm with `ocamlfind query core`.
 * oUnit must be available to `findlib` under the name `oUnit`
@@ -90,7 +90,6 @@ plugin. However, it may also be used as a standalone library, to
 invoke a WP computation over a bap subroutine or block.
 
 The file [src/precondition.mli] describes the main API. The general
-approach is to use `mk_default_env` or `mk_inline_env` to create an
-analysis environment, and then call `visit_sub` with a given
-postcondition and subroutine, to get the corresponding precondition,
-which can then be checked with `check`.
+approach is to use `mk_env` to create an analysis environment, and then call
+`visit_sub` with a given postcondition and subroutine, to get the
+corresponding precondition, which can then be checked with `check`.

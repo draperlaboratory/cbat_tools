@@ -4,20 +4,16 @@
 
 Depends on:
 
-    - ocaml 4.05.0
+    - ocaml 4.07.0
     - core_kernel 0.12.4+
-    - bap 2.0.0
+    - bap 2.1.0
     - ounit 2.0.8
-    - z3 4.8.6
+    - z3 4.8.8
     - re 1.9.0
 
 All these can be installed with
 
     opam install package_name
-
-The latest z3 version can be installed with
-
-    opam pin add z3.4.8.6 --dev-repo
 
 To build and install the plugin:
 
