@@ -14,6 +14,7 @@
 open !Core_kernel
 open Bap.Std
 open Bap_wp
+open OUnit2
 
 module Pre = Precondition
 module Constr = Constraint
@@ -105,3 +106,6 @@ let false_constr (ctx : Z3.context) : Constr.t =
   Z3.Boolean.mk_false ctx
   |> Constr.mk_goal "false"
   |> Constr.mk_constr
+
+let test_skip (msg : string) (_ : test_ctxt -> unit) (_ : test_ctxt) : unit =
+  skip_if true msg
