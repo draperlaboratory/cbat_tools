@@ -156,6 +156,45 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (Sub.to_string main_sub) Constr.pp_constr pre;
   (pre, env, env)
 
+(* Returns a list of postconditions and a list of hypotheses based on the flags
+   set from the command line. *)
+let comparators_of_flags
+    ~orig:(sub1, env1 : Sub.t * Env.t)
+    ~modif:(sub2, env2 : Sub.t * Env.t)
+    (flags : flags)
+  : Comp.comparator list * Comp.comparator list =
+  let check_calls =
+    if not flags.check_calls then
+      None
+    else
+      Some (Comp.compare_subs_fun ())
+  in
+  let output_vars =
+    if List.is_empty flags.output_vars then
+      None
+    else begin
+      let input = Var.Set.union
+          (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
+      let output = Var.Set.union
+          (Pre.get_output_vars env1 sub1 flags.output_vars)
+          (Pre.get_output_vars env2 sub2 flags.output_vars) in
+      debug "Input: %s%!" (varset_to_string input);
+      debug "Output: %s%!" (varset_to_string output);
+      Some (Comp.compare_subs_eq ~input ~output)
+    end
+  in
+  let smtlib =
+    if String.is_empty flags.post_cond && String.is_empty flags.pre_cond then
+      None
+    else
+      Some (Comp.compare_subs_smtlib
+              ~smtlib_post:flags.post_cond ~smtlib_hyp:flags.pre_cond)
+  in
+  let sp = Some (Comp.compare_subs_sp ()) in
+  [check_calls; output_vars; smtlib; sp]
+  |> List.filter_opt
+  |> List.unzip
+
 let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (flags : flags) : Constr.t * Env.t * Env.t =
   let prog1 = Program.Io.read flags.file1 in
@@ -184,23 +223,12 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
   in
+  let posts, hyps =
+    comparators_of_flags ~orig:(main_sub1, env1) ~modif:(main_sub2, env2) flags
+  in
   let pre, env1, env2 =
-    if flags.check_calls then
-      Comp.compare_subs_fun ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
-        ~smtlib_post:flags.post_cond ~smtlib_hyp:flags.pre_cond
-    else
-      begin
-        let output_vars = Var.Set.union
-            (Pre.get_output_vars env1 main_sub1 flags.output_vars)
-            (Pre.get_output_vars env2 main_sub2 flags.output_vars) in
-        let input_vars = Var.Set.union
-            (Pre.get_vars env1 main_sub1) (Pre.get_vars env2 main_sub2) in
-        debug "Input: %s%!" (varset_to_string input_vars);
-        debug "Output: %s%!" (varset_to_string output_vars);
-        Comp.compare_subs_eq ~input:input_vars ~output:output_vars
-          ~original:(main_sub1,env1) ~modified:(main_sub2,env2)
-          ~smtlib_post:flags.post_cond ~smtlib_hyp:flags.pre_cond
-      end
+    Comp.compare_subs ~postconds:posts ~hyps:hyps
+      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
   in
   Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
     (Sub.to_string main_sub1) (Sub.to_string main_sub2);
