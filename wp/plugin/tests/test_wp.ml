@@ -137,6 +137,7 @@ let suite = [
 
   "Switch case assignments"        >:: test_plugin "switch_case_assignments" sat;
   "Switch Cases"                   >:: test_plugin "switch_cases" sat;
+  "Switch Cases: Diff Ret Val"     >:: test_plugin "switch_cases_diff_ret" sat;
 
   (* Test single elf *)
 
