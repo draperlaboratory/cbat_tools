@@ -156,6 +156,44 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (Sub.to_string main_sub) Constr.pp_constr pre;
   (pre, env, env)
 
+let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
+  if flag then
+    Some (Comp.compare_subs_fun ())
+  else
+    None
+
+let output_vars
+    (flag : string list)
+    ~orig:(sub1, env1 : Sub.t * Env.t)
+    ~modif:(sub2, env2 : Sub.t * Env.t)
+  : (Comp.comparator * Comp.comparator) option =
+  if List.is_empty flag then
+    None
+  else begin
+    let input = Var.Set.union
+        (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
+    let output = Var.Set.union
+        (Pre.get_output_vars env1 sub1 flag)
+        (Pre.get_output_vars env2 sub2 flag) in
+    debug "Input: %s%!" (varset_to_string input);
+    debug "Output: %s%!" (varset_to_string output);
+    Some (Comp.compare_subs_eq ~input ~output)
+  end
+
+let smtlib
+    ~post_cond:(post_cond : string)
+    ~pre_cond:(pre_cond : string)
+  : (Comp.comparator * Comp.comparator) option =
+  if String.is_empty post_cond && String.is_empty pre_cond then
+    None
+  else
+    Some (Comp.compare_subs_smtlib ~smtlib_post:post_cond ~smtlib_hyp:pre_cond)
+
+let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
+  match arch with
+  | `x86_64 -> Some (Comp.compare_subs_sp ())
+  | _ -> None
+
 (* Returns a list of postconditions and a list of hypotheses based on the flags
    set from the command line. *)
 let comparators_of_flags
@@ -163,37 +201,21 @@ let comparators_of_flags
     ~modif:(sub2, env2 : Sub.t * Env.t)
     (flags : flags)
   : Comp.comparator list * Comp.comparator list =
-  let check_calls =
-    if not flags.check_calls then
-      None
+  let arch = Env.get_arch env1 in
+  let comps =
+    [ check_calls flags.check_calls;
+      output_vars flags.output_vars ~orig:(sub1, env1) ~modif:(sub2, env2);
+      smtlib ~post_cond:flags.post_cond ~pre_cond:flags.pre_cond;
+      sp arch ]
+    |> List.filter_opt
+  in
+  let comps =
+    if List.is_empty comps then
+      [Comp.compare_subs_empty_post ()]
     else
-      Some (Comp.compare_subs_fun ())
+      comps
   in
-  let output_vars =
-    if List.is_empty flags.output_vars then
-      None
-    else begin
-      let input = Var.Set.union
-          (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
-      let output = Var.Set.union
-          (Pre.get_output_vars env1 sub1 flags.output_vars)
-          (Pre.get_output_vars env2 sub2 flags.output_vars) in
-      debug "Input: %s%!" (varset_to_string input);
-      debug "Output: %s%!" (varset_to_string output);
-      Some (Comp.compare_subs_eq ~input ~output)
-    end
-  in
-  let smtlib =
-    if String.is_empty flags.post_cond && String.is_empty flags.pre_cond then
-      None
-    else
-      Some (Comp.compare_subs_smtlib
-              ~smtlib_post:flags.post_cond ~smtlib_hyp:flags.pre_cond)
-  in
-  let sp = Some (Comp.compare_subs_sp ()) in
-  [check_calls; output_vars; smtlib; sp]
-  |> List.filter_opt
-  |> List.unzip
+  List.unzip comps
 
 let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (flags : flags) : Constr.t * Env.t * Env.t =
