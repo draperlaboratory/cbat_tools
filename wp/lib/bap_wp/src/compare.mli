@@ -97,10 +97,10 @@ val compare_subs_empty_post : comparator * comparator
     and hypothesis that, when passed to [compare_subs], will generate a
     precondition which is provable only if (modulo soundness bugs) the VCs generated
     by the hooks provided by the environment are satisfied, given that the
-    architecture of the binary is x86_64. This comparator generates a hypothesis
-    that states the stack pointer is pointing to the region of memory that
-    represents the stack at the beginning of the subroutine, and generates Z3
-    variables that represent the initial state of memory and each register. *)
+    architecture of the binary is x86_64. The hypothesis comparator generates a
+    constraint which states that the stack pointer is within the bounds of the
+    memory region we define with [Env.mk_env ~stack_range] at environment
+    creation time. *)
 val compare_subs_sp : comparator * comparator
 
 (** Compare two subroutines by composition for conservation of function calls:

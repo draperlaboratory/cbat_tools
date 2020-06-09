@@ -154,8 +154,14 @@ let compare_subs
   in
   info "\nPostcondition:\n%s\n%!" (Constr.to_string post);
   let hyps, env1, env2 =
-    fold_comparators hyps ~original:(sub1, env1) ~modified:(sub2, env2)
-      ~rename_set:vars
+    (* We will always generate Z3 variables representing the initial value of
+       registers in the subroutine. *)
+    let init_vars ~original:(_, env1) ~modified:(_, env2) ~rename_set:vars =
+      let vars, env1, env2 = init_vars env1 env2 vars in
+      Constr.mk_clause [] vars, env1, env2
+    in
+    fold_comparators (init_vars :: hyps) ~original:(sub1, env1)
+      ~modified:(sub2, env2) ~rename_set:vars
   in
   info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
   let pre_mod, env2 = Pre.visit_sub env2 post sub2 in
@@ -187,10 +193,9 @@ let compare_subs_sp : comparator * comparator =
     let post = Env.trivial_constr env1 in
     post, env1, env2
   in
-  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:vars =
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let sp_range = Pre.set_sp_range env1 in
-    let init_mem, env1, env2 = init_vars env1 env2 vars in
-    Constr.mk_clause [] (sp_range :: init_mem), env1, env2
+    sp_range, env1, env2
   in
   postcond, hyps
 
