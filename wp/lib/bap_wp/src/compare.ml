@@ -163,7 +163,7 @@ let compare_subs
   let goal = Constr.mk_clause [hyps] [pre_combined] in
   goal, env1, env2
 
-let compare_subs_empty () : comparator * comparator =
+let compare_subs_empty : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_,env2) ~rename_set:_ =
     let post = Env.trivial_constr env1 in
     post, env1, env2
@@ -171,7 +171,7 @@ let compare_subs_empty () : comparator * comparator =
   let hyps = postcond in
   postcond, hyps
 
-let compare_subs_empty_post () : comparator * comparator =
+let compare_subs_empty_post : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let post = Env.trivial_constr env1 in
     post, env1, env2
@@ -182,7 +182,7 @@ let compare_subs_empty_post () : comparator * comparator =
   in
   postcond, hyps
 
-let compare_subs_sp () : comparator * comparator =
+let compare_subs_sp : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     let post = Env.trivial_constr env1 in
     post, env1, env2
@@ -220,7 +220,7 @@ let compare_subs_eq
   in
   postcond, hyps
 
-let compare_subs_fun () : comparator * comparator =
+let compare_subs_fun : comparator * comparator =
   let mk_is_fun_called env f =
     let ctx = Env.get_context env in
     let f_tid = Env.get_fun_name_tid env f in
