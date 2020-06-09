@@ -95,9 +95,12 @@ val compare_subs_empty_post : comparator * comparator
 
     Give two subroutines and environments, return a postcondition
     and hypothesis that, when passed to [compare_subs], will generate a
-    precondition which is provable only if (module soundness bugs) the VCs generated
+    precondition which is provable only if (modulo soundness bugs) the VCs generated
     by the hooks provided by the environment are satisfied, given that the
-    stack pointer is pointing to the stack at the beginning of the subroutine. *)
+    architecture of the binary is x86_64. This comparator generates a hypothesis
+    that states the stack pointer is pointing to the region of memory that
+    represents the stack at the beginning of the subroutine, and generates Z3
+    variables that represent the initial state of memory and each register. *)
 val compare_subs_sp : comparator * comparator
 
 (** Compare two subroutines by composition for conservation of function calls:
@@ -114,7 +117,7 @@ val compare_subs_fun : comparator * comparator
 
     Give two subroutines and environments, return a postcondition
     and hypothesis that, when passed to [compare_subs], will generate a
-    precondition which is provable only if (module soundness bugs) the
+    precondition which is provable only if (modulo soundness bugs) the
     postcondition from the smtlib2 string is satisfiable, given the
     hypothesis specified from the smtlib2 string. *)
 val compare_subs_smtlib
