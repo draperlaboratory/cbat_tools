@@ -192,7 +192,10 @@ let smtlib
 let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
   match arch with
   | `x86_64 -> Some Comp.compare_subs_sp
-  | _ -> None
+  | _ ->
+    error "CBAT can only generate hypotheses about the stack pointer and \
+           memory for the x86_64 architecture.\n%!";
+    None
 
 (* Returns a list of postconditions and a list of hypotheses based on the flags
    set from the command line. *)
