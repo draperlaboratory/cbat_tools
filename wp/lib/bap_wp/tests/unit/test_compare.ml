@@ -300,7 +300,7 @@ let test_sub_pair_6 (test_ctx : test_ctxt) : unit =
   let read = Bil.(load ~mem:(var mem) ~addr:(var loc) LittleEndian `r32) in
   let sub1 = Bil.([if_ (read = i32 12)[][]]) |> bil_to_sub in
   let sub2 = Bil.([if_ (read = i32 3) [if_ (read = i32 4) [][]] []]) |> bil_to_sub in
-  let post, hyps = Comp.compare_subs_empty_post () in
+  let post, hyps = Comp.compare_subs_empty_post in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -321,7 +321,7 @@ let test_sub_pair_7 (test_ctx : test_ctxt) : unit =
   let read' = Bil.(load ~mem:(var mem) ~addr:(var loc + one) LittleEndian `r32) in
   let sub1 = Bil.([if_ (read = i32 3)[][]]) |> bil_to_sub in
   let sub2 = Bil.([if_ (read = i32 3) [if_ (read' = i32 4) [][]] []]) |> bil_to_sub in
-  let post, hyps = Comp.compare_subs_empty_post () in
+  let post, hyps = Comp.compare_subs_empty_post in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -350,7 +350,7 @@ let test_sub_pair_fun_1 (test_ctx : test_ctxt) : unit =
   let main_sub2 = mk_sub ~tid:sub2_tid ~name:"main_sub" [blk3; blk4] in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub]) in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub]) in
-  let post, hyps = Comp.compare_subs_fun () in
+  let post, hyps = Comp.compare_subs_fun in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
@@ -378,7 +378,7 @@ let test_sub_pair_fun_2 (test_ctx : test_ctxt) : unit =
   let main_sub2 = mk_sub ~tid:sub2_tid ~name:"main_sub" [blk3; blk4] in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub]) in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub]) in
-  let post, hyps = Comp.compare_subs_fun () in
+  let post, hyps = Comp.compare_subs_fun in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
@@ -418,7 +418,7 @@ let test_sub_pair_fun_3 (test_ctx : test_ctxt) : unit =
       ~subs:(Seq.of_list [main_sub1; call1_sub; call2_sub]) in
   let env2 = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub2; call1_sub; call2_sub]) in
-  let post, hyps = Comp.compare_subs_fun () in
+  let post, hyps = Comp.compare_subs_fun in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
@@ -459,7 +459,7 @@ let test_sub_pair_fun_4 (test_ctx : test_ctxt) : unit =
       ~subs:(Seq.of_list [main_sub1; call1_sub; call2_sub]) in
   let env2 = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub2; call1_sub; call2_sub]) in
-  let post, hyps = Comp.compare_subs_fun () in
+  let post, hyps = Comp.compare_subs_fun in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
@@ -674,7 +674,7 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
       ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let _, env1 = Pre.init_vars input_vars env1 in
-  let post1, hyps1 = Comp.compare_subs_sp () in
+  let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]
@@ -715,7 +715,7 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
       ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let _, env1 = Pre.init_vars input_vars env1 in
-  let post1, hyps1 = Comp.compare_subs_sp () in
+  let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]
@@ -764,7 +764,7 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
       ~exp_conds:[Pre.mem_read_offsets env2 offset] in
   let _, env1 = Pre.init_vars input_vars env1 in
-  let post1, hyps1 = Comp.compare_subs_sp () in
+  let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]

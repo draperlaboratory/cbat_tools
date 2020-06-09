@@ -158,7 +158,7 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
   if flag then
-    Some (Comp.compare_subs_fun ())
+    Some Comp.compare_subs_fun
   else
     None
 
@@ -191,7 +191,7 @@ let smtlib
 
 let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
   match arch with
-  | `x86_64 -> Some (Comp.compare_subs_sp ())
+  | `x86_64 -> Some Comp.compare_subs_sp
   | _ -> None
 
 (* Returns a list of postconditions and a list of hypotheses based on the flags
@@ -211,7 +211,7 @@ let comparators_of_flags
   in
   let comps =
     if List.is_empty comps then
-      [Comp.compare_subs_empty_post ()]
+      [Comp.compare_subs_empty_post]
     else
       comps
   in
