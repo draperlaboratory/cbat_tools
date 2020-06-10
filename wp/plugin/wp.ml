@@ -37,7 +37,8 @@ type flags =
     print_path : bool;
     use_fun_input_regs : bool;
     mem_offset : bool;
-    check_null_deref : bool
+    check_null_deref : bool;
+    suppress_precond : bool;
   }
 
 let missing_func_msg (func : string) : string =
@@ -152,9 +153,9 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env flags.pre_cond] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
-  Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
-    (Sub.to_string main_sub) Constr.pp_constr pre;
-  (pre, env, env)
+  let printer = if flags.suppress_precond then debug else Format.printf in
+  printer "\nSub:\n%s\nPre:\n%a\n%!"
+    (Sub.to_string main_sub) Constr.pp_constr pre; (pre, env, env)
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
   if flag then
@@ -365,6 +366,12 @@ module Cmdline = struct
             not dereference a NULL, then that same read or write in the modified \
             binary also does not dereference a NULL. Defaults to false."
 
+  let suppress_precond = param bool "suppress-precond" ~as_flag:true ~default:false
+      ~doc:"If set, suppresses the printing of generated precondition(s) \
+            (shows in the log instead of stdout). Only applies in the single \
+            binary analysis case. In the comparative case, has no effect.
+            Defaults to false."
+
   let () = when_ready (fun {get=(!!)} ->
       let flags =
         {
@@ -382,7 +389,8 @@ module Cmdline = struct
           print_path = !!print_path;
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
-          check_null_deref = !!check_null_deref
+          check_null_deref = !!check_null_deref;
+          suppress_precond = !!suppress_precond;
         }
       in
       Project.register_pass' @@

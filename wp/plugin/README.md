@@ -366,6 +366,11 @@ The various options are:
   contraint that if a memory read or write dereferences a non-null address in the
   original binary, then that same address is also non-null in the modified binary.
   Defaults to false.
+  
+-- `--wp-suppress-precond=[true|false]` If present, suppresses the printing of 
+  generated precondition(s) (shows in the log instead of stdout). Only applies 
+  in the single binary analysis case. In the comparative case, has no effect. 
+  Defaults to false.
 
 ## C checking API
 
