@@ -37,7 +37,8 @@ type flags =
     print_path : bool;
     use_fun_input_regs : bool;
     mem_offset : bool;
-    check_null_deref : bool
+    check_null_deref : bool;
+    output_smtlib2 : bool 
   }
 
 let missing_func_msg (func : string) : string =
@@ -273,7 +274,7 @@ let main (flags : flags) (proj : project) : unit =
     else
       analyze_proj ctx var_gen proj flags
   in
-  let result = Pre.check solver ctx pre in
+  let result = Pre.check solver ctx pre ~output_smtlib2:flags.output_smtlib2 in
   let () = match flags.gdb_filename with
     | None -> ()
     | Some f ->
@@ -365,6 +366,10 @@ module Cmdline = struct
             not dereference a NULL, then that same read or write in the modified \
             binary also does not dereference a NULL. Defaults to false."
 
+  let output_smtlib2 = param bool "output-smtlib2" ~as_flag:true ~default:false
+      ~doc:"If set, the smtlib2 query will be dumped, printing the query as well \
+            as the number of assertions. Defaults to false."          
+
   let () = when_ready (fun {get=(!!)} ->
       let flags =
         {
@@ -382,7 +387,8 @@ module Cmdline = struct
           print_path = !!print_path;
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
-          check_null_deref = !!check_null_deref
+          check_null_deref = !!check_null_deref; 
+          output_smtlib2 = !!output_smtlib2 
         }
       in
       Project.register_pass' @@
