@@ -367,8 +367,10 @@ module Cmdline = struct
             binary also does not dereference a NULL. Defaults to false."
 
   let output_smtlib2 = param bool "output-smtlib2" ~as_flag:true ~default:false
-      ~doc:"If set, the smtlib2 query will be dumped, printing the query as well \
-            as the number of assertions. Defaults to false."          
+      ~doc:"If set, Z3's SMT-LIB 2 query will be dumped, printing the query of the \
+            solver. This flag is mainly for pedagogical and debugging purposes. \
+            If the flag is not called, it defaults to false and the query won't \
+            be printed."          
 
   let () = when_ready (fun {get=(!!)} ->
       let flags =

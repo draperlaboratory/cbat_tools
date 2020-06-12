@@ -1079,9 +1079,7 @@ let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
   in
   Z3.Solver.add solver [is_correct];
   if (output_smtlib2) then (
-      (* Printf.printf "Z3 : %s \n %!" (Z3.Expr.to_string (Z3.Expr.simplify is_correct None)); *)
-    Printf.printf "Z3 : %s \n %!" (Z3.Solver.to_string solver);
-    Printf.printf "Assertions: %d \n %!" (Z3.Solver.get_num_assertions solver));
+    Printf.printf "Z3 : %s \n %!" (Z3.Solver.to_string solver) );
   Z3.Solver.check solver []
 
 let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
