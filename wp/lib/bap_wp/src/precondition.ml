@@ -1067,7 +1067,7 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
     Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
 let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
-    (pre : Constr.t) : Solver.status =
+    (pre : Constr.t) ~output_smtlib2:(output_smtlib2 : bool) : Solver.status =
   printf "Evaluating precondition.\n%!";
   let pre' = Constr.eval pre ctx in
   printf "Checking precondition with Z3.\n%!";
@@ -1078,6 +1078,10 @@ let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
       pre'
   in
   Z3.Solver.add solver [is_correct];
+  if (output_smtlib2) then (
+      (* Printf.printf "Z3 : %s \n %!" (Z3.Expr.to_string (Z3.Expr.simplify is_correct None)); *)
+    Printf.printf "Z3 : %s \n %!" (Z3.Solver.to_string solver);
+    Printf.printf "Assertions: %d \n %!" (Z3.Solver.get_num_assertions solver));
   Z3.Solver.check solver []
 
 let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
@@ -1089,7 +1093,7 @@ let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_ex
   Solver.add solver [cond];
   info "Added constraints: %s\n%!"
     (Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
-  check solver ctx pre
+  check solver ctx pre ~output_smtlib2:false
 
 let get_output_vars (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
   let all_vars = get_vars env t in
