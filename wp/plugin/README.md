@@ -367,6 +367,10 @@ The various options are:
   original binary, then that same address is also non-null in the modified binary.
   Defaults to false.
 
+- `--wp-output-smtlib2=[true|false]`. If set, Z3's SMT-LIB 2 query will be dumped, 
+  printing the query of the solver. This flag is mainly for pedagogical and debugging 
+  purposes. If the flag is not called, it defaults to false and the query won't be printed. 
+
 ## C checking API
 
 There is a `cbat.h` file in the `api/c` folder which contains headers
