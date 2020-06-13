@@ -274,7 +274,7 @@ let main (flags : flags) (proj : project) : unit =
     else
       analyze_proj ctx var_gen proj flags
   in
-  let result = Pre.check solver ctx pre ~output_smtlib2:flags.output_smtlib2 in
+  let result = Pre.check ~output_smtlib2:flags.output_smtlib2 solver ctx pre  in
   let () = match flags.gdb_filename with
     | None -> ()
     | Some f ->
