@@ -1066,8 +1066,7 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   else
     Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
-let check ?refute:(refute = true) (solver : Solver.solver) (ctx : Z3.context)
-    (pre : Constr.t) ~output_smtlib2:(output_smtlib2 : bool) : Solver.status =
+let check ?refute:(refute = true) ?(output_smtlib2 = false) (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   printf "Evaluating precondition.\n%!";
   let pre' = Constr.eval pre ctx in
   printf "Checking precondition with Z3.\n%!";
