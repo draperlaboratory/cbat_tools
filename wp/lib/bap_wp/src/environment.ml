@@ -159,12 +159,12 @@ let trivial_constr (env : t) : Constr.t =
   |> Constr.mk_goal "true"
   |> Constr.mk_constr
 
-(* Looks up the precondition of the exit node of a loop by:
+(* Locates an exit node of a loop by:
    - obtaining the post dominator tree
    - for each node in the SCC, find its parent in the dominator tree
    - if the parent node is not in the original SCC, it is an exit node *)
-let loop_exit_pre (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
-  : Constr.t option =
+let loop_exit (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+  : Graphs.Ir.Node.t option =
   let module Node = Graphs.Ir.Node in
   let scc = Graphlib.strong_components (module Graphs.Ir) graph in
   match Partition.group scc node with
@@ -177,20 +177,15 @@ let loop_exit_pre (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
     | None -> None
     | Some l ->
       let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph l in
-      let exit_node = Seq.find_map (Group.enum g) ~f:(fun n ->
+      Seq.find_map (Group.enum g) ~f:(fun n ->
           match Tree.parent dom_tree n with
           | None -> None
           | Some p ->
-            if Group.mem g p then
-              None
-            else
-              Some (p |> Node.label |> Term.tid)
-        ) in
-      match exit_node with
-      | None -> None
-      | Some e ->
-        debug "Using precondition from node %s%!" (Tid.to_string e);
-        get_precondition env e
+             if Group.mem g p then
+               None
+             else
+               Some p)
+
 
 let init_loop_unfold (num_unroll : int) : loop_handler =
   {
@@ -207,17 +202,32 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
         if find_depth node <= 0 then
           let tid = node |> Node.label |> Term.tid in
           let pre =
-            match List.find_map [loop_exit_pre] ~f:(fun spec -> spec env node g) with
-            | Some p -> p
-            | None ->
-              warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
+            (* match loop_exit env node g with
+             * | Some p ->
+             *    Printf.printf "Found loop exit: %s\n%!"
+             *      (p |> Graphs.Ir.Node.label |> Term.tid |> Tid.to_string);
+             *    Printf.printf "NON trivial precondition is being used for node %s\n%!"
+             *      (Tid.to_string tid);
+             *    p |> Graphs.Ir.Node.label |> Term.tid
+             *    |> get_precondition env
+             *    |> Option.value ~default:(Printf.printf "\n\nNOT\n\n%!"; trivial_constr env)
+             * | None ->
+             *    Printf.printf "Trivial precondition is being used for node %s\n%!"
+             *      (Tid.to_string tid);
+             *   (\* warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid); *\) *)
               trivial_constr env
           in
+          Printf.printf "\nAdding trivial precondition %s for %s\n%!"
+            (Int.to_string (Hashtbl.hash pre))
+            (Tid.to_string tid);
           add_precond env tid pre
         else
           begin
             decr_depth node;
-            !wp_rec_call env pre ~start:node g
+            Printf.printf "Time for recursion! at %s\n%!" (node |> Node.label |> Term.tid |> Tid.to_string);
+            let env = !wp_rec_call env pre ~start:node g in
+            Printf.printf "End of recursion!\n%!";
+            env
           end
       in
       unroll
@@ -287,17 +297,14 @@ let mk_env
   }
 
 let env_to_string (env : t) : string =
-  let pair_printer ts1 ts2 f (x,y) = Format.fprintf f "%s -> \n%s\n" (ts1 x) (ts2 y) in
-  let map_seq_printer ts1 ts2 f seq = Seq.pp (pair_printer ts1 ts2) f seq in
-  let var_list = env.var_map |> EnvMap.to_sequence in
-  let sub_list = env.sub_handler |> TidMap.to_sequence in
-  let call_list = env.call_map |> TidMap.to_sequence in
-  let precond_list = env.precond_map |> TidMap.to_sequence in
-  Format.asprintf "Vars: %a\nSubs: %a\nCalls: %a\nPreconds: %a%!"
-    (map_seq_printer Var.to_string Expr.to_string) var_list
-    (map_seq_printer Tid.to_string (fun s -> s.spec_name)) sub_list
-    (map_seq_printer Tid.to_string ident) call_list
-    (map_seq_printer Tid.to_string Constr.to_string) precond_list
+  (* let pair_printer ts1 ts2 f (x,y) = Format.fprintf f "%s -> \n%s\n" (ts1 x) (ts2 y) in
+   * let map_seq_printer ts1 ts2 f seq = Seq.pp (pair_printer ts1 ts2) f seq in
+   * let var_list = env.var_map |> EnvMap.to_sequence in
+   * let sub_list = env.sub_handler |> TidMap.to_sequence in
+   * let call_list = env.call_map |> TidMap.to_sequence in *)
+  let precond_list = env.precond_map |> TidMap.to_sequence |> Seq.map ~f:fst in
+  Format.asprintf "%a%!"
+    (Seq.pp Tid.pp) precond_list
 
 let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }
 

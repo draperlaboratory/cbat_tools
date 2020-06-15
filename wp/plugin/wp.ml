@@ -137,7 +137,8 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   (* call visit sub with a dummy postcondition to fill the
      environment with variables *)
   let true_constr = Env.trivial_constr env in
-  let _, env = Pre.visit_sub env true_constr main_sub in
+  (* Printf.printf "First visit!\n%!";
+   * let _, env = Pre.visit_sub env true_constr main_sub in *)
   (* Remove the constants generated and stored in the environment because they aren't
      going to be used in the wp analysis. *)
   let env = Env.clear_consts env in
@@ -149,11 +150,12 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     else
       Z3_utils.mk_smtlib2_single env flags.post_cond
   in
+  Printf.printf "Second visit!\n%!";
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env flags.pre_cond] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
-  Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
-    (Sub.to_string main_sub) Constr.pp_constr pre;
+  (* Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
+   *   (Sub.to_string main_sub) Constr.pp_constr pre; *)
   (pre, env, env)
 
 let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)

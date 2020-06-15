@@ -696,8 +696,11 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
             let ctx = Env.get_context env in
             let l_pre =
               match Env.get_precondition env tid with
-              | Some pre -> pre
-              (* We always hit this point when finish a loop unrolling *)
+              | Some pre ->
+                 (* Printf.printf "Got precondition for node:%s: %s\n%!"
+                  *   (Tid.to_string tid)
+                  *   (Int.to_string (Hashtbl.hash pre)); *)
+                 pre
               | None ->
                 error "Precondition for node %s not found!" (Tid.to_string tid);
                 failwith ("Error in visit_jmp: \
@@ -786,36 +789,91 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     raise (Not_implemented "visit_elt: case `Phi(phi) not implemented")
 
 let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t =
-  debug "Visiting block:\n%s%!" (Blk.to_string blk);
+  (* debug "Visiting block:\n%s%!" (Blk.to_string blk); *)
+  (* Printf.printf "Visiting block: %s\n%!" (blk |> Term.tid |> Tid.to_string); *)
   let compute_pre b =
     Seq.fold b ~init:(post, env) ~f:(fun (pre, env) a -> visit_elt env pre a)
   in
   let pre, env = blk |> Blk.elts ~rev:true |> compute_pre in
+  (* Printf.printf "Modifying precondition for %s\n%!"
+   *   (blk |> Term.tid |> Tid.to_string); *)
   (pre, Env.add_precond env (Term.tid blk) pre)
 
-let visit_graph (env : Env.t) (post : Constr.t)
-    ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
-  let leave_node _ n (_, env) =
+
+let visit_graph_aux (env : Env.t) (post : Constr.t)
+    (start : Graphs.Ir.Node.t) (g : Graphs.Ir.t) : Env.t =
+  let enter_node _ n p =
+    Printf.printf "Entering %s\n%!"
+      (n |> Graphs.Ir.Node.label |> Term.tid |> Tid.to_string);
+    p
+  in
+  let leave_node _ n env =
     let b = Graphs.Ir.Node.label n in
-    visit_block env post b in
+    (* Printf.printf "\nVisiting node %s with env:%s %s\n%!"
+     *   (b |> Term.tid |> Tid.to_string)
+     *   (Int.to_string (Hashtbl.hash env))
+     *   (Env.env_to_string env); *)
+    let (new_pre, env) = visit_block env post b in
+    let hash = Hashtbl.hash new_pre in
+    let msg =
+      if hash = 548178023 then
+        (Z3.Expr.to_string (Z3.Expr.simplify (Constr.eval new_pre (Env.get_context env)) None))
+      else
+        Int.to_string hash
+    in
+    Printf.printf "Leaving node %s with new precond: %s\n%!"
+      (b |> Term.tid |> Tid.to_string)
+      msg;
+      (* (Int.to_string (Hashtbl.hash new_pre));
+       * (Z3.Expr.to_string (Z3.Expr.simplify (Constr.eval new_pre (Env.get_context env)) None)); *)
+    env
+  in
   (* This function is the identity on forward & cross edges, and
      invokes loop handling code on back edges *)
-  let enter_edge kind e ((post, env) as p) : Constr.t * Env.t =
+  let enter_edge kind e env : Env.t =
     match kind with
     | `Back ->
       begin
         let src = Graphs.Ir.Edge.src e in
         let dst = Graphs.Ir.Edge.dst e in
-        debug "Entering back edge from\n%sto\n%s\n%!"
-          (Graphs.Ir.Node.to_string src) (Graphs.Ir.Node.to_string dst);
+        Printf.printf "Entering back edge from %s to %s\n%!"
+          (src |> Graphs.Ir.Node.label |> Term.tid |> Tid.to_string)
+          (dst |> Graphs.Ir.Node.label |> Term.tid |> Tid.to_string);
+        (* debug "Entering back edge from\n%sto\n%s\n%!"
+         *   (Graphs.Ir.Node.to_string src) (Graphs.Ir.Node.to_string dst); *)
         let handler = Env.get_loop_handler env in
-        post, handler env post ~start:dst g
+        handler env post ~start:dst g
       end
-    | _ -> p
+    | _ -> env
   in
-  Graphlib.depth_first_search (module Graphs.Ir)
-    ~enter_edge:enter_edge ~start:start ~leave_node:leave_node ~init:(post, env)
+  let leave_edge kind e p = p in
+  let filtered_g =
+    Graphlib.filtered (module Graphs.Ir)
+      ~skip_node:(fun n -> not (Graphlib.is_reachable (module Graphs.Ir) g start n)) ()
+  in
+  Graphlib.depth_first_search filtered_g
+    ~start_tree:(fun _ p -> Printf.printf "Entering new tree from start %s!\n%!"
+                              (Graphs.Ir.Node.label start |> Term.tid |> Tid.to_string);
+                            p)
+    ~enter_edge:enter_edge
+    ~leave_edge:leave_edge
+    ~enter_node:enter_node
+    ~leave_node:leave_node
+    ~init:env ~start:start
     g
+
+
+let visit_graph (env : Env.t) (post : Constr.t)
+      ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
+  Printf.printf "\n\n\n\nCalling visit graph!\n\n\n%!";
+  let env_res = visit_graph_aux env post start g in
+  let start_tid = start |> Graphs.Ir.Node.label |> Term.tid in
+  let visit_err =
+    Printf.sprintf "visit_graph: Did not compute a precondition for node %s!"
+      (Tid.to_string start_tid)
+  in
+  let pre_res = start_tid |> Env.get_precondition env_res in
+  (Option.value_exn ~message:visit_err pre_res, env_res)
 
 (* Now that we've defined [visit_graph], we can replace it in the
    [wp_rec_call] placeholder. *)
@@ -861,7 +919,7 @@ let filter (env : Env.t) (calls : string list) (cfg : Graphs.Ir.t) : Graphs.Ir.t
   Graphlib.depth_first_search (module Graphs.Ir) ~enter_edge:enter_edge ~init:cfg cfg
 
 let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
-  debug "Visiting sub:\n%s%!" (Sub.to_string sub);
+  Printf.printf "Visiting sub:\n%s%!" (Sub.to_string sub);
   let cfg = sub |> Sub.to_cfg |> filter env ["exit"] in
   let start = Term.first blk_t sub
               |> Option.value_exn ?here:None ?error:None ?message:None
