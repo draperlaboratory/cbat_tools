@@ -275,7 +275,13 @@ val visit_sub : Env.t -> Constr.t -> Bap.Std.Sub.t -> Constr.t * Env.t
 
 (** Calls Z3 to check for a countermodel for the precondition of a BIR program. If
     refute is set to false, it checks for a model instead. *)
-val check : ?refute:bool -> ?output_smtlib2:bool -> Z3.Solver.solver -> Z3.context -> Constr.t -> Z3.Solver.status
+val check 
+  : ?refute:bool 
+  -> ?output_smtlib2:bool 
+  -> Z3.Solver.solver 
+  -> Z3.context 
+  -> Constr.t 
+  -> Z3.Solver.status
 
 (** Adds a constraint to the Z3 solver in which var does not equal its value from
     the original Z3 model, then runs the Z3 solver again.
