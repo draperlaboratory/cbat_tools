@@ -233,43 +233,29 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
     | Goal g ->
       let goal_val = Expr.substitute g.goal_val olds news in
       let goal_res = eval_model_exn model goal_val in
-      begin
-        match Solver.check solver [goal_res] with
-        | Solver.SATISFIABLE -> Seq.empty
-        | Solver.UNSATISFIABLE ->
-          Seq.singleton
+      if (Z3.Boolean.is_true goal_res)
+      then Seq.empty
+      else Seq.singleton
             { goal = { g with goal_val = goal_val };
               path = current_path;
               reg_map = current_registers }
-        | Solver.UNKNOWN ->
-          failwith (Format.sprintf "get_refuted_goals: Unable to resolve %s" g.goal_name)
-      end
     | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
       let current_registers = update_current_regs
           model olds news jmp current_registers filter_out in
-      begin
-        match Solver.check solver [cond_res] with
-        | Solver.SATISFIABLE ->
-          let current_path = Jmp.Map.set current_path ~key:jmp ~data:true in
-          worker c1 current_path current_registers olds news
-        | Solver.UNSATISFIABLE ->
-          let current_path = Jmp.Map.set current_path ~key:jmp ~data:false in
-          worker c2 current_path current_registers olds news
-        | Solver.UNKNOWN ->
-          failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
-                                    condition at %s" (jmp |> Term.tid |> Tid.to_string))
-      end
+      if Z3.Boolean.is_true cond_res
+      then
+        let current_path = Jmp.Map.set current_path ~key:jmp ~data:true in
+        worker c1 current_path current_registers olds news
+      else
+        let current_path = Jmp.Map.set current_path ~key:jmp ~data:false in
+        worker c2 current_path current_registers olds news
     | Clause (hyps, concs) ->
       let hyps_false =
         let hyp_vals =
           List.map hyps ~f:(fun h -> eval_model_exn model (eval_aux h olds news ctx)) in
-        match Solver.check solver hyp_vals with
-        | Solver.SATISFIABLE -> false
-        | Solver.UNSATISFIABLE -> true
-        | Solver.UNKNOWN ->
-          failwith "get_refuted_goals: Unable to resolve value of hypothesis"
+          not (List.for_all hyp_vals ~f:Z3.Boolean.is_true)
       in
       if hyps_false then
         Seq.empty
@@ -277,7 +263,7 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
         List.fold concs ~init:Seq.empty ~f:(fun accum c ->
             Seq.append (worker c current_path current_registers olds news) accum)
     | Subst (e, o, n) ->
-      let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
+      let n' = List.map n ~f:(fun x -> Expr.substitute x olds news |> eval_model_exn model) in
       worker e current_path current_registers (olds @ o) (news @ n')
   in
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
