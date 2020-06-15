@@ -1090,7 +1090,7 @@ let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_ex
   Solver.add solver [cond];
   info "Added constraints: %s\n%!"
     (Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
-  check solver ctx pre ~output_smtlib2:false
+  check solver ctx pre
 
 let get_output_vars (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
   let all_vars = get_vars env t in
