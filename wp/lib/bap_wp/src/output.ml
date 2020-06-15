@@ -160,10 +160,10 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
     let model = Constr.get_model_exn solver in
     let mem1, _ = Env.get_var env1 Target.CPU.mem in
     let mem2, _ = Env.get_var env2 Target.CPU.mem in
-    let refuted_goals =
-      Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
     Format.printf "\nSAT!\n%!";
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
+    let refuted_goals =
+      Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
     Format.printf "\nRefuted goals:\n%!";
     Seq.iter refuted_goals ~f:(fun goal ->
         Format.printf "%s\n%!"

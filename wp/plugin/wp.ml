@@ -267,7 +267,7 @@ let should_compare (f : flags) : bool =
 let main (flags : flags) (proj : project) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let solver = Z3.Solver.mk_simple_solver ctx in
+  let solver = Z3.Solver.mk_solver ctx None in
   update_default_num_unroll flags.num_unroll;
   let pre, env1, env2 =
     if should_compare flags then
