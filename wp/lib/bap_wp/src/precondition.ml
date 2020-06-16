@@ -1078,7 +1078,7 @@ let check ?refute:(refute = true) ?(print_constr = []) (solver : Solver.solver)
       pre'
   in
   Z3.Solver.add solver [is_correct];
-  if (List.mem print_constr "smtlib" (String.equal)) then (
+  if (List.mem print_constr "smtlib" ~equal:(String.equal)) then (
     Printf.printf "Z3 : %s \n %!" (Z3.Solver.to_string solver) );
   Z3.Solver.check solver []
 
