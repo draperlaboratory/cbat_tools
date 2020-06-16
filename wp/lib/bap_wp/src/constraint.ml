@@ -235,10 +235,13 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
       let goal_res = eval_model_exn model goal_val in
       if (Z3.Boolean.is_true goal_res)
       then Seq.empty
-      else Seq.singleton
+      else if (Z3.Boolean.is_false goal_res)
+      then Seq.singleton
             { goal = { g with goal_val = goal_val };
               path = current_path;
               reg_map = current_registers }
+      else
+        failwith (Format.sprintf "get_refuted_goals: Unable to resolve %s" g.goal_name)
     | ITE (jmp, cond, c1, c2) ->
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
@@ -248,14 +251,22 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
       then
         let current_path = Jmp.Map.set current_path ~key:jmp ~data:true in
         worker c1 current_path current_registers olds news
-      else
+      else if Z3.Boolean.is_false cond_res
+      then
         let current_path = Jmp.Map.set current_path ~key:jmp ~data:false in
         worker c2 current_path current_registers olds news
+      else       
+        failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
+                                    condition %s at %s" 
+                                    (Z3.Expr.to_string cond_res)
+                                    (jmp |> Term.tid |> Tid.to_string))
     | Clause (hyps, concs) ->
       let hyps_false =
         let hyp_vals =
           List.map hyps ~f:(fun h -> eval_model_exn model (eval_aux h olds news ctx)) in
-          not (List.for_all hyp_vals ~f:Z3.Boolean.is_true)
+          if (List.for_all hyp_vals ~f:(fun e -> Z3.Boolean.is_true e || Z3.Boolean.is_false e))
+          then not (List.for_all hyp_vals ~f:Z3.Boolean.is_true)
+          else failwith "Unexpected Expression processing Clause"
       in
       if hyps_false then
         Seq.empty
