@@ -38,7 +38,7 @@ type flags =
     use_fun_input_regs : bool;
     mem_offset : bool;
     check_null_deref : bool;
-    output_smtlib2 : bool 
+    print_constr : string list;
   }
 
 let missing_func_msg (func : string) : string =
@@ -153,8 +153,11 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env flags.pre_cond] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
-  Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
-    (Sub.to_string main_sub) Constr.pp_constr pre;
+  (* Print statement for constrain-style prover output: *)
+  let printer =
+    if (List.mem flags.print_constr "internal" ~equal:(String.equal))
+    then Format.printf else debug in
+      printer "\nSub:\n%s\nPre:\n%a\n%!" (Sub.to_string main_sub) Constr.pp_constr pre;
   (pre, env, env)
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
@@ -274,7 +277,7 @@ let main (flags : flags) (proj : project) : unit =
     else
       analyze_proj ctx var_gen proj flags
   in
-  let result = Pre.check ~output_smtlib2:flags.output_smtlib2 solver ctx pre  in
+  let result = Pre.check ~print_constr:flags.print_constr solver ctx pre  in
   let () = match flags.gdb_filename with
     | None -> ()
     | Some f ->
@@ -366,11 +369,14 @@ module Cmdline = struct
             not dereference a NULL, then that same read or write in the modified \
             binary also does not dereference a NULL. Defaults to false."
 
-  let output_smtlib2 = param bool "output-smtlib2" ~as_flag:true ~default:false
-      ~doc:"If set, Z3's SMT-LIB 2 query will be dumped, printing the query of the \
-            solver. This flag is mainly for pedagogical and debugging purposes. \
-            If the flag is not called, it defaults to false and the query won't \
-            be printed."          
+  let print_constr = param (list string) "print-constr" ~as_flag:["internal";"smtlib"] ~default:[]
+      ~doc:"If set, the preconditions and Z3's SMT-LIB 2 are both printed. \
+            One or both outputs can be explicitly called with the respective names \
+            internal and smtlib, which will print only what is stated. Both can \
+            also be called like --wp-print-constr=internal,smtlib. In the case of \
+            a comparison, the precondition (internal) is not printed, so the \
+            flag has no effect. If the flag is not called, it defaults to printing \
+            neither."
 
   let () = when_ready (fun {get=(!!)} ->
       let flags =
@@ -389,8 +395,8 @@ module Cmdline = struct
           print_path = !!print_path;
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
-          check_null_deref = !!check_null_deref; 
-          output_smtlib2 = !!output_smtlib2 
+          check_null_deref = !!check_null_deref;
+          print_constr = !!print_constr
         }
       in
       Project.register_pass' @@
