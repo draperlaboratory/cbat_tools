@@ -323,13 +323,13 @@ The various options are:
   --wp-inline=.\* or --wp-inline=foo|bar will inline the functions foo and bar.
 
 - `--wp-precond=smt-lib-string`. If present, allows the introduction of assertions
-  to the beginning of a query. This allows pruning of possible models. For 
+  to the beginning of a query. This allows pruning of possible models. For
   comparative predicates, one may refer to variables in the original and modified program by appending the suffix "_orig" and "_mod" to variable names in the smt-lib expression.
   For examples `--wp-precond="(assert (= RDI_mod #x0000000000000003))  (assert (= RDI_orig #x0000000000000003))"`
 
 - `--wp-postcond=smt-lib-string`. If present, replaces the
   default post-condition by the user-specified one, using the
-  [smt-lib2] format. Similar to `--wp-precond`, one may create comparative 
+  [smt-lib2] format. Similar to `--wp-precond`, one may create comparative
   postconditions on variables by appending "_orig" and "_mod" to register names.
 
 - `--wp-num-unroll=num`. If present, replaces the default number of
@@ -367,9 +367,12 @@ The various options are:
   original binary, then that same address is also non-null in the modified binary.
   Defaults to false.
 
-- `--wp-output-smtlib2=[true|false]`. If set, Z3's SMT-LIB 2 query will be dumped, 
-  printing the query of the solver. This flag is mainly for pedagogical and debugging 
-  purposes. If the flag is not called, it defaults to false and the query won't be printed. 
+- `--wp-print-constr=[internal|smtlib] or both/neither`. If set, the preconditions
+  and Z3's SMT-LIB 2 are both printed. One or both outputs can be explicitly
+  called with the respective names `internal` and `smtlib`, which will print only
+  what is stated. Both can also be called like `--wp-print-constr=internal,smtlib`.
+  In the case of a comparison, the precondition (internal) is not printed, so the
+  flag has no effect. If the flag is not called, it defaults to printing neither.
 
 ## C checking API
 
@@ -398,4 +401,3 @@ By default, logs are printed to `STDERR`. You can save the logs to a file by spe
 By default, `debug` logs are not shown. To show debug logs:
 
     export BAP_DEBUG=true
-
