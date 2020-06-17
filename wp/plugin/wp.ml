@@ -153,11 +153,8 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env flags.pre_cond] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
-  (* Print statement for constrain-style prover output: *)
-  let printer =
-    if (List.mem flags.print_constr "internal" ~equal:(String.equal))
-    then Format.printf else debug in
-      printer "\nSub:\n%s\nPre:\n%a\n%!" (Sub.to_string main_sub) Constr.pp_constr pre;
+    (* Print statement for constraint-style prover output: *)
+    Format.printf "\nSub:\n%s\nPre:\n%!" (Sub.to_string main_sub);
   (pre, env, env)
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
@@ -373,10 +370,8 @@ module Cmdline = struct
       ~doc:"If set, the preconditions and Z3's SMT-LIB 2 are both printed. \
             One or both outputs can be explicitly called with the respective names \
             internal and smtlib, which will print only what is stated. Both can \
-            also be called like --wp-print-constr=internal,smtlib. In the case of \
-            a comparison, the precondition (internal) is not printed, so the \
-            flag has no effect. If the flag is not called, it defaults to printing \
-            neither."
+            also be called like --wp-print-constr=internal,smtlib. If the flag \
+            is not called, it defaults to printing neither."
 
   let () = when_ready (fun {get=(!!)} ->
       let flags =

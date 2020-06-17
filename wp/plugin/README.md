@@ -371,8 +371,7 @@ The various options are:
   and Z3's SMT-LIB 2 are both printed. One or both outputs can be explicitly
   called with the respective names `internal` and `smtlib`, which will print only
   what is stated. Both can also be called like `--wp-print-constr=internal,smtlib`.
-  In the case of a comparison, the precondition (internal) is not printed, so the
-  flag has no effect. If the flag is not called, it defaults to printing neither.
+  If the flag is not called, it defaults to printing neither.
 
 ## C checking API
 
