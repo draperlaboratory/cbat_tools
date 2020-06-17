@@ -34,6 +34,7 @@ type flags =
     num_unroll : int option;
     output_vars : string list;
     gdb_filename : string option;
+    bildb_output : string option;
     print_path : bool;
     use_fun_input_regs : bool;
     mem_offset : bool;
@@ -276,9 +277,10 @@ let main (flags : flags) (proj : project) : unit =
   let result = Pre.check solver ctx pre in
   let () = match flags.gdb_filename with
     | None -> ()
-    | Some f ->
-      Printf.printf "Dumping gdb script to file: %s\n" f;
-      Output.output_gdb solver result env2 ~func:flags.func ~filename:f in
+    | Some f -> Output.output_gdb solver result env2 ~func:flags.func ~filename:f in
+  let () = match flags.bildb_output with
+    | None -> ()
+    | Some f -> Output.output_bildb solver result env2 f in
   Output.print_result solver result pre ~print_path:flags.print_path
     ~orig:env1 ~modif:env2
 
@@ -341,6 +343,13 @@ module Cmdline = struct
             breakpoint at the the start of the function being analyzed and sets \
             the registers and memory to the values specified in the countermodel."
 
+  let bildb_output = param (some string) "bildb-output" ~default:None
+      ~doc:"In the case CBAT determins input registers that result in a refuted \
+            goal, this flag outputs a BilDB YAML file to the filename specified. \
+            This file sets the registers and memory to the values specified in the \
+            countermodel found during WP analysis, allowing BilDB to follow the \
+            same execution trace."
+
   let print_path = param bool "print-path" ~as_flag:true ~default:false
       ~doc:"If set, prints out the path to a refuted goal and the register values \
             at each jump in the path. The path contains information about whether \
@@ -379,6 +388,7 @@ module Cmdline = struct
           num_unroll = !!num_unroll;
           output_vars = !!output_vars;
           gdb_filename = !!gdb_filename;
+          bildb_output = !!bildb_output;
           print_path = !!print_path;
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
