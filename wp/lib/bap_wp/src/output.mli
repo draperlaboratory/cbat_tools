@@ -39,6 +39,12 @@ val print_result :
 val output_gdb :
   Z3.Solver.solver -> Z3.Solver.status -> Env.t -> func:string -> filename:string -> unit
 
+(** [output_bildb solver status env file] prints to a YAML file that will fill
+    the appropriate registers with the values found in the countermodel in the
+    case the analysis returns SAT. This is used to initialize the BilDB plugin.*)
+val output_bildb :
+  Z3.Solver.solver -> Z3.Solver.status -> Env.t -> string -> unit
+
 (** [mem_model] The default value stores the final else branch of a memory model. The model holds an association list of addresses and
     values held at those adresses. *)
 type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
