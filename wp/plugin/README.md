@@ -344,6 +344,12 @@ The various options are:
   within gdb, run `source my_exec.gdb` to set a breakpoint at the function given
   by `--wp-function` and fill the appropriate registers with a found counter-model.
 
+- `--wp-bildb-output=filename.yml`. Output a BilDB initialization script to file
+  `filename.yml`. This YAML file sets the registers and memory to the values
+  specified in the countermodel found during WP analysis, allowing BilDB to
+  follow the same execution trace. In the case the analysis returns UNSAT or
+  UNKNOWN, no script will be outputted.
+
 - `--wp-print-path=[true|false]`. If present, will print out the path to a refuted
   goal and the register values at each jump in the path. It also contains information
   about whehter a jump has been taken and the address of the jump if found.
