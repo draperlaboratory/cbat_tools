@@ -225,7 +225,7 @@ let output_bildb (solver : Solver.solver) (status : Solver.status) (env : Env.t)
         | None -> ()
         | Some m ->
           if not @@ List.is_empty m.model then begin
-            Printf.fprintf t "Memory:\n";
+            Printf.fprintf t "Locations:\n";
             List.iter m.model ~f:(fun (addr, value) ->
                 Printf.fprintf t "  %s: %s\n" (expr_to_hex addr) (expr_to_hex value))
           end
