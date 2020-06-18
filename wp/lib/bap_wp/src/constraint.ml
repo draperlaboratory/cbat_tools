@@ -188,6 +188,7 @@ let mk_ite (jmp : Jmp.t) (cond : z3_expr) (c1 : t) (c2 : t) : t =
 let mk_clause (hyps: t list) (concs : t list) : t =
   Clause (hyps, concs)
 
+<<<<<<< HEAD
 
 (* list_stats, std_dev, update_stats and init_stats are used for
    debugging and statistics-gathering for eval_aux *)
@@ -213,6 +214,26 @@ let init_stats = {sum = 0 ; sum_squared = 0 ; count = 0; maximum = 0}
 let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
     (news : z3_expr list) (ctx : Z3.context) : z3_expr =
   update_stats stats olds;
+=======
+(** [get_vars] gets all the variable in [e'] that exists in [olds] and returns an association list with their corresponding value in [news] *)
+let get_vars' (e' : z3_expr) ( olds : z3_expr list ) ( news : z3_expr list ) : (z3_expr * z3_expr) list =
+   let findn e l = 
+       let rec findn e n l = match l with | x :: xs ->  if Expr.equal x e then Some n else findn e (n + 1) xs | [] -> None in findn e 0 l in
+   let rec helper e = 
+      if Expr.get_num_args e = 0 then (* get_num_args is cheaper than Expr.is_const *)
+        if Expr.is_const e then
+          match (findn e olds) with
+          | Some n -> [(e , List.nth_exn news n )]
+          | None   -> []
+        else [] 
+      else 
+        List.map ~f:helper (Expr.get_args e) |> List.concat_no_order (* duplicates are not a problem and not worth checking for *)
+   in
+   helper e'
+
+let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
+    (ctx : Z3.context) : z3_expr =
+>>>>>>> 59d54e4... Added pruning the olds news list and fast path in Clause case for constraint evaluation
   match constr with
   | Goal { goal_val = v; _ } ->
     Expr.substitute v olds news
@@ -222,18 +243,55 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
       (eval_aux ~stats:stats c2 olds news ctx)
   | Clause (hyps, concs) ->
     let eval_conjunction conj =
+<<<<<<< HEAD
       List.map conj ~f:(fun c -> eval_aux ~stats:stats c olds news ctx)
       |> Bool.mk_and ctx
+=======
+      if List.length conj = 1 then 
+        eval_aux (List.hd_exn conj) olds news ctx (* This is tail recursive. Avoids And node. *)
+      else
+        List.map conj ~f:(fun c -> eval_aux c olds news ctx)
+        |> Bool.mk_and ctx
+>>>>>>> 59d54e4... Added pruning the olds news list and fast path in Clause case for constraint evaluation
     in
-    let concs_expr = eval_conjunction concs in
     if List.is_empty hyps then
-      concs_expr
+      eval_conjunction concs(* possibly tail recursive? *)
     else
+      let concs_expr = eval_conjunction concs in
       let hyps_expr = eval_conjunction hyps in
       Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
+<<<<<<< HEAD
     let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
     eval_aux ~stats:stats c (olds @ o) (news @ n') ctx
+=======
+    let n' = List.map n ~f:(fun x -> 
+                                   let[@landmark "oldsnews" ] olds, news = get_vars' x olds news |> List.unzip in
+                                   Expr.substitute x olds news) in
+    if (List.length n') = 1 (* It appears we generate overwhelmingly size 1 lists *)
+      then 
+      begin
+        let o = List.hd_exn o in
+        let n' = List.hd_exn n' in
+        (* A Map was tried. It was found that shuffling in and out to lists for Expr.substitute made it not worth it  *)
+        (* The idea here is that popping items most recently used to the front of the list makes it fast to find the most commonly used variables *)
+        (* It is assumed as an invariant that the olds list does not contain duplicate keys *)
+        let findn e l =
+            let rec findn' n e l = match l with | x :: xs ->  if Expr.equal x e then Some n else findn' (n + 1) e xs | [] -> None in
+            findn' 0 e l in
+        let rec removen_exn n l = match l with | x :: xs ->  if (n = 0) then xs else x :: (removen_exn (n - 1) xs) |  [] -> failwith "Improper removen use" in
+        let oind = findn o olds in
+        match oind with
+          | None -> eval_aux c (o :: olds) (n' :: news) ctx
+          | Some ind -> let news' = n' :: (removen_exn ind news) in
+                        let olds  = o  :: (removen_exn ind olds) in 
+                        eval_aux c olds news' ctx
+      end
+    else
+      let oldsnews = List.zip_exn olds news in
+      let o', n' =  List.fold2_exn o n' ~init:oldsnews ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') |> List.unzip   in 
+      eval_aux c o' n' ctx 
+>>>>>>> 59d54e4... Added pruning the olds news list and fast path in Clause case for constraint evaluation
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
 let eval ?debug:(debug = false) (constr : t) (ctx : Z3.context) : z3_expr =
@@ -323,7 +381,9 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
             Seq.append (worker c current_path current_registers olds news) accum)
     | Subst (e, o, n) ->
       let n' = List.map n ~f:(fun x -> Expr.substitute x olds news |> eval_model_exn model) in
-      worker e current_path current_registers (olds @ o) (news @ n')
+      let oldsnews = List.zip_exn olds news in
+      let o', n' =  List.fold2_exn o n' ~init:oldsnews ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') |> List.unzip   in 
+      worker e current_path current_registers o' n' (* (olds @ o) (news @ n') *)
   in
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
 
