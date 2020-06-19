@@ -32,7 +32,7 @@ type flags =
     pre_cond : string;
     post_cond : string;
     num_unroll : int option;
-    output_vars : string list;
+    compare_final_reg_values : string list;
     gdb_filename : string option;
     bildb_output : string option;
     print_refuted_goals : bool;
@@ -200,7 +200,7 @@ let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
   else
     None
 
-let output_vars
+let final_reg_values
     (flag : string list)
     ~orig:(sub1, env1 : Sub.t * Env.t)
     ~modif:(sub2, env2 : Sub.t * Env.t)
@@ -245,7 +245,8 @@ let comparators_of_flags
   let arch = Env.get_arch env1 in
   let comps =
     [ check_calls flags.check_calls;
-      output_vars flags.output_vars ~orig:(sub1, env1) ~modif:(sub2, env2);
+      final_reg_values flags.compare_final_reg_values
+        ~orig:(sub1, env1) ~modif:(sub2, env2);
       smtlib ~post_cond:flags.post_cond ~pre_cond:flags.pre_cond;
       sp arch ]
     |> List.filter_opt
@@ -383,7 +384,8 @@ module Cmdline = struct
       ~doc:"Amount of times to unroll each loop. By default, wp will unroll each \
             loop 5 times."
 
-  let output_vars = param (list string) "output-vars" ~default:["RAX"; "EAX"]
+  let compare_final_reg_values = param (list string) "compare-final-reg-values"
+      ~default:[]
       ~doc:"List of output variables to compare separated by `,' given the same \
             input variables in the case of a comparative analysis. Defaults to `RAX,EAX' \
             which are the 64- and 32-bit output registers for x86."
@@ -414,7 +416,7 @@ module Cmdline = struct
             a jump has been taken and the address of the jump if found. The path \
             will only be printed if refuted goals are printed with --wp-print-refuted-goals."
 
-  let use_fun_input_regs = param bool "use-fun-input-regs" ~as_flag:true  ~default:true
+  let use_fun_input_regs = param bool "use-fun-input-regs" ~as_flag:true ~default:true
       ~doc:"If set, at a function call site, uses all possible input registers \
             as arguments to a function symbol generated for an output register \
             that represents the result of the function call. If set to false, no \
@@ -474,7 +476,7 @@ module Cmdline = struct
           pre_cond = !!pre_cond;
           post_cond = !!post_cond;
           num_unroll = !!num_unroll;
-          output_vars = !!output_vars;
+          compare_final_reg_values = !!compare_final_reg_values;
           gdb_filename = !!gdb_filename;
           bildb_output = !!bildb_output;
           print_refuted_goals = !!print_refuted_goals;
