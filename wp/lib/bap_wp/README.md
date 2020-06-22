@@ -16,9 +16,11 @@ Before installing `bap_wp`, the following requirements must be met:
 * oUnit must be available to `findlib` under the name `oUnit`
   (confirm with `ocamlfind query oUnit`) and it must be available
   to `opam` under the name `ounit` (confirm with `opam show ounit`).
-* Dune 1.6+ must be available. Confirm with `dune --version`.
+* Dune 2.5+ must be available. Confirm with `dune --version`.
 * To build the documentation, you need odoc 1.4.0, which can also be
   installed with `opam install odoc`.
+* To format the code, you need ocamlformat 0.14.2, which can also be
+  installed with `opam install ocamlformat`.
 
 
 ### Install (local)

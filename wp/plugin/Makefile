@@ -4,7 +4,7 @@ SAMPLE_BIN_DIR = ../resources/sample_binaries
 SAVE_PROJECT_DIR = ./save_project
 API_PATH = $(shell bap --api-list-paths)
 
-.PHONY: all build install clean verifier save_project
+.PHONY: all build install clean verifier save_project format
 
 all: install
 
@@ -27,6 +27,9 @@ save_project:
 
 dummy:
 	$(MAKE) -C $(SAMPLE_BIN_DIR)/dummy
+
+format:
+	ocamlformat -i $(PASS_NAME).ml tests/*
 
 clean:
 	$(MAKE) -C $(SAVE_PROJECT_DIR) $@

@@ -25,6 +25,9 @@ test.performance:
 doc:
 	dune build @doc
 
+format:
+	-dune build @fmt --auto-promote
+
 check.installed.findlib:
 	ocamlfind query $(project)
 

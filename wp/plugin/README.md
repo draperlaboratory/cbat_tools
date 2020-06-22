@@ -10,6 +10,7 @@ Depends on:
     - ounit 2.0.8
     - z3 4.8.8
     - re 1.9.0
+    - ocamlformat 0.14.2
 
 All these can be installed with
 
