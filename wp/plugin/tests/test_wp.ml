@@ -29,22 +29,46 @@ let unsat : string = "UNSAT!"
 
 let unknown : string = "UNKNOWN!"
 
-let is_z3_result (res : string) : bool =
-  List.exists [sat; unsat; unknown] ~f:(String.equal res)
+let check_z3_result (line : string) (expected : string) (ctxt : test_ctxt) : unit =
+  if List.exists [sat; unsat; unknown] ~f:(String.equal line) then
+    assert_equal
+      ~ctxt
+      ~printer:String.to_string
+      ~cmp:String.equal
+      expected line
+  else
+    ()
+
+let check_model (line : string) (regs : (string * string) list) (ctxt : test_ctxt)
+  : unit =
+  List.iter regs ~f:(fun (reg, expected) ->
+      (* Our model is printed in the form "reg |-> value". This regex will break
+         if this changes. *)
+      let pattern = Format.sprintf "^\t%s +|-> +#[a-z0-9]$" reg in
+      let re = Re.Posix.compile_pat pattern in
+      if Re.execp re line then begin
+        let re = Re.Posix.compile_pat " +" in
+        let tokens = Re.split re line in
+        (* Value is stored in the last index. *)
+        let actual = List.last_exn tokens in
+        assert_equal
+          ~ctxt
+          ~printer:String.to_string
+          ~cmp:String.equal
+          expected actual
+      end)
+
 
 (* Look for a line containing SAT!, UNSAT!, or UNKNOWN! in
    plugin output and compare with expected *)
-let check_result (stream : char Stream.t) (expected : string) (ctxt : test_ctxt) : unit =
+let check_result (stream : char Stream.t) (expected : string)
+    (expected_regs : (string * string) list) (ctxt : test_ctxt) : unit =
   let buff = Buffer.create 16 in
   Stream.iter (function
       |'\n' ->
         let line = Buffer.contents buff in
-        if is_z3_result line then
-          assert_equal
-            ~ctxt:ctxt
-            ~printer:(fun s -> s)
-            ~cmp:String.equal
-            expected line;
+        check_z3_result line expected ctxt;
+        check_model line expected_regs ctxt;
         Buffer.clear buff
       | chr -> Buffer.add_char buff chr)
     stream
@@ -59,6 +83,7 @@ let check_result (stream : char Stream.t) (expected : string) (ctxt : test_ctxt)
 let test_plugin
     ?length:(length = Custom_length 20.0)
     ?script:(script = "run_wp.sh")
+    ?expected_regs:(expected_regs = [])
     (elf_dir : string)
     (expected : string)
   : test =
@@ -66,7 +91,7 @@ let test_plugin
   let script = Format.sprintf "./%s" script in
   let test ctxt =
     assert_command script []
-      ~foutput:(fun res -> check_result res expected ctxt)
+      ~foutput:(fun res -> check_result res expected expected_regs ctxt)
       ~backtrace:true
       ~chdir:target
       ~ctxt:ctxt
@@ -112,8 +137,8 @@ let suite = [
 
   "Double dereference"             >: test_plugin "double_dereference" unsat;
 
-  "Equiv argc"                     >: test_plugin "equiv_argc" sat;
-  "Precondition: force 2"          >: test_plugin "equiv_argc" sat ~script:"run_wp_force.sh";
+  "Equiv argc"                     >: test_plugin "equiv_argc" sat ~expected_regs:[("RDI", "#x0000000000000002")];
+  "Precondition: force 2"          >: test_plugin "equiv_argc" sat ~script:"run_wp_force.sh" ~expected_regs:[("RDI", "#x0000000000000002")];
   "Precondition: disallow 2"       >: test_plugin "equiv_argc" unsat ~script:"run_wp_disallow.sh";
 
   "Equiv null check"               >: test_plugin "equiv_null_check" sat;
@@ -158,14 +183,16 @@ let suite = [
 
   "ROP example"                    >:: test_skip fail_msg (test_plugin "rop_example" unsat);
 
-  "Switch case assignments"        >: test_plugin "switch_case_assignments" sat;
-  "Switch Cases"                   >: test_plugin "switch_cases" sat;
-  "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat;
+  "Switch case assignments"        >: test_plugin "switch_case_assignments" sat ~expected_regs:[("RDI", "#x0000000000000000")];
+  "Switch Cases"                   >: test_plugin "switch_cases" sat ~expected_regs:[("RDI", "#x0000000000000003")];
+  "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat ~expected_regs:[("RDI", "#x0000000000000003")];
 
   (* Test single elf *)
 
-  "Function call"                  >: test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh";
-  "Function call: inline all"      >: test_plugin "function_call" sat ~script:"run_wp_inline_all.sh";
+  "Function call"                  >: test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh"
+    ~expected_regs:[("RDI", "#x0000000000000005")];
+  "Function call: inline all"      >: test_plugin "function_call" sat ~script:"run_wp_inline_all.sh"
+    ~expected_regs:[("RDI", "#x0000000000000005")];
 
   "Function spec: no inlining"     >: test_plugin "function_spec" sat;
   "Function spec: inline foo"      >: test_plugin "function_spec" unsat ~script:"run_wp_inline_foo.sh";
@@ -184,8 +211,10 @@ let suite = [
   "Loop"                           >:: test_skip fail_msg (test_plugin "loop" sat);
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
-  "Nested function calls: inline regex" >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh";
-  "Nested function calls: inline all"   >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_all.sh";
+  "Nested function calls: inline regex" >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh"
+    ~expected_regs:[("RDI", "#x0000000000000004")];
+  "Nested function calls: inline all"   >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_all.sh"
+    ~expected_regs:[("RDI", "#x0000000000000004")];
 
   "Nested ifs"                     >: test_plugin "nested_ifs" unsat;
   "Nested ifs: goto"               >: test_plugin "nested_ifs" unsat ~script:"run_wp_goto.sh";
@@ -196,7 +225,7 @@ let suite = [
 
   "User defined postcondition"     >: test_plugin "return_argc" sat;
 
-  "Simple WP"                      >: test_plugin "simple_wp" sat;
+  "Simple WP"                      >: test_plugin "simple_wp" sat ~expected_regs:[("RDI", "#x0000000000000003")];
   "Simple WP: precondition"        >: test_plugin "simple_wp" unsat ~script:"run_wp_pre.sh";
 
   "Verifier assume SAT"            >: test_plugin "verifier_calls" sat ~script:"run_wp_assume_sat.sh";
