@@ -40,6 +40,7 @@ type flags =
     mem_offset : bool;
     check_null_deref : bool;
     print_constr : string list;
+    debug : bool;
   }
 
 let missing_func_msg (func : string) : string =
@@ -265,6 +266,7 @@ let should_compare (f : flags) : bool =
   f.compare || ((not @@ String.is_empty f.file1) && (not @@ String.is_empty f.file2))
 
 let main (flags : flags) (proj : project) : unit =
+  Z3.set_global_param "verbose" "10";
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let solver = Z3.Solver.mk_solver ctx None in
@@ -275,7 +277,11 @@ let main (flags : flags) (proj : project) : unit =
     else
       analyze_proj ctx var_gen proj flags
   in
+  Constr.print_stats (pre);
   let result = Pre.check ~print_constr:flags.print_constr solver ctx pre  in
+  if (flags.debug) then
+    Printf.printf " statistics : \n %s \n %!" (
+      Z3.Statistics.to_string (Z3.Solver.get_statistics solver) );
   let () = match flags.gdb_filename with
     | None -> ()
     | Some f -> Output.output_gdb solver result env2 ~func:flags.func ~filename:f in
@@ -382,6 +388,10 @@ module Cmdline = struct
             also be called like --wp-print-constr=internal,smtlib. If the flag \
             is not called, it defaults to printing neither."
 
+  let debug = param bool "debug" ~as_flag:true ~default:false
+      ~doc:"If set, debug will print the Z3's solver statistics. Defaults to \
+           printing neither."
+
   let () = when_ready (fun {get=(!!)} ->
       let flags =
         {
@@ -401,7 +411,8 @@ module Cmdline = struct
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
           check_null_deref = !!check_null_deref;
-          print_constr = !!print_constr
+          print_constr = !!print_constr;
+          debug = !!debug
         }
       in
       Project.register_pass' @@

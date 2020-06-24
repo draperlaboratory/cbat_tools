@@ -1079,6 +1079,7 @@ let check ?refute:(refute = true) ?(print_constr = []) (solver : Solver.solver)
     else
       pre'
   in
+  Z3.set_global_param "verbose" "10";
   Z3.Solver.add solver [is_correct];
   if (List.mem print_constr "smtlib" ~equal:(String.equal)) then (
     Printf.printf "Z3 : \n %s \n %!" (Z3.Solver.to_string solver) );
