@@ -39,12 +39,15 @@ let check_z3_result (line : string) (expected : string) (ctxt : test_ctxt) : uni
   else
     ()
 
+(* Checks to see if a line of output belongs to the countermodel where a register
+   is given a value. If the register is one that we have an expected value for,
+   assert the model's value is equal to our expected value. *)
 let check_model (line : string) (regs : (string * string) list) (ctxt : test_ctxt)
   : unit =
   List.iter regs ~f:(fun (reg, expected) ->
       (* Our model is printed in the form "reg |-> value". This regex will break
          if this changes. *)
-      let pattern = Format.sprintf "^\t%s +|-> +#[a-z0-9]$" reg in
+      let pattern = Format.sprintf "^\t+%s +|-> +#[a-z0-9]$" reg in
       let re = Re.Posix.compile_pat pattern in
       if Re.execp re line then begin
         let re = Re.Posix.compile_pat " +" in
