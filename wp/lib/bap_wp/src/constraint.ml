@@ -278,3 +278,35 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
       worker e current_path current_registers (olds @ o) (news @ n')
   in
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
+
+
+(* stats, get_stats and print_stats are all used for debuggin purposes *)
+type stats = {
+  mutable goals : int;
+  mutable ites : int;
+  mutable clauses : int;
+  mutable subs : int
+}
+
+let rec get_stats (x : t) (zstats :stats) : unit =
+  match x with
+  | Goal _ ->
+      (zstats.goals <- (zstats.goals + 1))
+  | ITE (_, _, c1, c2) ->
+      (get_stats  c1 zstats;
+      get_stats c2 zstats;
+      zstats.ites <- zstats.ites + 1)
+  | Clause (hyps, concs) ->
+    ( List.iter hyps (fun l -> (get_stats l zstats)) ;
+      List.iter concs (fun l -> (get_stats l zstats)) ;
+      zstats.clauses <- zstats.clauses + 1)
+  | Subst (c, _, _) ->
+      (get_stats c zstats;
+      zstats.subs <- zstats.subs + 1)
+
+let print_stats (x : t) : unit =
+  let z = {goals = 0; ites = 0 ; clauses = 0; subs = 0} in
+    (get_stats x z;
+    Printf.printf
+      "Printing stats: \n goals: %i , ites: %i, clauses: %i, subs: %i, \n %!"
+      z.goals z.ites z.clauses z.subs)
