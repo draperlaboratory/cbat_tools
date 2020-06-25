@@ -697,9 +697,11 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
             let l_pre =
               match Env.get_precondition env tid with
               | Some pre ->
-                 (* Printf.printf "Got precondition for node:%s: %s\n%!"
-                  *   (Tid.to_string tid)
-                  *   (Int.to_string (Hashtbl.hash pre)); *)
+                 Printf.printf "Got precondition for node:%s: %s\n%!"
+                   (Tid.to_string tid)
+                 ((* String.prefix *)
+                    (Z3.Expr.to_string (Z3.Expr.simplify (Constr.eval pre (Env.get_context env)) None))
+                    (* 6 *));
                  pre
               | None ->
                 error "Precondition for node %s not found!" (Tid.to_string tid);
@@ -816,8 +818,10 @@ let visit_graph_aux (env : Env.t) (post : Constr.t)
     let (new_pre, env) = visit_block env post b in
     let hash = Hashtbl.hash new_pre in
     let msg =
-      if hash = 548178023 then
-        (Z3.Expr.to_string (Z3.Expr.simplify (Constr.eval new_pre (Env.get_context env)) None))
+      if (* hash = 548178023 *) true then
+        String.prefix
+          (Z3.Expr.to_string (Z3.Expr.simplify (Constr.eval new_pre (Env.get_context env)) None))
+          6
       else
         Int.to_string hash
     in
@@ -872,8 +876,13 @@ let visit_graph (env : Env.t) (post : Constr.t)
     Printf.sprintf "visit_graph: Did not compute a precondition for node %s!"
       (Tid.to_string start_tid)
   in
-  let pre_res = start_tid |> Env.get_precondition env_res in
-  (Option.value_exn ~message:visit_err pre_res, env_res)
+  let pre_res = start_tid
+                |> Env.get_precondition env_res
+                |> Option.value_exn ?here:None ?error:None ~message:visit_err
+  in
+  (* Printf.printf "\n\n Main Precondition: \n\n%s\n%!"
+   *   (Z3.Expr.to_string (Z3.Expr.simplify (Constr.eval pre_res (Env.get_context env)) None)); *)
+  (pre_res, env_res)
 
 (* Now that we've defined [visit_graph], we can replace it in the
    [wp_rec_call] placeholder. *)
