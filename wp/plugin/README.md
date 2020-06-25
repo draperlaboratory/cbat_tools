@@ -379,6 +379,12 @@ The various options are:
   what is stated. Both can also be called like `--wp-print-constr=internal,smtlib`.
   If the flag is not called, it defaults to printing neither.
 
+- `--wp-debug=[solver|global|constr.t|eval] or some combination`. If set, debug
+  will print the various debugging statistics, including information and statistics
+  for Z3's solver, global_param, constr.t, and expression-lists when calling eval.
+  These can also be called with the key-words: solver, global, constr.t and eval
+  respectively. If the flag is not called, it defaults to printing none of them.
+
 ## C checking API
 
 There is a `cbat.h` file in the `api/c` folder which contains headers

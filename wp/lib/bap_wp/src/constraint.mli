@@ -101,7 +101,7 @@ val mk_clause : t list -> t list -> t
 
 (** [eval c ctx] evaluates the constraint [c] to a Z3 expression,
     using the standard Z3 encoding of if-then-else and clauses. *)
-val eval : t -> Z3.context -> z3_expr
+val eval : ?debug:(string list) -> t -> Z3.context -> z3_expr
 
 (** [substitute c [e1;...;e_n] [d1;...;d_n]] substitutes each
     occurence in [c] of the Z3 expression [ei] with the expression

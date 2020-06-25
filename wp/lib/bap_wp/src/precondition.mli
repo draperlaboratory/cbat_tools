@@ -278,6 +278,7 @@ val visit_sub : Env.t -> Constr.t -> Bap.Std.Sub.t -> Constr.t * Env.t
 val check
   : ?refute:bool
   -> ?print_constr: (string list)
+  -> ?debug: (string list)
   -> Z3.Solver.solver
   -> Z3.context
   -> Constr.t
