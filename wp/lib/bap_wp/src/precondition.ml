@@ -1066,12 +1066,12 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   else
     Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
-let check ?refute:(refute = true) ?(print_constr = []) (solver : Solver.solver)
-    (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
+let check ?refute:(refute = true) ?(print_constr = []) ?(debug = [])
+    (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   printf "Evaluating precondition.\n%!";
   if (List.mem print_constr "internal" ~equal:(String.equal)) then (
      Printf.printf "Internal : %s \n %!" (Constr.to_string pre) ) ;
-  let pre' = Constr.eval pre ctx in
+  let pre' = Constr.eval ~debug:debug pre ctx in
   printf "Checking precondition with Z3.\n%!";
   let is_correct =
     if refute then
@@ -1079,7 +1079,6 @@ let check ?refute:(refute = true) ?(print_constr = []) (solver : Solver.solver)
     else
       pre'
   in
-  Z3.set_global_param "verbose" "10";
   Z3.Solver.add solver [is_correct];
   if (List.mem print_constr "smtlib" ~equal:(String.equal)) then (
     Printf.printf "Z3 : \n %s \n %!" (Z3.Solver.to_string solver) );

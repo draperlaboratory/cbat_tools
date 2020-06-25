@@ -175,16 +175,41 @@ let mk_ite (jmp : Jmp.t) (cond : z3_expr) (c1 : t) (c2 : t) : t =
 let mk_clause (hyps: t list) (concs : t list) : t =
   Clause (hyps, concs)
 
-let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
-    (ctx : Z3.context) : z3_expr =
+
+(* list_stats, std_dev, update_stats and init_stats are used for
+   debugging and statistics-gathering for eval_aux *)
+type list_stats =
+  { mutable sum: int;
+    mutable sum_squared: int;
+    mutable count: int;
+    mutable maximum : int; }
+
+let std_dev stats =
+   sqrt ((float stats.sum_squared) /. float stats.count -.
+    ((float stats.sum) /. float stats.count) ** 2.)
+
+let update_stats stats olds =
+   let list_length = List.length(olds) in
+   stats.count <- stats.count + 1;
+   stats.sum <- stats.sum + list_length;
+   stats.sum_squared <- stats.sum_squared + list_length * list_length;
+   stats.maximum <- max stats.maximum list_length
+
+let init_stats = {sum = 0 ; sum_squared = 0 ; count = 0; maximum = 0}
+
+let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
+    (news : z3_expr list) (ctx : Z3.context) : z3_expr =
+  update_stats stats olds;
   match constr with
-  | Goal { goal_val = v; _ } -> Expr.substitute v olds news
+  | Goal { goal_val = v; _ } ->
+    Expr.substitute v olds news
   | ITE (_, e, c1, c2) ->
     let e' = Expr.substitute e olds news in
-    Bool.mk_ite ctx e' (eval_aux c1 olds news ctx) (eval_aux c2 olds news ctx)
+    Bool.mk_ite ctx e' (eval_aux ~stats:stats c1 olds news ctx)
+      (eval_aux ~stats:stats c2 olds news ctx)
   | Clause (hyps, concs) ->
     let eval_conjunction conj =
-      List.map conj ~f:(fun c -> eval_aux c olds news ctx)
+      List.map conj ~f:(fun c -> eval_aux ~stats:stats c olds news ctx)
       |> Bool.mk_and ctx
     in
     let concs_expr = eval_conjunction concs in
@@ -195,11 +220,21 @@ let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
       Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
     let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
-    eval_aux c (olds @ o) (news @ n') ctx
+    eval_aux ~stats:stats c (olds @ o) (news @ n') ctx
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
-let eval (constr : t) (ctx : Z3.context) : z3_expr =
-  eval_aux constr [] [] ctx
+let eval ?debug:(debug = []) (constr : t) (ctx : Z3.context) : z3_expr =
+  (* if (List.mem debug "eval" ~equal:(String.equal)) then
+    let stats = init_stats in
+    let eval = eval_aux ~stats:stats constr [] [] ctx in
+    let mean = (float stats.sum) /. (float stats.count)  in
+    let std_dev = std_dev stats in
+    Printf.printf "Statistics for olds and news in eval_aux call: \n";
+    Printf.printf "mean: %f , max: %i , std dev: %f \n %!" mean stats.maximum std_dev ;
+    eval
+  else *)
+    eval_aux constr [] [] ctx
+
 
 let substitute (constr : t) (olds : z3_expr list) (news : z3_expr list) : t =
   Subst (constr, olds, news)
@@ -288,25 +323,25 @@ type stats = {
   mutable subs : int
 }
 
-let rec get_stats (x : t) (zstats :stats) : unit =
-  match x with
+let rec get_stats (t : t) (zstats :stats) : unit =
+  match t with
   | Goal _ ->
-      (zstats.goals <- (zstats.goals + 1))
+      zstats.goals <- (zstats.goals + 1)
   | ITE (_, _, c1, c2) ->
       (get_stats  c1 zstats;
       get_stats c2 zstats;
       zstats.ites <- zstats.ites + 1)
   | Clause (hyps, concs) ->
-    ( List.iter hyps (fun l -> (get_stats l zstats)) ;
-      List.iter concs (fun l -> (get_stats l zstats)) ;
+    ( List.iter hyps ~f:(fun l -> (get_stats l zstats)) ;
+      List.iter concs ~f:(fun l -> (get_stats l zstats)) ;
       zstats.clauses <- zstats.clauses + 1)
   | Subst (c, _, _) ->
       (get_stats c zstats;
       zstats.subs <- zstats.subs + 1)
 
-let print_stats (x : t) : unit =
+let print_stats (t : t) : unit =
   let z = {goals = 0; ites = 0 ; clauses = 0; subs = 0} in
-    (get_stats x z;
-    Printf.printf
-      "Printing stats: \n goals: %i , ites: %i, clauses: %i, subs: %i, \n %!"
-      z.goals z.ites z.clauses z.subs)
+    (get_stats t z;
+    Printf.printf "Printing constr.t stats : \n ";
+    Printf.printf "goals: %i , ites: %i, clauses: %i, subs: %i, \n %!"
+      z.goals z.ites z.clauses z.subs )
