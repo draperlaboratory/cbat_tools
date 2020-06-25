@@ -224,7 +224,7 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
 let eval ?debug:(debug = []) (constr : t) (ctx : Z3.context) : z3_expr =
-  (* if (List.mem debug "eval" ~equal:(String.equal)) then
+  if (List.mem debug "eval" ~equal:(String.equal)) then
     let stats = init_stats in
     let eval = eval_aux ~stats:stats constr [] [] ctx in
     let mean = (float stats.sum) /. (float stats.count)  in
@@ -232,7 +232,7 @@ let eval ?debug:(debug = []) (constr : t) (ctx : Z3.context) : z3_expr =
     Printf.printf "Statistics for olds and news in eval_aux call: \n";
     Printf.printf "mean: %f , max: %i , std dev: %f \n %!" mean stats.maximum std_dev ;
     eval
-  else *)
+  else
     eval_aux constr [] [] ctx
 
 
