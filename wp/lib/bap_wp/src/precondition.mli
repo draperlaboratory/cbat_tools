@@ -174,6 +174,22 @@ val spec_default : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec
 (** The default jmp spec for handling branches in a BIR program. *)
 val jmp_spec_default : Env.jmp_spec
 
+(** A list of fun_specs that to be used by default in order of precedence. A
+    subroutine will be mapped to a fun_spec if it matches the proper conditions.
+    If the subroutine does not fulfill any of the fun_specs' conditions,
+    {!spec_default} will be used. Current default fun_specs are:
+    - spec_verifier_assume
+    - spec_verifier_nondet
+    - spec_afl_maybe_log
+    - spec_inline
+    - spec_arg_terms
+    - spec_chaos_caller_saved
+    - spec_rax_out.
+      Takes in a sequence of subroutines to inline for spec_inline as input. *)
+val default_fun_specs :
+  Bap.Std.Sub.t Bap.Std.Seq.t
+  -> (Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option) list
+
 (** A jump spec that generates constraints for reaching a program point,
     according to a map specifying whether a jump was taken or not. *)
 val jmp_spec_reach : Constr.path -> Env.jmp_spec
@@ -205,8 +221,7 @@ val num_unroll : int ref
 
 (** Creates an environment with
     - an empty sequence of subroutines to initialize function specs
-    - an empty sequence of subroutines to inline
-    - the default list of {!Environment.fun_spec}s that summarize the precondition for a
+    - an empty list of {!Environment.fun_spec}s that summarize the precondition for a
       function call
     - the default {!Environment.jmp_spec} that summarizes the precondition at a jump
     - the default {!Environment.int_spec} that summarizes the precondition for an
@@ -228,7 +243,6 @@ val num_unroll : int ref
     expressions and create fresh variables. *)
 val mk_env
   :  ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
-  -> ?to_inline:Bap.Std.Sub.t Bap.Std.Seq.t
   -> ?specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option) list
   -> ?default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec)
   -> ?jmp_spec:Env.jmp_spec

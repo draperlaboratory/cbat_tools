@@ -647,8 +647,7 @@ let num_unroll : int ref = ref 5
 
 let default_fun_specs (to_inline : Sub.t Seq.t) :
   (Sub.t -> Arch.t -> Env.fun_spec option) list =
-  [ spec_verifier_error;
-    spec_verifier_assume;
+  [ spec_verifier_assume;
     spec_verifier_nondet;
     spec_afl_maybe_log;
     spec_inline to_inline;
@@ -663,8 +662,7 @@ let default_heap_range : int * int = 0x0000000000000000, 0x00000000ffffffff
 
 let mk_env
     ?subs:(subs = Seq.empty)
-    ?to_inline:(to_inline = Seq.empty)
-    ?specs:(specs = default_fun_specs to_inline)
+    ?specs:(specs = [])
     ?default_spec:(default_spec = spec_default)
     ?jmp_spec:(jmp_spec = jmp_spec_default)
     ?int_spec:(int_spec = int_spec_default)
@@ -1070,7 +1068,7 @@ let check ?refute:(refute = true) ?(print_constr = []) (solver : Solver.solver)
     (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   printf "Evaluating precondition.\n%!";
   if (List.mem print_constr "internal" ~equal:(String.equal)) then (
-     Printf.printf "Internal : %s \n %!" (Constr.to_string pre) ) ;
+    Printf.printf "Internal : %s \n %!" (Constr.to_string pre) ) ;
   let pre' = Constr.eval pre ctx in
   printf "Checking precondition with Z3.\n%!";
   let is_correct =

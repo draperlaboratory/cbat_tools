@@ -40,6 +40,7 @@ type flags =
     mem_offset : bool;
     check_null_deref : bool;
     print_constr : string list;
+    trip_asserts : bool
   }
 
 let missing_func_msg (func : string) : string =
@@ -127,14 +128,23 @@ let exp_conds_mod (flags : flags) : Env.exp_cond list =
   else
     []
 
+(* Determine which fun_specs to use based on the flags passed in from the CLI.
+   Pass in a list of subroutines to inline for spec_inline. *)
+let fun_specs (f : flags) (to_inline : Sub.t Seq.t)
+  : (Sub.t -> Arch.t -> Env.fun_spec option) list =
+  if f.trip_asserts then
+    Pre.spec_verifier_error :: Pre.default_fun_specs to_inline
+  else
+    Pre.default_fun_specs to_inline
+
 let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (flags : flags) : Constr.t * Env.t * Env.t =
   let arch = Project.arch proj in
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func_err subs flags.func in
-  let to_inline = match_inline flags.inline subs in
+  let specs = subs |> match_inline flags.inline |> fun_specs flags in
   let exp_conds = exp_conds_mod flags in
-  let env = Pre.mk_env ctx var_gen ~subs ~arch ~to_inline
+  let env = Pre.mk_env ctx var_gen ~subs ~arch ~specs
       ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds in
   (* call visit sub with a dummy postcondition to fill the
      environment with variables *)
@@ -154,8 +164,8 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env flags.pre_cond] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
-    (* Print statement for constraint-style prover output: *)
-    Format.printf "\nSub:\n%s\nPre:\n%!" (Sub.to_string main_sub);
+  (* Print statement for constraint-style prover output: *)
+  Format.printf "\nSub:\n%s\nPre:\n%!" (Sub.to_string main_sub);
   (pre, env, env)
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
@@ -234,18 +244,18 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let main_sub1 = find_func_err subs1 flags.func in
   let main_sub2 = find_func_err subs2 flags.func in
   let env2 =
-    let to_inline2 = match_inline flags.inline subs2 in
+    let specs2 = subs2 |> match_inline flags.inline |> fun_specs flags in
     let exp_conds2 = exp_conds_mod flags in
-    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
+    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~specs:specs2
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds2 in
     let env2 = Env.set_freshen env2 true in
     let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
     env2
   in
   let env1 =
-    let to_inline1 = match_inline flags.inline subs1 in
+    let specs1 = subs1 |> match_inline flags.inline |> fun_specs flags in
     let exp_conds1 = exp_conds_orig flags env2 in
-    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1
+    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~specs:specs1
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
@@ -382,6 +392,10 @@ module Cmdline = struct
             also be called like --wp-print-constr=internal,smtlib. If the flag \
             is not called, it defaults to printing neither."
 
+  let trip_asserts = param bool "trip-asserts" ~as_flag:true ~default:false
+      ~doc:"If set, WP will look for inputs to the subroutine that would \
+            cause an __assert_fail or __VERIFIER_error to be reached."
+
   let () = when_ready (fun {get=(!!)} ->
       let flags =
         {
@@ -401,7 +415,8 @@ module Cmdline = struct
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
           check_null_deref = !!check_null_deref;
-          print_constr = !!print_constr
+          print_constr = !!print_constr;
+          trip_asserts = !!trip_asserts
         }
       in
       Project.register_pass' @@
