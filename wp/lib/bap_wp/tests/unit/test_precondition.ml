@@ -521,7 +521,7 @@ let test_subroutine_6 (test_ctx : test_ctxt) : unit =
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid sub_assert)) in
   let sub = mk_sub [blk2; blk3] in
   let subs = Seq.of_list [sub; sub_assert] in
-  let env = Pre.mk_env ~subs ctx var_gen in
+  let env = Pre.mk_env ~subs ~specs:[Pre.spec_verifier_error] ctx var_gen in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
@@ -533,7 +533,7 @@ let test_subroutine_7 (test_ctx : test_ctxt) : unit =
   let assert_sub, assert_expr = Bil_to_bir.mk_assert_fail () in
   let sub = Bil_to_bir.bil_to_sub Bil.([jmp assert_expr])  in
   let subs = Seq.singleton assert_sub in
-  let env = Pre.mk_env ~subs ctx var_gen in
+  let env = Pre.mk_env ~subs ~specs:[Pre.spec_verifier_error] ctx var_gen in
   let post = true_constr ctx in
   let pre, _ = Pre.visit_sub env post sub in
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
@@ -556,8 +556,10 @@ let test_call_1 (test_ctx : test_ctxt) : unit =
              |> mk_def ret_var zero
              |> mk_call (Label.direct (Term.tid blk3)) (Label.direct (Term.tid call_body)) in
   let main_sub = mk_sub [blk2; blk3] in
-  let env = Pre.mk_env ctx var_gen 
-      ~subs:(Seq.of_list [call_body; main_sub]) in
+  let env = Pre.mk_env ctx var_gen
+      ~subs:(Seq.of_list [call_body; main_sub])
+      ~specs:(Pre.default_fun_specs Seq.empty)
+  in
   let post = Bool.mk_eq ctx (mk_z3_expr env (Bil.var ret_var)) (mk_z3_expr env zero)
              |> Constr.mk_goal "ret = 0"
              |> Constr.mk_constr
@@ -715,9 +717,10 @@ let test_call_7 (test_ctx : test_ctxt) : unit =
                (Label.direct (Term.tid call_sub)) in
   let blk3 = blk3 |> mk_def z (Bil.var y) in
   let main_sub = mk_sub [blk2; blk3] in
+  let specs = [Pre.spec_inline @@ Seq.singleton call_sub] in
   let env = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub; call_sub])
-      ~to_inline:(Seq.singleton call_sub)
+      ~specs:specs
   in
   let sub_called = Option.value_exn (call_tid |> Env.get_called env) in
   let post = Bool.mk_and ctx [
@@ -792,9 +795,10 @@ let test_call_9 (test_ctx : test_ctxt) : unit =
                  |> mk_call (Label.direct (Term.tid blk_main'))
                    (Label.direct (Term.tid call1_sub)) in
   let main_sub = mk_sub [blk_main; blk_main'] in
+  let specs = [Pre.spec_inline @@ Seq.of_list [call1_sub; call2_sub]] in
   let env = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub; call1_sub; call2_sub])
-      ~to_inline:(Seq.of_list [call1_sub; call2_sub])
+      ~specs:specs
   in
   let sub1_called = Option.value_exn (call1_tid |> Env.get_called env) in
   let sub2_called = Option.value_exn (call2_tid |> Env.get_called env) in
@@ -836,9 +840,10 @@ let test_call_10 (test_ctx : test_ctxt) : unit =
                  |> mk_call (Label.direct (Term.tid blk_main'))
                    (Label.direct (Term.tid call1_sub)) in
   let main_sub = mk_sub [blk_main; blk_main'] in
+  let specs = [Pre.spec_inline @@ Seq.singleton call1_sub] in
   let env = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [main_sub; call1_sub; call2_sub])
-      ~to_inline:(Seq.of_list [call1_sub])
+      ~specs:specs
   in
   let sub1_called = Option.value_exn (call1_tid |> Env.get_called env) in
   let sub2_called = Option.value_exn (call2_tid |> Env.get_called env) in
@@ -864,7 +869,7 @@ let test_int_1 (test_ctx : test_ctxt) : unit =
              |> mk_int 0x0 blk2
   in
   let main_sub = mk_sub [blk1; blk2] in
-  let env = Pre.mk_env ctx var_gen ~to_inline:(Seq.empty) ~subs:(Seq.of_list [main_sub]) in
+  let env = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub]) in
   let post = Bool.mk_eq ctx (mk_z3_expr env (Bil.var ret_var)) (mk_z3_expr env zero)
              |> Constr.mk_goal "ret = 0"
              |> Constr.mk_constr
@@ -1354,8 +1359,9 @@ let test_get_vars_inline_1 (test_ctx : test_ctxt) : unit =
   in
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
+  let specs = [Pre.spec_inline @@ Seq.singleton call_sub] in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
-      ~to_inline:(Seq.singleton call_sub) ~subs:(Seq.of_list [sub; call_sub]) in
+      ~specs:specs ~subs:(Seq.of_list [sub; call_sub]) in
   let vars = Pre.get_vars env sub in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)

@@ -520,8 +520,9 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
         rsi := i64 3;
         jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t)  ]
     ) |> bil_to_sub in
-  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub1]) in
-  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2]) in
+  let specs = Pre.default_fun_specs Seq.empty in
+  let env1 = Pre.mk_env ctx var_gen ~specs ~subs:(Seq.of_list [main_sub1; call_sub1]) in
+  let env2 = Pre.mk_env ctx var_gen ~specs ~subs:(Seq.of_list [main_sub2; call_sub2]) in
   let input_vars = Var.Set.of_list (ret_var :: x86_64_input_regs) in
   let output_vars = Var.Set.singleton ret_var in
   let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in

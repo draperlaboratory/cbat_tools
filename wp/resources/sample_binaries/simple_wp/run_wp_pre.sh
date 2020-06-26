@@ -12,7 +12,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-precond="(assert (= RDI #x0000000000000002))"
+  bap main --pass=wp --wp-precond="(assert (= RDI #x0000000000000002))" --wp-trip-asserts
 }
 
 compile && run
