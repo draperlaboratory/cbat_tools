@@ -283,7 +283,7 @@ let main (flags : flags) (proj : project) : unit =
   let result = Pre.check ~print_constr:flags.print_constr ~debug:flags.debug
     solver ctx pre in
   if (List.mem flags.debug "solver" ~equal:(String.equal)) then
-    Printf.printf " statistics : \n %s \n %!" (
+    Printf.printf "Showing solver statistics : \n %s \n %!" (
       Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
   let () = match flags.gdb_filename with
     | None -> ()

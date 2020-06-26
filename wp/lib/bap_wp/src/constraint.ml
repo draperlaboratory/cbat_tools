@@ -229,7 +229,7 @@ let eval ?debug:(debug = []) (constr : t) (ctx : Z3.context) : z3_expr =
     let eval = eval_aux ~stats:stats constr [] [] ctx in
     let mean = (float stats.sum) /. (float stats.count)  in
     let std_dev = std_dev stats in
-    Printf.printf "Statistics for olds and news in eval_aux call: \n";
+    Printf.printf "Showing statistics for olds and news in eval_aux: \n";
     Printf.printf "mean: %f , max: %i , std dev: %f \n %!" mean stats.maximum std_dev ;
     eval
   else
@@ -342,6 +342,6 @@ let rec get_stats (t : t) (zstats :stats) : unit =
 let print_stats (t : t) : unit =
   let z = {goals = 0; ites = 0 ; clauses = 0; subs = 0} in
     (get_stats t z;
-    Printf.printf "Printing constr.t stats : \n ";
+    Printf.printf "Showing constr.t statistics: \n ";
     Printf.printf "goals: %i , ites: %i, clauses: %i, subs: %i, \n %!"
       z.goals z.ites z.clauses z.subs )
