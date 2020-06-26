@@ -202,8 +202,8 @@ let suite = [
   "Function spec: inline all "     >: test_plugin "function_spec" unsat ~script:"run_wp_inline_all.sh";
   "Function spec: inline garbage"  >: test_plugin "function_spec" sat ~script:"run_wp_inline_garbage.sh";
 
-  (* "Goto string"                    >: test_plugin "goto_string" sat;
-  "Goto string: inline all"        >: test_plugin "goto_string" sat ~script:"run_wp_inline.sh"; *)
+  "Goto string"                    >: test_plugin "goto_string" sat;
+  "Goto string: inline all"        >: test_plugin "goto_string" sat ~script:"run_wp_inline.sh";
 
   "Init var value in post: UNSAT:" >: test_plugin "init_var" unsat;
   "Init var value in post: SAT"    >: test_plugin "init_var" sat ~script:"run_wp_sat.sh";
