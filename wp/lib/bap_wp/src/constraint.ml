@@ -188,7 +188,6 @@ let mk_ite (jmp : Jmp.t) (cond : z3_expr) (c1 : t) (c2 : t) : t =
 let mk_clause (hyps: t list) (concs : t list) : t =
   Clause (hyps, concs)
 
-<<<<<<< HEAD
 
 (* list_stats, std_dev, update_stats and init_stats are used for
    debugging and statistics-gathering for eval_aux *)
@@ -214,26 +213,6 @@ let init_stats = {sum = 0 ; sum_squared = 0 ; count = 0; maximum = 0}
 let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
     (news : z3_expr list) (ctx : Z3.context) : z3_expr =
   update_stats stats olds;
-=======
-(** [get_vars] gets all the variable in [e'] that exists in [olds] and returns an association list with their corresponding value in [news] *)
-let get_vars' (e' : z3_expr) ( olds : z3_expr list ) ( news : z3_expr list ) : (z3_expr * z3_expr) list =
-   let findn e l = 
-       let rec findn e n l = match l with | x :: xs ->  if Expr.equal x e then Some n else findn e (n + 1) xs | [] -> None in findn e 0 l in
-   let rec helper e = 
-      if Expr.get_num_args e = 0 then (* get_num_args is cheaper than Expr.is_const *)
-        if Expr.is_const e then
-          match (findn e olds) with
-          | Some n -> [(e , List.nth_exn news n )]
-          | None   -> []
-        else [] 
-      else 
-        List.map ~f:helper (Expr.get_args e) |> List.concat_no_order (* duplicates are not a problem and not worth checking for *)
-   in
-   helper e'
-
-let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
-    (ctx : Z3.context) : z3_expr =
->>>>>>> 59d54e4... Added pruning the olds news list and fast path in Clause case for constraint evaluation
   match constr with
   | Goal { goal_val = v; _ } ->
     Expr.substitute v olds news
@@ -243,16 +222,11 @@ let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
       (eval_aux ~stats:stats c2 olds news ctx)
   | Clause (hyps, concs) ->
     let eval_conjunction conj =
-<<<<<<< HEAD
-      List.map conj ~f:(fun c -> eval_aux ~stats:stats c olds news ctx)
-      |> Bool.mk_and ctx
-=======
       if List.length conj = 1 then 
-        eval_aux (List.hd_exn conj) olds news ctx (* This is tail recursive. Avoids And node. *)
+        eval_aux ~stats:stats (List.hd_exn conj) olds news ctx (* This is tail recursive. Avoids And node. *)
       else
-        List.map conj ~f:(fun c -> eval_aux c olds news ctx)
+        List.map conj ~f:(fun c -> eval_aux ~stats:stats c olds news ctx)
         |> Bool.mk_and ctx
->>>>>>> 59d54e4... Added pruning the olds news list and fast path in Clause case for constraint evaluation
     in
     if List.is_empty hyps then
       eval_conjunction concs(* possibly tail recursive? *)
@@ -261,10 +235,6 @@ let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
       let hyps_expr = eval_conjunction hyps in
       Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
-<<<<<<< HEAD
-    let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
-    eval_aux ~stats:stats c (olds @ o) (news @ n') ctx
-=======
     let n' = List.map n ~f:(fun x -> 
                                    let[@landmark "oldsnews" ] olds, news = get_vars' x olds news |> List.unzip in
                                    Expr.substitute x olds news) in
@@ -285,13 +255,12 @@ let rec eval_aux (constr : t) (olds : z3_expr list) (news : z3_expr list)
           | None -> eval_aux c (o :: olds) (n' :: news) ctx
           | Some ind -> let news' = n' :: (removen_exn ind news) in
                         let olds  = o  :: (removen_exn ind olds) in 
-                        eval_aux c olds news' ctx
+                        eval_aux ~stats:stats c olds news' ctx
       end
     else
       let oldsnews = List.zip_exn olds news in
       let o', n' =  List.fold2_exn o n' ~init:oldsnews ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') |> List.unzip   in 
-      eval_aux c o' n' ctx 
->>>>>>> 59d54e4... Added pruning the olds news list and fast path in Clause case for constraint evaluation
+      eval_aux ~stats:stats c o' n' ctx 
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
 let eval ?debug:(debug = false) (constr : t) (ctx : Z3.context) : z3_expr =
