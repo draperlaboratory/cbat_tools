@@ -16,7 +16,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-trip-asserts
+  bap main --pass=wp --wp-trip-asserts --wp-fun-specs=chaos_caller_saved
 }
 
 compile && run

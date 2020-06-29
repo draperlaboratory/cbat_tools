@@ -23,7 +23,8 @@ run () {
     --wp-file1=main_1.bpj \
     --wp-file2=main_2.bpj \
     --wp-function=process_message \
-    --wp-check-calls
+    --wp-check-calls \
+    --wp-fun-specs=chaos_caller_saved
 }
 
 compile && run

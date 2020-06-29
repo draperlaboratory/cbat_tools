@@ -15,7 +15,8 @@ run () {
     --wp-compare \
     --wp-file1=main_1.bpj \
     --wp-file2=main_2.bpj \
-    --wp-output-vars=RSI,RAX
+    --wp-output-vars=RSI,RAX \
+    --wp-fun-specs=chaos_caller_saved
 }
 
 compile && run

@@ -537,6 +537,8 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
+(* If RAX is found on the left hand side of an assignment, this spec will
+   chaos RAX as an output from the target function. *)
 let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
@@ -563,6 +565,8 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   else
     None
 
+(* This spec will chaos RAX regardless if it has been used on the left hand side
+   of an assignment in the target function. This spec only works for x86_64. *)
 let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   match arch with
   | `x86_64 ->

@@ -174,7 +174,7 @@ val spec_default : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec
 (** The default jmp spec for handling branches in a BIR program. *)
 val jmp_spec_default : Env.jmp_spec
 
-(** A list of fun_specs that to be used by default in order of precedence. A
+(** A list of fun_specs to be used by default in order of precedence. A
     subroutine will be mapped to a fun_spec if it matches the proper conditions.
     If the subroutine does not fulfill any of the fun_specs' conditions,
     {!spec_default} will be used. Current default fun_specs are:

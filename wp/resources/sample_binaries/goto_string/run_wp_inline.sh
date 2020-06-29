@@ -16,7 +16,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-inline=.* --wp-trip-asserts
+  bap main --pass=wp --wp-inline=my_string_alloc --wp-trip-asserts --wp-fun-specs=verifier_nondet
 }
 
 compile && run

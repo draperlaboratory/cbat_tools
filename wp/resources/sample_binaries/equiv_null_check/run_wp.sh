@@ -16,7 +16,8 @@ run () {
     --wp-compare \
     --wp-file1=main_1.bpj \
     --wp-file2=main_2.bpj \
-    --wp-trip-asserts
+    --wp-trip-asserts \
+    --wp-fun-specs=verifier_nondet
 }
 
 compile && run
