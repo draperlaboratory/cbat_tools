@@ -140,20 +140,24 @@ let spec_of_name (name : string) : Sub.t -> Arch.t -> Env.fun_spec option  =
   | "chaos_rax" -> Pre.spec_chaos_rax
   | "rax_out" -> Pre.spec_rax_out
   | n -> Format.printf "Function spec: %s not found. Run `bap --wp-help` for \
-                        available specs." n; exit 1
+                        available specs.\n%!" n; exit 1
 
 (* Determine which fun_specs to use based on the flags passed in from the CLI.
    Pass in a list of subroutines to inline for spec_inline. *)
 let fun_specs (f : flags) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Arch.t -> Env.fun_spec option) list =
-  let specs = List.map f.fun_specs ~f:spec_of_name in
-  let specs = Pre.spec_inline to_inline :: specs in
-  (* --wp-trip-asserts is an alias to --wp-fun-specs=spec_verifier_error. This
-     gives it the most priority and should be in the front of the list. *)
-  if f.trip_asserts then
-    Pre.spec_verifier_error :: specs
-  else
-    specs
+  match f.fun_specs with
+  | ["all"] -> Pre.default_fun_specs to_inline
+  | names ->
+    let specs = List.map names ~f:spec_of_name in
+    (* Inlining functions should have more priority than the rest of the specs. *)
+    let specs = Pre.spec_inline to_inline :: specs in
+    (* --wp-trip-asserts is an alias to --wp-fun-specs=spec_verifier_error. This
+       gives it the most priority and should be in the front of the list. *)
+    if f.trip_asserts then
+      Pre.spec_verifier_error :: specs
+    else
+      specs
 
 let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (flags : flags) : Constr.t * Env.t * Env.t =
@@ -416,7 +420,8 @@ module Cmdline = struct
             it fulfills the corresponding conditions. If no conditions are \
             satisfied, a default spec will be used. The available specs are: \
             verifier_error, verifier_assume, verifier_nondet, afl_maybe_log, \
-            arg_terms, chaos_caller_saved, and rax_out."
+            arg_terms, chaos_caller_saved, and rax_out. If unsure about which \
+            specs to use, specify --wp-fun-specs=all to enable all specs."
 
   let trip_asserts = param bool "trip-asserts" ~as_flag:true ~default:false
       ~doc:"If set, WP will look for inputs to the subroutine that would \
