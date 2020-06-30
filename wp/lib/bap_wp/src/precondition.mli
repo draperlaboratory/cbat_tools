@@ -274,11 +274,13 @@ val visit_block : Env.t -> Constr.t -> Bap.Std.Blk.t -> Constr.t * Env.t
 val visit_sub : Env.t -> Constr.t -> Bap.Std.Sub.t -> Constr.t * Env.t
 
 (** Calls Z3 to check for a countermodel for the precondition of a BIR program. If
-    refute is set to false, it checks for a model instead. *)
+    refute is set to false, it checks for a model instead. If ~print_constr is
+    called and contains "smtlib", then Z3's solver (smt lib 2) will be printed.
+    If ~debug is set, then ~debug will be passed to prints statistics on  *)
 val check
   : ?refute:bool
   -> ?print_constr: (string list)
-  -> ?debug: (string list)
+  -> ?debug: (bool)
   -> Z3.Solver.solver
   -> Z3.context
   -> Constr.t
