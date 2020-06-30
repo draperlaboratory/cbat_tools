@@ -1,0 +1,11 @@
+Variables:
+  R8: 0x0000000
+  R9: 0x7fffffff
+  RAX: 0x00000abc
+  RCX: 0x00000000
+  RDI: 0x00000000
+  RDX: 0x00000000
+  RSI: 0x00000000
+Locations:
+  0x3ffffff1: 0x00000123
+  0x3ffffff9: 0x00000abc
