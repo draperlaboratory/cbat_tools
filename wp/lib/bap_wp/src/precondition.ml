@@ -1066,7 +1066,7 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   else
     Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
-let check ?refute:(refute = true) ?(print_constr = []) ?(debug = [])
+let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
     (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   printf "Evaluating precondition.\n%!";
   if (List.mem print_constr "internal" ~equal:(String.equal)) then (

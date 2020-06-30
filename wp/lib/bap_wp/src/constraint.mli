@@ -100,8 +100,10 @@ val mk_ite : Bap.Std.Jmp.t -> z3_expr -> t -> t -> t
 val mk_clause : t list -> t list -> t
 
 (** [eval c ctx] evaluates the constraint [c] to a Z3 expression,
-    using the standard Z3 encoding of if-then-else and clauses. *)
-val eval : ?debug:(string list) -> t -> Z3.context -> z3_expr
+    using the standard Z3 encoding of if-then-else and clauses.
+    If ~debug is called and is set to true, then statistics for
+    eval will be printed. *)
+val eval : ?debug:(bool) -> t -> Z3.context -> z3_expr
 
 (** [substitute c [e1;...;e_n] [d1;...;d_n]] substitutes each
     occurence in [c] of the Z3 expression [ei] with the expression
@@ -130,8 +132,17 @@ val eval_model_exn : Z3.Model.model -> z3_expr -> z3_expr
 val get_model_exn : Z3.Solver.solver -> Z3.Model.model
 
 
+(** stats, get_stats and print_stats are used for debugging purposes when
+    the flag --wp-debug=constraint-stats is set. **)
+
+(** Contains statistics for values of type t, keeping track of number of goals,
+    ites, clauses and subs that compose t **)
 type stats
 
+(** [get_stats t stats] collects statistics of t, so that the statistics are
+    held in stats **)
 val get_stats : t -> stats -> unit
 
+(** [print_stats t] calls get_stats to collect and print the statistics
+    for the number of goals, ites, clauses and subs that compose t **)
 val print_stats : t -> unit
