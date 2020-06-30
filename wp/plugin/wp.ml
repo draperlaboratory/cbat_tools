@@ -34,10 +34,12 @@ type flags =
     num_unroll : int option;
     output_vars : string list;
     gdb_filename : string option;
+    bildb_output : string option;
     print_path : bool;
     use_fun_input_regs : bool;
     mem_offset : bool;
-    check_null_deref : bool
+    check_null_deref : bool;
+    print_constr : string list;
   }
 
 let missing_func_msg (func : string) : string =
@@ -152,8 +154,8 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env flags.pre_cond] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
-  Format.printf "\nSub:\n%s\nPre:\n%a\n%!"
-    (Sub.to_string main_sub) Constr.pp_constr pre;
+    (* Print statement for constraint-style prover output: *)
+    Format.printf "\nSub:\n%s\nPre:\n%!" (Sub.to_string main_sub);
   (pre, env, env)
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
@@ -265,7 +267,7 @@ let should_compare (f : flags) : bool =
 let main (flags : flags) (proj : project) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let solver = Z3.Solver.mk_simple_solver ctx in
+  let solver = Z3.Solver.mk_solver ctx None in
   update_default_num_unroll flags.num_unroll;
   let pre, env1, env2 =
     if should_compare flags then
@@ -273,12 +275,13 @@ let main (flags : flags) (proj : project) : unit =
     else
       analyze_proj ctx var_gen proj flags
   in
-  let result = Pre.check solver ctx pre in
+  let result = Pre.check ~print_constr:flags.print_constr solver ctx pre  in
   let () = match flags.gdb_filename with
     | None -> ()
-    | Some f ->
-      Printf.printf "Dumping gdb script to file: %s\n" f;
-      Output.output_gdb solver result env2 ~func:flags.func ~filename:f in
+    | Some f -> Output.output_gdb solver result env2 ~func:flags.func ~filename:f in
+  let () = match flags.bildb_output with
+    | None -> ()
+    | Some f -> Output.output_bildb solver result env2 f in
   Output.print_result solver result pre ~print_path:flags.print_path
     ~orig:env1 ~modif:env2
 
@@ -341,6 +344,13 @@ module Cmdline = struct
             breakpoint at the the start of the function being analyzed and sets \
             the registers and memory to the values specified in the countermodel."
 
+  let bildb_output = param (some string) "bildb-output" ~default:None
+      ~doc:"In the case CBAT determins input registers that result in a refuted \
+            goal, this flag outputs a BilDB YAML file to the filename specified. \
+            This file sets the registers and memory to the values specified in the \
+            countermodel found during WP analysis, allowing BilDB to follow the \
+            same execution trace."
+
   let print_path = param bool "print-path" ~as_flag:true ~default:false
       ~doc:"If set, prints out the path to a refuted goal and the register values \
             at each jump in the path. The path contains information about whether \
@@ -365,6 +375,13 @@ module Cmdline = struct
             not dereference a NULL, then that same read or write in the modified \
             binary also does not dereference a NULL. Defaults to false."
 
+  let print_constr = param (list string) "print-constr" ~as_flag:["internal";"smtlib"] ~default:[]
+      ~doc:"If set, the preconditions and Z3's SMT-LIB 2 are both printed. \
+            One or both outputs can be explicitly called with the respective names \
+            internal and smtlib, which will print only what is stated. Both can \
+            also be called like --wp-print-constr=internal,smtlib. If the flag \
+            is not called, it defaults to printing neither."
+
   let () = when_ready (fun {get=(!!)} ->
       let flags =
         {
@@ -379,10 +396,12 @@ module Cmdline = struct
           num_unroll = !!num_unroll;
           output_vars = !!output_vars;
           gdb_filename = !!gdb_filename;
+          bildb_output = !!bildb_output;
           print_path = !!print_path;
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
-          check_null_deref = !!check_null_deref
+          check_null_deref = !!check_null_deref;
+          print_constr = !!print_constr
         }
       in
       Project.register_pass' @@

@@ -160,10 +160,10 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
     let model = Constr.get_model_exn solver in
     let mem1, _ = Env.get_var env1 Target.CPU.mem in
     let mem2, _ = Env.get_var env2 Target.CPU.mem in
-    let refuted_goals =
-      Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
     Format.printf "\nSAT!\n%!";
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
+    let refuted_goals =
+      Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
     Format.printf "\nRefuted goals:\n%!";
     Seq.iter refuted_goals ~f:(fun goal ->
         Format.printf "%s\n%!"
@@ -178,6 +178,7 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     (env : Env.t) ~func:(func : string) ~filename:(gdb_filename : string) : unit =
   match status with
   | Solver.SATISFIABLE ->
+    info "Dumping gdb script to file: %s\n" gdb_filename;
     let model = Constr.get_model_exn solver in
     let option_mem_model = get_mem model env in
     let varmap = Env.get_var_map env in
@@ -196,4 +197,37 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
         | Some mem_model ->  List.iter mem_model.model ~f:(fun (addr,value) ->
             Printf.fprintf t "set {int}%s = %s \n" (expr_to_hex addr) (expr_to_hex value))
       )
-  | _ -> ()
+  | _ -> info "Result of analysis is not SAT. No GDB script to output.\n%!"
+
+let output_bildb (solver : Solver.solver) (status : Solver.status) (env : Env.t)
+    (filename : string) : unit =
+  match status with
+  | Solver.SATISFIABLE ->
+    info "Outputting BilDB init script to %s\n%!" filename;
+    let module Target = (val target_of_arch (Env.get_arch env)) in
+    let model = Constr.get_model_exn solver in
+    let mem_model = get_mem model env in
+    let var_map = Env.get_var_map env in
+    let reg_map = VarMap.filter_keys ~f:(Target.CPU.is_reg) var_map in
+    let reg_vals =  VarMap.map reg_map ~f:(fun z3_reg ->
+        Constr.eval_model_exn model z3_reg)
+    in
+    Out_channel.with_file filename ~f:(fun t ->
+        (* Print registers and their values to file if present in the model. *)
+        if not @@ VarMap.is_empty reg_vals then begin
+          Printf.fprintf t "Variables:\n";
+          VarMap.iteri reg_vals ~f:(fun ~key ~data ->
+              let hex_value = expr_to_hex data in
+              Printf.fprintf t "  %s: %s\n" (Var.name key) hex_value)
+        end;
+        (* Print memory addresses and the values they hold if present in the model. *)
+        match mem_model with
+        | None -> ()
+        | Some m ->
+          if not @@ List.is_empty m.model then begin
+            Printf.fprintf t "Locations:\n";
+            List.iter m.model ~f:(fun (addr, value) ->
+                Printf.fprintf t "  %s: %s\n" (expr_to_hex addr) (expr_to_hex value))
+          end
+      )
+  | _ -> info "Result of analysis is not SAT. No BilDB init script to output.\n%!"

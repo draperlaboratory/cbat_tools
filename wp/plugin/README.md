@@ -323,13 +323,13 @@ The various options are:
   --wp-inline=.\* or --wp-inline=foo|bar will inline the functions foo and bar.
 
 - `--wp-precond=smt-lib-string`. If present, allows the introduction of assertions
-  to the beginning of a query. This allows pruning of possible models. For 
+  to the beginning of a query. This allows pruning of possible models. For
   comparative predicates, one may refer to variables in the original and modified program by appending the suffix "_orig" and "_mod" to variable names in the smt-lib expression.
   For examples `--wp-precond="(assert (= RDI_mod #x0000000000000003))  (assert (= RDI_orig #x0000000000000003))"`
 
 - `--wp-postcond=smt-lib-string`. If present, replaces the
   default post-condition by the user-specified one, using the
-  [smt-lib2] format. Similar to `--wp-precond`, one may create comparative 
+  [smt-lib2] format. Similar to `--wp-precond`, one may create comparative
   postconditions on variables by appending "_orig" and "_mod" to register names.
 
 - `--wp-num-unroll=num`. If present, replaces the default number of
@@ -343,6 +343,12 @@ The various options are:
 - `--wp-gdb-filename=my_exec.gdb`. Output a gdb script to file `my_exec.gdb`. From
   within gdb, run `source my_exec.gdb` to set a breakpoint at the function given
   by `--wp-function` and fill the appropriate registers with a found counter-model.
+
+- `--wp-bildb-output=filename.yml`. Output a BilDB initialization script to file
+  `filename.yml`. This YAML file sets the registers and memory to the values
+  specified in the countermodel found during WP analysis, allowing BilDB to
+  follow the same execution trace. In the case the analysis returns UNSAT or
+  UNKNOWN, no script will be outputted.
 
 - `--wp-print-path=[true|false]`. If present, will print out the path to a refuted
   goal and the register values at each jump in the path. It also contains information
@@ -366,6 +372,12 @@ The various options are:
   contraint that if a memory read or write dereferences a non-null address in the
   original binary, then that same address is also non-null in the modified binary.
   Defaults to false.
+
+- `--wp-print-constr=[internal|smtlib] or both/neither`. If set, the preconditions
+  and Z3's SMT-LIB 2 are both printed. One or both outputs can be explicitly
+  called with the respective names `internal` and `smtlib`, which will print only
+  what is stated. Both can also be called like `--wp-print-constr=internal,smtlib`.
+  If the flag is not called, it defaults to printing neither.
 
 ## C checking API
 
@@ -394,4 +406,3 @@ By default, logs are printed to `STDERR`. You can save the logs to a file by spe
 By default, `debug` logs are not shown. To show debug logs:
 
     export BAP_DEBUG=true
-
