@@ -276,7 +276,8 @@ val visit_sub : Env.t -> Constr.t -> Bap.Std.Sub.t -> Constr.t * Env.t
 (** Calls Z3 to check for a countermodel for the precondition of a BIR program. If
     refute is set to false, it checks for a model instead. If ~print_constr is
     called and contains "smtlib", then Z3's solver (smt lib 2) will be printed.
-    If ~debug is set, then ~debug will be passed to prints statistics on  *)
+    If ~debug is called and set to true, it will be passed to print statistics
+    for Constr.eval inside this function *)
 val check
   : ?refute:bool
   -> ?print_constr: (string list)
