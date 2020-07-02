@@ -39,6 +39,19 @@ module ExprSet = Set.Make(
 
 type var_gen = int ref
 
+type mem_region =
+  | Stack
+  | Heap
+
+type mem_range = {
+  region : mem_region;
+  (* The base address is the highest address on the stack and the lowest
+     address on the heap. *)
+  base_addr : int;
+  (* Memory size in bytes. *)
+  size : int
+}
+
 type t = {
   freshen : bool;
   ctx : Z3.context;
@@ -223,14 +236,24 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       unroll
   }
 
-let init_mem_range (ctx : Z3.context) (arch : Arch.t) ((min, max) : int * int)
+let init_mem_range (ctx : Z3.context) (arch : Arch.t) (mem : mem_range)
   : Constr.z3_expr -> Constr.z3_expr =
   let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
-  let min = Expr.mk_numeral_int ctx min sort in
-  let max = Expr.mk_numeral_int ctx max sort in
+  let size = Expr.mk_numeral_int ctx mem.size sort in
+  let min, max =
+    match mem.region with
+    | Stack ->
+      let max = Expr.mk_numeral_int ctx mem.base_addr sort in
+      let min = BV.mk_sub ctx max size in
+      min, max
+    | Heap ->
+      let min = Expr.mk_numeral_int ctx mem.base_addr sort in
+      let max = BV.mk_add ctx min size in
+      min, max
+  in
   fun addr ->
     assert (BV.is_bv addr);
-    Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ule ctx addr max]
+    Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ult ctx addr max]
 
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
@@ -259,8 +282,8 @@ let mk_env
     ~arch:(arch : Arch.t)
     ~freshen_vars:(freshen_vars : bool)
     ~use_fun_input_regs:(fun_input_regs : bool)
-    ~stack_range:(stack_range : int * int)
-    ~heap_range:(heap_range : int * int)
+    ~stack_range:(stack_range : mem_range)
+    ~heap_range:(heap_range : mem_range)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
