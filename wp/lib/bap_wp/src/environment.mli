@@ -79,6 +79,23 @@ type cond_type = Verify of cond | Assume of cond
     typically a correctness constraint, like no overflow or no null dereference. *)
 type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 
+(** Memory regions modelled during analysis. This allows the user to specify
+    different properties based off the location in memory. For example, in a
+    comparative analysis, the use can have the hypothesis that memory on the
+    stack is equal, but memory on the heap is only equal at an offset. *)
+type mem_region =
+  | Stack
+  | Heap
+
+(* The range of addresses for a modelled memory region. The base address is the
+   highest address on the stack, but the lowest address on the heap. The
+   memory size is represent in bytes. *)
+type mem_range = {
+  region : mem_region;
+  base_addr : int;
+  size : int
+}
+
 (** Creates a new environment with
     - a sequence of subroutines in the program used to initialize function specs
     - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -106,8 +123,8 @@ val mk_env
   -> arch:Bap.Std.Arch.t
   -> freshen_vars:bool
   -> use_fun_input_regs:bool
-  -> stack_range:int * int
-  -> heap_range:int * int
+  -> stack_range:mem_range
+  -> heap_range:mem_range
   -> Z3.context
   -> var_gen
   -> t

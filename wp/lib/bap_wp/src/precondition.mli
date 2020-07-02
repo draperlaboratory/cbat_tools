@@ -236,8 +236,8 @@ val mk_env
   -> ?arch:Bap.Std.Arch.t
   -> ?freshen_vars:bool
   -> ?use_fun_input_regs:bool
-  -> ?stack_range:int * int
-  -> ?heap_range:int * int
+  -> ?stack_range:Env.mem_range
+  -> ?heap_range:Env.mem_range
   -> Z3.context
   -> Env.var_gen
   -> Env.t

@@ -645,9 +645,19 @@ let int_spec_default : Env.int_spec =
 
 let num_unroll : int ref = ref 5
 
-let default_stack_range : int * int = 0x00007fffffff0000, 0x00007fffffffffff
+let default_stack_range : Env.mem_range =
+  {
+    region = Stack;
+    base_addr = 0x40000000;
+    size = 0x800000
+  }
 
-let default_heap_range : int * int = 0x0000000000000000, 0x00000000ffffffff
+let default_heap_range : Env.mem_range =
+  {
+    region = Heap;
+    base_addr = 0x00000000;
+    size = 0x800000
+  }
 
 let mk_env
     ?subs:(subs = Seq.empty)
