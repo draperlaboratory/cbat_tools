@@ -379,7 +379,7 @@ The various options are:
   what is stated. Both can also be called like `--wp-print-constr=internal,smtlib`.
   If the flag is not called, it defaults to printing neither.
 
-- `--wp-debug=[z3-solver-stats|z3-verbose|constrain-stats|eval-constraint-stats]
+- `--wp-debug=[z3-solver-stats|z3-verbose|constraint-stats|eval-constraint-stats]
   or some comma delimited combination`. If set, debug will print the various
   debugging statistics, including information and statistics for Z3's solver, Z3's
   verbosity-level, constr.t, and expression-lists when calling eval. These can also
