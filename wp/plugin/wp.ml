@@ -396,10 +396,10 @@ module Cmdline = struct
   let debug = param (list string) "debug" ~as_flag:["z3-solver-stats"; "z3-verbose";
               "constraint-stats"; "eval-constraint-stats"] ~default:[]
       ~doc:"If set, debug will print the various debugging statistics, including \
-           information and statistics the Z3-solver, global_param, constr.t, and \
-           expression-lists when calling eval. These can also be called with \
-           the key-words: z3-solver-stats, z3-verbose, constraint-stats and \
-           eval-constraint-stats respectively. If the flag is not called, it \
+           information and statistics for Z3's solver, Z3's verbosity-level, \
+           constr.t, and expression-lists when calling eval. These can also be \
+           called with the key-words: z3-solver-stats, z3-verbose, constraint-stats \
+           and eval-constraint-stats respectively. If the flag is not called, it \
            defaults to printing none of them."
 
   let () = when_ready (fun {get=(!!)} ->
