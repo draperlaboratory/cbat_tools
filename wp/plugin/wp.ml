@@ -155,8 +155,8 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env flags.pre_cond] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
-    (* Print statement for constraint-style prover output: *)
-    Format.printf "\nSub:\n%s\nPre:\n%!" (Sub.to_string main_sub);
+  (* Print statement for constraint-style prover output: *)
+  Format.printf "\nSub:\n%s\nPre:\n%!" (Sub.to_string main_sub);
   (pre, env, env)
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
@@ -283,7 +283,7 @@ let main (flags : flags) (proj : project) : unit =
   let debug_eval =
     (List.mem flags.debug "eval-constraint-stats" ~equal:(String.equal)) in
   let result = Pre.check ~print_constr:flags.print_constr ~debug:debug_eval
-    solver ctx pre in
+      solver ctx pre in
   if (List.mem flags.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!" (
       Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
@@ -393,22 +393,14 @@ module Cmdline = struct
             also be called like --wp-print-constr=internal,smtlib. If the flag \
             is not called, it defaults to printing neither."
 
-  let debug = param (list string) "debug" ~as_flag:["z3-solver-stats"; "z3-verbose";
-              "constraint-stats"; "eval-constraint-stats"] ~default:[]
+  let debug = param (list string) "debug" ~default:[]
+      ~as_flag:["z3-solver-stats"; "z3-verbose"; "constraint-stats"; "eval-constraint-stats"]
       ~doc:"If set, debug will print the various debugging statistics, including \
-<<<<<<< HEAD
-           information and statistics for Z3's solver, Z3's verbosity-level, \
-           constr.t, and expression-lists when calling eval. These can also be \
-           called with the key-words: z3-solver-stats, z3-verbose, constraint-stats \
-           and eval-constraint-stats respectively. If the flag is not called, it \
-           defaults to printing none of them."
-=======
             information and statistics for Z3's solver, Z3's verbosity-level, \
             constr.t, and expression-lists when calling eval. These can also be \
             called with the key-words: z3-solver-stats, z3-verbose, constraint-stats \
             and eval-constraint-stats respectively. If the flag is not called, it \
             defaults to printing none of them."
->>>>>>> deleted typo in wp.ml debug spec
 
   let () = when_ready (fun {get=(!!)} ->
       let flags =
