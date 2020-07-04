@@ -1,0 +1,5 @@
+resources/main
+resources/*.o
+_build
+*.plugin
+.merlin

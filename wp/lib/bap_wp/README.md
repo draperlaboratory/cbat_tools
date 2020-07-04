@@ -1,29 +1,13 @@
 # Weakest Precondition library
 
-A weakest-precondition analysis library, for BAP plugins/tools.
+A weakest-precondition analysis library, called `bap_wp`. This library is used by the `wp` plugin (see the parent directory [README](./../../README.md)).
 
 
-## Installation
+## Build/Install
 
-### Prerequisites
+Before installing, make sure you have the required dependencies installed on your system. See the build/install/test instructions in the parent [README](./../../README.md) for details.
 
-Before installing `bap_wp`, the following requirements must be met:
-
-* BAP 2.1.0+ must be available. Confirm with `bap --version`.
-* z3 4.8.8+ must be available to `findlib` under the name `z3`
-  (note the lowercase `z`). Confirm with `ocamlfind query z3`.
-* core 0.12.4+ must be available. Confirm with `ocamlfind query core`.
-* oUnit must be available to `findlib` under the name `oUnit`
-  (confirm with `ocamlfind query oUnit`) and it must be available
-  to `opam` under the name `ounit` (confirm with `opam show ounit`).
-* Dune 1.6+ must be available. Confirm with `dune --version`.
-* To build the documentation, you need odoc 1.4.0, which can also be
-  installed with `opam install odoc`.
-
-
-### Install (local)
-
-To build:
+Once the dependencies are installed, build by running the following `make` command from this directory:
 
     make build
 
@@ -61,15 +45,17 @@ Run only performance tests:
 
     make test.performance
 
+
 ### Documentation
 
-Build with
+If you have `odoc` installed, you can build the documentation with:
 
     make doc
 
-Which can then be found in
+The documentation can then be found here:
 
     _build/default/_doc
+
 
 ### Uninstall/clean (local)
 
@@ -83,13 +69,8 @@ Confirm that `bap_wp` can no longer be found:
     opam show bap_wp
 
 
-## Overview
+## A Note on Usage
 
-The easiest way to use this library is directly through the BAP
-plugin. However, it may also be used as a standalone library, to
-invoke a WP computation over a bap subroutine or block.
+The easiest way to use this library is directly through the BAP plugin (see the parent [README.md](./../../README.md)), which provides a command line interface for it. However, it may also be used as a standalone OCaml library, to invoke a WP computation over a bap subroutine or block.
 
-The file [src/precondition.mli] describes the main API. The general
-approach is to use `mk_env` to create an analysis environment, and then call
-`visit_sub` with a given postcondition and subroutine, to get the
-corresponding precondition, which can then be checked with `check`.
+The file `src/precondition.mli` describes the main API. The general approach is to use `mk_env` to create an analysis environment, and then call `visit_sub` with a given postcondition and subroutine, to get the corresponding precondition, which can then be checked with `check`.
