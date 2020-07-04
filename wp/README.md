@@ -271,7 +271,7 @@ the final stretch can be simplified and achieved quicker.
 
 Below is an image showing Diaphora's diffing output for the `process_status` function:
 
-![Process status diff](./../resources/images/process_status_diff.png)
+![Process status diff](./resources/images/process_status_diff.png)
 
 It highlights in red the basic block that differs between the two similar
 functions. But if users want to understand the implications and what causes
