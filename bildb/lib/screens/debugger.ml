@@ -153,10 +153,9 @@ module Make (Machine : Primus.Machine.S) = struct
       begin
         let%bind last_cmd = Cursor.get_last_cmd () in
         match last_cmd with
-        | Some cmd -> print_endline "here"; main_loop cmd
+        | Some cmd -> main_loop cmd
         | None ->
           begin
-            print_endline "there";
             let text = Utils.invalid_msg in
             Machine.return (Event.screen () ~text ~prompt ~handler)
           end
