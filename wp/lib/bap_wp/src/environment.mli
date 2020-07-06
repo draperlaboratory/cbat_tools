@@ -79,19 +79,10 @@ type cond_type = Verify of cond | Assume of cond
     typically a correctness constraint, like no overflow or no null dereference. *)
 type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 
-(** Memory regions modelled during analysis. This allows the user to specify
-    different properties based off the location in memory. For example, in a
-    comparative analysis, the use can have the hypothesis that memory on the
-    stack is equal, but memory on the heap is only equal at an offset. *)
-type mem_region =
-  | Stack
-  | Heap
-
 (* The range of addresses for a modelled memory region. The base address is the
    highest address on the stack, but the lowest address on the heap. The
    memory size is represent in bytes. *)
 type mem_range = {
-  region : mem_region;
   base_addr : int;
   size : int
 }
@@ -247,13 +238,25 @@ val is_x86 : Bap.Std.Arch.t -> bool
     when generating symbols in the function specs at a function call site. *)
 val use_input_regs : t -> bool
 
-(** [in_stack env addr] is the constraint [STACK_MIN <= addr <= STACK_MAX] as
+(** [in_stack env addr] is the constraint [STACK_MIN <= addr < STACK_MAX] as
     defined by the concrete range of the stack in the env. *)
 val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
 
-(** [in_heap env addr] is the constraint [HEAP_MIN <= addr <= HEAP_MAX] as
+(** [in_heap env addr] is the constraint [HEAP_MIN <= addr < HEAP_MAX] as
     defined by the concrete range of the heap in the env. *)
 val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
+
+(** [get_stack_base env] obtains a z3_expr which represents the top address
+    of the stack. *)
+val get_stack_base : t -> Constr.z3_expr
+
+(** [update_stack_base range base] updates the highest address address of the
+    stack to be the same value as base. *)
+val update_stack_base : mem_range -> int -> mem_range
+
+(** [update_stack_size range size] updates the size of the stack to be the
+    same value as size. *)
+val update_stack_size : mem_range -> int -> mem_range
 
 (** [mk_init_var env var] creates a fresh Z3 variable that represents the
     initial state of variable [var]. Adds a new binding to [env] for the bap

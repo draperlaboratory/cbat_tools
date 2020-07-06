@@ -203,6 +203,14 @@ val mem_read_offsets : Env.t -> (Constr.z3_expr -> Constr.z3_expr) -> Env.exp_co
     We use the default value [!num_unroll = 5]. *)
 val num_unroll : int ref
 
+(** The default stack range has a base address at 0x40000000 and size of
+    0x800000. The stack grows downward. *)
+val default_stack_range : Env.mem_range
+
+(* The default heap range has a base address at 0x00000000 and a size of
+   0x800000. *)
+val default_heap_range : Env.mem_range
+
 (** Creates an environment with
     - an empty sequence of subroutines to initialize function specs
     - an empty list of {!Environment.fun_spec}s that summarize the precondition
