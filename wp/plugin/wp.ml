@@ -41,7 +41,9 @@ type flags =
     check_null_deref : bool;
     print_constr : string list;
     debug : string list;
-    trip_asserts : bool
+    trip_asserts : bool;
+    stack_base : int option;
+    stack_size : int option
   }
 
 let missing_func_msg (func : string) : string =
@@ -145,6 +147,19 @@ let fun_specs (f : flags) (to_inline : Sub.t Seq.t)
   else
     default
 
+let set_stack (f : flags) : Env.mem_range =
+  let update_base stack_base range =
+    match stack_base with
+    | None -> range
+    | Some base -> Env.update_stack_base range base in
+  let update_size stack_size range =
+    match stack_size with
+    | None -> range
+    | Some size -> Env.update_stack_size range size in
+  Pre.default_stack_range
+  |> update_base f.stack_base
+  |> update_size f.stack_size
+
 let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (flags : flags) : Constr.t * Env.t * Env.t =
   let arch = Project.arch proj in
@@ -153,8 +168,9 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let to_inline = match_inline flags.inline subs in
   let specs = fun_specs flags to_inline in
   let exp_conds = exp_conds_mod flags in
+  let stack_range = set_stack flags in
   let env = Pre.mk_env ctx var_gen ~subs ~arch ~specs
-      ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds in
+      ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds ~stack_range in
   (* call visit sub with a dummy postcondition to fill the
      environment with variables *)
   let true_constr = Env.trivial_constr env in
@@ -252,12 +268,13 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = find_func_err subs1 flags.func in
   let main_sub2 = find_func_err subs2 flags.func in
+  let stack_range = set_stack flags in
   let env2 =
     let to_inline2 = match_inline flags.inline subs2 in
     let specs2 = fun_specs flags to_inline2 in
     let exp_conds2 = exp_conds_mod flags in
     let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~specs:specs2
-        ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds2 in
+        ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds2 ~stack_range in
     let env2 = Env.set_freshen env2 true in
     let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
     env2
@@ -267,7 +284,7 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     let specs1 = fun_specs flags to_inline1 in
     let exp_conds1 = exp_conds_orig flags env2 in
     let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~specs:specs1
-        ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 in
+        ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 ~stack_range in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
   in
@@ -426,6 +443,15 @@ module Cmdline = struct
       ~doc:"If set, WP will look for inputs to the subroutine that would cause \
             an __assert_fail or __VERIFIER_error to be reached."
 
+  let stack_base = param (some int) "stack-base" ~default:None
+      ~doc:"The default address of the stack base. WP assumes the stack base \
+            is the highest address and the stack grows downward. By default, \
+            set to 0x40000000."
+
+  let stack_size = param (some int) "stack-size" ~default:None
+      ~doc:"The default size of the stack in bytes. By default, set to \
+            0x800000 which is 8Mbs."
+
   let () = when_ready (fun {get=(!!)} ->
       let flags =
         {
@@ -447,7 +473,9 @@ module Cmdline = struct
           check_null_deref = !!check_null_deref;
           print_constr = !!print_constr;
           debug = !!debug;
-          trip_asserts = !!trip_asserts
+          trip_asserts = !!trip_asserts;
+          stack_base = !!stack_base;
+          stack_size = !!stack_size
         }
       in
       Project.register_pass' @@

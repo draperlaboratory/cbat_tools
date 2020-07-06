@@ -645,19 +645,18 @@ let int_spec_default : Env.int_spec =
 
 let num_unroll : int ref = ref 5
 
-let default_stack_range : Env.mem_range =
-  {
-    region = Stack;
-    base_addr = 0x40000000;
-    size = 0x800000
-  }
+let default_stack_range : Env.mem_range = {
+  base_addr = 0x40000000;
+  size = 0x800000
+}
 
-let default_heap_range : Env.mem_range =
-  {
-    region = Heap;
-    base_addr = 0x00000000;
-    size = 0x800000
-  }
+(* TODO: The default heap range should not be hardcoded as it currently is.
+   The heap starts at the program break which is initially set to the end of
+   the program data segment. See [man brk] for details. *)
+let default_heap_range : Env.mem_range = {
+  base_addr = 0x00000000;
+  size = 0x800000
+}
 
 let mk_env
     ?subs:(subs = Seq.empty)
@@ -1104,9 +1103,11 @@ let get_output_vars (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Se
     )
 
 let set_sp_range (env : Env.t) : Constr.t =
+  let ctx = Env.get_context env in
   let arch = Env.get_arch env in
   let module Target = (val target_of_arch arch) in
   let sp, _ = Env.get_var env Target.CPU.sp in
-  Env.in_stack env sp
-  |> Constr.mk_goal "SP within stack"
+  let base = Env.get_stack_base env in
+  Bool.mk_eq ctx sp base
+  |> Constr.mk_goal (Format.sprintf "SP at stack base %s" (Expr.to_string base))
   |> Constr.mk_constr

@@ -39,12 +39,7 @@ module ExprSet = Set.Make(
 
 type var_gen = int ref
 
-type mem_region =
-  | Stack
-  | Heap
-
 type mem_range = {
-  region : mem_region;
   (* The base address is the highest address on the stack and the lowest
      address on the heap. *)
   base_addr : int;
@@ -68,8 +63,8 @@ type t = {
   exp_conds : exp_cond list;
   arch : Arch.t;
   use_fun_input_regs : bool;
-  stack : Constr.z3_expr -> Constr.z3_expr; (* takes in a memory address as a z3_var *)
-  heap : Constr.z3_expr -> Constr.z3_expr;
+  stack : mem_range;
+  heap : mem_range;
   init_vars : Constr.z3_expr EnvMap.t;
   consts : ExprSet.t
 }
@@ -236,25 +231,6 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
       unroll
   }
 
-let init_mem_range (ctx : Z3.context) (arch : Arch.t) (mem : mem_range)
-  : Constr.z3_expr -> Constr.z3_expr =
-  let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
-  let size = Expr.mk_numeral_int ctx mem.size sort in
-  let min, max =
-    match mem.region with
-    | Stack ->
-      let max = Expr.mk_numeral_int ctx mem.base_addr sort in
-      let min = BV.mk_sub ctx max size in
-      min, max
-    | Heap ->
-      let min = Expr.mk_numeral_int ctx mem.base_addr sort in
-      let max = BV.mk_add ctx min size in
-      min, max
-  in
-  fun addr ->
-    assert (BV.is_bv addr);
-    Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ult ctx addr max]
-
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
    - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -303,8 +279,8 @@ let mk_env
     exp_conds = exp_conds;
     arch = arch;
     use_fun_input_regs = fun_input_regs;
-    stack = init_mem_range ctx arch stack_range;
-    heap = init_mem_range ctx arch heap_range;
+    stack = stack_range;
+    heap = heap_range;
     init_vars = EnvMap.empty;
     consts = ExprSet.empty
   }
@@ -416,11 +392,43 @@ let is_x86 (a : Arch.t) : bool =
 let use_input_regs (env : t) : bool =
   env.use_fun_input_regs
 
-let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
-  env.stack
+let get_stack_base (env : t) : Constr.z3_expr =
+  let ctx = get_context env in
+  let arch = get_arch env in
+  let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
+  Expr.mk_numeral_int ctx env.stack.base_addr sort
 
+(* Returns a function that takes in a memory address as a z3_expr and outputs a
+   z3_expr that checks if that address is within the stack. *)
+let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
+  let ctx = get_context env in
+  let arch = get_arch env in
+  let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
+  let size = Expr.mk_numeral_int ctx env.stack.size sort in
+  let max = Expr.mk_numeral_int ctx env.stack.base_addr sort in
+  let min = BV.mk_sub ctx max size in
+  fun addr ->
+    assert (BV.is_bv addr);
+    Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ult ctx addr max]
+
+(* Returns a function that takes in a memory address as a z3_expr and outputs a
+   z3_expr that checks if that address is within the heap. *)
 let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
-  env.heap
+  let ctx = get_context env in
+  let arch = get_arch env in
+  let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
+  let size = Expr.mk_numeral_int ctx env.heap.size sort in
+  let min = Expr.mk_numeral_int ctx env.heap.base_addr sort in
+  let max = BV.mk_add ctx min size in
+  fun addr ->
+    assert (BV.is_bv addr);
+    Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ult ctx addr max]
+
+let update_stack_base (range : mem_range) (base : int) : mem_range =
+  { range with base_addr = base }
+
+let update_stack_size (range : mem_range) (size : int) : mem_range =
+  { range with size = size }
 
 let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let ctx = get_context env in
