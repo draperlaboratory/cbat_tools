@@ -81,7 +81,7 @@ type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 
 (* The range of addresses for a modelled memory region. The base address is the
    highest address on the stack, but the lowest address on the heap. The
-   memory size is represent in bytes. *)
+   memory size is represented in bytes. *)
 type mem_range = {
   base_addr : int;
   size : int
@@ -250,8 +250,8 @@ val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
     of the stack. *)
 val get_stack_base : t -> Constr.z3_expr
 
-(** [update_stack_base range base] updates the highest address address of the
-    stack to be the same value as base. *)
+(** [update_stack_base range base] updates the highest address of the stack to
+    be the same value as base. *)
 val update_stack_base : mem_range -> int -> mem_range
 
 (** [update_stack_size range size] updates the size of the stack to be the
