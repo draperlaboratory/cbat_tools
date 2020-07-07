@@ -205,9 +205,8 @@ val num_unroll : int ref
 
 (** Creates an environment with
     - an empty sequence of subroutines to initialize function specs
-    - an empty sequence of subroutines to inline
-    - the default list of {!Environment.fun_spec}s that summarize the precondition for a
-      function call
+    - an empty list of {!Environment.fun_spec}s that summarize the precondition
+      for a function call
     - the default {!Environment.jmp_spec} that summarizes the precondition at a jump
     - the default {!Environment.int_spec} that summarizes the precondition for an
       interrupt
@@ -228,7 +227,6 @@ val num_unroll : int ref
     expressions and create fresh variables. *)
 val mk_env
   :  ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
-  -> ?to_inline:Bap.Std.Sub.t Bap.Std.Seq.t
   -> ?specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option) list
   -> ?default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec)
   -> ?jmp_spec:Env.jmp_spec

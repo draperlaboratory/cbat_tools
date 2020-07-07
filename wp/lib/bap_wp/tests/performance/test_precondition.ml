@@ -136,7 +136,8 @@ let test_nested_ifs (threshold : float) (test_ctx : test_ctxt) : unit =
     let var_gen = Env.mk_var_gen () in
     let assert_sub, assert_expr = Bil_to_bir.mk_assert_fail () in
     let sub = nest_ifs var_gen depth [Bil.jmp assert_expr] |> bil_to_sub in
-    let env = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [sub; assert_sub]) in
+    let env = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [sub; assert_sub])
+        ~specs:[Pre.spec_verifier_error] in
     let post  = Bool.mk_true ctx
                 |> Constr.mk_goal "true"
                 |> Constr.mk_constr
