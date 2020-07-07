@@ -654,7 +654,7 @@ let default_stack_range : Env.mem_range = {
    The heap starts at the program break which is initially set to the end of
    the program data segment. See [man brk] for details. *)
 let default_heap_range : Env.mem_range = {
-  base_addr = 0x00000000;
+  base_addr = 0x000000;
   size = 0x800000
 }
 

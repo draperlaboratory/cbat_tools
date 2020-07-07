@@ -238,7 +238,7 @@ val is_x86 : Bap.Std.Arch.t -> bool
     when generating symbols in the function specs at a function call site. *)
 val use_input_regs : t -> bool
 
-(** [in_stack env addr] is the constraint [STACK_MIN <= addr < STACK_MAX] as
+(** [in_stack env addr] is the constraint [STACK_MIN < addr <= STACK_MAX] as
     defined by the concrete range of the stack in the env. *)
 val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
 
