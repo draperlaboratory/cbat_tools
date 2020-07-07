@@ -80,7 +80,7 @@ type cond_type = Verify of cond | Assume of cond
 type exp_cond = t -> Bap.Std.Exp.t -> cond_type option
 
 (* The range of addresses for a modelled memory region. The base address is the
-   highest address on the stack, but the lowest address on the heap. The
+   highest address on the stack, but the lowest address in the data section. The
    memory size is represented in bytes. *)
 type mem_range = {
   base_addr : int;
@@ -100,7 +100,7 @@ type mem_range = {
     - the option to freshen variable names
     - the option to use all input registers when generating function symbols at a call site
     - the concrete range of addresses of the stack
-    - the concrete range of addresses of the heap
+    - the concrete range of addresses of the data section
     - a Z3 context
     - and a variable generator. *)
 val mk_env
@@ -115,7 +115,7 @@ val mk_env
   -> freshen_vars:bool
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
-  -> heap_range:mem_range
+  -> data_section_range:mem_range
   -> Z3.context
   -> var_gen
   -> t
@@ -242,9 +242,9 @@ val use_input_regs : t -> bool
     defined by the concrete range of the stack in the env. *)
 val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
 
-(** [in_heap env addr] is the constraint [HEAP_MIN <= addr < HEAP_MAX] as
-    defined by the concrete range of the heap in the env. *)
-val in_heap : t -> Constr.z3_expr -> Constr.z3_expr
+(** [in_data_section env addr] is the constraint [DATA_MIN <= addr < DATA_MAX] as
+    defined by the concrete range of the data section in the env. *)
+val in_data_section : t -> Constr.z3_expr -> Constr.z3_expr
 
 (** [get_stack_base env] obtains a z3_expr which represents the top address
     of the stack. *)

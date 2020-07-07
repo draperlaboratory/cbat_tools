@@ -41,7 +41,7 @@ type var_gen = int ref
 
 type mem_range = {
   (* The base address is the highest address on the stack and the lowest
-     address on the heap. *)
+     address on the data section. *)
   base_addr : int;
   (* Memory size in bytes. *)
   size : int
@@ -64,7 +64,7 @@ type t = {
   arch : Arch.t;
   use_fun_input_regs : bool;
   stack : mem_range;
-  heap : mem_range;
+  data_section : mem_range;
   init_vars : Constr.z3_expr EnvMap.t;
   consts : ExprSet.t
 }
@@ -244,7 +244,7 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
    - the option to freshen variable names
    - the option to use all input registers when generating function symbols at a call site
    - the range of addresses of the stack
-   - the range of addresses of the heap
+   - the range of addresses of the data section
    - a Z3 context
    - and a variable generator. *)
 let mk_env
@@ -259,7 +259,7 @@ let mk_env
     ~freshen_vars:(freshen_vars : bool)
     ~use_fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : mem_range)
-    ~heap_range:(heap_range : mem_range)
+    ~data_section_range:(data_section_range : mem_range)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -280,7 +280,7 @@ let mk_env
     arch = arch;
     use_fun_input_regs = fun_input_regs;
     stack = stack_range;
-    heap = heap_range;
+    data_section = data_section_range;
     init_vars = EnvMap.empty;
     consts = ExprSet.empty
   }
@@ -412,13 +412,13 @@ let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
     Bool.mk_and ctx [BV.mk_ult ctx min addr; BV.mk_ule ctx addr max]
 
 (* Returns a function that takes in a memory address as a z3_expr and outputs a
-   z3_expr that checks if that address is within the heap. *)
-let in_heap (env : t) : Constr.z3_expr -> Constr.z3_expr =
+   z3_expr that checks if that address is within the data section. *)
+let in_data_section (env : t) : Constr.z3_expr -> Constr.z3_expr =
   let ctx = get_context env in
   let arch = get_arch env in
   let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
-  let size = Expr.mk_numeral_int ctx env.heap.size sort in
-  let min = Expr.mk_numeral_int ctx env.heap.base_addr sort in
+  let size = Expr.mk_numeral_int ctx env.data_section.size sort in
+  let min = Expr.mk_numeral_int ctx env.data_section.base_addr sort in
   let max = BV.mk_add ctx min size in
   fun addr ->
     assert (BV.is_bv addr);

@@ -207,9 +207,9 @@ val num_unroll : int ref
     0x800000. The stack grows downward. *)
 val default_stack_range : Env.mem_range
 
-(* The default heap range has a base address at 0x00000000 and a size of
+(* The default data section range has a base address at 0x00000000 and a size of
    0x800000. *)
-val default_heap_range : Env.mem_range
+val default_data_section_range : Env.mem_range
 
 (** Creates an environment with
     - an empty sequence of subroutines to initialize function specs
@@ -227,9 +227,9 @@ val default_heap_range : Env.mem_range
     - the option to use all function input registers when generating function symbols
       at a call site set to true
     - the default concrete range of addresses of the stack for constraints about
-      the stack: [0x00007fffffff0000, 0x00007fffffffffff]
-    - the default concreate range of addresses of the heap for constraints about
-      the heap: [0x0000000000000000, 0x00000000ffffffff]
+      the stack with a base of 0x40000000 and size of 8Mbs
+    - the default concreate range of addresses of the data section for constraints about
+      the data section with a base of 0x000000 and size of 8Mbs
 
     unless specified. A Z3 context and var_gen are required to generate Z3
     expressions and create fresh variables. *)
@@ -245,7 +245,7 @@ val mk_env
   -> ?freshen_vars:bool
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
-  -> ?heap_range:Env.mem_range
+  -> ?data_section_range:Env.mem_range
   -> Z3.context
   -> Env.var_gen
   -> Env.t
