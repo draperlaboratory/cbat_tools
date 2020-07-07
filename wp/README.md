@@ -398,6 +398,10 @@ The various options are:
   eval-constraint-stats respectively. If the flag is not called, it defaults to
   printing none of them.
 
+- `--wp-trip-asserts=[true|false]`. If set, WP will look for inputs to the
+  subroutine that would cause an `__assert_fail` to `__VERIFIER_error` to be
+  reached.
+
 ## C checking API
 
 There is a `cbat.h` file in the `api/c` folder which contains headers
