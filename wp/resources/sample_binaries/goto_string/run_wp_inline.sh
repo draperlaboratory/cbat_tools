@@ -16,7 +16,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-inline=.*
+  bap main --pass=wp --wp-inline=.* --wp-trip-asserts
 }
 
 compile && run

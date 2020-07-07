@@ -10,7 +10,7 @@ compile () {
 }
 
 run () {
-  bap verifier_assume_sat --pass=wp
+  bap verifier_assume_sat --pass=wp --wp-trip-asserts
 }
 
 compile && run

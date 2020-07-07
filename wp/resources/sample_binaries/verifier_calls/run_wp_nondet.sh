@@ -11,7 +11,7 @@ compile () {
 }
 
 run () {
-  bap verifier_nondet --pass=wp
+  bap verifier_nondet --pass=wp --wp-trip-asserts
 }
 
 compile && run

@@ -16,7 +16,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-func=nestedIfExample
+  bap main --pass=wp --wp-func=nestedIfExample --wp-trip-asserts
 }
 
 compile && run

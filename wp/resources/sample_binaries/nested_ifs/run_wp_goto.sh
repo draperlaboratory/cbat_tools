@@ -16,7 +16,7 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-func=gotoExample
+  bap main --pass=wp --wp-func=gotoExample --wp-trip-asserts
 }
 
 compile && run
