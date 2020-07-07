@@ -409,7 +409,7 @@ let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
   let min = BV.mk_sub ctx max size in
   fun addr ->
     assert (BV.is_bv addr);
-    Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ult ctx addr max]
+    Bool.mk_and ctx [BV.mk_ult ctx min addr; BV.mk_ule ctx addr max]
 
 (* Returns a function that takes in a memory address as a z3_expr and outputs a
    z3_expr that checks if that address is within the heap. *)
