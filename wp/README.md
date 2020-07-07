@@ -402,6 +402,13 @@ The various options are:
   subroutine that would cause an `__assert_fail` to `__VERIFIER_error` to be
   reached.
 
+- `--wp-stack-base=address`. If present, sets the base or top address of the stack.
+  By default, WP places the stack at a base address of 0x40000000.
+
+- `--wp-stack-size=size`. If present, sets the size of the stack. `size` should
+  be denoted in bytes. By default, the size of the stack is 0x800000, which is
+  8Mbs.
+
 ## C checking API
 
 There is a `cbat.h` file in the `api/c` folder which contains headers
