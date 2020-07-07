@@ -650,10 +650,9 @@ let default_stack_range : Env.mem_range = {
   size = 0x800000
 }
 
-(* TODO: The default heap range should not be hardcoded as it currently is.
-   The heap starts at the program break which is initially set to the end of
-   the program data segment. See [man brk] for details. *)
-let default_heap_range : Env.mem_range = {
+(* TODO: The default data section range should not be hardcoded as it currently is.
+   We should use [brk] to determine this. *)
+let default_data_section_range : Env.mem_range = {
   base_addr = 0x000000;
   size = 0x800000
 }
@@ -670,12 +669,12 @@ let mk_env
     ?freshen_vars:(freshen_vars = false)
     ?use_fun_input_regs:(use_fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
-    ?heap_range:(heap_range = default_heap_range)
+    ?data_section_range:(data_section_range = default_data_section_range)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
   Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
-    ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~heap_range ctx var_gen
+    ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
 
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
   let jmp_spec = Env.get_jmp_handler env in
@@ -1000,7 +999,7 @@ let non_null_store_assert : Env.exp_cond = fun env exp ->
                                 (Bool.mk_and ctx conds))))
 
 (* At a memory read, add two assumptions of the form:
-   Heap(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
+   Data(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
    Stack(x) => init_mem_orig[x] == init_mem_mod[x] *)
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
     (offset : Constr.z3_expr -> Constr.z3_expr) : Constr.z3_expr list =
@@ -1023,7 +1022,7 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
           let mem_eq = compare_mem addr addr in
           let constr =
             Bool.mk_ite ctx (Env.in_stack env1 addr) mem_eq
-              (Bool.mk_ite ctx (Env.in_heap env1 addr) mem_eq_offset
+              (Bool.mk_ite ctx (Env.in_data_section env1 addr) mem_eq_offset
                  mem_eq)
           in
           debug "Adding assumptions:\n%s\n%!"
