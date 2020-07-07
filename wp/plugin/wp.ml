@@ -41,6 +41,7 @@ type flags =
     check_null_deref : bool;
     print_constr : string list;
     debug : string list;
+    trip_asserts : bool
   }
 
 let missing_func_msg (func : string) : string =
@@ -128,14 +129,31 @@ let exp_conds_mod (flags : flags) : Env.exp_cond list =
   else
     []
 
+let fun_specs (f : flags) (to_inline : Sub.t Seq.t)
+  : (Sub.t -> Arch.t -> Env.fun_spec option) list =
+  let default =
+    [ Pre.spec_verifier_assume;
+      Pre.spec_verifier_nondet;
+      Pre.spec_afl_maybe_log;
+      Pre.spec_inline to_inline;
+      Pre.spec_arg_terms;
+      Pre.spec_chaos_caller_saved;
+      Pre.spec_rax_out
+    ] in
+  if f.trip_asserts then
+    Pre.spec_verifier_error :: default
+  else
+    default
+
 let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (flags : flags) : Constr.t * Env.t * Env.t =
   let arch = Project.arch proj in
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func_err subs flags.func in
   let to_inline = match_inline flags.inline subs in
+  let specs = fun_specs flags to_inline in
   let exp_conds = exp_conds_mod flags in
-  let env = Pre.mk_env ctx var_gen ~subs ~arch ~to_inline
+  let env = Pre.mk_env ctx var_gen ~subs ~arch ~specs
       ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds in
   (* call visit sub with a dummy postcondition to fill the
      environment with variables *)
@@ -236,8 +254,9 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let main_sub2 = find_func_err subs2 flags.func in
   let env2 =
     let to_inline2 = match_inline flags.inline subs2 in
+    let specs2 = fun_specs flags to_inline2 in
     let exp_conds2 = exp_conds_mod flags in
-    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~to_inline:to_inline2
+    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~specs:specs2
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds2 in
     let env2 = Env.set_freshen env2 true in
     let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
@@ -245,8 +264,9 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   in
   let env1 =
     let to_inline1 = match_inline flags.inline subs1 in
+    let specs1 = fun_specs flags to_inline1 in
     let exp_conds1 = exp_conds_orig flags env2 in
-    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~to_inline:to_inline1
+    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~specs:specs1
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
@@ -402,6 +422,10 @@ module Cmdline = struct
             and eval-constraint-stats respectively. If the flag is not called, it \
             defaults to printing none of them."
 
+  let trip_asserts = param bool "trip-asserts" ~as_flag:true ~default:false
+      ~doc:"If set, WP will look for inputs to the subroutine that would cause \
+            an __assert_fail or __VERIFIER_error to be reached."
+
   let () = when_ready (fun {get=(!!)} ->
       let flags =
         {
@@ -422,7 +446,8 @@ module Cmdline = struct
           mem_offset = !!mem_offset;
           check_null_deref = !!check_null_deref;
           print_constr = !!print_constr;
-          debug = !!debug
+          debug = !!debug;
+          trip_asserts = !!trip_asserts
         }
       in
       Project.register_pass' @@
