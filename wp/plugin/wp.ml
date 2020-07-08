@@ -35,6 +35,7 @@ type flags =
     output_vars : string list;
     gdb_filename : string option;
     bildb_output : string option;
+    print_refuted_goals : bool;
     print_path : bool;
     use_fun_input_regs : bool;
     mem_offset : bool;
@@ -330,8 +331,8 @@ let main (flags : flags) (proj : project) : unit =
   let () = match flags.bildb_output with
     | None -> ()
     | Some f -> Output.output_bildb solver result env2 f in
-  Output.print_result solver result pre ~print_path:flags.print_path
-    ~orig:env1 ~modif:env2
+  Output.print_result solver result pre ~orig:env1 ~modif:env2
+    ~print_refuted_goals:flags.print_refuted_goals ~print_path:flags.print_path
 
 
 module Cmdline = struct
@@ -399,10 +400,19 @@ module Cmdline = struct
             countermodel found during WP analysis, allowing BilDB to follow the \
             same execution trace."
 
+  let print_refuted_goals = param bool "print-refuted-goals" ~as_flag:true ~default:false
+      ~doc:"If set, in the case WP results in SAT, prints a list of goals that \
+            have been refuted in the model. The list will show the tagged name \
+            of the goal, the concrete values of the goal, and the Z3 expression \
+            representing the goal. For example, a refuted goal of \
+            (= RAX_orig RAX_mod) can have concrete values of \
+            (= 0x0000000000000000 0x0000000000000001)."
+
   let print_path = param bool "print-path" ~as_flag:true ~default:false
-      ~doc:"If set, prints out the path to a refuted goal and the register values \
+      ~doc:"If set, prints out the path to each refuted goal and the register values \
             at each jump in the path. The path contains information about whether \
-            a jump has been taken and the address of the jump if found."
+            a jump has been taken and the address of the jump if found. The path \
+            will only be printed if refuted goals are printed with --wp-print-refuted-goals."
 
   let use_fun_input_regs = param bool "use-fun-input-regs" ~as_flag:true  ~default:true
       ~doc:"If set, at a function call site, uses all possible input registers \
@@ -467,6 +477,7 @@ module Cmdline = struct
           output_vars = !!output_vars;
           gdb_filename = !!gdb_filename;
           bildb_output = !!bildb_output;
+          print_refuted_goals = !!print_refuted_goals;
           print_path = !!print_path;
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;

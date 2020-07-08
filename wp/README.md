@@ -361,9 +361,17 @@ The various options are:
   follow the same execution trace. In the case the analysis returns UNSAT or
   UNKNOWN, no script will be outputted.
 
+- `--wp-print-refuted-goals[true|false]`. If set, in the case WP results in SAT,
+  prints a list of goals that have been refuted in the model. The list will show
+  the tagged name of the goal, the concrete values of the goal, and the Z3
+  expression representing the goal. For example, a refuted goal of
+  `(= RAX_orig RAX_mod)` can have concrete values of
+  `(= 0x0000000000000000 0x0000000000000001)`.
+
 - `--wp-print-path=[true|false]`. If present, will print out the path to a refuted
   goal and the register values at each jump in the path. It also contains information
-  about whehter a jump has been taken and the address of the jump if found.
+  about whether a jump has been taken and the address of the jump if found. The path
+  will only be printed if refuted goals are printed with `--wp-print-refuted-goals`.
 
 - `--wp-use-fun-input-regs=[true|false].` If present, at a function call site, uses
   all possible input registers as arguments to a function symbol generated for
