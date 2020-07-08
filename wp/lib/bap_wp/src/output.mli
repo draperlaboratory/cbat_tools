@@ -33,7 +33,7 @@ module Constr = Constraint
     the refuted goals. *)
 val print_result :
   Z3.Solver.solver -> Z3.Solver.status -> Constr.t -> print_path:bool ->
-  orig:Env.t -> modif:Env.t -> unit
+  print_refuted_goals:bool -> orig:Env.t -> modif:Env.t -> unit
 
 (** Prints to file a gdb script that will fill the appropriate registers with the countermodel *)
 val output_gdb :

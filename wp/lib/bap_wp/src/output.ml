@@ -149,7 +149,8 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
     None
 
 let print_result (solver : Solver.solver) (status : Solver.status) (goals: Constr.t)
-    ~print_path:(print_path : bool) ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
+    ~print_path:(print_path : bool) ~print_refuted_goals:(print_refuted_goals : bool)
+    ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
   match status with
   | Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
   | Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
@@ -162,12 +163,14 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
     let mem2, _ = Env.get_var env2 Target.CPU.mem in
     Format.printf "\nSAT!\n%!";
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
-    let refuted_goals =
-      Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
-    Format.printf "\nRefuted goals:\n%!";
-    Seq.iter refuted_goals ~f:(fun goal ->
-        Format.printf "%s\n%!"
-          (Constr.format_refuted_goal goal model var_map ~print_path))
+    if print_refuted_goals then begin
+      let refuted_goals =
+        Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
+      Format.printf "\nRefuted goals:\n%!";
+      Seq.iter refuted_goals ~f:(fun goal ->
+          Format.printf "%s\n%!"
+            (Constr.format_refuted_goal goal model var_map ~print_path))
+    end
 
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
     breakpoint at the subroutine and fills the appropriate registers *)
