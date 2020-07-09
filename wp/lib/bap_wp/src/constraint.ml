@@ -235,9 +235,7 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
       let hyps_expr = eval_conjunction hyps in
       Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
-    let n' = List.map n ~f:(fun x -> 
-                                   let[@landmark "oldsnews" ] olds, news = get_vars' x olds news |> List.unzip in
-                                   Expr.substitute x olds news) in
+    let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
     if (List.length n') = 1 (* It appears we generate overwhelmingly size 1 lists *)
       then 
       begin
@@ -252,7 +250,7 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
         let rec removen_exn n l = match l with | x :: xs ->  if (n = 0) then xs else x :: (removen_exn (n - 1) xs) |  [] -> failwith "Improper removen use" in
         let oind = findn o olds in
         match oind with
-          | None -> eval_aux c (o :: olds) (n' :: news) ctx
+          | None -> eval_aux ~stats:stats c (o :: olds) (n' :: news) ctx
           | Some ind -> let news' = n' :: (removen_exn ind news) in
                         let olds  = o  :: (removen_exn ind olds) in 
                         eval_aux ~stats:stats c olds news' ctx
