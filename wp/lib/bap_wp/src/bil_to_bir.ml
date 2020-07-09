@@ -59,23 +59,23 @@ and mk_if
   : Sub.Builder.t * Blk.Builder.t =
   let tid_l = Tid.create () in
   let tid_r = Tid.create () in
-  let sub_l, blk_l = bil_to_blks ls sub (Blk.Builder.create ~tid:tid_l ()) in
   (* We pass along the sub builder, to add all required blocks in both branches *)
-  let sub_r, blk_r = bil_to_blks rs sub_l (Blk.Builder.create ~tid:tid_r ()) in
+  let sub, blk_r = bil_to_blks rs sub (Blk.Builder.create ~tid:tid_r ()) in
+  let sub, blk_l = bil_to_blks ls sub (Blk.Builder.create ~tid:tid_l ()) in
   Blk.Builder.add_jmp blk (Jmp.create ~cond:e (Goto (Label.direct tid_l)));
   Blk.Builder.add_jmp blk (Jmp.create (Goto (Label.direct tid_r)));
   let old_blk = Blk.Builder.result blk in
-  Sub.Builder.add_blk sub_r old_blk;
   let merge_tid = Tid.create () in
   let merge_blk = Blk.Builder.create ~tid:merge_tid () in
   let lab = Label.direct merge_tid in
   Blk.Builder.add_jmp blk_l (Jmp.create (Goto lab));
   let lhs_blk = Blk.Builder.result blk_l in
-  Sub.Builder.add_blk sub_r lhs_blk;
   Blk.Builder.add_jmp blk_r (Jmp.create (Goto lab));
   let rhs_blk = Blk.Builder.result blk_r in
-  Sub.Builder.add_blk sub_r rhs_blk;
-  sub_r, merge_blk
+  Sub.Builder.add_blk sub old_blk;
+  Sub.Builder.add_blk sub rhs_blk;
+  Sub.Builder.add_blk sub lhs_blk;
+  sub, merge_blk
 
 and mk_while (e : Exp.t) (ss : stmt list) (sub : Sub.Builder.t) (blk : Blk.Builder.t)
   : Sub.Builder.t * Blk.Builder.t =
@@ -86,15 +86,15 @@ and mk_while (e : Exp.t) (ss : stmt list) (sub : Sub.Builder.t) (blk : Blk.Build
   let entry_block = Blk.Builder.create ~tid:entry_tid () in
   let body_block = Blk.Builder.create ~tid:body_tid () in
   Blk.Builder.add_jmp blk (Jmp.create (Goto (Label.direct entry_tid)));
-  Sub.Builder.add_blk sub (Blk.Builder.result blk);
   Blk.Builder.add_jmp entry_block
     (Jmp.create ~cond:(Bil.lnot e) (Goto (Label.direct exit_tid)));
   Blk.Builder.add_jmp entry_block
     (Jmp.create (Goto (Label.direct body_tid)));
-  Sub.Builder.add_blk sub (Blk.Builder.result entry_block);
   let sub_loop, blk_loop = bil_to_blks ss sub body_block in
   Blk.Builder.add_jmp blk_loop
     (Jmp.create (Goto (Label.direct entry_tid)));
+  Sub.Builder.add_blk sub (Blk.Builder.result blk);
+  Sub.Builder.add_blk sub (Blk.Builder.result entry_block);
   Sub.Builder.add_blk sub_loop (Blk.Builder.result blk_loop);
   sub_loop, exit_block
 
@@ -125,8 +125,15 @@ and bil_to_blks
     bil_to_blks ss sub' tail_blk'
 
 let bil_to_sub (stmts : Bil.t) : sub term =
+  let head_tid = Tid.create () in
   let new_sub = Sub.Builder.create () in
-  let new_blk = Blk.Builder.create () in
+  let new_blk = Blk.Builder.create ~tid:head_tid () in
   let sub, blk = bil_to_blks stmts new_sub new_blk in
+  (* Add the last "trailing" block to the subroutine *)
   Sub.Builder.add_blk sub (Blk.Builder.result blk);
-  Sub.Builder.result sub
+  let res_sub = Sub.Builder.result sub in
+  (* We need to shuffle things around so the the head block is first *)
+  let hd_blk = Option.value_exn (Term.find blk_t res_sub head_tid) in
+  let res_sub = Term.remove blk_t res_sub head_tid in
+  let res_sub = Term.prepend blk_t res_sub hd_blk in
+  res_sub

@@ -789,9 +789,16 @@ let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t
   (pre, Env.add_precond env (Term.tid blk) pre)
 
 let visit_graph (env : Env.t) (post : Constr.t)
-    ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
+      ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
+  let module G = Graphs.Ir in
+  (* Prune non-reachable sub-graphs from the DFS *)
+  let module Reachable_from_start =
+    (val
+       Graphlib.filtered (module G)
+         ~skip_node:(fun n -> not (Graphlib.is_reachable (module G) g start n)) ())
+  in
   let leave_node _ n (_, env) =
-    let b = Graphs.Ir.Node.label n in
+    let b = G.Node.label n in
     visit_block env post b in
   (* This function is the identity on forward & cross edges, and
      invokes loop handling code on back edges *)
@@ -799,16 +806,16 @@ let visit_graph (env : Env.t) (post : Constr.t)
     match kind with
     | `Back ->
       begin
-        let src = Graphs.Ir.Edge.src e in
-        let dst = Graphs.Ir.Edge.dst e in
+        let src = G.Edge.src e in
+        let dst = G.Edge.dst e in
         debug "Entering back edge from\n%sto\n%s\n%!"
-          (Graphs.Ir.Node.to_string src) (Graphs.Ir.Node.to_string dst);
+          (G.Node.to_string src) (G.Node.to_string dst);
         let handler = Env.get_loop_handler env in
         post, handler env post ~start:dst g
       end
     | _ -> p
   in
-  Graphlib.depth_first_search (module Graphs.Ir)
+  Graphlib.depth_first_search (module Reachable_from_start)
     ~enter_edge:enter_edge ~start:start ~leave_node:leave_node ~init:(post, env)
     g
 
