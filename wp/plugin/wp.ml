@@ -32,7 +32,7 @@ type flags =
     pre_cond : string;
     post_cond : string;
     num_unroll : int option;
-    compare_final_reg_values : string list;
+    compare_post_reg_values : string list;
     gdb_filename : string option;
     bildb_output : string option;
     print_refuted_goals : bool;
@@ -201,7 +201,7 @@ let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
   else
     None
 
-let final_reg_values
+let post_reg_values
     (flag : string list)
     ~orig:(sub1, env1 : Sub.t * Env.t)
     ~modif:(sub2, env2 : Sub.t * Env.t)
@@ -246,7 +246,7 @@ let comparators_of_flags
   let arch = Env.get_arch env1 in
   let comps =
     [ check_calls flags.check_calls;
-      final_reg_values flags.compare_final_reg_values
+      post_reg_values flags.compare_post_reg_values
         ~orig:(sub1, env1) ~modif:(sub2, env2);
       smtlib ~post_cond:flags.post_cond ~pre_cond:flags.pre_cond;
       sp arch ]
@@ -385,7 +385,7 @@ module Cmdline = struct
       ~doc:"Amount of times to unroll each loop. By default, wp will unroll each \
             loop 5 times."
 
-  let compare_final_reg_values = param (list string) "compare-final-reg-values"
+  let compare_post_reg_values = param (list string) "compare-post-reg-values"
       ~default:[]
       ~doc:"List of output variables to compare separated by `,' given the same \
             input variables in the case of a comparative analysis. Defaults to `RAX,EAX' \
@@ -477,7 +477,7 @@ module Cmdline = struct
           pre_cond = !!pre_cond;
           post_cond = !!post_cond;
           num_unroll = !!num_unroll;
-          compare_final_reg_values = !!compare_final_reg_values;
+          compare_post_reg_values = !!compare_post_reg_values;
           gdb_filename = !!gdb_filename;
           bildb_output = !!bildb_output;
           print_refuted_goals = !!print_refuted_goals;

@@ -14,10 +14,9 @@ compile () {
 run () {
   bap $dummy_dir/hello_world.out --pass=wp \
     --wp-compare \
-    --wp-trip-asserts \
-    --wp-compare-post-reg-values=RAX \
     --wp-file1=main_1.bpj \
-    --wp-file2=main_2.bpj
+    --wp-file2=main_2.bpj \
+    --wp-check-null-deref
 }
 
 compile && run
