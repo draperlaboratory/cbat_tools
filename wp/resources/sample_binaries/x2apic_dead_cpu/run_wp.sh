@@ -2,8 +2,8 @@
 # label. At the end of the subroutine, the registers between both binaries
 # should be equal.
 
-# This tests the __afl_maybe_log spec that it is the callee's
-# responsibility to pop the stack pointer.
+# This tests that the function spec for __afl_maybe_log
+# properly pops the stack pointer at the end of the function.
 
 # Should return UNSAT
 
@@ -16,11 +16,13 @@ compile () {
 }
 
 run () {
-  bap $dummy_dir/hello_world.out --pass=wp \
-    --wp-compare \
-    --wp-compare-post-reg-values=RAX \
+  bap /bin/echo --pass=wp \
+    --wp-compare=true \
     --wp-file1=main_1.bpj \
-    --wp-file2=main_2.bpj
+    --wp-file2=main_2.bpj \
+    --wp-function=x2apic_dead_cpu \
+    --wp-check-null-deref=true \
+    --wp-check-calls=true
 }
 
 compile && run

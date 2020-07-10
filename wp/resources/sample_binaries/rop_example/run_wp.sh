@@ -14,7 +14,7 @@ compile () {
 run () {
   bap $dummy_dir/hello_world.out --pass=wp \
     --wp-compare \
-    --wp-compare-final-reg-values=RAX \
+    --wp-compare-post-reg-values=RAX \
     --wp-file1=main-original.bpj \
     --wp-file2=main-rop.bpj \
     --wp-inline=.*
