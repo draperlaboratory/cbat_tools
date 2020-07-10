@@ -34,8 +34,9 @@ let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
   |> List.sort ~compare:(fun (addr1, _) (addr2, _) ->
       String.compare (Expr.to_string addr1) (Expr.to_string addr2))
   |> List.iter ~f:(fun (key, data) ->
-      Format.fprintf fmt "\t\t%s |-> %s ;\n" (Expr.to_string key) (Expr.to_string data ));
-  Format.fprintf fmt "\t\telse |-> %s]\n" (Expr.to_string (mem_model.default))
+      Format.fprintf fmt "\t\t%s |-> %s ;\n"
+        (Expr.to_string key) (Constr.expr_to_hex data));
+  Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
 
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
@@ -174,9 +175,6 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
 
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
     breakpoint at the subroutine and fills the appropriate registers *)
-let expr_to_hex (e : Constr.z3_expr) : string =
-  Z3.Expr.to_string e |> String.substr_replace_first ~pattern:"#" ~with_:"0"
-
 let output_gdb (solver : Solver.solver) (status : Solver.status)
     (env : Env.t) ~func:(func : string) ~filename:(gdb_filename : string) : unit =
   match status with
@@ -192,13 +190,14 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
         Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
         Printf.fprintf t "run\n";
         VarMap.iteri reg_val_map ~f:(fun ~key ~data ->
-            let hex_value = expr_to_hex data in
+            let hex_value = Constr.expr_to_hex data in
             Printf.fprintf t "set $%s = %s \n" (String.lowercase (Var.name key)) hex_value;
           );
         match option_mem_model with
         | None -> ()
         | Some mem_model ->  List.iter mem_model.model ~f:(fun (addr,value) ->
-            Printf.fprintf t "set {int}%s = %s \n" (expr_to_hex addr) (expr_to_hex value))
+            Printf.fprintf t "set {int}%s = %s \n"
+              (Constr.expr_to_hex addr) (Constr.expr_to_hex value))
       )
   | _ -> info "Result of analysis is not SAT. No GDB script to output.\n%!"
 
@@ -220,7 +219,7 @@ let output_bildb (solver : Solver.solver) (status : Solver.status) (env : Env.t)
         if not @@ VarMap.is_empty reg_vals then begin
           Printf.fprintf t "Variables:\n";
           VarMap.iteri reg_vals ~f:(fun ~key ~data ->
-              let hex_value = expr_to_hex data in
+              let hex_value = Constr.expr_to_hex data in
               Printf.fprintf t "  %s: %s\n" (Var.name key) hex_value)
         end;
         (* Print memory addresses and the values they hold if present in the model. *)
@@ -230,7 +229,8 @@ let output_bildb (solver : Solver.solver) (status : Solver.status) (env : Env.t)
           if not @@ List.is_empty m.model then begin
             Printf.fprintf t "Locations:\n";
             List.iter m.model ~f:(fun (addr, value) ->
-                Printf.fprintf t "  %s: %s\n" (expr_to_hex addr) (expr_to_hex value))
+                Printf.fprintf t "  %s: %s\n"
+                  (Constr.expr_to_hex addr) (Constr.expr_to_hex value))
           end
       )
   | _ -> info "Result of analysis is not SAT. No BilDB init script to output.\n%!"
