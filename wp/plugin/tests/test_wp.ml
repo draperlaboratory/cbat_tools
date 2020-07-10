@@ -140,8 +140,8 @@ let suite = [
 
   "Double dereference"             >: test_plugin "double_dereference" unsat;
 
-  "Equiv argc"                     >: test_plugin "equiv_argc" sat ~expected_regs:[("RDI", "#x0000000000000002")];
-  "Precondition: force 2"          >: test_plugin "equiv_argc" sat ~script:"run_wp_force.sh" ~expected_regs:[("RDI", "#x0000000000000002")];
+  "Equiv argc"                     >: test_plugin "equiv_argc" sat ~expected_regs:[("RDI", "0x0000000000000002")];
+  "Precondition: force 2"          >: test_plugin "equiv_argc" sat ~script:"run_wp_force.sh" ~expected_regs:[("RDI", "0x0000000000000002")];
   "Precondition: disallow 2"       >: test_plugin "equiv_argc" unsat ~script:"run_wp_disallow.sh";
 
   "Equiv null check"               >: test_plugin "equiv_null_check" sat;
@@ -186,16 +186,16 @@ let suite = [
 
   "ROP example"                    >:: test_skip fail_msg (test_plugin "rop_example" unsat);
 
-  "Switch case assignments"        >: test_plugin "switch_case_assignments" sat ~expected_regs:[("RDI", "#x0000000000000000")];
-  "Switch Cases"                   >: test_plugin "switch_cases" sat ~expected_regs:[("RDI", "#x0000000000000003")];
-  "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat ~expected_regs:[("RDI", "#x0000000000000003")];
+  "Switch case assignments"        >: test_plugin "switch_case_assignments" sat ~expected_regs:[("RDI", "0x0000000000000000")];
+  "Switch Cases"                   >: test_plugin "switch_cases" sat ~expected_regs:[("RDI", "0x0000000000000003")];
+  "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat ~expected_regs:[("RDI", "0x0000000000000003")];
 
   (* Test single elf *)
 
   "Function call"                  >: test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh"
-    ~expected_regs:[("RDI", "#x0000000000000005")];
+    ~expected_regs:[("RDI", "0x0000000000000005")];
   "Function call: inline all"      >: test_plugin "function_call" sat ~script:"run_wp_inline_all.sh"
-    ~expected_regs:[("RDI", "#x0000000000000005")];
+    ~expected_regs:[("RDI", "0x0000000000000005")];
 
   "Function spec: no inlining"     >: test_plugin "function_spec" sat;
   "Function spec: inline foo"      >: test_plugin "function_spec" unsat ~script:"run_wp_inline_foo.sh";
@@ -215,9 +215,9 @@ let suite = [
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
   "Nested function calls: inline regex" >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh"
-    ~expected_regs:[("RDI", "#x0000000000000004")];
+    ~expected_regs:[("RDI", "0x0000000000000004")];
   "Nested function calls: inline all"   >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_all.sh"
-    ~expected_regs:[("RDI", "#x0000000000000004")];
+    ~expected_regs:[("RDI", "0x0000000000000004")];
 
   "Nested ifs"                     >: test_plugin "nested_ifs" unsat;
   "Nested ifs: goto"               >: test_plugin "nested_ifs" unsat ~script:"run_wp_goto.sh";
@@ -228,7 +228,7 @@ let suite = [
 
   "User defined postcondition"     >: test_plugin "return_argc" sat;
 
-  "Simple WP"                      >: test_plugin "simple_wp" sat ~expected_regs:[("RDI", "#x0000000000000003")];
+  "Simple WP"                      >: test_plugin "simple_wp" sat ~expected_regs:[("RDI", "0x0000000000000003")];
   "Simple WP: precondition"        >: test_plugin "simple_wp" unsat ~script:"run_wp_pre.sh";
 
   "Verifier assume SAT"            >: test_plugin "verifier_calls" sat ~script:"run_wp_assume_sat.sh";
