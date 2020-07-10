@@ -51,11 +51,16 @@ let goal_to_string (g : goal) : string =
   Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
 
 let expr_to_hex (exp : z3_expr) : string =
-  let decimal = exp |> BV.numeral_to_string |> Int.of_string in
-  let size = exp |> Expr.get_sort |> BV.get_size |> Int.to_float in
+  let decimal = BV.numeral_to_string exp in
+  let size = exp |> Expr.get_sort |> BV.get_size in
+  let word = Word.of_string (Printf.sprintf "%s:%du" decimal size) in
+  let pp_word ppf =
+    Word.pp_generic ~case:`lower ~prefix:`none ~suffix:`none ~format:`hex ppf in
+  let word_str = Format.asprintf "%a" pp_word word in
   (* Calculate how many 0s to pad the output with. *)
-  let width = size /. 4. |> Float.round_up |> Int.of_float in
-  Format.sprintf "0x%0*x" width decimal
+  let width = if size mod 4 = 0 then size / 4 else size / 4 + 1 in
+  let padding = String.make (width - (String.length word_str)) '0' in
+  Printf.sprintf "0x%s%s" padding word_str
 
 let format_values (fmt : Format.formatter) (vals : (string * z3_expr) list) : unit =
   let max_str_length =
