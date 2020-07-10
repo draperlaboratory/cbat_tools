@@ -16,6 +16,7 @@ open Bap.Std
 
 module Expr = Z3.Expr
 module Bool = Z3.Boolean
+module BV = Z3.BitVector
 module Model = Z3.Model
 module Solver = Z3.Solver
 
@@ -49,6 +50,13 @@ let get_model_exn (solver : Solver.solver) : Model.model =
 let goal_to_string (g : goal) : string =
   Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
 
+let expr_to_hex (exp : z3_expr) : string =
+  let decimal = exp |> BV.numeral_to_string |> Int.of_string in
+  let size = exp |> Expr.get_sort |> BV.get_size |> Int.to_float in
+  (* Calculate how many 0s to pad the output with. *)
+  let width = size /. 4. |> Float.round_up |> Int.of_float in
+  Format.sprintf "0x%0*x" width decimal
+
 let format_values (fmt : Format.formatter) (vals : (string * z3_expr) list) : unit =
   let max_str_length =
     vals
@@ -63,7 +71,7 @@ let format_values (fmt : Format.formatter) (vals : (string * z3_expr) list) : un
           let pad_size = length - (String.length var) + 1 in
           let pad = String.make pad_size ' ' in
           Format.fprintf fmt
-            "\t%s%s|->  @[%s@]@\n" var pad (Expr.to_string value))
+            "\t%s%s|->  @[%s@]@\n" var pad (expr_to_hex value))
 
 let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
     (var_map : z3_expr Var.Map.t) : unit =
@@ -290,9 +298,9 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
       then
         let current_path = Jmp.Map.set current_path ~key:jmp ~data:false in
         worker c2 current_path current_registers olds news
-      else       
+      else
         failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
-                                    condition %s at %s" 
+                                    condition %s at %s"
                                     (Z3.Expr.to_string cond_res)
                                     (jmp |> Term.tid |> Tid.to_string))
     | Clause (hyps, concs) ->

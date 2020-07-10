@@ -62,6 +62,9 @@ val goal_to_string : goal -> string
 (** Creates a string representation of a path. *)
 val path_to_string : path -> string
 
+(** Creates a string representation of a Z3 numeral in hexadecimal. *)
+val expr_to_hex : z3_expr -> string
+
 (** Creates a string representation of a mapping of BAP variable names to their [z3_expr]s. *)
 val format_values : Format.formatter -> (string * z3_expr) list -> unit
 
