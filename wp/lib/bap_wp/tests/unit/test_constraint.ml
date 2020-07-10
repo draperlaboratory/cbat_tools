@@ -113,7 +113,7 @@ let test_substitute_order (test_ctx : test_ctxt) : unit =
   let goals = Constr.get_refuted_goals pre solver ctx in
   assert_refuted_goals test_ctx post_expr goals
 
-let test_expr_to_hex (test_ctx : test_ctxt) : unit =
+let test_expr_to_hex_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let expr = BV.mk_numeral ctx "1073741824" 64 in
   let result = Constr.expr_to_hex expr in
@@ -121,10 +121,28 @@ let test_expr_to_hex (test_ctx : test_ctxt) : unit =
   assert_equal ~ctxt:test_ctx ~cmp:String.equal ~printer:String.to_string
     expected result
 
+let test_expr_to_hex_2 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let expr = BV.mk_numeral ctx "18446744073709551615" 64 in
+  let result = Constr.expr_to_hex expr in
+  let expected = "0xffffffffffffffff" in
+  assert_equal ~ctxt:test_ctx ~cmp:String.equal ~printer:String.to_string
+    expected result
+
+let test_expr_to_hex_3 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let expr = BV.mk_numeral ctx "0" 1 in
+  let result = Constr.expr_to_hex expr in
+  let expected = "0x0" in
+  assert_equal ~ctxt:test_ctx ~cmp:String.equal ~printer:String.to_string
+    expected result
+
 let suite = [
-  "Get Refuted Goals"             >:: test_get_refuted_goals;
-  "Get Refuted Goals with Memory" >:: test_get_refuted_goals_mem;
-  "Substitute Exprs"              >:: test_substitute;
-  "Substitute Exprs in Order"     >:: test_substitute_order;
-  "Expr to Hex"                   >:: test_expr_to_hex
+  "Get Refuted Goals"               >:: test_get_refuted_goals;
+  "Get Refuted Goals with Memory"   >:: test_get_refuted_goals_mem;
+  "Substitute Exprs"                >:: test_substitute;
+  "Substitute Exprs in Order"       >:: test_substitute_order;
+  "Expr to Hex: 0x40000000"         >:: test_expr_to_hex_1;
+  "Expr to Hex: 0xffffffffffffffff" >:: test_expr_to_hex_2;
+  "Expr to Hex: 0x0"                >:: test_expr_to_hex_3
 ]
