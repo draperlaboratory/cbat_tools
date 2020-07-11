@@ -26,6 +26,12 @@ let main nm proj : unit =
     | ("", Some bnm) -> String.concat [bnm; ".bpj"]
     | (user_dest, _) -> user_dest
   in
+  let clear_mapper = object 
+    inherit Term.mapper as super
+    method! map_term cls t = let t' = Term.with_attrs t Dict.empty in super#map_term cls t'
+    end 
+  in
+  let prog = clear_mapper#run prog in
   Program.Io.write ~fmt:"bin" dest prog
 
 module Cmdline = struct
