@@ -209,14 +209,14 @@ let post_reg_values
   if List.is_empty flag then
     None
   else begin
-    let input = Var.Set.union
+    let all_regs = Var.Set.union
         (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
-    let output = Var.Set.union
-        (Pre.get_output_vars env1 sub1 flag)
-        (Pre.get_output_vars env2 sub2 flag) in
-    debug "Pre register vals: %s%!" (varset_to_string input);
-    debug "Post register vals: %s%!" (varset_to_string output);
-    Some (Comp.compare_subs_eq ~input ~output)
+    let post_regs = Var.Set.union
+        (Pre.set_of_reg_names env1 sub1 flag)
+        (Pre.set_of_reg_names env2 sub2 flag) in
+    debug "Pre register vals: %s%!" (varset_to_string all_regs);
+    debug "Post register vals: %s%!" (varset_to_string post_regs);
+    Some (Comp.compare_subs_eq ~pre_regs:all_regs ~post_regs:post_regs)
   end
 
 let smtlib

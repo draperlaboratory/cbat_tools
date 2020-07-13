@@ -1379,7 +1379,7 @@ let test_output_vars_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env = Pre.mk_env ctx var_gen in
-  let vars = Pre.get_output_vars env sub ["x"; "y"; "z"] in
+  let vars = Pre.set_of_reg_names env sub ["x"; "y"; "z"] in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
     (Var.Set.of_list [x; y; z]) vars
@@ -1398,7 +1398,7 @@ let test_output_vars_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env = Pre.mk_env ctx var_gen in
-  let vars = Pre.get_output_vars env sub ["x"; "y"; "z"] in
+  let vars = Pre.set_of_reg_names env sub ["x"; "y"; "z"] in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
     (Var.Set.of_list [x; y]) vars

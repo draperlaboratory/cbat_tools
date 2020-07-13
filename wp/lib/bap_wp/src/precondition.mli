@@ -66,9 +66,9 @@ val lookup_sub : Bap.Std.Label.t -> Constr.t -> Env.t -> Constr.t * Env.t
 (** Get {e every} variable from a subroutine. *)
 val get_vars : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
 
-(** Find the set of BAP variables in a subroutine for equivalence checking
-    given the name of each variable. *)
-val get_output_vars : Env.t -> Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t
+(** Parses a list of register names found in a subroutine and returns a set of
+    variables representing those registers. *)
+val set_of_reg_names : Env.t -> Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t
 
 (** Generates a list of constraints: [var == init_var] where init_var refers to
     the initial state of the variable var. Also updates the environment to contain

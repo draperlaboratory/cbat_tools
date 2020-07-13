@@ -88,8 +88,8 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   Z3_utils.mk_smtlib2 ctx smtlib_str declsym
 
 let compare_blocks
-    ~input:(input : Var.Set.t)
-    ~output:(output : Var.Set.t)
+    ~pre_regs:(pre_regs : Var.Set.t)
+    ~post_regs:(post_regs : Var.Set.t)
     ~original:(blk1, env1 : Blk.t * Env.t)
     ~modified:(blk2, env2 : Blk.t * Env.t)
     ~smtlib_post:(smtlib_post : string)
@@ -98,14 +98,14 @@ let compare_blocks
   (* We only freshen variables in blk2, leaving those of blk1 with
      their original names. *)
   let env2 = Env.set_freshen env2 true in
-  let output_eq_list, env1, env2 = set_to_eqs env1 env2 output in
+  let post_eq_list, env1, env2 = set_to_eqs env1 env2 post_regs in
   let smtlib_post = mk_smtlib2_compare env1 env2 smtlib_post in
-  let output_eq = Constr.mk_clause [] (smtlib_post :: output_eq_list) in
-  let input_eq_list, env1, env2 = set_to_eqs env1 env2 input in
+  let output_eq = Constr.mk_clause [] (smtlib_post :: post_eq_list) in
+  let pre_eq_list, env1, env2 = set_to_eqs env1 env2 pre_regs in
   let smtlib_hyp = mk_smtlib2_compare env1 env2 smtlib_hyp in
   let pre1, _ = Pre.visit_block env1 output_eq blk1 in
   let pre2, _ = Pre.visit_block env2 pre1 blk2 in
-  let goal = Constr.mk_clause (smtlib_hyp :: input_eq_list) [pre2] in
+  let goal = Constr.mk_clause (smtlib_hyp :: pre_eq_list) [pre2] in
   goal, env1, env2
 
 (* The type of functions that generate a postcondition or hypothesis for comparative
@@ -212,15 +212,15 @@ let compare_subs_smtlib
   postcond, hyps
 
 let compare_subs_eq
-    ~input:(input : Var.Set.t)
-    ~output:(output : Var.Set.t)
+    ~pre_regs:(pre_regs : Var.Set.t)
+    ~post_regs:(post_regs : Var.Set.t)
   : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let post_eqs, env1, env2 = set_to_eqs env1 env2 output in
+    let post_eqs, env1, env2 = set_to_eqs env1 env2 post_regs in
     Constr.mk_clause [] post_eqs, env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let pre_eqs, env1, env2 = set_to_eqs env1 env2 input in
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 pre_regs in
     Constr.mk_clause [] pre_eqs, env1, env2
   in
   postcond, hyps

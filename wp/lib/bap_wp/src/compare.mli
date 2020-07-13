@@ -38,13 +38,14 @@ module Constr = Constraint
     comparative analysis. Also updates the environments as needed. *)
 type comparator
 
-(** Compare two blocks by composition: given a set of common
-    input and output variables, return a precondition which is provable
-    only if (modulo soundness bugs) the subroutines have equal output
-    variables given equal input variables. *)
+(** Compare two blocks by composition: Given a set of register values at
+    pre-execution and a set of register values at post-execution, return a
+    precondition which is provable only if (modulo soundness bugs) the registers
+    at post-execution will have equal values given the registers at
+    pre-execution have equal values. *)
 val compare_blocks
-  :  input:Bap.Std.Var.Set.t
-  -> output:Bap.Std.Var.Set.t
+  :  pre_regs:Bap.Std.Var.Set.t
+  -> post_regs:Bap.Std.Var.Set.t
   -> original:(Bap.Std.Blk.t * Env.t)
   -> modified:(Bap.Std.Blk.t * Env.t)
   -> smtlib_post:string
@@ -63,14 +64,14 @@ val compare_subs
 (** Compare two subroutines by composition for equality of return
     values:
 
-    Given a set of common input and output variables, return a postcondition
-    and hypothesis that, when passed to [compare_subs], will generate a
-    precondition which is provable only if (modulo soundness bugs) the
-    subroutines have equal output variables given equal input
-    variables. *)
+    Given a set of register values at pre-execution and a set of register values
+    at post-execution, return a postcondition and hypothesis that, when passed to
+    [compare_subs], will generate a precondition which is provable only if
+    (modulo soundness bugs) the registers at post-execution will have equal
+    values given the registers at pre-execution have equal values. *)
 val compare_subs_eq
-  :  input:Bap.Std.Var.Set.t
-  -> output:Bap.Std.Var.Set.t
+  :  pre_regs:Bap.Std.Var.Set.t
+  -> post_regs:Bap.Std.Var.Set.t
   -> comparator * comparator
 
 (** Compare two subroutines by composition for an empty postcondition:
