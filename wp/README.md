@@ -346,10 +346,13 @@ The various options are:
 - `--wp-num-unroll=num`. If present, replaces the default number of
   times to unroll each loop. The number of loop unrollings is 5 by default.
 
-- `--wp-output-vars=var_list`. List of output variables for equivalence checking
-  separated by `,` given the same input variables in the case of a comparative
-  analysis. Defaults to `RAX,EAX` which are the 64- and 32-bit output registers
-  for x86.
+- `--wp-compare-post-reg-values=reg_list`. This flag is used for a comparison
+  analysis. If set, WP will compare the values stored in the specified registers
+  at the end of the analyzed function's execution. For example,
+  `--wp-compare-post-reg-values=RAX,RDI` compares the values of RAX and RDI at
+  the end of execution. If unsure about which registers to compare, x86_64
+  architectures place their output in RAX, and ARM architectures place their
+  output in R0.
 
 - `--wp-gdb-filename=my_exec.gdb`. Output a gdb script to file `my_exec.gdb`. From
   within gdb, run `source my_exec.gdb` to set a breakpoint at the function given
