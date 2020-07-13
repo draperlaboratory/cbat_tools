@@ -56,10 +56,10 @@ let test_block_pair_1 (test_ctx : test_ctxt) : unit =
              |> mk_def y (Bil.binop Bil.minus (Bil.var y) one)
              |> mk_def z (Bil.binop Bil.plus (Bil.var x) (Bil.var y))
   in
-  let input_vars = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
-  let output_vars = Var.Set.singleton z in
+  let pre_regs = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
+  let post_regs = Var.Set.singleton z in
   let compare_prop, env1, env2 = Comp.compare_blocks
-      ~input:input_vars ~output:output_vars
+      ~pre_regs ~post_regs
       ~original:(blk1,env1) ~modified:(blk2,env2)
       ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -80,10 +80,10 @@ let test_block_pair_2 (test_ctx : test_ctxt) : unit =
              |> mk_def y (Bil.var x)
              |> mk_def z (Bil.var y)
   in
-  let input_vars = Var.Set.singleton x in
-  let output_vars = Var.Set.singleton z in
+  let pre_regs = Var.Set.singleton x in
+  let post_regs = Var.Set.singleton z in
   let compare_prop, env1, env2 = Comp.compare_blocks
-      ~input:input_vars ~output:output_vars
+      ~pre_regs ~post_regs
       ~original:(blk1,env1) ~modified:(blk2,env2)
       ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
@@ -122,9 +122,9 @@ let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
   let blk2' = Term.remove def_t blk2 def_y_tid in
   let blk3' = Term.remove def_t blk3 def_y_tid in
   let sub2 = mk_sub [blk1; blk2'; blk3'; blk4] in
-  let input_vars = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
-  let output_vars = Var.Set.singleton z in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
+  let post_regs = Var.Set.singleton z in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -164,9 +164,9 @@ let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
   let sub1 = mk_sub [blk1; blk2; blk3; blk4] in
   let blk4' = Term.remove def_t blk4 def_y_tid in
   let sub2 = mk_sub [blk1; blk2; blk3; blk4'] in
-  let input_vars = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
-  let output_vars = Var.Set.singleton z in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
+  let post_regs = Var.Set.singleton z in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -200,9 +200,9 @@ let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
   let blk2' = blk2' |> mk_def z Bil.( (var z) + (i32 1) ) in
   let sub1 = mk_sub [blk1; blk2] in
   let sub2 = mk_sub [blk1'; blk2'] in
-  let input_vars = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
-  let output_vars = Var.Set.singleton z in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
+  let post_regs = Var.Set.singleton z in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -239,9 +239,9 @@ let test_sub_pair_4 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let input_vars = Var.Set.singleton x in
-  let output_vars = Var.Set.singleton y in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.singleton x in
+  let post_regs = Var.Set.singleton y in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -278,9 +278,9 @@ let test_sub_pair_5 (test_ctx : test_ctxt) : unit =
   let blk1' = blk1' |> mk_def y ite in
   let sub1 = mk_sub [blk1; blk2; blk3] in
   let sub2 = mk_sub [blk1'] in
-  let input_vars = Var.Set.singleton x in
-  let output_vars = Var.Set.singleton y in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.singleton x in
+  let post_regs = Var.Set.singleton y in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -489,9 +489,9 @@ let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
       ~specs:[Pre.spec_chaos_caller_saved] in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2])
       ~specs:[Pre.spec_chaos_caller_saved] in
-  let input_vars = Var.Set.of_list (ret_var :: x86_64_input_regs) in
-  let output_vars = Var.Set.singleton ret_var in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.of_list (ret_var :: x86_64_input_regs) in
+  let post_regs = Var.Set.singleton ret_var in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
@@ -526,9 +526,9 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
       ~specs:[Pre.spec_chaos_caller_saved] in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2])
       ~specs:[Pre.spec_chaos_caller_saved] in
-  let input_vars = Var.Set.of_list (ret_var :: x86_64_input_regs) in
-  let output_vars = Var.Set.singleton ret_var in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.of_list (ret_var :: x86_64_input_regs) in
+  let post_regs = Var.Set.singleton ret_var in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
@@ -566,9 +566,9 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
       ~subs:(Seq.of_list [main_sub1; call_sub1]) in
   let env2 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
       ~subs:(Seq.of_list [main_sub2; call_sub2]) in
-  let input_vars = Var.Set.of_list (rax :: x86_64_input_regs) in
-  let output_vars = Var.Set.singleton rax in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.of_list (rax :: x86_64_input_regs) in
+  let post_regs = Var.Set.singleton rax in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
@@ -606,9 +606,9 @@ let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
       ~subs:(Seq.of_list [main_sub1; call_sub1]) ~use_fun_input_regs:false in
   let env2 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
       ~subs:(Seq.of_list [main_sub2; call_sub2]) ~use_fun_input_regs:false in
-  let input_vars = Var.Set.of_list (rax :: x86_64_input_regs) in
-  let output_vars = Var.Set.singleton rax in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.of_list (rax :: x86_64_input_regs) in
+  let post_regs = Var.Set.singleton rax in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
@@ -636,9 +636,9 @@ let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
   let sub2 = mk_sub ~name:"main_sub" [blk2] in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [sub1]) in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [sub2]) in
-  let input_vars = Var.Set.of_list [mem; loc1] in
-  let output_vars = Var.Set.singleton mem in
-  let post, hyps = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let pre_regs = Var.Set.of_list [mem; loc1] in
+  let post_regs = Var.Set.singleton mem in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -670,16 +670,16 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
     let offset = Z3.BitVector.mk_numeral ctx "1" width in
     Z3.BitVector.mk_add ctx addr offset
   in
-  let input_vars = Var.Set.of_list [rax; mem] in
-  let output_vars = Var.Set.singleton rax in
+  let pre_regs = Var.Set.of_list [rax; mem] in
+  let post_regs = Var.Set.singleton rax in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
   let env2 = Env.set_freshen env2 true in
-  let _, env2 = Pre.init_vars input_vars env2 in
+  let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
       ~exp_conds:[Pre.mem_read_offsets env2 offset] in
-  let _, env1 = Pre.init_vars input_vars env1 in
+  let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
-  let post2, hyps2 = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -711,16 +711,16 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
     let offset = Z3.BitVector.mk_numeral ctx "22" width in
     Z3.BitVector.mk_add ctx addr offset
   in
-  let input_vars = Var.Set.of_list [rax; mem] in
-  let output_vars = Var.Set.singleton rax in
+  let pre_regs = Var.Set.of_list [rax; mem] in
+  let post_regs = Var.Set.singleton rax in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
   let env2 = Env.set_freshen env2 true in
-  let _, env2 = Pre.init_vars input_vars env2 in
+  let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
       ~exp_conds:[Pre.mem_read_offsets env2 offset] in
-  let _, env1 = Pre.init_vars input_vars env1 in
+  let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
-  let post2, hyps2 = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]
       ~original:(sub1, env1) ~modified:(sub2, env2)
@@ -760,16 +760,16 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
     let offset = Z3.BitVector.mk_numeral ctx "1" width in
     Z3.BitVector.mk_add ctx addr offset
   in
-  let input_vars = Var.Set.of_list [rax; mem] in
-  let output_vars = Var.Set.singleton rax in
+  let pre_regs = Var.Set.of_list [rax; mem] in
+  let post_regs = Var.Set.singleton rax in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub2) ~exp_conds:[] in
   let env2 = Env.set_freshen env2 true in
-  let _, env2 = Pre.init_vars input_vars env2 in
+  let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.singleton sub1)
       ~exp_conds:[Pre.mem_read_offsets env2 offset] in
-  let _, env1 = Pre.init_vars input_vars env1 in
+  let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
-  let post2, hyps2 = Comp.compare_subs_eq ~input:input_vars ~output:output_vars in
+  let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]
       ~original:(sub1, env1) ~modified:(sub2, env2)

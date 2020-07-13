@@ -1097,7 +1097,7 @@ let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_ex
     (Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
   check solver ctx pre
 
-let get_output_vars (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
+let set_of_reg_names (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
   let all_vars = get_vars env t in
   let has_name name var = String.equal name (Var.to_string var) in
   List.fold var_names ~init:Var.Set.empty ~f:(fun vars name ->
