@@ -213,8 +213,8 @@ let post_reg_values
     let output = Var.Set.union
         (Pre.get_output_vars env1 sub1 flag)
         (Pre.get_output_vars env2 sub2 flag) in
-    debug "Input: %s%!" (varset_to_string input);
-    debug "Output: %s%!" (varset_to_string output);
+    debug "Pre register vals: %s%!" (varset_to_string input);
+    debug "Post register vals: %s%!" (varset_to_string output);
     Some (Comp.compare_subs_eq ~input ~output)
   end
 
@@ -386,9 +386,13 @@ module Cmdline = struct
 
   let compare_post_reg_values = param (list string) "compare-post-reg-values"
       ~default:[]
-      ~doc:"List of output variables to compare separated by `,' given the same \
-            input variables in the case of a comparative analysis. Defaults to `RAX,EAX' \
-            which are the 64- and 32-bit output registers for x86."
+      ~doc:"This flag is used for a comparison analysis. If set, WP will \
+            compare the values stored in the specified registers at the end of \
+            the analyzed function's execution. For example, \
+            --wp-compare-post-reg-values=RAX,RDI compares the values of RAX \
+            and RDI at the end of execution. If unsure about which registers \
+            to compare, x86_64 architectures place their output in RAX, and \
+            ARM architectures place their output in R0."
 
   let gdb_filename = param (some string) "gdb-filename" ~default:None
       ~doc:"Output gdb script file for counterexample. This script file sets a \
