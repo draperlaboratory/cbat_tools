@@ -26,6 +26,8 @@ let main nm proj : unit =
     | ("", Some bnm) -> String.concat [bnm; ".bpj"]
     | (user_dest, _) -> user_dest
   in
+  (* Here we clear the attributes from terms because it was found to result in unnecessary bloat and slowdown.
+     We retain the address attribute for usage in --wp-print-paths *)
   let clear_mapper = object 
     inherit Term.mapper as super
     method! map_term cls t = 
