@@ -205,6 +205,12 @@ module Unfold_depth = Blk.Map
 
 type unfold_depth = int Unfold_depth.t
 
+(* This is the default handler for loops, which unfolds a loop by:
+   - Looking at the target node for a backjump
+   - If the node has been visited more than [num_unroll] times, use the [loop_exit_pre] precondition
+   - Otherwise, decrement the [depth] map which tracks the unfoldings for that node, and
+     recursively call [Precondition.visit_graph]. Because this function is defined in another
+     (later) module, we use open recursion via the [wp_rec_call] function reference. *)
 let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
   {
     handle =
