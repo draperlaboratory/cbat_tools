@@ -200,16 +200,21 @@ let loop_exit_pre (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
         debug "Using precondition from node %s%!" (Tid.to_string e);
         get_precondition env e
 
-let init_loop_unfold (num_unroll : int) : loop_handler =
+
+module Unfold_depth = Blk.Map
+
+type unfold_depth = int Unfold_depth.t
+
+let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
   {
     handle =
       let module Node = Graphs.Ir.Node in
-      let depth : (Blk.t, int) Hashtbl.t = Hashtbl.create (module Blk) in
-      let find_depth node = Hashtbl.find_or_add depth (Node.label node)
-          ~default:(fun () -> num_unroll)
+      let find_depth node = Unfold_depth.find depth (Node.label node)
+                            |> Option.value ~default:num_unroll
       in
       let decr_depth node =
-        Hashtbl.update depth (Node.label node) ~f:(function None -> assert false | Some n -> n-1)
+        Unfold_depth.update depth (Node.label node)
+          ~f:(function None -> num_unroll - 1 | Some n -> n - 1)
       in
       let unroll env pre ~start:node g =
         if find_depth node <= 0 then
@@ -224,12 +229,17 @@ let init_loop_unfold (num_unroll : int) : loop_handler =
           add_precond env tid pre
         else
           begin
-            decr_depth node;
-            !wp_rec_call env pre ~start:node g
+            let updated_depth = decr_depth node in
+            let updated_handle = loop_unfold num_unroll updated_depth in
+            let updated_env = { env with loop_handler = updated_handle } in
+            !wp_rec_call updated_env pre ~start:node g
           end
       in
       unroll
   }
+
+
+let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll Unfold_depth.empty
 
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
