@@ -26,15 +26,18 @@ let main nm proj : unit =
     | ("", Some bnm) -> String.concat [bnm; ".bpj"]
     | (user_dest, _) -> user_dest
   in
-  (* Here we clear the attributes from terms because it was found to result in unnecessary bloat and slowdown.
-     We retain the address attribute for usage in --wp-print-paths *)
+  (* Here we clear the attributes from terms because it was found to result in unnecessary
+     bloat and slowdown. We retain the address attribute for usage in --wp-print-paths *)
   let clear_mapper = object 
     inherit Term.mapper as super
     method! map_term cls t = 
-                 let new_dict = Option.value_map ~default:Dict.empty ~f:(fun a -> (Dict.set Dict.empty address a)) (Term.get_attr t address) in
-                 let t' = Term.with_attrs t new_dict in 
-                 super#map_term cls t'
-    end 
+      let new_dict = Option.value_map 
+          ~default:Dict.empty 
+          ~f:(fun a -> (Dict.set Dict.empty address a)) (Term.get_attr t address) 
+      in
+      let t' = Term.with_attrs t new_dict in 
+      super#map_term cls t'
+  end 
   in
   let prog = clear_mapper#run prog in
   Program.Io.write ~fmt:"bin" dest prog
