@@ -235,18 +235,27 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
       let hyps_expr = eval_conjunction hyps in
       Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
+    (* The following should be functionally equivalent to [eval_aux ~stats:stats c (olds @ o) (news @ n') ctx] 
+       with changes made to achieve better performance. Duplicate keys are pruned from the olds list.
+       
+       NOTE : It is assumed as an invariant that the olds list does not contain duplicate keys. Failure to maintain this invariant
+       may result in incorrect behavior.
+
+       Using a Map data structure was tried and it was found that shuffling in and out to lists for Expr.substitute made it slow. 
+       Instead, two lists are maintained and pruned of duplicate keys. The most recently used items are put at the front of the list 
+       to make it fast to find the most commonly used variables.
+       *)
     let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
     if (List.length n') = 1 (* It appears we generate overwhelmingly size 1 lists *)
       then 
       begin
         let o = List.hd_exn o in
         let n' = List.hd_exn n' in
-        (* A Map was tried. It was found that shuffling in and out to lists for Expr.substitute made it not worth it  *)
-        (* The idea here is that popping items most recently used to the front of the list makes it fast to find the most commonly used variables *)
-        (* It is assumed as an invariant that the olds list does not contain duplicate keys *)
         let findn e l =
+            (* [findn' n e l] finds element [e] in list [l] while maintainting an accumulator of the current index [n] *)
             let rec findn' n e l = match l with | x :: xs ->  if Expr.equal x e then Some n else findn' (n + 1) e xs | [] -> None in
             findn' 0 e l in
+        (* [removen_exn n l] removes item at position [n] in list [l] *)
         let rec removen_exn n l = match l with | x :: xs ->  if (n = 0) then xs else x :: (removen_exn (n - 1) xs) |  [] -> failwith "Improper removen use" in
         let oind = findn o olds in
         match oind with
@@ -256,6 +265,7 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
                         eval_aux ~stats:stats c olds news' ctx
       end
     else
+      (* Substitutions larger than 1 variable long uses zipping and less efficient assoclist facilities to delete duplicates *)
       let oldsnews = List.zip_exn olds news in
       let o', n' =  List.fold2_exn o n' ~init:oldsnews ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') |> List.unzip   in 
       eval_aux ~stats:stats c o' n' ctx 
