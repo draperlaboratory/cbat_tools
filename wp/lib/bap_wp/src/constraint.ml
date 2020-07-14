@@ -359,15 +359,9 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
         worker c2 current_path current_registers olds news
       else
         failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
-<<<<<<< HEAD
                                     condition %s at %s"
                                     (Z3.Expr.to_string cond_res)
                                     (jmp |> Term.tid |> Tid.to_string))
-=======
-                                  condition %s at %s" 
-                    (Z3.Expr.to_string cond_res)
-                    (jmp |> Term.tid |> Tid.to_string))
->>>>>>> ed3b7c6... Changed indenting and added fast path to get_refuted_goals subst
     | Clause (hyps, concs) ->
       let hyps_false =
         let hyp_vals =
