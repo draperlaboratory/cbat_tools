@@ -712,7 +712,11 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
               (Expr.to_string cond_val) (hooks_to_string hooks);
             let cond_size = BV.get_size (Expr.get_sort cond_val) in
             let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
-            let is_unconditional = Expr.equal cond_val (z3_expr_one ctx cond_size) in
+            let is_unconditional =
+              match cond with
+              | Bil.Types.Int w -> Word.is_one w
+              | _ -> false
+            in
             let ite =
               if is_unconditional then
                 l_pre
