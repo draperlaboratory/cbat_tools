@@ -198,15 +198,15 @@ type list_stats =
     mutable maximum : int; }
 
 let std_dev stats =
-   sqrt ((float stats.sum_squared) /. float stats.count -.
-    ((float stats.sum) /. float stats.count) ** 2.)
+  sqrt ((float stats.sum_squared) /. float stats.count -.
+        ((float stats.sum) /. float stats.count) ** 2.)
 
 let update_stats stats olds =
-   let list_length = List.length(olds) in
-   stats.count <- stats.count + 1;
-   stats.sum <- stats.sum + list_length;
-   stats.sum_squared <- stats.sum_squared + list_length * list_length;
-   stats.maximum <- max stats.maximum list_length
+  let list_length = List.length(olds) in
+  stats.count <- stats.count + 1;
+  stats.sum <- stats.sum + list_length;
+  stats.sum_squared <- stats.sum_squared + list_length * list_length;
+  stats.maximum <- max stats.maximum list_length
 
 let init_stats = {sum = 0 ; sum_squared = 0 ; count = 0; maximum = 0}
 
@@ -223,7 +223,8 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
   | Clause (hyps, concs) ->
     let eval_conjunction conj =
       if List.length conj = 1 then 
-        eval_aux ~stats:stats (List.hd_exn conj) olds news ctx (* This is tail recursive. Avoids And node. *)
+        (* This is tail recursive. Avoids And node. *)
+        eval_aux ~stats:stats (List.hd_exn conj) olds news ctx 
       else
         List.map conj ~f:(fun c -> eval_aux ~stats:stats c olds news ctx)
         |> Bool.mk_and ctx
@@ -235,39 +236,57 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
       let hyps_expr = eval_conjunction hyps in
       Bool.mk_implies ctx hyps_expr concs_expr
   | Subst (c, o, n) ->
-    (* The following should be functionally equivalent to [eval_aux ~stats:stats c (olds @ o) (news @ n') ctx] 
-       with changes made to achieve better performance. Duplicate keys are pruned from the olds list.
-       
-       NOTE : It is assumed as an invariant that the olds list does not contain duplicate keys. Failure to maintain this invariant
-       may result in incorrect behavior.
+    (* The following should be functionally equivalent to 
+       [eval_aux ~stats:stats c (olds @ o) (news @ n') ctx] with changes made to achieve 
+       better performance. Duplicate keys are pruned from the olds list.
 
-       Using a Map data structure was tried and it was found that shuffling in and out to lists for Expr.substitute made it slow. 
-       Instead, two lists are maintained and pruned of duplicate keys. The most recently used items are put at the front of the list 
-       to make it fast to find the most commonly used variables.
-       *)
+       NOTE : It is assumed as an invariant that the olds list does not contain duplicate 
+       keys. Failure to maintain this invariant may result in incorrect behavior.
+
+       Using a Map data structure was tried and it was found that shuffling in and out to 
+       lists for Expr.substitute made it slow. Instead, two lists are maintained and 
+       pruned of duplicate keys. The most recently used items are put at the front of the
+       list to make it fast to find the most commonly used variables.
+    *)
     let n' = List.map n ~f:(fun x -> Expr.substitute x olds news) in
     if (List.length n') = 1 (* It appears we generate overwhelmingly size 1 lists *)
-      then 
+    then 
       begin
         let o = List.hd_exn o in
         let n' = List.hd_exn n' in
         let findn e l =
-            (* [findn' n e l] finds element [e] in list [l] while maintainting an accumulator of the current index [n] *)
-            let rec findn' n e l = match l with | x :: xs ->  if Expr.equal x e then Some n else findn' (n + 1) e xs | [] -> None in
-            findn' 0 e l in
+          (* [findn' n e l] finds element [e] in list [l] while maintaining an 
+             accumulator of the current index [n] *)
+          let rec findn' n e l = 
+            match l with 
+            | x :: xs ->  if Expr.equal x e 
+              then Some n 
+              else findn' (n + 1) e xs 
+            | [] -> None in
+          findn' 0 e l in
         (* [removen_exn n l] removes item at position [n] in list [l] *)
-        let rec removen_exn n l = match l with | x :: xs ->  if (n = 0) then xs else x :: (removen_exn (n - 1) xs) |  [] -> failwith "Improper removen use" in
+        let rec removen_exn n l = 
+          match l with 
+          | x :: xs ->  if (n = 0) 
+            then xs 
+            else x :: (removen_exn (n - 1) xs) 
+          | [] -> failwith "Improper removen use" in
         let oind = findn o olds in
         match oind with
-          | None -> eval_aux ~stats:stats c (o :: olds) (n' :: news) ctx
-          | Some ind -> let news' = n' :: (removen_exn ind news) in
-                        let olds  = o  :: (removen_exn ind olds) in 
-                        eval_aux ~stats:stats c olds news' ctx
+        | None -> eval_aux ~stats:stats c (o :: olds) (n' :: news) ctx
+        | Some ind -> let news' = n' :: (removen_exn ind news) in
+          let olds  = o  :: (removen_exn ind olds) in 
+          eval_aux ~stats:stats c olds news' ctx
       end
     else
-      (* Substitutions larger than 1 variable long uses zipping and less efficient assoclist facilities to delete duplicates *)
+      (* Substitutions larger than 1 variable long uses zipping and less efficient 
+         assoclist facilities to delete duplicates *)
       let oldsnews = List.zip_exn olds news in
-      let o', n' =  List.fold2_exn o n' ~init:oldsnews ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') |> List.unzip   in 
+      let o', n' = 
+        List.fold2_exn o n' 
+          ~init:oldsnews 
+          ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') 
+        |> List.unzip   in 
       eval_aux ~stats:stats c o' n' ctx 
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
@@ -320,9 +339,9 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
       then Seq.empty
       else if (Z3.Boolean.is_false goal_res)
       then Seq.singleton
-            { goal = { g with goal_val = goal_val };
-              path = current_path;
-              reg_map = current_registers }
+          { goal = { g with goal_val = goal_val };
+            path = current_path;
+            reg_map = current_registers }
       else
         failwith (Format.sprintf "get_refuted_goals: Unable to resolve %s" g.goal_name)
     | ITE (jmp, cond, c1, c2) ->
@@ -340,16 +359,22 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
         worker c2 current_path current_registers olds news
       else
         failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
+<<<<<<< HEAD
                                     condition %s at %s"
                                     (Z3.Expr.to_string cond_res)
                                     (jmp |> Term.tid |> Tid.to_string))
+=======
+                                  condition %s at %s" 
+                    (Z3.Expr.to_string cond_res)
+                    (jmp |> Term.tid |> Tid.to_string))
+>>>>>>> ed3b7c6... Changed indenting and added fast path to get_refuted_goals subst
     | Clause (hyps, concs) ->
       let hyps_false =
         let hyp_vals =
           List.map hyps ~f:(fun h -> eval_model_exn model (eval_aux h olds news ctx)) in
-          if (List.for_all hyp_vals ~f:(fun e -> Z3.Boolean.is_true e || Z3.Boolean.is_false e))
-          then not (List.for_all hyp_vals ~f:Z3.Boolean.is_true)
-          else failwith "Unexpected Expression processing Clause"
+        if (List.for_all hyp_vals ~f:(fun e -> Z3.Boolean.is_true e || Z3.Boolean.is_false e))
+        then not (List.for_all hyp_vals ~f:Z3.Boolean.is_true)
+        else failwith "Unexpected Expression processing Clause"
       in
       if hyps_false then
         Seq.empty
@@ -358,9 +383,39 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
             Seq.append (worker c current_path current_registers olds news) accum)
     | Subst (e, o, n) ->
       let n' = List.map n ~f:(fun x -> Expr.substitute x olds news |> eval_model_exn model) in
-      let oldsnews = List.zip_exn olds news in
-      let o', n' =  List.fold2_exn o n' ~init:oldsnews ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') |> List.unzip   in 
-      worker e current_path current_registers o' n' (* (olds @ o) (news @ n') *)
+      if (List.length n') = 1 (* It appears we generate overwhelmingly size 1 lists *)
+      then 
+        begin
+          let o = List.hd_exn o in
+          let n' = List.hd_exn n' in
+          let findn e l =
+            (* [findn' n e l] finds element [e] in list [l] while maintaining an 
+               accumulator of the current index [n] *)
+            let rec findn' n e l = 
+              match l with 
+              | x :: xs ->  if Expr.equal x e then Some n else findn' (n + 1) e xs 
+              | [] -> None in
+            findn' 0 e l in
+          (* [removen_exn n l] removes item at position [n] in list [l] *)
+          let rec removen_exn n l =
+            match l with 
+            | x :: xs ->  if (n = 0) then xs else x :: (removen_exn (n - 1) xs)
+            | [] -> failwith "Improper removen use" in
+          let oind = findn o olds in
+          match oind with
+          | None -> worker e current_path current_registers (o :: olds) (n' :: news)
+          | Some ind -> let news' = n' :: (removen_exn ind news) in
+            let olds  = o  :: (removen_exn ind olds) in 
+            worker e current_path current_registers olds news'
+        end
+      else
+        let oldsnews = List.zip_exn olds news in
+        let o', n' =  
+          List.fold2_exn o n' 
+            ~init:oldsnews
+            ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') 
+          |> List.unzip   in 
+        worker e current_path current_registers o' n' (* (olds @ o) (news @ n') *)
   in
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
 
@@ -376,22 +431,22 @@ type stats = {
 let rec get_stats (t : t) (zstats :stats) : unit =
   match t with
   | Goal _ ->
-      zstats.goals <- (zstats.goals + 1)
+    zstats.goals <- (zstats.goals + 1)
   | ITE (_, _, c1, c2) ->
-      (get_stats  c1 zstats;
-      get_stats c2 zstats;
-      zstats.ites <- zstats.ites + 1)
+    (get_stats  c1 zstats;
+     get_stats c2 zstats;
+     zstats.ites <- zstats.ites + 1)
   | Clause (hyps, concs) ->
     ( List.iter hyps ~f:(fun l -> (get_stats l zstats)) ;
       List.iter concs ~f:(fun l -> (get_stats l zstats)) ;
       zstats.clauses <- zstats.clauses + 1)
   | Subst (c, _, _) ->
-      (get_stats c zstats;
-      zstats.subs <- zstats.subs + 1)
+    (get_stats c zstats;
+     zstats.subs <- zstats.subs + 1)
 
 let print_stats (t : t) : unit =
   let z = {goals = 0; ites = 0 ; clauses = 0; subs = 0} in
-    (get_stats t z;
-    Printf.printf "Showing constr.t statistics: \n ";
-    Printf.printf "goals: %i , ites: %i, clauses: %i, subs: %i, \n %!"
-      z.goals z.ites z.clauses z.subs )
+  (get_stats t z;
+   Printf.printf "Showing constr.t statistics: \n ";
+   Printf.printf "goals: %i , ites: %i, clauses: %i, subs: %i, \n %!"
+     z.goals z.ites z.clauses z.subs )
