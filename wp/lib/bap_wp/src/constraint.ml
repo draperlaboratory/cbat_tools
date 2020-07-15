@@ -254,16 +254,6 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
       begin
         let o = List.hd_exn o in
         let n' = List.hd_exn n' in
-        let findn e l =
-          (* [findn' n e l] finds element [e] in list [l] while maintaining an 
-             accumulator of the current index [n] *)
-          let rec findn' n e l = 
-            match l with 
-            | x :: xs ->  if Expr.equal x e 
-              then Some n 
-              else findn' (n + 1) e xs 
-            | [] -> None in
-          findn' 0 e l in
         (* [removen_exn n l] removes item at position [n] in list [l] *)
         let rec removen_exn n l = 
           match l with 
@@ -271,10 +261,11 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
             then xs 
             else x :: (removen_exn (n - 1) xs) 
           | [] -> failwith "Improper removen use" in
-        let oind = findn o olds in
+        let oind = List.findi olds ~f:(fun _ e -> Expr.equal o e) in
         match oind with
         | None -> eval_aux ~stats:stats c (o :: olds) (n' :: news) ctx
-        | Some ind -> let news' = n' :: (removen_exn ind news) in
+        | Some (ind,_) -> 
+          let news' = n' :: (removen_exn ind news) in
           let olds  = o  :: (removen_exn ind olds) in 
           eval_aux ~stats:stats c olds news' ctx
       end
@@ -359,15 +350,15 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
         worker c2 current_path current_registers olds news
       else
         failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
-                                    condition %s at %s"
-                                    (Z3.Expr.to_string cond_res)
-                                    (jmp |> Term.tid |> Tid.to_string))
+                                  condition %s at %s"
+                    (Z3.Expr.to_string cond_res)
+                    (jmp |> Term.tid |> Tid.to_string))
     | Clause (hyps, concs) ->
       let hyps_false =
         let hyp_vals =
           List.map hyps ~f:(fun h -> eval_model_exn model (eval_aux h olds news ctx)) in
         if (List.for_all hyp_vals ~f:(fun e -> Z3.Boolean.is_true e || Z3.Boolean.is_false e))
-        then not (List.for_all hyp_vals ~f:Z3.Boolean.is_true)
+        then (List.exists hyp_vals ~f:Z3.Boolean.is_true)
         else failwith "Unexpected Expression processing Clause"
       in
       if hyps_false then
@@ -377,39 +368,13 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
             Seq.append (worker c current_path current_registers olds news) accum)
     | Subst (e, o, n) ->
       let n' = List.map n ~f:(fun x -> Expr.substitute x olds news |> eval_model_exn model) in
-      if (List.length n') = 1 (* It appears we generate overwhelmingly size 1 lists *)
-      then 
-        begin
-          let o = List.hd_exn o in
-          let n' = List.hd_exn n' in
-          let findn e l =
-            (* [findn' n e l] finds element [e] in list [l] while maintaining an 
-               accumulator of the current index [n] *)
-            let rec findn' n e l = 
-              match l with 
-              | x :: xs ->  if Expr.equal x e then Some n else findn' (n + 1) e xs 
-              | [] -> None in
-            findn' 0 e l in
-          (* [removen_exn n l] removes item at position [n] in list [l] *)
-          let rec removen_exn n l =
-            match l with 
-            | x :: xs ->  if (n = 0) then xs else x :: (removen_exn (n - 1) xs)
-            | [] -> failwith "Improper removen use" in
-          let oind = findn o olds in
-          match oind with
-          | None -> worker e current_path current_registers (o :: olds) (n' :: news)
-          | Some ind -> let news' = n' :: (removen_exn ind news) in
-            let olds  = o  :: (removen_exn ind olds) in 
-            worker e current_path current_registers olds news'
-        end
-      else
-        let oldsnews = List.zip_exn olds news in
-        let o', n' =  
-          List.fold2_exn o n' 
-            ~init:oldsnews
-            ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') 
-          |> List.unzip   in 
-        worker e current_path current_registers o' n' (* (olds @ o) (news @ n') *)
+      let oldsnews = List.zip_exn olds news in
+      let o', n' =  
+        List.fold2_exn o n' 
+          ~init:oldsnews
+          ~f:(fun on' old new' -> List.Assoc.add on' ~equal:Expr.equal old new') 
+        |> List.unzip   in 
+      worker e current_path current_registers o' n' (* (olds @ o) (news @ n') *)
   in
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
 
