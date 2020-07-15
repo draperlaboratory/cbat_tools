@@ -513,6 +513,14 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
+let spec_empty (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+  if (Seq.is_empty @@ Term.enum blk_t sub) then
+    Some {
+      spec_name = "spec_empty";
+      spec = Summary (fun env post _tid -> post, env)
+    }
+  else None
+
 let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let args = Term.enum arg_t sub in
   if not (Seq.is_empty args) then
