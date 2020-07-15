@@ -51,9 +51,6 @@ let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> C
   | SDIVIDE -> BV.mk_sdiv ctx
   | MOD -> BV.mk_urem ctx
   | SMOD -> BV.mk_smod ctx
-  | LSHIFT -> BV.mk_shl ctx
-  | RSHIFT -> BV.mk_lshr ctx
-  | ARSHIFT -> BV.mk_ashr ctx
   | AND -> BV.mk_and ctx
   | OR -> BV.mk_or ctx
   | XOR -> BV.mk_xor ctx
@@ -63,6 +60,30 @@ let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> C
   | LE -> fun x y -> Bool.mk_ite ctx (BV.mk_ule ctx x y) one zero
   | SLT -> fun x y -> Bool.mk_ite ctx (BV.mk_slt ctx x y) one zero
   | SLE -> fun x y -> Bool.mk_ite ctx (BV.mk_sle ctx x y) one zero
+  | LSHIFT | RSHIFT | ARSHIFT ->
+    fun x y ->
+    let bop = match b with
+      | LSHIFT -> BV.mk_shl
+      | RSHIFT -> BV.mk_lshr
+      | ARSHIFT -> BV.mk_ashr
+      | _ -> assert false in
+    (* In x86 decoding, it is possible to scale the address with a 2-bitwidth shift
+       of 0, 1, 2, or 3. However, Z3 requires requires the operands of a bit shift
+       to be of the same bitwidth. Here, we pad the operand with the smaller
+       bitwidth to match the bitwidth of the other operand. *)
+    let get_size v = v |> Expr.get_sort |> BV.get_size in
+    let x_val, y_val =
+      let x_size = get_size x in
+      let y_size = get_size y in
+      if x_size > y_size then
+        x, BV.mk_zero_ext ctx (x_size - y_size) y
+      else if y_size > x_size then
+        BV.mk_zero_ext ctx (y_size - x_size) x, y
+      else
+        x, y
+    in
+      assert (get_size x_val = get_size y_val);
+      bop ctx x_val y_val
 
 let unop (ctx : Z3.context) (u : unop) : Constr.z3_expr -> Constr.z3_expr =
   let open Bap.Std.Bil.Types in
@@ -213,27 +234,8 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
     | BinOp (bop, x, y) ->
       debug "Visiting binop: %s %s %s%!"
         (Exp.to_string x) (Bil.string_of_binop bop) (Exp.to_string y);
-      let get_size v = v |> Expr.get_sort |> BV.get_size in
       let x_val, env = exp_to_z3_body x env in
       let y_val, env = exp_to_z3_body y env in
-      (* In x86 decoding, it is possible to scale the address with a 2-bitwidth shift
-         of 0, 1, 2, or 3. However, Z3 requires requires the operands of a bit shift
-         to be of the same bitwidth. Here, we pad the operand with the smaller
-         bitwidth to match the bitwidth of the other operand. *)
-      let x_val, y_val =
-        match bop with
-        | LSHIFT | RSHIFT | ARSHIFT ->
-          let x_size = get_size x_val in
-          let y_size = get_size y_val in
-          if x_size > y_size then
-            x_val, BV.mk_zero_ext ctx (x_size - y_size) y_val
-          else if y_size > x_size then
-            BV.mk_zero_ext ctx (y_size - x_size) x_val, y_val
-          else
-            x_val, y_val
-        | _ -> x_val, y_val
-      in
-      assert (get_size x_val = get_size y_val);
       binop ctx bop x_val y_val, env
     | UnOp (u, x) ->
       debug "Visiting unop: %s %s%!" (Bil.string_of_unop u) (Exp.to_string x);
