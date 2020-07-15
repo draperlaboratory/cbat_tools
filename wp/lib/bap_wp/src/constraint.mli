@@ -61,9 +61,6 @@ val mk_goal : string -> z3_expr -> goal
 (** Creates a string representation of a goal. *)
 val goal_to_string : goal -> string
 
-(** Creates a string representation of a path. *)
-val path_to_string : path -> string
-
 (** Creates a string representation of a Z3 numeral as a hexadecimal in BAP notation. *)
 val expr_to_hex : z3_expr -> string
 
@@ -77,8 +74,8 @@ val format_values : Format.formatter -> (string * z3_expr) list -> unit
 val format_refuted_goal
   :  refuted_goal
   -> Z3.Model.model
-  -> orig:(z3_expr Bap.Std.Var.Map.t)
-  -> modif:(z3_expr Bap.Std.Var.Map.t)
+  -> orig:(z3_expr Bap.Std.Var.Map.t * Bap.Std.Sub.t)
+  -> modif:(z3_expr Bap.Std.Var.Map.t * Bap.Std.Sub.t)
   -> print_path:bool
   -> string
 

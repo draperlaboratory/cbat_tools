@@ -103,26 +103,12 @@ let format_registers (fmt : Format.formatter) (regs : reg_map) (jmp : Jmp.t)
     format_values fmt reg_vals;
     Format.fprintf fmt "\n%!"
 
-(* Divide the path into the original path and the modified path. *)
-let partition_path (p : path) (regs : reg_map) ~orig:(_ : z3_expr Var.Map.t)
-    ~modif:(var_map2 : z3_expr Var.Map.t) : path * path =
-  Jmp.Map.partitioni_tf p
-    ~f:(fun ~key:jmp ~data:_ ->
-        let regs = Jmp.Map.find_exn regs jmp in
-        (* reg_maps that correspond to the original binary contain registers
-           found in var_map1. reg_maps that correspond to the modified binary
-           contain registers fround in both var_map1 and var_map2. *)
-        let at_jmp = regs |> List.unzip |> fst |> ExprSet.of_list in
-        let in_mod =
-          var_map2 |> Var.Map.to_alist |> List.unzip |> snd |> ExprSet.of_list in
-        ExprSet.is_empty @@ ExprSet.inter at_jmp in_mod)
-
 let format_path
     (fmt : Format.formatter)
     (p : path)
     (regs : reg_map)
-    ~orig:(var_map1 : z3_expr Var.Map.t)
-    ~modif:(var_map2 : z3_expr Var.Map.t)
+    ~orig:(var_map1, sub1 : z3_expr Var.Map.t * Sub.t)
+    ~modif:(var_map2, _ : z3_expr Var.Map.t * Sub.t)
   : unit =
   Format.fprintf fmt "\n\tPath:\n%!";
   let print_path path var_map =
@@ -143,21 +129,19 @@ let format_path
           end;
           format_registers fmt regs jmp var_map)
   in
-  let path_orig, path_mod = partition_path p regs ~orig:var_map1 ~modif:var_map2 in
-  (* In the case of a single binary analysis, the path is stored in path_mod. *)
-  if Jmp.Map.is_empty path_orig then
-    print_path path_mod var_map2
+  let path_orig, path_mod =
+    let jmps1 = Term.enum blk_t sub1 |> Seq.map ~f:(Term.enum jmp_t) |> Seq.concat in
+    Jmp.Map.partitioni_tf p ~f:(fun ~key:jmp ~data:_ -> Seq.exists jmps1 ~f:(Jmp.equal jmp))
+  in
+  (* In the case of a single binary analysis, the path is stored in path_orig. *)
+  if Jmp.Map.is_empty path_mod then
+    print_path path_orig var_map1
   else begin
     Format.fprintf fmt "\n\tOriginal:\n%!";
     print_path path_orig var_map1;
     Format.fprintf fmt "\n\tModified:\n%!";
     print_path path_mod var_map2
   end
-
-let path_to_string (p : path) : string =
-  let fmt = Format.str_formatter in
-  format_path fmt p Jmp.Map.empty ~orig:Var.Map.empty ~modif:Var.Map.empty;
-  Format.flush_str_formatter ()
 
 let format_goal (fmt : Format.formatter) (g : goal) (model : Model.model) : unit =
   Format.fprintf fmt "%s:" g.goal_name;
@@ -180,13 +164,13 @@ let format_goal (fmt : Format.formatter) (g : goal) (model : Model.model) : unit
 let format_refuted_goal
     (rg : refuted_goal)
     (model : Model.model)
-    ~orig:(var_map1 : z3_expr Var.Map.t)
-    ~modif:(var_map2 : z3_expr Var.Map.t)
+    ~orig:(orig : z3_expr Var.Map.t * Sub.t)
+    ~modif:(modif : z3_expr Var.Map.t * Sub.t)
     ~print_path:(print_path : bool)
   : string =
   let fmt = Format.str_formatter in
   format_goal fmt rg.goal model;
-  if print_path then format_path fmt rg.path rg.reg_map ~orig:var_map1 ~modif:var_map2;
+  if print_path then format_path fmt rg.path rg.reg_map ~orig ~modif;
   Format.flush_str_formatter ()
 
 let goal_of_refuted_goal (rg : refuted_goal) : goal =

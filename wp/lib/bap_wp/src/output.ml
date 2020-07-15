@@ -150,30 +150,32 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
     None
 
 let print_result (solver : Solver.solver) (status : Solver.status) (goals: Constr.t)
-    ~show:(show : string list) ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
+    ~show:(show : string list) ~orig:(env1, sub1 : Env.t * Sub.t)
+    ~modif:(env2, sub2 : Env.t * Sub.t) : unit =
   match status with
   | Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
   | Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
   | Solver.SATISFIABLE ->
     let module Target = (val target_of_arch (Env.get_arch env1)) in
     let ctx = Env.get_context env1 in
-    let var_map1 = Env.get_var_map env1 in
-    let var_map2 = Env.get_var_map env2 in
     let model = Constr.get_model_exn solver in
-    let mem1, _ = Env.get_var env1 Target.CPU.mem in
-    let mem2, _ = Env.get_var env2 Target.CPU.mem in
     Format.printf "\nSAT!\n%!";
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
     let print_refuted_goals = List.mem show "refuted-goals" ~equal:String.equal in
     let print_path = List.mem show "paths" ~equal:String.equal in
     (* If 'paths' is specified, we assume we are also printing the refuted goals. *)
     if print_refuted_goals || print_path then begin
+      let var_map1 = Env.get_var_map env1 in
+      let var_map2 = Env.get_var_map env2 in
+      let mem1, _ = Env.get_var env1 Target.CPU.mem in
+      let mem2, _ = Env.get_var env2 Target.CPU.mem in
       let refuted_goals =
         Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
       Format.printf "\nRefuted goals:\n%!";
       Seq.iter refuted_goals ~f:(fun goal ->
           Format.printf "%s\n%!"
-            (Constr.format_refuted_goal goal model ~orig:var_map1 ~modif:var_map2 ~print_path))
+            (Constr.format_refuted_goal goal model ~orig:(var_map1, sub1)
+               ~modif:(var_map2, sub2) ~print_path))
     end
 
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
