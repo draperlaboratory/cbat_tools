@@ -136,6 +136,10 @@ val spec_verifier_assume : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec optio
     the output value from the function call. *)
 val spec_verifier_nondet : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
 
+(** This spec is used for empty subroutines that have no blocks. This spec is a
+    nop, returning the postcondition as the precondition. *)
+val spec_empty : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
 (** This spec is used when BAP is able to generate [arg term]s for the subroutine
     in the case when an API is specified. It creates a function symbol for
     each output register given the input registers in the form
