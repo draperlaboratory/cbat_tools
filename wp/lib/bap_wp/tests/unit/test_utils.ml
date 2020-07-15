@@ -78,8 +78,10 @@ let print_z3_model
     ~orig:(env1 : Env.t) ~modif:(env2 : Env.t)
     (solver : Z3.Solver.solver) (exp : Z3.Solver.status)
     (real : Z3.Solver.status) (goals : Constr.t) : unit =
+  let empty_sub = mk_sub [] in
   if real = exp || real = Z3.Solver.UNSATISFIABLE then () else
-    Output.print_result solver real goals ~show:[] ~orig:env1 ~modif:env2
+    Output.print_result solver real goals ~show:[]
+      ~orig:(env1, empty_sub) ~modif:(env2, empty_sub)
 
 (* Finds a jump in a subroutine given its jump condition. *)
 let find_jump (sub : Sub.t) (cond : Exp.t) : Jmp.t =

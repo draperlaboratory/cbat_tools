@@ -45,6 +45,13 @@ type flags =
     show : string list
   }
 
+type combined_pre =
+  {
+    pre : Constr.t;
+    orig : Env.t * Sub.t;
+    modif : Env.t * Sub.t
+  }
+
 let missing_func_msg (func : string) : string =
   Format.sprintf "Missing function: %s is not in binary." func
 
@@ -161,7 +168,7 @@ let set_stack (f : flags) : Env.mem_range =
   |> update_size f.stack_size
 
 let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
-    (flags : flags) : Constr.t * Env.t * Env.t =
+    (flags : flags) : combined_pre =
   let arch = Project.arch proj in
   let subs = proj |> Project.program |> Term.enum sub_t in
   let main_sub = find_func_err subs flags.func in
@@ -191,7 +198,7 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem flags.show "bir" ~equal:String.equal then
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
-  (pre, env, env)
+  { pre = pre; orig = env, main_sub; modif = env, main_sub }
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
   if flag then
@@ -259,7 +266,7 @@ let comparators_of_flags
   List.unzip comps
 
 let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
-    (flags : flags) : Constr.t * Env.t * Env.t =
+    (flags : flags) : combined_pre =
   let prog1 = Program.Io.read flags.file1 in
   let prog2 = Program.Io.read flags.file2 in
   (* Currently using the dummy binary's project to determine the architecture
@@ -299,7 +306,7 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   if List.mem flags.show "bir" ~equal:String.equal then
     Printf.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
       (Sub.to_string main_sub1) (Sub.to_string main_sub2);
-  (pre, env1, env2)
+  { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
 
 let should_compare (f : flags) : bool =
   f.compare || ((not @@ String.is_empty f.file1) && (not @@ String.is_empty f.file2))
@@ -320,28 +327,30 @@ let main (flags : flags) (proj : project) : unit =
   let var_gen = Env.mk_var_gen () in
   let solver = Z3.Solver.mk_solver ctx None in
   update_default_num_unroll flags.num_unroll;
-  let pre, env1, env2 =
+  let combined_pre =
     if should_compare flags then
       compare_projs ctx var_gen proj flags
     else
       analyze_proj ctx var_gen proj flags
   in
   if (List.mem flags.debug "constraint-stats" ~equal:(String.equal)) then
-    Constr.print_stats (pre);
+    Constr.print_stats (combined_pre.pre);
   let debug_eval =
     (List.mem flags.debug "eval-constraint-stats" ~equal:(String.equal)) in
   let result = Pre.check ~print_constr:flags.show ~debug:debug_eval
-      solver ctx pre in
+      solver ctx combined_pre.pre in
   if (List.mem flags.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!" (
       Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
+  let env2, _ = combined_pre.modif in
   let () = match flags.gdb_filename with
     | None -> ()
     | Some f -> Output.output_gdb solver result env2 ~func:flags.func ~filename:f in
   let () = match flags.bildb_output with
     | None -> ()
     | Some f -> Output.output_bildb solver result env2 f in
-  Output.print_result solver result pre ~orig:env1 ~modif:env2 ~show:flags.show
+  Output.print_result solver result combined_pre.pre ~orig:combined_pre.orig
+    ~modif:combined_pre.modif ~show:flags.show
 
 
 module Cmdline = struct
