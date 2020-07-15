@@ -37,8 +37,6 @@
 
 type z3_expr = Z3.Expr.expr
 
-module ExprSet : Core_kernel.Set.S with type Elt.t = z3_expr
-
 (** The base type of constraints. *)
 type t
 

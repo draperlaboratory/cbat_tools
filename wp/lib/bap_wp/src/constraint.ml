@@ -20,8 +20,6 @@ module BV = Z3.BitVector
 module Model = Z3.Model
 module Solver = Z3.Solver
 
-exception Not_implemented of string
-
 type z3_expr = Expr.expr
 
 type path = bool Jmp.Map.t
@@ -32,14 +30,6 @@ type reg_map = (z3_expr * z3_expr) list Jmp.Map.t
 type goal = { goal_name : string; goal_val : z3_expr }
 
 type refuted_goal = { goal : goal; path : path; reg_map : reg_map }
-
-module ExprSet = Set.Make(
-  struct
-    type t = z3_expr
-    let compare = Expr.compare
-    let sexp_of_t _ = raise (Not_implemented "sexp_of_t for z3_expr not implemented")
-    let t_of_sexp _ = raise (Not_implemented "t_of_sexp for z3_expr not implemented")
-  end)
 
 let eval_model_exn (model : Model.model) (expr : z3_expr) : z3_expr =
   Model.eval model expr true
