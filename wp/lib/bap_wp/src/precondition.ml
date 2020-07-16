@@ -872,12 +872,14 @@ let filter (env : Env.t) (calls : string list) (cfg : Graphs.Ir.t) : Graphs.Ir.t
 
 let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   debug "Visiting sub:\n%s%!" (Sub.to_string sub);
-  let cfg = sub |> Sub.to_cfg |> filter env ["exit"] in
-  let start = Term.first blk_t sub
-              |> Option.value_exn ?here:None ?error:None ?message:None
-              |> Graphs.Ir.Node.create in
-  let pre, env' = visit_graph ~start:start env post cfg in
-  (pre, Env.add_precond env' (Term.tid sub) pre)
+  if (Seq.is_empty @@ Term.enum blk_t sub) then (post, env)
+  else
+    let cfg = sub |> Sub.to_cfg |> filter env ["exit"] in
+    let start = Term.first blk_t sub
+                |> Option.value_exn ?here:None ?error:None ?message:None
+                |> Graphs.Ir.Node.create in
+    let pre, env' = visit_graph ~start:start env post cfg in
+    (pre, Env.add_precond env' (Term.tid sub) pre)
 
 (* Replace the [inline_func] placeholder with [visit_sub]. *)
 let _  = inline_func :=
