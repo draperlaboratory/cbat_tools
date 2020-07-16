@@ -138,8 +138,8 @@ let fun_specs (f : flags) (to_inline : Sub.t Seq.t)
     [ Pre.spec_verifier_assume;
       Pre.spec_verifier_nondet;
       Pre.spec_afl_maybe_log;
-      Pre.spec_inline to_inline;
       Pre.spec_empty;
+      Pre.spec_inline to_inline;
       Pre.spec_arg_terms;
       Pre.spec_chaos_caller_saved;
       Pre.spec_rax_out
