@@ -1109,11 +1109,10 @@ let get_output_vars (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Se
     )
 
 let set_sp_range (env : Env.t) : Constr.t =
-  let ctx = Env.get_context env in
   let arch = Env.get_arch env in
   let module Target = (val target_of_arch arch) in
   let sp, _ = Env.get_var env Target.CPU.sp in
-  let base = Env.get_stack_base env in
-  Bool.mk_eq ctx sp base
-  |> Constr.mk_goal (Format.sprintf "SP at stack base %s" (Expr.to_string base))
+  let stack_range = Env.init_stack_ptr env sp in
+  stack_range
+  |> Constr.mk_goal (Format.sprintf "SP in stack range: %s" (Expr.to_string stack_range))
   |> Constr.mk_constr
