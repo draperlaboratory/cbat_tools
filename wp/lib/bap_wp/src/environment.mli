@@ -246,9 +246,12 @@ val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
     defined by the concrete range of the data section in the env. *)
 val in_data_section : t -> Constr.z3_expr -> Constr.z3_expr
 
-(** [get_stack_base env] obtains a z3_expr which represents the top address
-    of the stack. *)
-val get_stack_base : t -> Constr.z3_expr
+(** [init_stack_ptr env ptr] initializes the constraint
+    [STACK_MIN + 128 < sp <= STACK_MAX] which is the region of the stack that
+    the stack pointer may point to at the beginning of a subroutine. The 128
+    is based off of the 128 bytes of red zone underneath the stack pointer in
+    x86_64. *)
+val init_stack_ptr : t -> Constr.z3_expr -> Constr.z3_expr
 
 (** [update_stack_base range base] updates the highest address of the stack to
     be the same value as base. *)

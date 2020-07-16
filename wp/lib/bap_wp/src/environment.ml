@@ -392,11 +392,19 @@ let is_x86 (a : Arch.t) : bool =
 let use_input_regs (env : t) : bool =
   env.use_fun_input_regs
 
-let get_stack_base (env : t) : Constr.z3_expr =
+(* Returns a function that takes in a memory address as a z3_expr and outputs a
+   z3_expr that checks if that address is within the region of stack we are
+   defining for the hypothesis. *)
+let init_stack_ptr (env : t) : Constr.z3_expr -> Constr.z3_expr =
   let ctx = get_context env in
   let arch = get_arch env in
   let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
-  Expr.mk_numeral_int ctx env.stack.base_addr sort
+  let size = Expr.mk_numeral_int ctx env.stack.size sort in
+  let max = Expr.mk_numeral_int ctx env.stack.base_addr sort in
+  let min = BV.mk_add ctx (BV.mk_sub ctx max size) (Expr.mk_numeral_int ctx 128 sort) in
+  fun addr ->
+    assert (BV.is_bv addr);
+    Bool.mk_and ctx [BV.mk_ult ctx min addr; BV.mk_ule ctx addr max]
 
 (* Returns a function that takes in a memory address as a z3_expr and outputs a
    z3_expr that checks if that address is within the stack. *)
