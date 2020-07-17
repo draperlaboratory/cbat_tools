@@ -447,7 +447,7 @@ module Cmdline = struct
             goal. The path contains information about the jumps taken, their \
             addresses, and the values of the registers at each jump. This option \
             automatically prints out the refuted-goals.\n \
-            `precond-internal': The precondition printed out in WP's interal \
+            `precond-internal': The precondition printed out in WP's internal \
             format for the Constr.t type.\n \
            `precond-smtlib': The precondition printed out in Z3's SMT-LIB2 \
             format."

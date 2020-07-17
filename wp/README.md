@@ -364,18 +364,6 @@ The various options are:
   follow the same execution trace. In the case the analysis returns UNSAT or
   UNKNOWN, no script will be outputted.
 
-- `--wp-print-refuted-goals[true|false]`. If set, in the case WP results in SAT,
-  prints a list of goals that have been refuted in the model. The list will show
-  the tagged name of the goal, the concrete values of the goal, and the Z3
-  expression representing the goal. For example, a refuted goal of
-  `(= RAX_orig RAX_mod)` can have concrete values of
-  `(= 0x0000000000000000 0x0000000000000001)`.
-
-- `--wp-print-path=[true|false]`. If present, will print out the path to a refuted
-  goal and the register values at each jump in the path. It also contains information
-  about whether a jump has been taken and the address of the jump if found. The path
-  will only be printed if refuted goals are printed with `--wp-print-refuted-goals`.
-
 - `--wp-use-fun-input-regs=[true|false].` If present, at a function call site, uses
   all possible input registers as arguments to a function symbol generated for
   an output register that represents the result of the function call. If set to
@@ -395,11 +383,21 @@ The various options are:
   original binary, then that same address is also non-null in the modified binary.
   Defaults to false.
 
-- `--wp-print-constr=[internal|smtlib] or both/neither`. If set, the preconditions
-  and Z3's SMT-LIB 2 are both printed. One or both outputs can be explicitly
-  called with the respective names `internal` and `smtlib`, which will print only
-  what is stated. Both can also be called like `--wp-print-constr=internal,smtlib`.
-  If the flag is not called, it defaults to printing neither.
+- `--wp-show=[bir|refuted-goals|paths|precond-internal|precond-smtlib]`. A list
+  of details to print out from the analysis. Multiple options as a list can be
+  passed into the flag to print out multiple details. For example:
+  `--wp-show=bir,refuted-goals`. The options are:
+   - `bir`: The code of the binary/binaries in BAP Immediate Representation.
+   - `refuted-goals`: In the case the analysis results in SAT, a list of goals
+      refuted in the model that contains their tagged names, the concrete values
+      of the goals, and the Z3 representation of the goal.
+   - `paths`: The execution path of the binary that results in a refuted goal.
+     The path contains information about the jumps taken, their addresses, and
+     the values of the registers at each jump. This option automatically prints
+     out the refuted-goals.
+   - `precond-internal`: The precondition printed out in WP's internal format
+     for the Constr.t type.
+   - `precond-smtlib`: The precondition printed out in Z3's SMT-LIB2 format.
 
 - `--wp-debug=[z3-solver-stats|z3-verbose|constraint-stats|eval-constraint-stats]
   or some comma delimited combination`. If set, debug will print the various
