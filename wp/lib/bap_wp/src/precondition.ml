@@ -871,9 +871,15 @@ let filter (env : Env.t) (calls : string list) (cfg : Graphs.Ir.t) : Graphs.Ir.t
   Graphlib.depth_first_search (module Graphs.Ir) ~enter_edge:enter_edge ~init:cfg cfg
 
 let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
-  debug "Visiting sub:\n%s%!" (Sub.to_string sub);
+  let sub_name = (Sub.to_string sub) in
+  debug "Visiting sub:\n%s%!" sub_name;
   let pre, env' =
-    if (Seq.is_empty @@ Term.enum blk_t sub) then (post, env)
+    if (Seq.is_empty @@ Term.enum blk_t sub) 
+    then
+      (
+        warning "encountered empty subroutine %s%!" sub_name;
+        (post, env)
+      )
     else
       let cfg = sub |> Sub.to_cfg |> filter env ["exit"] in
       let start = Term.first blk_t sub
