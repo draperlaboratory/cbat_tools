@@ -35,8 +35,6 @@ type flags =
     compare_post_reg_values : string list;
     gdb_filename : string option;
     bildb_output : string option;
-    print_refuted_goals : bool;
-    print_path : bool;
     use_fun_input_regs : bool;
     mem_offset : bool;
     check_null_deref : bool;
@@ -44,7 +42,8 @@ type flags =
     debug : string list;
     trip_asserts : bool;
     stack_base : int option;
-    stack_size : int option
+    stack_size : int option;
+    show : string list
   }
 
 let missing_func_msg (func : string) : string =
@@ -191,8 +190,8 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let pre, env = Pre.visit_sub env post main_sub in
   let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env flags.pre_cond] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
-  (* Print statement for constraint-style prover output: *)
-  Format.printf "\nSub:\n%s\nPre:\n%!" (Sub.to_string main_sub);
+  if List.mem flags.show "bir" ~equal:String.equal then
+    Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
   (pre, env, env)
 
 let check_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
@@ -298,8 +297,9 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     Comp.compare_subs ~postconds:posts ~hyps:hyps
       ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
   in
-  Format.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
-    (Sub.to_string main_sub1) (Sub.to_string main_sub2);
+  if List.mem flags.show "bir" ~equal:String.equal then
+    Printf.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
+      (Sub.to_string main_sub1) (Sub.to_string main_sub2);
   (pre, env1, env2)
 
 let should_compare (f : flags) : bool =
@@ -333,8 +333,7 @@ let main (flags : flags) (proj : project) : unit =
   let () = match flags.bildb_output with
     | None -> ()
     | Some f -> Output.output_bildb solver result env2 f in
-  Output.print_result solver result pre ~orig:env1 ~modif:env2
-    ~print_refuted_goals:flags.print_refuted_goals ~print_path:flags.print_path
+  Output.print_result solver result pre ~orig:env1 ~modif:env2 ~show:flags.show
 
 
 module Cmdline = struct
@@ -407,21 +406,7 @@ module Cmdline = struct
             countermodel found during WP analysis, allowing BilDB to follow the \
             same execution trace."
 
-  let print_refuted_goals = param bool "print-refuted-goals" ~as_flag:true ~default:false
-      ~doc:"If set, in the case WP results in SAT, prints a list of goals that \
-            have been refuted in the model. The list will show the tagged name \
-            of the goal, the concrete values of the goal, and the Z3 expression \
-            representing the goal. For example, a refuted goal of \
-            (= RAX_orig RAX_mod) can have concrete values of \
-            (= 0x0000000000000000 0x0000000000000001)."
-
-  let print_path = param bool "print-path" ~as_flag:true ~default:false
-      ~doc:"If set, prints out the path to each refuted goal and the register values \
-            at each jump in the path. The path contains information about whether \
-            a jump has been taken and the address of the jump if found. The path \
-            will only be printed if refuted goals are printed with --wp-print-refuted-goals."
-
-  let use_fun_input_regs = param bool "use-fun-input-regs" ~as_flag:true ~default:true
+  let use_fun_input_regs = param bool "use-fun-input-regs" ~as_flag:true  ~default:true
       ~doc:"If set, at a function call site, uses all possible input registers \
             as arguments to a function symbol generated for an output register \
             that represents the result of the function call. If set to false, no \
@@ -456,6 +441,18 @@ module Cmdline = struct
             and eval-constraint-stats respectively. If the flag is not called, it \
             defaults to printing none of them."
 
+  let show = param (list string) "show" ~default:[]
+      ~doc:"A list of details to print out from the analysis. The options are:\n \
+            `bir': The code of the binary/binaries in BAP Immediate \
+            Representation.\n \
+            `refuted-goals': In the case the analysis results in SAT, a list \
+            of goals refuted in the model that contains their tagged names, the \
+            concrete values of the goals, and the Z3 representation of the goal.\n \
+            `paths': The execution path of the binary that results in a refuted \
+            goal. The path contains information about the jumps taken, their \
+            addresses, and the values of the registers at each jump. This option \
+            automatically prints out the refuted-goals."
+
   let trip_asserts = param bool "trip-asserts" ~as_flag:true ~default:false
       ~doc:"If set, WP will look for inputs to the subroutine that would cause \
             an __assert_fail or __VERIFIER_error to be reached."
@@ -484,8 +481,6 @@ module Cmdline = struct
           compare_post_reg_values = !!compare_post_reg_values;
           gdb_filename = !!gdb_filename;
           bildb_output = !!bildb_output;
-          print_refuted_goals = !!print_refuted_goals;
-          print_path = !!print_path;
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
           check_null_deref = !!check_null_deref;
@@ -493,7 +488,8 @@ module Cmdline = struct
           debug = !!debug;
           trip_asserts = !!trip_asserts;
           stack_base = !!stack_base;
-          stack_size = !!stack_size
+          stack_size = !!stack_size;
+          show = !!show
         }
       in
       Project.register_pass' @@

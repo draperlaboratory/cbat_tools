@@ -150,8 +150,7 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
     None
 
 let print_result (solver : Solver.solver) (status : Solver.status) (goals: Constr.t)
-    ~print_path:(print_path : bool) ~print_refuted_goals:(print_refuted_goals : bool)
-    ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
+    ~show:(show : string list) ~orig:(env1 : Env.t) ~modif:(env2 : Env.t) : unit =
   match status with
   | Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
   | Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
@@ -164,7 +163,10 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
     let mem2, _ = Env.get_var env2 Target.CPU.mem in
     Format.printf "\nSAT!\n%!";
     Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
-    if print_refuted_goals then begin
+    let print_refuted_goals = List.mem show "refuted-goals" ~equal:String.equal in
+    let print_path = List.mem show "paths" ~equal:String.equal in
+    (* If 'paths' is specified, we assume we are also printing the refuted goals. *)
+    if print_refuted_goals || print_path then begin
       let refuted_goals =
         Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
       Format.printf "\nRefuted goals:\n%!";
