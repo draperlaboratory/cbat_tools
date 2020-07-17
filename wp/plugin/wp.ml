@@ -304,6 +304,15 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
 let should_compare (f : flags) : bool =
   f.compare || ((not @@ String.is_empty f.file1) && (not @@ String.is_empty f.file2))
 
+let check_show (show : string list) : unit =
+  let options = ["bir"; "refuted-goals"; "paths"; "precond-internal"; "precond-smtlib"] in
+  match List.find show ~f:(fun s -> not @@ List.mem options s ~equal:String.equal) with
+  | Some s ->
+    Printf.printf "'%s' is not a valid option for --wp-show. Available options \
+                   are: %s\n%!" s (List.to_string options ~f:String.to_string);
+    exit 1
+  | None -> ()
+
 let main (flags : flags) (proj : project) : unit =
   if (List.mem flags.debug "z3-verbose"  ~equal:(String.equal)) then
     Z3.set_global_param "verbose" "10";
@@ -490,6 +499,7 @@ module Cmdline = struct
           show = !!show
         }
       in
+      check_show flags.show;
       Project.register_pass' @@
       main flags
     )
