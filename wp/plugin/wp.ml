@@ -38,7 +38,6 @@ type flags =
     use_fun_input_regs : bool;
     mem_offset : bool;
     check_null_deref : bool;
-    print_constr : string list;
     debug : string list;
     trip_asserts : bool;
     stack_base : int option;
@@ -322,7 +321,7 @@ let main (flags : flags) (proj : project) : unit =
     Constr.print_stats (pre);
   let debug_eval =
     (List.mem flags.debug "eval-constraint-stats" ~equal:(String.equal)) in
-  let result = Pre.check ~print_constr:flags.print_constr ~debug:debug_eval
+  let result = Pre.check ~print_constr:flags.show ~debug:debug_eval
       solver ctx pre in
   if (List.mem flags.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!" (
@@ -425,13 +424,6 @@ module Cmdline = struct
             not dereference a NULL, then that same read or write in the modified \
             binary also does not dereference a NULL. Defaults to false."
 
-  let print_constr = param (list string) "print-constr" ~as_flag:["internal";"smtlib"] ~default:[]
-      ~doc:"If set, the preconditions and Z3's SMT-LIB 2 are both printed. \
-            One or both outputs can be explicitly called with the respective names \
-            internal and smtlib, which will print only what is stated. Both can \
-            also be called like --wp-print-constr=internal,smtlib. If the flag \
-            is not called, it defaults to printing neither."
-
   let debug = param (list string) "debug" ~default:[]
       ~as_flag:["z3-solver-stats"; "z3-verbose"; "constraint-stats"; "eval-constraint-stats"]
       ~doc:"If set, debug will print the various debugging statistics, including \
@@ -442,7 +434,10 @@ module Cmdline = struct
             defaults to printing none of them."
 
   let show = param (list string) "show" ~default:[]
-      ~doc:"A list of details to print out from the analysis. The options are:\n \
+      ~doc:"A list of details to print out from the analysis. Multiple options \
+            as a list can be passed into the flag to print out multiple details. \
+            For example: `--wp-show=bir,refuted-goals'. \
+            The options are:\n \
             `bir': The code of the binary/binaries in BAP Immediate \
             Representation.\n \
             `refuted-goals': In the case the analysis results in SAT, a list \
@@ -451,7 +446,11 @@ module Cmdline = struct
             `paths': The execution path of the binary that results in a refuted \
             goal. The path contains information about the jumps taken, their \
             addresses, and the values of the registers at each jump. This option \
-            automatically prints out the refuted-goals."
+            automatically prints out the refuted-goals.\n \
+            `precond-internal': The precondition printed out in WP's interal \
+            format for the Constr.t type.\n \
+           `precond-smtlib': The precondition printed out in Z3's SMT-LIB2 \
+            format."
 
   let trip_asserts = param bool "trip-asserts" ~as_flag:true ~default:false
       ~doc:"If set, WP will look for inputs to the subroutine that would cause \
@@ -484,7 +483,6 @@ module Cmdline = struct
           use_fun_input_regs = !!use_fun_input_regs;
           mem_offset = !!mem_offset;
           check_null_deref = !!check_null_deref;
-          print_constr = !!print_constr;
           debug = !!debug;
           trip_asserts = !!trip_asserts;
           stack_base = !!stack_base;
