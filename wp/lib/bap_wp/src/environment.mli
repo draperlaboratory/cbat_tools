@@ -55,6 +55,9 @@ type fun_spec = {
 (** Type that specifies what rules should be used when visiting a jump in a BIR program. *)
 type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> (Constr.t * t) option
 
+(** Type that specifies whether to leave a binary operation uninterpreted. *)
+type op_interp = Bap.Std.binop -> Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr option
+
 (** Type that specifies what rules should be used when calculating
     the precondition of an interrupt. *)
 type int_spec = t -> Constr.t -> int -> Constr.t * t
@@ -93,6 +96,7 @@ type mem_range = {
     - the default fun_spec in the case a function does not satisfy the requirements
       of the other fun_specs
     - a {!jmp_spec} for handling branches
+    - a {!op_interp} for deciding whether to leave an operation uninterpreted
     - an {!int_spec} for handling interrupts
     - a list of {!exp_cond}s to satisfy
     - the number of times to unroll a loop
@@ -108,6 +112,7 @@ val mk_env
   -> specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec option) list
   -> default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec)
   -> jmp_spec:jmp_spec
+  -> op_interp:op_interp
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
   -> num_loop_unroll:int
@@ -210,6 +215,9 @@ val get_sub_handler : t -> Bap.Std.Tid.t -> fun_spec_type option
 (** Looks up the list of jmp_specs that is used to calculate the precondition of
     jumps in a BIR program. *)
 val get_jmp_handler : t -> jmp_spec
+
+(** NOTE_TO_SELF: FILL ME IN *)
+val get_op_interp_handler : t -> op_interp
 
 (** Looks up the specification of calculating the precondition of an interrupt. *)
 val get_int_handler : t -> int_spec

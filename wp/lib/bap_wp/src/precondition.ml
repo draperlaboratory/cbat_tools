@@ -22,8 +22,8 @@ module Arith = Z3.Arithmetic
 module BV = Z3.BitVector
 module Bool = Z3.Boolean
 module Z3Array = Z3.Z3Array
-module FuncDecl = Z3.FuncDecl
 module Solver = Z3.Solver
+module FuncDecl = Z3.FuncDecl
 module Env = Environment
 module Constr = Constraint
 
@@ -236,7 +236,10 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
         (Exp.to_string x) (Bil.string_of_binop bop) (Exp.to_string y);
       let x_val, env = exp_to_z3_body x env in
       let y_val, env = exp_to_z3_body y env in
-      binop ctx bop x_val y_val, env
+      let op_interp = Env.get_op_interp_handler env in
+        (match (op_interp bop x_val y_val) with
+        | Some opaque -> (opaque , env)
+        | None -> (binop ctx bop x_val y_val, env))
     | UnOp (u, x) ->
       debug "Visiting unop: %s %s%!" (Bil.string_of_unop u) (Exp.to_string x);
       let x_val, env = exp_to_z3_body x env in
@@ -640,6 +643,9 @@ let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t)
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
 
+let op_interp_default : Env.op_interp =
+  fun _ _ _ -> None
+
 let int_spec_default : Env.int_spec =
   fun env post _ ->
   error "Currently we do not handle system calls%!";
@@ -664,6 +670,7 @@ let mk_env
     ?specs:(specs = [])
     ?default_spec:(default_spec = spec_default)
     ?jmp_spec:(jmp_spec = jmp_spec_default)
+    ?op_interp:(op_interp = op_interp_default)
     ?int_spec:(int_spec = int_spec_default)
     ?exp_conds:(exp_conds = [])
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
@@ -675,7 +682,7 @@ let mk_env
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
+  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~op_interp ~int_spec ~exp_conds ~num_loop_unroll
     ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
 
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
@@ -968,6 +975,47 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
                 end
               | _ -> assert false
             end)
+
+
+(* funcDecl_to_z3 name ctx exp1 exp2 creates an uninterpreted function called
+   name, and has sorts determined by exp1 and exp2  *)
+let funcDecl_to_z3 (name : string) (ctx : Z3.context) (exp1 : Constr.z3_expr)
+  (exp2 : Constr.z3_expr) : Constr.z3_expr =
+  let input_sorts =  List.map [exp1;exp2] ~f:Expr.get_sort in
+  let output_sort = Expr.get_sort exp1 in
+  let mk_func = FuncDecl.mk_func_decl_s ctx name input_sorts output_sort in
+  FuncDecl.apply (mk_func) [exp1;exp2]
+
+(* opaq_name b returns a name for an uninterpreted representation of b *)
+let opaq_name (b : binop) : string =
+  match b with
+  | PLUS -> "_BIR_Z3_plus"
+  | MINUS -> "_BIR_Z3_sub"
+  | TIMES -> "_BIR_Z3_mul"
+  | DIVIDE -> "_BIR_Z3_udiv"
+  | SDIVIDE -> "_BIR_Z3_sdiv"
+  | MOD -> "_BIR_Z3_urem"
+  | SMOD -> "_BIR_Z3_smod"
+  | AND -> "_BIR_Z3_and"
+  | OR -> "_BIR_Z3_or"
+  | XOR -> "_BIR_Z3_xor"
+  | EQ -> "_BIR_Z3_eq"
+  | NEQ -> "_BIR_Z3_neq"
+  | LT -> "_BIR_Z3_lt"
+  | LE -> "_BIR_Z3_le"
+  | SLT -> "_BIR_Z3_slt"
+  | SLE -> "_BIR_Z3_sle"
+  | LSHIFT -> "_BIR_Z3_shl"
+  | RSHIFT -> "_BIR_Z3_lshr"
+  | ARSHIFT -> "_BIR_Z3_ashr"
+
+let create_interp (flag : string list) (ctx : Z3.context)  : Env.op_interp =
+  fun b x y ->
+  let opaq_name = opaq_name(b) in
+  if (List.mem flag opaq_name ~equal:(fun x y -> (x = "_BIR_Z3_"^y))) then
+    Some (funcDecl_to_z3 opaq_name ctx x y)
+  else None
+
 
 (* This adds a non-null condition for every memory read in the term *)
 let non_null_load_vc : Env.exp_cond = fun env exp ->

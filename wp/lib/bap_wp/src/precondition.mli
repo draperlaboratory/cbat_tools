@@ -178,6 +178,13 @@ val jmp_spec_default : Env.jmp_spec
     according to a map specifying whether a jump was taken or not. *)
 val jmp_spec_reach : Constr.path -> Env.jmp_spec
 
+(** Creates a function such that if operation-name is in the string list, that
+    operation will be uninterpreted in Z3 *)
+val create_interp : string list -> Z3.context -> Env.op_interp
+
+(** The default value of op_interp. Here all operations will remain interpreted. *)
+val op_interp_default : Env.op_interp
+
 (** The default interrupt spec for handling interrupts in a BIR program. *)
 val int_spec_default : Env.int_spec
 
@@ -216,6 +223,8 @@ val default_data_section_range : Env.mem_range
     - an empty list of {!Environment.fun_spec}s that summarize the precondition
       for a function call
     - the default {!Environment.jmp_spec} that summarizes the precondition at a jump
+    - the default {!Environment.op_interp} that decides whether a binary operation
+      will be interpreted or not
     - the default {!Environment.int_spec} that summarizes the precondition for an
       interrupt
     - an empty list of {!Environment.exp_cond}s which adds assumptions and VCs to
@@ -238,6 +247,7 @@ val mk_env
   -> ?specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option) list
   -> ?default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec)
   -> ?jmp_spec:Env.jmp_spec
+  -> ?op_interp:Env.op_interp
   -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
   -> ?num_loop_unroll:int

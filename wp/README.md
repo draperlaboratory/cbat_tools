@@ -417,6 +417,13 @@ The various options are:
   be denoted in bytes. By default, the size of the stack is 0x800000, which is
   8Mbs.
 
+- `--op-uninterp=[plus|sub|mul|udiv|et.seq.] or some comma-delimited combination`.
+  If set, certain binary operations will be made uninterpreted. The binary-
+  operations that can be called are plus, sub, mul, udiv, sdiv, urem,
+  smod, and, or, xor, eq, neq, lt, le, slt, sle, shl, lshr, and ashr.
+  If declared but no binary-operations are specified, shl, lshr and ashr
+  will be called. By default, all flags remain interpreted."
+
 ## C checking API
 
 There is a `cbat.h` file in the `api/c` folder which contains headers
@@ -444,4 +451,3 @@ By default, logs are printed to `STDERR`. You can save the logs to a file by spe
 By default, `debug` logs are not shown. To show debug logs:
 
     export BAP_DEBUG=true
-
