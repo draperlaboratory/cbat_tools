@@ -358,7 +358,7 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
         let hyp_vals =
           List.map hyps ~f:(fun h -> eval_model_exn model (eval_aux h olds news ctx)) in
         if (List.for_all hyp_vals ~f:(fun e -> Z3.Boolean.is_true e || Z3.Boolean.is_false e))
-        then (List.exists hyp_vals ~f:Z3.Boolean.is_true)
+        then (List.exists hyp_vals ~f:Z3.Boolean.is_false)
         else failwith "Unexpected Expression processing Clause"
       in
       if hyps_false then
