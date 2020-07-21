@@ -142,7 +142,7 @@ let test_update_num_unroll
     (new_unroll : int option)
   : test =
   let original = !Wp.Pre.num_unroll in
-  Wp.update_default_num_unroll new_unroll;
+  Wp.Utils.update_default_num_unroll new_unroll;
   let updated = !Wp.Pre.num_unroll in
   let test ctxt =
     match new_unroll with
