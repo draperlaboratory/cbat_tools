@@ -206,8 +206,10 @@ let compare_subs_smtlib
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     mk_smtlib2_compare env1 env2 smtlib_post, env1, env2
   in
-  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    mk_smtlib2_compare env1 env2 smtlib_hyp, env1, env2
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
+    let smtlib = mk_smtlib2_compare env1 env2 smtlib_hyp in
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
+    Constr.mk_clause [] (smtlib :: pre_eqs), env1, env2
   in
   postcond, hyps
 
