@@ -28,14 +28,85 @@ module Pre = Precondition
 module Env = Environment
 module Constr = Constraint
 
+module Digests = struct
+
+  (* Returns a function that makes digests. *)
+  let get_generator ctx filepath loader =
+    let inputs = [Conf.digest ctx; Caml.Digest.file filepath; loader] in
+    let subject = String.concat inputs in
+    fun ~namespace ->
+      let d = Data.Cache.Digest.create ~namespace in
+      Data.Cache.Digest.add d "%s" subject
+
+  (* Creates a digest for the knowledge cache. *)
+  let knowledge mk_digest = mk_digest ~namespace:"knowledge"
+
+  (* Creates a digest for the project state cache. *)
+  let project mk_digest = mk_digest ~namespace:"project"
+
+end
+
+
+module Knowledge_cache = struct
+
+  (* Creates the knowledge cache. *)
+  let knowledge_cache () =
+    let reader = Data.Read.create ~of_bigstring:Knowledge.of_bigstring () in
+    let writer = Data.Write.create ~to_bigstring:Knowledge.to_bigstring () in
+    Data.Cache.Service.request reader writer
+
+  (* Loads knowledge (if any) from the knowledge cache. *)
+  let load digest =
+    let cache = knowledge_cache () in
+    match Data.Cache.load cache digest with
+    | None -> ()
+    | Some state -> Toplevel.set state
+
+  (* Saves knowledge in the knowledge cache. *)
+  let save digest =
+    let cache = knowledge_cache () in
+    Toplevel.current ()
+    |> Data.Cache.save cache digest
+
+end
+
+
+module Project_cache = struct
+
+  (* Creates a project state cache. *)
+  let project_cache () =
+    let module State = struct
+      type t = Project.state [@@deriving bin_io]
+    end in
+    let of_bigstring = Binable.of_bigstring (module State) in
+    let to_bigstring = Binable.to_bigstring (module State) in
+    let reader = Data.Read.create ~of_bigstring () in
+    let writer = Data.Write.create ~to_bigstring () in
+    Data.Cache.Service.request reader writer
+
+  (* Loads project state (if any) from the cache. *)
+  let load digest : Project.state option =
+    let cache = project_cache () in
+    Data.Cache.load cache digest
+
+  (* Saves project state in the cache. *)
+  let save digest state =
+    let cache = project_cache () in
+    Data.Cache.save cache digest state
+
+end
+
+
 module Utils = struct
 
   let loader = "llvm"
 
+  let api = "api"
+
   (* Runs the API pass on the project to determine argument terms for each
      subroutine. *)
   let api_pass (proj : Project.t) : Project.t =
-    match Project.find_pass "api" with
+    match Project.find_pass api with
     | Some pass -> Project.Pass.run_exn pass proj
     | None -> failwith "API pass not found! Check if bap-api is installed.%!"
 
@@ -104,6 +175,18 @@ module Utils = struct
     Pre.default_stack_range
     |> update_base base
     |> update_size size
+
+  (* Checks the user's input for outputting a gdb script. *)
+  let output_to_gdb filename func solver status env : unit =
+    match filename with
+    | None -> ()
+    | Some name -> Output.output_gdb ~filename:name ~func solver status env
+
+  (* Checks the user's input for outputting a bildb script. *)
+  let output_to_bildb filename solver result env : unit =
+   match filename with
+    | None -> ()
+    | Some name -> Output.output_bildb solver result env name
 
 end
 
@@ -311,8 +394,14 @@ module Analysis = struct
       let to_inline2 = Utils.match_inline f.inline subs2 in
       let specs2 = fun_specs f to_inline2 in
       let exp_conds2 = exp_conds_mod f in
-      let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~specs:specs2
-          ~use_fun_input_regs:f.use_fun_input_regs ~exp_conds:exp_conds2 ~stack_range in
+      let env2 = Pre.mk_env ctx var_gen
+          ~subs:subs2
+          ~arch:arch
+          ~specs:specs2
+          ~use_fun_input_regs:f.use_fun_input_regs
+          ~exp_conds:exp_conds2
+          ~stack_range
+      in
       let env2 = Env.set_freshen env2 true in
       let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
       env2
@@ -321,8 +410,14 @@ module Analysis = struct
       let to_inline1 = Utils.match_inline f.inline subs1 in
       let specs1 = fun_specs f to_inline1 in
       let exp_conds1 = exp_conds_orig f env2 file1 file2 in
-      let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~specs:specs1
-          ~use_fun_input_regs:f.use_fun_input_regs ~exp_conds:exp_conds1 ~stack_range in
+      let env1 = Pre.mk_env ctx var_gen
+          ~subs:subs1
+          ~arch:arch
+          ~specs:specs1
+          ~use_fun_input_regs:f.use_fun_input_regs
+          ~exp_conds:exp_conds1
+          ~stack_range
+      in
       let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
       env1
     in
@@ -345,7 +440,7 @@ module Analysis = struct
     let ctx = Env.mk_ctx () in
     let var_gen = Env.mk_var_gen () in
     let solver = Z3.Solver.mk_solver ctx None in
-    let () = Utils.update_default_num_unroll f.num_unroll in
+    Utils.update_default_num_unroll f.num_unroll;
     let combined_pre =
       (* Determine whether to perform a single or comparative analysis. *)
       match f.files with
@@ -367,12 +462,8 @@ module Analysis = struct
       Printf.printf "Showing solver statistics : \n %s \n %!" (
         Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
     let env2, _ = combined_pre.modif in
-    let () = match f.gdb_output with
-      | None -> ()
-      | Some file -> Output.output_gdb solver result env2 ~func:f.func ~filename:file in
-    let () = match f.bildb_output with
-      | None -> ()
-      | Some file -> Output.output_bildb solver result env2 file in
+    Utils.output_to_gdb f.gdb_output f.func solver result env2;
+    Utils.output_to_bildb f.bildb_output solver result env2;
     Output.print_result solver result combined_pre.pre ~orig:combined_pre.orig
       ~modif:combined_pre.modif ~show:f.show
 
@@ -500,18 +591,24 @@ module Cli = struct
       ~doc:"A list of details to print out from the analysis. Multiple options \
             as a list can be passed into the flag to print out multiple \
             details. For example: `--show=bir,refuted-goals'. \
+            \
             The options are:\n \
             `bir': The code of the binary/binaries in BAP Immediate \
             Representation.\n \
+            \
             `refuted-goals': In the case the analysis results in SAT, a list \
-            of goals refuted in the model that contains their tagged names, the \
-            concrete values of the goals, and the Z3 representation of the goal.\n \
-            `paths': The execution path of the binary that results in a refuted \
-            goal. The path contains information about the jumps taken, their \
-            addresses, and the values of the registers at each jump. This option \
-            automatically prints out the refuted-goals.\n \
+            of goals refuted in the model that contains their tagged names, \
+            the concrete values of the goals, and the Z3 representation of the \
+            goal.\n \
+            \
+            `paths': The execution path of the binary that results in a \
+            refuted goal. The path contains information about the jumps taken, \
+            their addresses, and the values of the registers at each jump. \
+            This option automatically prints out the refuted-goals.\n \
+            \
             `precond-internal': The precondition printed out in WP's internal \
             format for the Constr.t type.\n \
+            \
            `precond-smtlib': The precondition printed out in Z3's SMT-LIB2 \
             format."
 
