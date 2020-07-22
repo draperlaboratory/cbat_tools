@@ -186,6 +186,9 @@ let suite = [
 
   "ROP example"                    >:: test_skip fail_msg (test_plugin "rop_example" unsat);
 
+  "Same signs: post registers"     >: test_plugin "same_signs" unsat;
+  "Same signs: postcondition"      >: test_plugin "same_signs" unsat ~script:"run_wp_postcond.sh";
+
   "Switch case assignments"        >: test_plugin "switch_case_assignments" sat ~expected_regs:[("RDI", "0x0000000000000000")];
   "Switch Cases"                   >: test_plugin "switch_cases" sat ~expected_regs:[("RDI", "0x0000000000000003")];
   "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat ~expected_regs:[("RDI", "0x0000000000000003")];
