@@ -18,12 +18,10 @@ compile () {
 }
 
 run () {
-  bap $dummy_dir/hello_world.out --pass=wp \
-    --wp-compare \
-    --wp-postcond="(assert (= RAX_orig RAX_mod))" \
-    --wp-file1=main_1.bpj \
-    --wp-file2=main_2.bpj \
-    --wp-function=same_signs
+  bap wp \
+    --func=same_signs \
+    --postcond="(assert (= RAX_orig RAX_mod))" \
+    -- main_1.bpj main_2.bpj
 }
 
 compile && run

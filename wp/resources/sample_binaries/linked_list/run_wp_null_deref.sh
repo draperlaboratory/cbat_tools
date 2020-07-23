@@ -14,7 +14,10 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-function=create_linked_list --wp-check-null-deref
+  bap wp \
+    --func=create_linked_list \
+    --check-null-derefs \
+    -- main
 }
 
 compile && run

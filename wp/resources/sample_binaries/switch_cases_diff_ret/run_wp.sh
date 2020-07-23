@@ -18,13 +18,11 @@ compile () {
 }
 
 run () {
-  bap $dummy_dir/hello_world.out --pass=wp \
-    --wp-compare \
-    --wp-compare-post-reg-values=RAX \
-    --wp-file1=main_1.bpj \
-    --wp-file2=main_2.bpj \
-    --wp-function=process_message \
-    --wp-check-calls
+  bap wp \
+    --func=process_message \
+    --compare-post-reg-values=RAX \
+    --compare-func-calls \
+    -- main_1.bpj main_2.bpj
 }
 
 compile && run

@@ -13,7 +13,9 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-function=create_linked_list
+  bap wp \
+    --func=create_linked_list \
+    -- main
 }
 
 compile && run

@@ -9,19 +9,16 @@
 
 set -x
 
-dummy_dir=../dummy
-
 compile () {
   make
 }
 
 run () {
-  bap $dummy_dir/hello_world.out --pass=wp \
-    --wp-compare \
-    --wp-compare-post-reg-values=RAX \
-    --wp-file1=main_1.bpj \
-    --wp-file2=main_2.bpj \
-    --wp-postcond="(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000002)))"
+  bap wp \
+    --func=main \
+    --compare-post-reg-values=RAX \
+    --postcond="(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000002)))" \
+    -- main_1.bpj main_2.bpj
 }
 
 compile && run
