@@ -4,18 +4,15 @@
 
 set -x
 
-dummy_dir=../../dummy
-
 compile () {
   make
 }
 
 run () {
-  bap $dummy_dir/hello_world.out --pass=wp \
-    --wp-compare \
-    --wp-compare-post-reg-values=RAX \
-    --wp-file1=equiv_argc-6404.bpj \
-    --wp-file2=equiv_argc-6487.bpj
+  bap wp \
+    --func=main \
+    --compare-post-reg-values=RAX \
+    -- equiv_argc-6404.bpj equiv_argc-6487.bpj
 }
 
 compile && run

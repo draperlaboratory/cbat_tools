@@ -228,8 +228,17 @@ module Analysis = struct
   let get_mem_offsets (ctx : Z3.context) (f : flags) (file1 : string)
       (file2 : string) : Constr.z3_expr -> Constr.z3_expr =
     if f.mem_offset then
-      let syms_orig = Symbol.get_symbols file1 in
-      let syms_mod = Symbol.get_symbols file2 in
+      let get_symbols file =
+        (* Chopping off the bpj to get the original binary rather than the
+           saved project file. This assumes both files are in the same
+           directory. We should no longer need this when we use the collator
+           interface. *)
+        file
+        |> String.chop_suffix_exn ~suffix:".bpj"
+        |> Symbol.get_symbols
+      in
+      let syms_orig = get_symbols file1 in
+      let syms_mod = get_symbols file2 in
       Symbol.offset_constraint ~orig:syms_orig ~modif:syms_mod ctx
     else
       fun addr -> addr

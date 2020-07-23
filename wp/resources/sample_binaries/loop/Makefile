@@ -1,5 +1,3 @@
-#include ../../../../cbat_tools/wp/resources/sample_binaries/optimization_flags.mk
-
 BASE=main
 
 all: x86-64

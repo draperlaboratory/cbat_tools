@@ -12,7 +12,10 @@ compile () {
 }
 
 run () {
-  bap main --pass=wp --wp-postcond="(assert (= RAX0 #x0000000000000000))"
+  bap wp \
+    --func=main \
+    --postcond="(assert (= RAX #x0000000000000000))" \
+    -- main
 }
 
 compile && run

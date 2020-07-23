@@ -11,7 +11,10 @@ compile () {
 }
 
 run () {
-  bap verifier_nondet --pass=wp --wp-trip-asserts
+  bap wp \
+    --func=main \
+    --trip-asserts \
+    -- verifier_nondet
 }
 
 compile && run
