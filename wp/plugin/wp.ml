@@ -178,13 +178,7 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let stack_range = set_stack flags in
   let env = Pre.mk_env ctx var_gen ~subs ~arch ~specs
       ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds ~stack_range in
-  (* call visit sub with a dummy postcondition to fill the
-     environment with variables *)
   let true_constr = Env.trivial_constr env in
-  let _, env = Pre.visit_sub env true_constr main_sub in
-  (* Remove the constants generated and stored in the environment because they aren't
-     going to be used in the wp analysis. *)
-  let env = Env.clear_consts env in
   let hyps, env = Pre.init_vars (Pre.get_vars env main_sub) env in
   let hyps = (Pre.set_sp_range env) :: hyps in
   let post =
