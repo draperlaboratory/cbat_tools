@@ -119,6 +119,8 @@ let format_path
           end;
           format_registers fmt regs jmp var_map)
   in
+  (* Partition the combined path type into the path in the original binary and
+     the path in the modified binary by matching on the jmps found in the subs. *)
   let path_orig, path_mod =
     let jmps1 = Term.enum blk_t sub1 |> Seq.map ~f:(Term.enum jmp_t) |> Seq.concat in
     Jmp.Map.partitioni_tf p ~f:(fun ~key:jmp ~data:_ -> Seq.exists jmps1 ~f:(Jmp.equal jmp))
