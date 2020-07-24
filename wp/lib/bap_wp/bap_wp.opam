@@ -18,7 +18,7 @@ homepage: "https://github.com/draperlaboratory/cbat_tools"
 bug-reports: "https://github.com/draperlaboratory/cbat_tools"
 dev-repo: "git+https://github.com/draperlaboratory/cbat_tools"
 depends: [
-  "bap" {>= "4.09.1"}
+  "bap" {>= "2.1.0"}
   "core" {>= "0.12.4"}
   "z3" {>= "4.8.6"}
   "ounit"
