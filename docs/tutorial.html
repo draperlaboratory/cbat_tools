@@ -1,0 +1,1592 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="cbat.css">
+<title>CBAT Tutorial</title>
+</head>
+<body>
+
+<h1>CBAT Tutorial</h1>
+
+<section>
+<ul>
+  <li><a href="#overview">Overview</a></li>
+  <li><a href="#binary-programs">Binary Programs</a></li>
+  <li><a href="#cbat-usage">CBAT Usage</a></li>
+  <li><a href="#tripping-asserts">Tripping Asserts</a></li>
+  <li><a href="#4-Rooks">4-Rooks</a></li>
+  <li><a href="#null-dereference">Find a Null Dereference</a></li>
+  <li><a href="#compare-function-outputs">Comparing Function Outputs</a></li>
+  <li><a href="#compare-function-calls">Comparing Function Calls</a></li>
+  <li><a href="#custom-postcondition-one-binary">Custom Postcondition (One Binary)</a></li>
+  <li><a href="#custom-pre-and-postcondition-one-binary">Custom Pre and Postcondition (One Binary)</a></li>
+  <li><a href="#custom-postcondition-two-binaries">Custom Postcondition (Two Binaries)</a></li>
+  <li><a href="#reference">Command line reference</a></li>
+</ul>
+</section>
+
+
+<section>
+
+<a name="overview"></a>
+<h2>Overview</h2>
+
+<p>Let us begin by providing a brief overview of what CBAT is, and what it does. 
+
+
+<h3>What does CBAT analyze?</h3>
+
+<p>CBAT is a tool that helps you analyze the behavior of binary executables (i.e., compiled programs). So it does not analyze the source code you have written in C, or Rust, or what have you. Rather, CBAT analyzes the assembly-level machine instructions that the computer executes directly when it runs your compiled program.
+
+<p>This is useful, because the executable is the real program. High level programming languages offer lots of different features, but at the end of the day, it all gets compiled down to the same basic machine instructions, and that is what CBAT analyzes.
+
+
+<h3>What does CBAT do?</h3>
+
+<p>At its heart, CBAT checks whether a function in your program (or programs) behaves in a certain way. In other words, it can verify that a function in your program has certain properties.
+
+<p>To illustrate the point, imagine the following. Suppose there is a function <code>foo</code> in your program, and you want to know if it always produces the number <code>10</code> as its output. You can ask CBAT to check this for you.
+
+<p>CBAT will explore all logical possibilities, and find if there is any possible way that <code>foo</code> could produce anything other than <code>10</code>. If it finds a way, it will give you an example of inputs you can feed into <code>foo</code> to make it do what you didn't expect.
+
+<p>It is worth emphasizing that CBAT does not perform a probabilistic or fuzzy sort of check here. CBAT performs a mathematical check of all logical possibilities. 
+
+<p>We do make a few simplifying assumptions for the sake of performance, but for the most part, this means that (up to our assumptions) if there is any way to make <code>foo</code> produce anything other than <code>10</code>, CBAT will find it. By contrast, if CBAT cannot find a way, then CBAT has essentially found a logical proof that <code>foo</code> <b>always</b> produces <code>10</code>.
+
+
+<h3>Comparing programs</h3>
+
+<p>CBAT can analyze functions in a single binary program, but it can also compare functions in two different programs, and check whether their behavior is the same. 
+
+<p>This is useful for checking whether a newer, modified version of a program still works the same way as an older version.
+
+<p>For example, suppose you make some improvements to <code>foo</code>, and you want to know whether your improvements have broken anything. CBAT can analyze both your original and your improved program, and make sure that the modified version of <code>foo</code> always produces the same output as the original version of <code>foo</code>.
+
+</section>
+
+<section>
+
+<a name="binary-programs"></a>
+<h2>Binary Programs</h2>
+
+<p>CBAT is a family of command line tools built on top of Carnegie Mellon's <a href="https://github.com/BinaryAnalysisPlatform/bap">Binary Analysis Platform</a> (BAP).  CBAT and BAP do not analyse high-level code in a source language like C or Rust.  Rather, they analyze the compiled, "binary" version of such programs.
+
+<p>When you compile (say) a C program or a Rust program, the compiler converts your source code into machine code, which the computer can execute directly.
+
+<p>Machine code is pretty simple. A machine has a bunch of <b>registers</b> that you can stash values in, often with well-known names like <code>RAX</code>, <code>RDI</code>, <code>R9</code>, and so on:
+
+<pre>
++----------+---------------+
+| Register | Slot          |
++----------+---------------+
+| RAX      | 0x000000      | <--- values go in the slots
++----------+---------------+
+| RDI      | 0x000023      |
++----------+---------------+
+| RBP      | 0x000000      |
++----------+---------------+
+| R9       | 0x000000      |
++----------+---------------+
+| R10      | 0x000000      |
++----------+---------------+
+| ...      | ...           |
++----------+---------------+
+</pre>
+
+<p>There are also a number of smaller registers, often call <b>flags</b>, which can really only contain a one or zero, to indicate that they are "on" or "off." They often have names like <code>ZF</code>, <code>OF</code>, and so on:
+
+<pre>
++------+--------+
+| Flag | On/off |
++------+--------+
+| ZF   | 0x0    | <--- Flag is off
++------+--------+
+| OF   | 0x1    | <--- Flag is on
++------+--------+
+| AF   | 0x0    |
++------+--------+
+| ...  | ...    |
++------+--------+
+</pre>
+
+<p>Finally, there are regions of <b>memory</b> you can stash values in too. Memory is basically just another array of slots you can put bytes in, and each slot has an address. 
+
+<pre>
++----------+-------+
+| Address  | Slot  |
++----------+-------+
+| 0x000000 | 0x00  | <--- bytes go in the slots
++----------+-------+
+| 0x000001 | 0x23  |
++----------+-------+
+| 0x000002 | 0xaf  |
++----------+-------+
+| 0x000003 | 0xa2  |
++----------+-------+
+| ...      | ...   |
++----------+-------+
+</pre>
+
+<p>The machine doesn't let you do very much with all of these slots. Basically, you can put values in and out of them, you can compare values in them, and you can do very basic arithmetic on them. 
+
+<p>The addresses and values used by the machine are always binary numbers, i.e., sequences of ones and zeros. These are called <b>bitvectors</b> (or sometimes just "binary numbers").
+
+<p>There is also a GOTO instruction, which tells the machine to jump to a different instruction in your program. So this is all really just simple GOTO-style programming, with a bunch of slots to put your (binary) values in.
+
+<p>One of the problems with binary analysis is that every computer architecture is different. The slots are laid out differently, and the machine instructions take different forms. For this reason, programs compiled for, say, <code>x86_64</code> look different than those compiled for <code>ARM</code>. 
+
+<p>BAP is a big help here. It takes most of these variations in machine instructions, and it lifts them into a unified and simpler form of machine code, which it calls BIR (short for the "BAP Intermediate Representation"). We'll just call it the "IR" for short.
+
+
+<h3>Function arguments and return values</h3>
+
+<p>As was noted already, when code written in, say, C is compiled down to machine code, everything gets converted into simple machine instructions which basically shuffle values in and out of the various slots.
+
+<p>Of course, functions in C code take arguments, and they return values. At the level of machine code, these arguments are handled by putting them in slots, and the return values are handled by putting them into slots too.
+
+<p>In <code>x86_64</code> programs (which is what we'll be looking at), the first argument to a function is always placed in a register called <code>RDI</code>, and the function's return value is always placed in a register called <code>RAX</code>. 
+
+<p>For example, suppose we have a function in C that returns the value <code>7</code>:
+
+<pre>
+int foo(int x) {
+  ...
+    return 7;
+}
+</pre>
+
+<p>In BAP's IR, the return vaule would be handled like this:
+
+<pre>
+00000436: subroutine foo... <-- Start of the function foo
+00000443: ...
+00000450: RAX := 0x07       <-- Put the result in RAX to return 
+00000458: return...         <-- Return to the caller
+</pre>
+
+<p>The numbers at the start of each line are unique identifiers, one for each line. The instructions come after those numbers, to the right.
+
+<p>You can see here that the value <code>7</code> is placed in the register <code>RAX</code>, and then the function returns. This is how the function returns </code>7</code>. Return values are always placed in <code>RAX</code>. 
+
+<p>Similarly, the argument to a function always goes in a register called <code>RDI</code>. For example, to call the above <code>foo</code> function with <code>3</code> as the parameter, that would look something like this in BAP's IR:
+
+<pre>
+00000467: RDI := 0x03        <-- Put the argument in RDI
+00000476: call foo           <-- Call the function
+</pre>
+
+<p>You can see here that the value <code>3</code> is placed in the register <code>RDI</code>, and then the function <code>foo</code> is called. This is how functions are called with an argument. The argument always goes in <code>RDI</code>.
+
+<p>(If your function takes more than one argument, the second argument always goes in a register called <code>RSI</code>, and there are other established slots for the third argument, the fourth argument, and so on).
+
+<p>The important things to remember in our examples is just that the argument to a function always goes in <code>RDI</code>, and the return value always goes in <code>RAX</code>.
+
+<p>To make the examples in this tutorial easy to follow, we have provided C code for each program. However, remember that CBAT actually operates on the machine code &mdash; no source code is necessary to use CBAT. On occasion, we will pay attention to the machine code, particularly the argument register (<code>RDI</code>) and the return value register (<code>RAX</code>).
+
+</section>
+
+<section>
+<a name="cbat-usage"></a>
+
+<h2>CBAT Usage</h2>
+
+<p>BAP itself is a framework for analyzing binary programs. It has a command line interface, which you can extend with your own plugins. What BAP does is it takes a binary program, and lets you run a pass over the program, during which time your plugin can dig in and analyze the internals of that program.
+
+<p>Our CBAT tools are implemented primarily as BAP plugins. The particular plugin that we will focus on here is called <code class="wp">wp</code>. If you are curious what that stands for, it is short for "weakest precondition," which is the technical name in the literature for the kind of analysis that <code class="wp">wp</code> performs.
+
+<p>The <code class="wp">wp</code> plugin has two modes of operation. In the first mode, it can make a pass over a single binary program, and analyze a function in that program. In the second mode, it can make a pass over two programs, and compare a function in them. Here we cover the first mode &mdash; the second mode will be covered when we reach the <a href="#compare-function-outputs">first example that uses it</a>.
+
+
+<h4>Analyzing one program</h4>
+
+<p>To analyze a single program, the command you want to invoke has this basic form:
+
+<pre>
+    $ bap /path/to/exe \    <-- The path to a binary program
+        --pass=wp \         <-- The pass/plugin is wp
+        --wp-func=FUNC \    <-- The function to examine
+        [options]           <-- Any extra options
+</pre>
+
+<p>This will tell CBAT to go into the program at <code>/path/to/your/exe</code>, and analyze the function <code>FUNC</code> that occurs in that program.
+
+<p>There are various <code>[options]</code> you can specify, to tell CBAT to do different things as it analyzes your program. We will illustrate the most important options throughout the following tutorial.
+</section>
+
+<section>
+
+<a name="tripping-asserts"></a>
+<h2>Tripping asserts</h2>
+
+<p>The <code class="wp">wp</code> tool is quite general. You can tell it to verify that your functions have certain properties, and you can specify your own custom properties that <code class="wp">wp</code> should check for. 
+
+<p>As a convenience, we have provided some predefined properties, which are built-in to the tool. One of them is this: <code class="wp">wp</code> can check if it is possible to trigger an assert in a function in your program.
+
+<p>Consider the following simple C program (which lives at <code>01/binary/main.c</code>):
+
+<pre>
+#include &lt;assert.h&gt;
+
+int main(int argc, char** argv) {
+
+    if (argc == 0xdeadbeef) {
+        assert(0);
+    }
+    
+    return 0;
+
+}
+</pre>
+
+<p>Here we have a <code>main</code> function, which takes an argument, <code>argc</code> (we can ignore <code>argv</code>). 
+
+<ul>
+  <li>If the value of <code>argc</code> is dead beef (see how it's <code>0xdeadbeef</code>?), then the program trips an assert, which causes it to halt.</li>
+  <li>Otherwise, it returns <code>0</code>, which means success, and it exits cleanly.</li>
+</ul>
+
+<p>Visually, here's the control flow:
+
+<pre>
+                   ------------
+                   |   main   |
+                   ------------
+                        |
+           --------------------------
+           |                        |
+    argc == 0xdeadbeef          otherwise
+           |                        |
+           V                        V
+     ----------------         ---------------
+     |  assert(0)   |         |   return 0  |
+     ----------------         ---------------
+           |                        |
+           V                        V
+        Program                  Program
+         fails                exits cleanly
+</pre>
+
+<p>As you can see from this diagram, if <code>argc</code> is <code>0xdeadbeef</code>, then the program travels down the left branch, where an assert is tripped, and the program fails. Otherwise, it goes down the right branch, where the program returns <code>0</code>, and exits cleanly.
+
+<p>Now, this is a C program, and as we noted earlier, <code class="wp">wp</code> does not analyze the C code itself. Rather, <code class="wp">wp</code> analyzes the compiled version of this program. We started with the C code here, just because it is easy to see what is going on. But the real program is what you get when you compile it.
+
+<p>Let's see what the machine instructions look like just for the branching part of the <code>if</code> statement in our example program. We can ask BAP to show us the machine instructions as it sees them, like this: 
+
+<pre>
+    $ bap 01/binary/main -d --print-symbol=main 
+</pre>
+
+<p>You don't need to do that right now. But if you did, you could look through the output, until you find the relevant instructions, which should look something like this:
+
+<pre>
+00000481: when #5 goto %0000047b  <-------- When #5 is 1, go here ---+
+00000879: goto %000006f9 <------------ Otherwise, go here --+        |
+                                                            |        |
+000006f9: ...  <--------------------------------------------+        |
+00000722: call @__assert_fail ...  <--- trip the assert              |
+                                                                     |
+0000047b: ...  <-----------------------------------------------------+
+000004aa: call #52 with noreturn  <--- exit cleanly
+</pre>
+
+<p>At the first instruction printed here (numbered <code>00000481</code>), you can see that the machine is going to jump to instruction <code>0000047b</code> when <code>#5</code> is true (i.e., <code>1</code>).
+
+<p>So if we suppose that <code>#5</code> is <code>1</code>, we can see what happens next, by following the machine down to the instruction at <code>000047b</code>. There, we can see that the program  exits cleanly.
+
+<p>Alternatively, if <code>#5</code> is not <code>1</code>, then the machine doesn't jump at <code>00000481</code>, and instead moves down to the next instruction, at <code>0000879</code>. What happens there? The machine jumps directly to instruction <code>0000006f9</code>, and if we look there, we can see that it trips the assert we are looking for.
+
+<p>Even though these are machine instructions and not C code, there is still a clear control flow here, similar to what we saw for the C code:
+
+<pre>
+                   ------------
+                   |   main   |
+                   ------------
+                        |
+                    000000481
+                        |
+           ----------------------------
+           |                          |
+         ~ #5                        #5
+           |                          |
+           V                          V
+     ----------------         --------------------
+     |  00000722:   |         |    000004aa:     |
+     | assert_fail  |         |  call ... (exit) |
+     ----------------         --------------------
+           |                         |
+           V                         V
+        Program                   Program
+         fails                  exits clean
+</pre>
+
+<p>Of course, just because there is a branch in the code where an assert is tripped, that doesn't mean the program can actually travel down that branch. Programs can have "dead" branches, which are impossible to travel down:
+
+<pre>
+if true:
+    do_something()
+else:
+    never_called() # Dead code, never called
+</pre>
+
+<p>What we want to know in our example is whether there is any way that the <code>main</code> function can actually get to the branch that trips the assert.
+
+<p>We can ask <code class="wp">wp</code> to find out if this is possible. To do that, invoke <code class="wp">wp</code> like this:
+
+<pre>
+    $ bap 01/binary/main \
+          --pass=wp \
+          --wp-func=main \
+          --wp-trip-assert
+</pre>
+
+<p>Here we ask <code class="wp">wp</code> to try to trip an assert inside the <code>main</code> function of the program at <code>01/binary/main</code>. When we run this command, the relevant output comes at the end, which looks like this:
+
+<pre>
+SAT!
+
+Model:
+  ZF  |->  0x0
+  SF  |->  0x0
+  RSP |->  0x000000003f800081
+  RSI |->  0x0000000000000000
+  RDX |->  0x0000000000000000
+  RDI |->  0x00000000deadbeef
+  RCX |->  0x0000000000000000
+  RBP |->  0x0000000000000000
+  RAX |->  0x0000000000000000
+  R9  |->  0x0000000000000000
+  R8  |->  0x0000000000000000
+  PF  |->  0x0
+  OF  |->  0x0
+  CF  |->  0x0
+  AF  |->  0x0
+  mem_orig |-> [
+    else |-> 0x00]
+  mem_mod = mem_orig
+</pre>
+
+<p>The first thing it says is <code>SAT!</code>, which means that CBAT was able to find a way to trip the assert.
+
+<p>Next, it says <code>Model</code>, afer which it lists some information. There, you can see a bunch of registers on the left, and a bunch of values on the right (and a mention of memory at the bottom, which we can ignore for now).
+
+<p>What this tells us is how to trip the assert. The idea here is that if we set the registers (and memory) to these particular values at the start of the <code>main</code> function, then <code>main</code> will trip the assert.
+
+<p>In this particular example, we can see that most of the registers are set to zero. The one that is interesting here is <code>RDI</code>. Remember that <code>RDI</code> is where the argument to the function goes. And here, <code class="wp">wp</code> tells us that this register should be set to <code>0xdeadbeef</code>. That is to say, <code class="wp">wp</code> is telling us that if we set <code>RDI</code> to <code>0xdeadbeef</code>, then our function <code>main</code> will trip the assert. And that of course makes sense, given the control flow that we examined in this function.
+
+
+<h3>BAP's IR</h3>
+
+<p>It can be instructive to step through the machine instructions, and actually see the function exhibit this behavior.
+
+<p>One of the tools in the CBAT family is an interactive debugger that lets you do just that: step through a program, one machine instruction at a time. The tool is called <code>bildb</code> (short for "BAP Intermediate Language DeBugger"), and the command to invoke it looks like this:
+
+<pre>
+    $ bap 01/binary/main \
+          --pass=run \
+          --run-entry-point=main \
+          --bildb-debug
+</pre>
+
+<p>That will start up the debugger at the <code>main</code> function of the program at <code>01/binary/main</code>.
+
+<p>That will start up <code>bildb</code> at the <code>main</code> function in <code>01/binary/main</code>. You should see something like this:
+
+<pre>
+BIL Debugger
+Starting up...
+
+Architecture
+Type: x86_64
+Address size: 64
+Registers:
+R10    R11    R12    R13    R14    R15    R8     R9     RAX    RBP    RBX    
+RCX    RDI    RDX    RSI    RSP    YMM0   YMM1   YMM10  YMM11  YMM12  YMM13  
+YMM14  YMM15  YMM2   YMM3   YMM4   YMM5   YMM6   YMM7   YMM8   YMM9   
+
+Entering subroutine: [%00000868] main
+0000088d: main_argc :: in u32 = RDI
+0000088e: main_argv :: in out u64 = RSI
+0000088f: main_result :: out u32 = RAX
+Entering block %00000413
+0000041a: #46 := RBP
+>>> (h for help)
+</pre>
+
+<p>You can see that at startup <code>bildb</code> prints some information about the architecture and its initialization state, then it enters the function (subroutine) <code>main</code>, where it stops at the first instruction in the first block, namely:
+
+<pre>
+0000041a: #46 := RBP
+</pre>
+
+<p>The instruction's identifying number is on the left of the colon, and the instruction itself is on the right of the colon.
+
+<p>Below that, <code>bildb</code> gives you a prompt, where you can type a command:
+
+<pre>
+>>> (h for help)
+</pre>
+
+<p>There are various commands you can enter here, but they are fairly straightforward. For example, to see more than just one instruction, type <code>show 5</code> and hit enter (to see the nearest +/- 5 lines):
+
+<pre>
+>>> (h for help) show 5
+   %00000413
+-> 0000041a: #46 := RBP
+   0000041d: RSP := RSP - 8
+   00000420: mem := mem with [RSP, el]:u64 <- #46
+   00000427: RBP := RSP
+   00000435: #47 := RSP
+   00000438: RSP := RSP - 0x10
+</pre>
+
+<p>Another thing you can do is see which values are stored in registers. For instance, to see the value stored in <code>RBP</code>, type <code>p RBP</code> (short for "print <code>RPB</code>") and hit <code>enter</code>. You should see something like this:
+
+<pre>
+>>> (h for help) p RBP
+RBP   : 0
+</pre>
+
+<p>This tells you that the <code>RBP</code> register has the value zero stored in it.
+
+<p>Remember how <code class="wp">wp</code> told us that <code>main</code> will trip the assert if it begins with <code>RDI</code> set to <code>0xdeadbeef</code>? Let's set that value, and see if we can trip the assert. 
+
+<p>To set <code>RDI</code> to <code>0xdeadbeef</code>, type <code>set RDI=0xdeadbeef</code> and hit <code>enter</code>. You'll see that <code>bildb</code> sets the value:
+
+<pre>
+>>> (h for help) set RDI=0xdeadbeef
+RDI   : 0xDEADBEEF
+</pre>
+
+<p>Now you should be able to step through this program, instruction by intruction, and you should end up triggering the assert.
+
+<p>To move to the next instruction, hit <code>s</code> (for "step"), and hit <code>enter</code>. That moves to the next instruction:
+
+<pre>
+>>> (h for help) s
+0000041d: RSP := RSP - 8
+</pre>
+
+<p>You could keep stepping through this program, one instruction at a time, but you can also just set a breakpoint at the instruction you want, and skip ahead to it.
+
+<p>Let's set a breakpoint at the assert, to see if we reach it. Recall the control flow graph we saw before:
+
+<pre>
+                   ------------
+                   |   main   |
+                   ------------
+                        |
+                    000000481
+                        |
+           ----------------------------
+           |                          |
+         ~ #5                        #5
+           |                          |
+           V                          V
+     ----------------         --------------------
+     |  00000722:   |         |    000004aa:     |
+     | assert_fail  |         |  call ... (exit) |
+     ----------------         --------------------
+           |                         |
+           V                         V
+        Program                   Program
+         fails                  exits clean
+</pre>
+
+<p>You can see that the assert happens at instruction <code>00000722</code>, so let's set a breakpoint there. To set a breakpoint, type <code>b %00000722</code> (short for "breakpoint at instruction <code>00000722</code>"):
+
+<pre>
+>>> (h for help) b %00000722
+Breakpoint set at %00000722
+</pre>
+
+<p>Now let's see if we get to that breakpoint. To tell the debugger to move forward, type <code>n</code> (for "next") and hit <code>enter</code>. The debugger takes us to the next block:
+
+<pre>
+Entering block %000006f9
+000006fe: RCX := 0x4005ED
+</pre>
+
+<p>Type <code>n</code> (and <code>enter</code>) to skip forward again, and you will see that you hit the breakpoint at <code>00000722</code>:
+
+<pre>
+>>> (h for help) n
+00000722: call @__assert_fail with return %0000047b
+</pre>
+
+<p>At this point, you have confirmed that the program does indeed trip the assert if </code>RDI</code> is set to <code>0xdeadbeef</code> at the beginning of <code>main</code>. 
+
+<p>You could keep stepping through the program, but there is no need at this point. You can just exit the debugger. To quit the debugger, hit <code>q</code> and then <code>enter</code>.
+
+
+<h3>Hooking <code class="wp">wp</code> up to <code>bildb</code></h3>
+
+<p>Instead of manually setting the values of registers in <code>bildb</code> to see the behavior that <code class="wp">wp</code> tells you about, you can have <code class="wp">wp</code> dump its output into a YAML file, and then have <code>bildb</code> read that in, at startup. To have <code class="wp">wp</code> dump its output like this, run the following command:
+
+<pre>
+    $ bap 01/binary/main \
+          --pass=wp \
+          --wp-func=main \
+          --wp-trip-assert \
+          --wp-bildb-output=init.yml
+</pre>
+
+<p>Notice how you simply added the option <code>--wp-bildb-output=init.yml</code> to the command. That tells <code class="wp">wp</code> to dump the appropriate output into a file called <code>init.yml</code>. 
+
+<p>Once you have that file at hand, you can start <code>bildb</code> with it, like this:
+
+<pre>
+    $ bap 01/binary/main \
+          --pass=run \
+          --run-entry-point=main \
+          --bildb-debug \
+          --bildb-init=init.yml
+</pre>
+
+<p>Notice how we added the option <code>--bildb-init=init.yml</code>. When <code>bilbd</code> starts up, it will read <code>init.yml</code>, and set the registers to the values listed there. From there, you can set the breakpoint at <code>00000722</code> and run through the program exactly as before.
+
+</section>
+
+
+<section>
+
+<a name="4-rooks"></a>
+<h2>4-Rooks</h2>
+
+<p>As we saw in the last example, <code class="wp">wp</code> can find a way to trip an assert, if it's possible to do so, and it will tell us how to do it. This can be used to solve puzzles of various kinds.
+
+<p>As an example, consider the 8-Queens chess puzzle. The task is this: on a standard 8x8 chess board, place 8 queens on the board in places where none of them can be captured by any of the others in a single move. Queens can move up/down, sideways, and diagonally, so you have to be careful to place the queens out of each other's paths.
+
+<p>For simplicity, let's do a simpler version: the 4-Rooks puzzle. It's just like the 8-Queens puzzle, except we have 4 rooks, and the board is a 4x4 board. Rooks can move up and down, and sideways. 
+
+<p>Since this version of the game is less complex, it is somewhat easy to think up a solution. For example, here is one:
+
+<pre>
+    +---+---+---+---+
+    | R |   |   |   |
+    +---+---+---+---+
+    |   |   | R |   |
+    +---+---+---+---+
+    |   | R |   |   |
+    +---+---+---+---+
+    |   |   |   | R |
+    +---+---+---+---+
+</pre>
+
+<p>As you can see, each of these rooks is out of the path of the others, so none can be captured by any of the others in a single move.
+
+<p>Now suppose that you have a function (in C) that checks solutions to the 4-rooks puzzle. Imagine that the function looks something like this:
+
+<pre>
+/* This function checks if solution is correct. */
+int check(int solution) {
+
+    bool correct = true;
+
+  // Check if solution is correct...
+
+  if (correct) {
+    assert(0);
+  }
+
+  return 0;
+}
+</pre>
+
+<p>This function takes a solution to the 4-rooks game as an argument, it then checks the solution, and if the solution is correct, it trips an assert.
+
+<p>How do we encode a proposed solution, so that we can pass it into this function as an argument? Well, since machine code really only works with binary numbers, we'll need to encode proposed solutions as a bitvector. 
+
+<p>How can we do that? There are 16 squares on a 4x4 chess board, so let's say that we'll represent the board with a 16-bit binary number, where each bit represents one of the squares. Let's also say that, for each bit, if it's <code>1</code>, that means there is a rook at that position, and if it's <code>0</code>, that means there is no rook at that position.
+
+<p>To encode a proposed solution as a 16 bit binary number, we mark each position on the board with a <code>0</code> or <code>1</code> to indicate whether there is a rook at that position. For example:
+
+<pre>
+    +---+---+---+---+           +---+---+---+---+
+    | R |   |   |   |           | 1 | 0 | 0 | 0 |    ==>   1000
+    +---+---+---+---+           +---+---+---+---+
+    |   |   | R |   |           | 0 | 0 | 1 | 0 |    ==>   0010
+    +---+---+---+---+    ==>    +---+---+---+---+
+    |   | R |   |   |           | 0 | 1 | 0 | 0 |    ==>   0100
+    +---+---+---+---+           +---+---+---+---+
+    |   |   |   | R |           | 0 | 0 | 0 | 1 |    ==>   0001
+    +---+---+---+---+           +---+---+---+---+
+</pre>
+
+<p>Then we line up those bits, one after another, into one 16-bit binary number:
+
+<pre>
+solution = 1000 0010 0100 0001 (or 0x4281 in hex)
+</pre>
+
+<p>So, the <code>check</code> function takes a 16-bit number as the argument, it then checks the proposed solution to see if it is correct, and it trips an assert if it is correct. 
+
+<p>The full code for this function can be found at <code>02/binary/main.c</code>. The compiled version of this program is at <code>02/binary/main</code>. You can try it out by passing it a hex version of a possible solution. For example:
+
+<pre>
+    $ ./02/binary/main 0x2212
+    $ ./02/binary/main 0x8421
+</pre>
+
+<p>Since we have a function that trips an assert if the solution is correct, we can ask <code class="wp">wp</code> to try and find a way to trip that assert. If <code class="wp">wp</code> can find a way to trip the assert, it will give us an example of an input to the function that will cause this behavior.
+
+<p>Let's try it. Here is the command. We only want to analyze the <code>check</code> function, which we specify with <code>--wp-func=check</code>: 
+
+<pre>
+    $ bap 02/binary/main \
+          --pass=wp \
+          --wp-func=check \
+          --wp-trip-assert
+</pre>
+
+<p>After a moment, <code class="wp">wp</code> returns a result. At the end of the output, you should see something like this:
+
+<pre>
+SAT!
+
+Model:
+  ZF  |->  0x0
+  SF  |->  0x0
+  RSP |->  0x0000000040000000
+  RSI |->  0x0000000000000000
+  RDX |->  0x0000000000000000
+  RDI |->  0x0000000000004281  <-- Argument to function
+  RCX |->  0x0000000000000000
+  RBP |->  0x0000000000000000
+  RAX |->  0x0000000000000000
+  R9  |->  0x0000000000000000
+  R8  |->  0x0000000000000000
+  PF  |->  0x0
+  OF  |->  0x0
+  CF  |->  0x0
+  AF  |->  0x0
+  mem_orig |-> [
+    else |-> 0x00]
+  mem_mod = mem_orig
+</pre>
+
+<p>Here, we can see that <code class="wp">wp</code> did indeed find a way to trip the assert, and it provided an example of how to do it.
+
+<p>Look at the registers listed under <code>Model</code>. Remember that the first argument to a function is always stored in <code>RDI</code>, and here <code class="wp">wp</code> tells us that if we set that to <code>0x4281</code>, then our function <code>check</code> will trip the assert.
+
+<p>What is <code>0x4281</code>? In binary, it is:
+
+<pre>
+0100 0010 1000 0001
+</pre>
+
+<p>If we break that up into a 4x4 matrix, we can see the chess board:
+
+<pre>
+                 +---+---+---+---+           +---+---+---+---+
+    0100   ==>   | 0 | 1 | 0 | 0 |           |   | R |   |   |
+                 +---+---+---+---+           +---+---+---+---+
+    0010   ==>   | 0 | 0 | 1 | 0 |           |   |   | R |   |
+                 +---+---+---+---+    ==>    +---+---+---+---+
+    1000   ==>   | 1 | 0 | 0 | 0 |           | R |   |   |   |
+                 +---+---+---+---+           +---+---+---+---+
+    0001   ==>   | 0 | 0 | 0 | 1 |           |   |   |   | R |
+                 +---+---+---+---+           +---+---+---+---+
+</pre>
+
+<p>We can see that this is indeed a solution to the 4-rooks problem. Since none of the rooks are in each other's way, none of them can be captured by any of the others in a single move.
+
+<p>This technique applies to many different kinds of puzzles or problems whose solutions can be encoded as a binary number. For example, solving a sudoku puzzle, reversing a hash, and so on.
+
+</section>
+
+
+<section>
+
+<a name="null-dereference"></a>
+<h2>Find a Null Dereference</h2>
+
+<p>Another predefined property that <code class="wp">wp</code> can check is that it can find null dereferences in a function. To illustrate, consider the following C program, which can be found at <code>03/binary/main.c</code>:
+
+<pre>
+#include <stdlib.h>
+
+int main() {
+
+    // Allocate a byte of memory, at address `addr`
+    char *addr = malloc(sizeof(char));
+
+    // Store the character 'z' at that address
+    *addr = 'z';
+
+}
+</pre>
+
+<p>In this program, we first allocate a byte of memory, and then we take the address of the byte that gets allocated and we store it in the pointer called <code>addr</code>. Next, we attempt to store the character <code>z</code> in the slot at that address.
+
+<p>Suppose I run this program, and suppose that the byte of memory I ask for here is successfully allocated. Well, then everything works great. I get back an address for the allocated byte, and I can then store the character <code>z</code> at that address. 
+
+<p>But things needn't turn out that way. It's always possible that <code>malloc</code> won't be able to allocate the memory I've asked for, in which case it can't return an address to me. If that happens, it will return <code>NULL</code> (i.e., <code>0</code>). And then, when I try to store <code>z</code> at that address . . . well, there is no address, so this will segfault.
+
+<p>We can ask <code class="wp">wp</code> to find null dereferences like this one. To check this particular <code>main</code> function, we can use the following command (note that we add <code>--wp-check-null-deref</code> as a flag):
+
+<pre>
+    $ bap 03/binary/main \
+          --pass=wp \
+          --wp-func=main \
+          --wp-check-null-deref
+</pre>
+
+<p>If you run this, you'll see output that looks something like this:
+
+<pre>
+SAT!
+
+Model:
+  ZF  |->  0x0
+  SF  |->  0x0
+  RSP |->  0x0000000040000000
+  RSI |->  0x0000000000000000
+  RDX |->  0x0000000000000000
+  RDI |->  0x0000000000000000
+  RCX |->  0x0000000000000000
+  RBP |->  0x0000000000000000
+  RAX |->  0x0000000000000000
+  R9  |->  0x0000000000000000
+  R8  |->  0x0000000000000000
+  PF  |->  0x0
+  OF  |->  0x0
+  CF  |->  0x0
+  AF  |->  0x0
+  mem_orig |-> [
+    else |-> 0x00]
+  mem_mod = mem_orig
+  malloc_ret_RAX016 |->  0x0000000000000000
+</pre>
+
+<p>First, it says <code>SAT!</code>, indicating that it did in fact find a way to trigger the null dereference. Second, it gives us a <code>Model</code>, which shows us how to do it. Notice in particular the very last line: 
+
+<pre>
+malloc_ret_RAX016 |->  0x0000000000000000
+</pre>
+
+<p>This is tells us that if <code>malloc</code> returns <code>0</code>, then we'll end up with a null dereference. And that's exactly right. As we saw, if <code>malloc</code> returns <code>NULL</code> (i.e., <code>0</code>, which indicates that no address could be allocated), then trying to store a character there will segfault.
+
+<p>Note that we could rewrite the program at <code>03/binary/main.c</code> so that it checks for the <code>NULL</code> memory address before trying to store something there. There is a corrected version at <code>03/binary/main_fixed.c</code>: 
+
+<pre>
+#include <stdlib.h>
+
+int main() {
+
+    // Allocate a byte of memory, at address `addr`
+    char *addr = malloc(sizeof(char));
+
+    // Don't proceed if we got no address
+    if (addr == NULL) { return 0; }
+
+    // Store the character 'z' at that address
+    *addr = 'z';
+
+}
+</pre>
+
+<p>Let's have <code class="wp">wp</code> check <b>this</b> version of the function. The compiled program lives at <code>03/binary/main_fixed</code>. So:
+
+<pre>
+    $ bap 03/binary/main_fixed \
+          --pass=wp \
+          --wp-func=main \
+          --wp-check-null-deref
+</pre>
+
+<p>Now <code class="wp">wp</code> gives back output that looks like this:
+
+<pre>
+Evaluating precondition.
+Checking precondition with Z3.
+
+UNSAT!
+</pre>
+
+<p>This time, <code class="wp">wp</code> says <code>UNSAT</code>, which is the opposite of <code>SAT</code>. In other words, <code class="wp">wp</code> has found that there are no null dereferences in <code>main</code>. And that is correct. There is indeed no possible way to dereference a null pointer in this version of the program, which <code class="wp">wp</code> confirms.
+
+</section>
+
+
+<section>
+
+<a name="compare-function-outputs"></a>
+<h2>Comparing Function Outputs</h2>
+
+<p>In the previous examples, we have been using <code class="wp">wp</code> to examine a function in a single binary program, but as mentioned earlier, <code class="wp">wp</code> can compare how a function behaves in two different programs, to see if they behave the same.
+
+
+<h3>Analyzing two programs</h3>
+
+<p>To analyze two programs, the command is a little more complicated. BAP is designed to load a single program at a time, but we want to load two. To get around this, first save both projects (using a plugin called <code>save-project</code>):
+
+<pre>
+    bap /path/to/exe_1 --pass=save-project --save-project-filename=exe_1.bpj
+    bap /path/to/exe_2 --pass=save-project --save-project-filename=exe_2.bpj
+</pre>
+
+<p>This serializes and saves each project as <code>exe_1.bpj</code> and <code>exe_2.bpj</code>.
+
+<p>Then you can use <code class="wp">wp</code> to analyze these two serialized projects. To do that, you tell <code class="wp">wp</code> to run in its two-program mode (using the flag <code>--wp-compare</code>), and you point it to your saved project files (using the parameters <code>--wp-file1</code> and <code>--wp-file2</code>):
+
+<pre>
+    bap /path/to/dummy/exe \    <-- The path to a dummy exe
+        --pass=wp \             <-- The pass/plugin is wp
+        --wp-compare \          <-- Run in comparative mode (compare two programs)
+        --wp-func=FUNC \        <-- The function to examine in both programs
+        --wp-file1=exe_1.bpj \  <-- The first saved program
+        --wp-file2=exe_2.bpj    <-- The second saved program
+</pre>
+
+<p>Notice that you must specify a path to a dummy <code>exe</code> (i.e., <code>/path/to/dummy/exe</code> in the above command). It is a "dummy <code>exe</code>" because the BAP command line tool requires that you specify <b>some</b> program, but you can put any program here. If you specify <code>--wp-compare</code> and provide two saved programs, then whatever you specify for the dummy <code>exe</code>, <code class="wp">wp</code> will throw it away and look only at your two saved programs. These examples will just use <code>/bin/true</code>.
+
+
+<h3>Example: Verifying an optimization</h3>
+
+<p>One of the predefined comparative properties that <code class="wp">wp</code> can verify is the following: <code class="wp">wp</code> can look at a function that occurs in two programs, and it can figure out if those functions can produce different outputs.
+
+<p>This can be very useful if, say, you optimize a function. You can ask <code class="wp">wp</code> to compare the old unoptimized version with the new optimized version, and tell you if it's possible for the two functions to give you different outputs.
+
+<p>Suppose we are writing a C program, and we need to know if two integers have the same sign (positive or negative). Here is a very straightforward way to write a function to check (you can find this code in <code>04/binary/main_1.c</code>:
+
+<pre>
+bool same_signs(int x, int y) {
+
+    // When x is negative
+    if(x < 0){
+
+        // They have the same sign if x is negative too
+        if (y < 0) { return true; }
+        else { return false; }
+
+    // When x is positive
+    } else{
+
+        // They have the same sign if y is positive too
+        if (y >= 0) { return true; }
+        else { return false; }
+
+    }
+
+}
+</pre>
+
+<p>First, we check if <code>x</code> is less than zero. If it is, we then check if <code>y</code> is also less than zero. If so, they have the same sign. Alternatively, if <code>x</code> is greater than zero, then we check if <code>y</code> is also greater than zero, and again, if so, then they have the same sign.
+
+<p>This code is fine, but it has a lot of <code>if</code> statements, so it branches a lot, and hence is not the fastest code on the planet. Suppose we want to optimize this, and we ask a clever junior engineer write a new version. Suppose they come up with the following (this version can be found in <code>04/binary/main_2.c</code>:
+
+<pre>
+bool same_signs(int x, int y) {
+    return !((x ^ y) < 0);
+}
+</pre>
+
+<p>This looks promising. It has none of the branches, and it uses XOR (the caret <code>^</code>) as a bit trick. 
+
+<p>We want to know: is this optimized version really the same as the earlier version. That is to say, does this optimized version really produce the same outputs as the first version?
+
+<p>We can ask <code class="wp">wp</code> to compare these two functions, and tell us if there is any possible way for the second one to produce a different output than the first one (when given the same input). 
+
+<p>Remember that the output of a function is always placed in the <code>RAX</code> register, so what we really want to know is if there is any way for these two functions to put different values in </code>RAX</code>, given the same inputs. And this is something we can ask <code class="wp">wp</code> to check for us.
+
+<p>This is our first example of using <code class="wp">wp</code> to compare two programs. Recall from earlier that, to compare two programs, we first need to save each program in a serialized format.
+
+<p>Let's do that. To save the first in a serialized format, run this:
+
+<pre>
+    $ bap 04/binary/main_1 \
+          --pass=save-project \
+          --save-project-filename=main_1.bpj
+</pre>
+
+<p>That serializes the program <code>04/binary/main_1</code> and saves it in a file called <code>main_1.bpj</code>. 
+
+<p>Next, serialize the second program, in the same way:
+
+<pre>
+    $ bap 04/binary/main_2 \
+          --pass=save-project \
+          --save-project-filename=main_2.bpj
+</pre>
+
+<p>Now that you have saved both of the projects, you can ask <code class="wp">wp</code> to check if both versions of the <code>same_signs</code> function produce the same output in <code>RAX</code>. Here is the command:
+
+<pre>
+    $ bap /bin/true \
+          --pass=wp \
+          --wp-compare \
+          --wp-func=same_signs \
+          --wp-compare-post-reg-values=RAX \
+          --wp-file1=main_1.bpj \
+          --wp-file2=main_2.bpj 
+</pre>
+
+<p>Note the parameter <code>--wp-compare-post-reg-values=RAX</code> in this command. That tells <code class="wp">wp</code> to compare the value in <code>RAX</code> after the functions finish execution.
+
+<p>When <code class="wp">wp</code> finishes its check, it prints out the following:
+
+<pre>
+Evaluating precondition.
+Checking precondition with Z3.
+
+UNSAT!
+</pre>
+
+<p>What this means is that <code class="wp">wp</code> was not able to find a way to make these two function produce different outputs. And remember, <code class="wp">wp</code> does a logical check, so this is telling us that (up to our simplifying assumptions) it is logically impossible for these two functions to produce different outputs. 
+
+<p>That's good news. This tells us that the optimized version of the function is indeed equivalent to the original, in the sense that it will always produce exactly the same outputs as the original.
+
+</section>
+
+
+<section>
+
+<a name="compare-function-calls"></a>
+<h2>Comparing Function Calls</h2>
+
+<p>Another predefined property that <code class="wp">wp</code> can check for when comparing two functions is this: it can check that both versions of the functions make the same function calls in the course of their execution. 
+
+<p>Let's illustrate this with an example. Imagine an old program that has been running on a submarine for some time now, which processes signals from the user, and dispatches the task to the appropriate handlers. 
+
+<p>There are various signals it can receive:
+
+<ul>
+  <li><code>SURFACE</code>, which tells the computer to surface the submarine.</li>
+  <li><code>NAV</code>, which tells the computer to alter the navigation course of the submarine.</li>
+  <li><code>DEPLOY</code>, which tells the computer to deploy a payload (e.g., fire a missile).</li>
+  <li><code>LOG</code>, which tells the computer to log the current status of the system.</li>
+</ul>
+
+<p>These various signals are encoded in an <code>enum</code>:
+
+<pre>
+/* Different types of signals */
+typedef enum {STATUS, NAV, LOG, DEPLOY} signal_t;
+</pre>
+
+<p>There are handlers for each one:
+
+<pre>
+/* Stubbed handler for the SURFACE signal */
+int surface() {
+    int status_code = 1;
+    // Handle surfacing...
+    return status_code;
+}
+
+/* Stubbed handler for the NAV signal */
+int alter_course() {
+    int status_code = 2;
+    // Handle navigation...
+    return status_code;
+}
+
+/* Stubbed handler for the LOG signal */
+int log_system_status() {
+    int status_code = 3;
+    // Log the system's status...
+    return status_code;
+}
+
+/* Stubbed handler for the DEPLOY signal */
+int deploy_payload() {
+    int status_code = 4;
+    // Deploy the payload...
+    return status_code;
+}
+</pre>
+
+<p>To process the signal, there is a switch statement:
+
+<pre>
+/* Process a signal, and dispatch to an appropriate handler */
+int process_signal(signal_t signal) {
+
+    int status_code = 0;
+
+    switch (signal) {
+        case SURFACE:
+            status_code = surface();
+            break;
+
+        case NAV:
+            status_code = alter_course();
+
+        case LOG:
+            status_code = log_system_status();
+            break;
+
+        case DEPLOY:
+            status_code = deploy_payload();
+            break;
+    }
+
+    return status_code;
+
+}
+</pre>
+
+<p>The switch statement here simply dispatches the task to the appropriate handler, depending on which signal it receives, and then it returns the resulting status code.
+
+<p>But notice that there is no <code>break</code> statement in the <code>NAV</code> case. The programmer wanted to have a log happen after every <code>NAV</code> signal, so they cleverly left off the <code>break</code> here. That causes execution to fall through from the <code>NAV</code> case to the <code>LOG</code> case. Hence, every time this program handles a <code>NAV</code> signal, it does that, but then it falls through to <code>LOG</code>, and so it <b>also</b> logs the system status.
+
+<p>The full code for this example can be found at <code>05/binary/main_1.c</code>.
+
+<p>Suppose now that, many years later, we have decided that we do not need to have logging in this program anymore, so we apply an automated patch that strips the logging code out.
+
+<p>The patch removes the <code>LOG</code> from the enum, so now we just have <code>SURFACE</code>, <code>NAV</code>, and <code>DEPLOY</code>:
+
+<pre>
+/* Different types of signals */
+typedef enum {SURFACE, NAV, DEPLOY} signal_t;
+</pre>
+
+<p>It also removes the <code>log_status()</code> handler, so now we just have <code>surface()</code>, <code>alter_course()</code>, and <code>deploy_payload()</code>:
+
+<pre>
+/* Stubbed handler for the SURFACE signal */
+int surface() {
+    int status_code = 1;
+    // Handle surfacing...
+    return status_code;
+}
+
+/* Stubbed handler for the NAV signal */
+int alter_course() {
+    int status_code = 2;
+    // Handle navigation...
+    return status_code;
+}
+
+/* Stubbed handler for the DEPLOY signal */
+int deploy_payload() {
+    int status_code = 4;
+    // Deploy the payload...
+    return status_code;
+}
+</pre>
+
+<p>And the patch removes the <code>LOG</code> case from the switch statement, so now we only have the cases for <code>SURFACE</code>, <code>NAV</code>, and <code>DEPLOY</code>:
+
+<pre>
+/* Process a signal, and dispatch to an appropriate handler */
+int process_signal(signal_t signal) {
+
+    int status_code = 0;
+
+    switch (signal) {
+        case SURFACE:
+            status_code = surface();
+            break;
+
+        case NAV:
+            status_code = alter_course();
+
+        case DEPLOY:
+            status_code = deploy_payload();
+            break;
+    }
+
+    return status_code;
+
+}
+</pre>
+
+<p>Of course, stripping out that <code>LOG</code> case introduced a bug. Before the patch, every time a <code>NAV</code> signal was processed, the <code>NAV</code> case would fall through to the <code>LOG</code> case, and log the system's status. But now, in the patched version, there is no <code>LOG</code> case, so every time a <code>NAV</code> signal gets processed, it falls right on through to the <code>DEPLOY</code> case, and deploys the payload!
+
+<p>The full code for the patched version can be found at <code>05/binary/main_2.c</code>.
+
+<p>We can ask <code class="wp">wp</code> to analyze both versions of the <code>process_signal</code> function, and check that they call the same functions. Then <code class="wp">wp</code> will find out if there is any way that the original and patched versions differ with respect to function calls.
+
+<p>First, we need to save each of our programs (the original program and the patched one). To save the first:
+
+<pre>
+    $ bap 05/binary/main_1 \
+          --pass=save-project \
+          --save-project-filename=main_1.bpj
+</pre>
+
+<p>To save the second:
+
+<pre>
+    $ bap 05/binary/main_2 \
+          --pass=save-project \
+          --save-project-filename=main_2.bpj
+</pre>
+
+<p>Now that we have saved both of our programs, we can ask <code class="wp">wp</code> to compare them, and find out if both versions of the <code>process_signal</code> functions differ, with respect to the function calls they make. Here is the command:
+
+<pre>
+    $ bap /bin/true \
+          --pass=wp \
+          --wp-compare \
+          --wp-func=process_signal \
+          --wp-check-calls \
+          --wp-file1=main_1.bpj \
+          --wp-file2=main_2.bpj 
+</pre>
+
+<p>Notice that we added the flag <code>--wp-check-calls</code>. This tells <code class="wp">wp</code> to check the function calls in both versions of the <code>process_signal</code> function.
+
+<p>The output looks something like this:
+
+<pre>
+SAT!
+
+Model:
+    ZF  |->  0x0
+    SF  |->  0x0
+    RSP |->  0x000000003f800084
+    RSI |->  0x0000000000000000
+    RDX |->  0x0000000000000000
+    RDI |->  0x0000000000000001
+    RCX |->  0x0000000000000000
+    RBP |->  0x0000000000000000
+    RAX |->  0x0000000000000000
+    R9  |->  0x0000000000000000
+    R8  |->  0x0000000000000000
+    PF  |->  0x0
+    OF  |->  0x0
+    CF  |->  0x0
+    AF  |->  0x0
+    mem_orig |-> [
+        else |-> 0x00]
+    mem_mod = mem_orig
+</pre>
+
+<p>This says <code>SAT</code>, which means <code class="wp">wp</code> did indeed find a way to make the older and patched versions of these functions make different function calls. 
+
+<p>Note the <code>Model</code>, which tells us that this violation occurs when <code>RDI</code> is set to <code>0x01</code>. So if the value <code>0x01</code> is stored in <code>RDI</code> when these functions start, then the second version of the function will call fewer functions than the first version. 
+
+<p>Given the code that we looked at above, we can see that this is right. Remember that <code>RDI</code> always holds the first argument to a function, which in the case of <code>process_signals</code> is the signal: 
+
+<pre>
+/* Process a signal, and dispatch to an appropriate handler */
+int process_signal(signal_t signal) {   <---------- RDI holds the signal
+
+    ...
+
+}
+</pre>
+
+<p>What is the value <code>0x01</code>? Well, a signal is an <code>enum</code>, which we can think of as an indexed array:
+
+<pre>
+/* Different types of signals */
+typedef enum {SURFACE, NAV, LOG, DEPLOY} signal_t; <-- items indexed 0, 1, 2, 3
+
+    or 
+
+typedef enum {SURFACE, NAV, DEPLOY} signal_t;      <-- items indexed 0, 1, 2
+</pre>
+
+<p>Hence, index <code>0x00</code> refers to the first option (<code>SURFACE</code>), <code>0x01</code> refers to the second option (<code>NAV</code>), and so on.
+
+<p>With that in mind, we can make sense of what <code class="wp">wp</code> is telling us here. It's telling us that if we call <code>process_signal</code> with the <code>NAV</code> signal (i.e., with <code>RDI</code> holding the index <code>0x01</code>), then the functions will behave differently, in the sense that they will make different functions calls.
+
+<p>Which function calls do they differ on, exactly? We can find out by asking <code class="wp">wp</code> to print out its refuted goals. To do that, we add the parameter <code>--wp-show=refuted-goals</code> when we run <code class="wp">wp</code>, like this:
+
+<pre>
+    $ bap /bin/true \
+          --pass=wp \
+          --wp-compare \
+          --wp-func=process_signal \
+          --wp-check-calls \
+          --wp-show=refuted-goals \
+          --wp-file1=main_1.bpj \
+          --wp-file2=main_2.bpj 
+</pre>
+
+<p>Then <code class="wp">wp</code> prints output that looks something like this:
+
+<pre>
+SAT!
+
+Model:
+    ZF  |->  0x0
+    SF  |->  0x0
+    RSP |->  0x000000003f800084
+    RSI |->  0x0000000000000000
+    RDX |->  0x0000000000000000
+    RDI |->  0x0000000000000001
+    RCX |->  0x0000000000000000
+    RBP |->  0x0000000000000000
+    RAX |->  0x0000000000000000
+    R9  |->  0x0000000000000000
+    R8  |->  0x0000000000000000
+    PF  |->  0x0
+    OF  |->  0x0
+    CF  |->  0x0
+    AF  |->  0x0
+    mem_orig |-> [
+        else |-> 0x00]
+    mem_mod = mem_orig
+
+Refuted goals:
+deploy_payload not called in modified:
+    Z3 Expression: false
+</pre>
+
+<p>Notice at the bottom:
+
+<pre>
+Refuted goals:
+deploy_payload not called in modified
+</pre>
+
+<p>What this says is <code>deploy_payload</code> is called in the modified version of the function and not in the original version, when the function is called with the argument <code>NAV</code> (i.e., when <code>RDI</code> is <code>0x01</code> at the start of the function). 
+
+<p>(Why the double negation in "Refuted goals: deploy_payload not called in modified"? This is because <code class="wp">wp</code> proves what it proves by assuming that the same functions are not called, and then it tries to falsify that assumption.) 
+
+<p>In practice, it is difficult for humans to catch these kinds of bugs, especially when the patches are applied automatically, and to many different portions of a program all at once. <code class="wp">wp</code> can be an important help here.
+
+</section>
+
+
+<section>
+
+<a name="custom-postcondition-one-binary"></a>
+<h2>Custom Postcondition (One Binary)</h2>
+
+<p>So far we have been looking at predefined properties that are built in to <code class="wp">wp</code>. Let's turn now to defining some custom properties. 
+
+<p>To define a custom property of a function in your program, you basically describe what you want the state of your program to look like, after the function finishes execution. Then <code class="wp">wp</code> will check if that description holds true of your program. If <code class="wp">wp</code> can find a way to make it false, it will find it, and provide you with some example inputs that will make your function exhibit that behavior.
+
+<p>Let's do a simple example. Consider this toy C function (which can be found at <code>06/binary/main.c</code>:
+
+<pre>
+int main() {
+
+    // Return my lucky number.
+    return 7;
+
+}
+</pre>
+
+<p>As a simple example of a custom property, let us say that this function should always produce <code>7</code> for its output. More exactly, let us say that when this function terminates, the value in <code>RAX</code> will always be <code>7</code> (since <code>RAX</code> is where the output of a function is always placed).
+
+<p>To encode this property, <code class="wp">wp</code> can parse <code>SMTLIB</code> expressions. <code>SMTLIB</code> is a special lisp-like language that was designed explicitly for stating custom properties like this.
+
+<p>To encode our property as an <code>SMTLIB</code> expression, we first need to know the name of the register, which of course we do know:
+
+<pre>
+RAX
+</pre>
+
+<p>Then, we need to know the value that we want to say should be in it. The registers for <code>x86_64</code> programs hold 64-bit binary numbers, so we want to encode 7 as a 64-bit number. For <code>SMTLIB</code>, we simply make it a 64-bit hex number, like this:
+
+<pre>
+#x0000000000000007
+</pre>
+
+<p>Next, we want to say that these are equal, which we write like this:
+
+<pre>
+(= RAX #x0000000000000007)
+</pre>
+
+<p>Notice that this is lisp-like. We put the equal sign up front, then we list the two arguments after it, and then we wrap the whole thing in parentheses.
+
+<p>Finally, we want to assert that this holds, so we wrap the whole thing in an <code>assert</code>, like this:
+
+<pre>
+(assert (= RAX #x0000000000000007))
+</pre>
+
+<p>That is our complete <code>SMTLIB</code> expression. It asserts that the value in <code>RAX</code> is the 64-bit number <code>7</code>.
+
+<p>Now we can tell <code class="wp">wp</code> to check that this holds for our function. To do that, we ask <code class="wp">wp</code> to analyze our <code>main</code> function just as we have done before, but we will specify our custom property with the following parameter: 
+
+<pre>
+--wp-postcond='(assert (= RAX #x0000000000000007))'
+</pre>
+
+<p>This tells <code class="wp">wp</code> to check that the specified property holds after the function executes. Note that we enclose the <code>SMTLIB</code> expression in single quotes. This is just to force bash to treat it as a literal string and not perform any shell expansion. 
+
+<p>Here is the full command to run:
+
+<pre>
+    $ bap 06/binary/main \
+          --pass=wp \
+          --wp-func=main \
+          --wp-show=refuted-goals \
+          --wp-postcond='(assert (= RAX #x0000000000000007))'
+</pre>
+
+<p>When <code class="wp">wp</code> runs this, it will try to falsify this property. That is, it will explore all logical possibilities (up to our simplifying assumptions), and find a way to make our <code>main</code> function put something other than <code>7</code> in <code>RAX</code>.
+
+<ul>
+  <li>If <code class="wp">wp</code> can find a way to falsify our property, it will return <code>SAT</code> and provide an example of how to make <code>main</code> produce a value other than <code>7</code>.</li>
+  <li>If it cannot falsify our property, it will return <code>UNSAT</code>, and that means the property holds. It means that <code>RAX</code> does indeed always contain the 64-bit number 7 at the end of our <code>main</code> function's execution.</li>
+</ul>
+
+<p>When you run the above command, <code class="wp">wp</code> produces output like this:
+
+<pre>
+Evaluating precondition.
+Checking precondition with Z3.
+
+UNSAT!
+</pre>
+
+<p>So, in this case, <code class="wp">wp</code> could not find a way to falsify this property, and hence the property holds. And indeed, that makes sense, because as we can see from the code, our function always returns the number <code>7</code>.
+
+<p>Let's have <code class="wp">wp</code> check a different property, one that we know is false. For example, let's have <code class="wp">wp</code> check whether <code>RAX</code> always ends up with the value <code>3</code> in it. To express this property, we would write an <code>SMTLIB</code> expression just like the previous one, except we'll use the number <code>3</code> instead of <code>7</code>:
+
+<pre>
+(assert (= RAX #x0000000000000003))
+</pre>
+
+<p>Now have <code class="wp">wp</code> check this:
+
+<pre>
+    $ bap 06/binary/main \
+          --pass=wp \
+          --wp-func=main \
+          --wp-show=refuted-goals \
+          --wp-postcond='(assert (= RAX #x0000000000000003))'
+</pre>
+
+<p>This time, <code class="wp">wp</code> outputs something that looks like this:
+
+<pre>
+SAT!
+
+Model:
+  RSP |->  0x000000003f800081
+  RSI |->  0x0000000000000000
+  RDX |->  0x0000000000000000
+  RDI |->  0x0000000000000000
+  RCX |->  0x0000000000000000
+  RBP |->  0x0000000000000000
+  RAX |->  0x0000000000000000
+  R9  |->  0x0000000000000000
+  R8  |->  0x0000000000000000
+  mem_orig |-> [
+    else |-> 0x00]
+  mem_mod = mem_orig
+
+Refuted goals:
+(= RAX0 #x0000000000000003):
+  Concrete values: = #x0000000000000007 #x0000000000000003 
+  Z3 Expression: = #x0000000000000007 #x0000000000000003
+</pre>
+
+<p>This time, <code class="wp">wp</code> comes back with <code>SAT</code>, meaning that it could find a way to falsify our assertion, and it shows us how to do it. In the <code>model</code>, most of the values are zero, which makes sense. Since our <code>main</code> function always returns <code>7</code>, the registers can start with pretty much any values (or no values), and <code>main</code> will not produce <code>3</code> in <code>RAX</code>. 
+
+</section>
+
+
+<section>
+
+<a name="custom-pre-and-postcondition-one-binary"></a>
+<h2>Custom Pre and Postcondition (One Binary)</h2>
+
+<p>Consider the following C program (the source code can be seen at <code>07/binary/main.c</code>):
+
+<pre>
+int main(int argc, char **argv) {
+    if (argc < 10) {
+        return 7;
+    } else {
+        return 254;
+    }
+}
+</pre>
+
+<p>In this program, you can see that if the number of arguments (<code>argc</code>) is less than <code>10</code>, the <code>main</code> function returns <code>7</code>. Otherwise it returns <code>254</code>. 
+
+<p>Suppose we want to assert that at the end of this function <code>RAX</code> will always produce <code>7</code>. We could have <code class="wp">wp</code> check that, just as we did before:
+
+<pre>
+    $ bap 07/binary/main \
+          --pass=wp \
+          --wp-func=main \
+          --wp-show=refuted-goals \
+          --wp-postcond='(assert (= RAX #x0000000000000007))'
+</pre>
+
+<p>When you run that, you'll see that <code class="wp">wp</code> produces output that looks something like this:
+
+<pre>
+SAT!
+
+Model:
+  ZF  |->  0x0
+  SF  |->  0x0
+  RSP |->  0x000000003f800081
+  RSI |->  0x0000000000000000
+  RDX |->  0x0000000000000000
+  RDI |->  0x0000000000400000
+  RCX |->  0x0000000000000000
+  RBP |->  0x0000000000000000
+  RAX |->  0x0000000000000000
+  R9  |->  0x0000000000000000
+  R8  |->  0x0000000000000000
+  PF  |->  0x0
+  OF  |->  0x0
+  CF  |->  0x0
+  AF  |->  0x0
+  mem_orig |-> [
+    else |-> 0x00]
+  mem_mod = mem_orig
+
+Refuted goals:
+(= RAX0 #x0000000000000007):
+  Concrete values: = #x00000000000000fe #x0000000000000007 
+  Z3 Expression: = #x00000000000000fe #x0000000000000007
+</pre>
+
+<p>Here, <code class="wp">wp</code> tells us that it can falsify our assertion, and it provides an example of how to do it. Notice the <code>RDI</code> register. If it is set to <code>0x400000</code>, then our <code>main</code> function will put something other than <code>7</code> in <code>RAX</code>.
+
+<p>Of course, that makes sense, since we can see in the C code that if the number of arguments is <code>10</code> or more, it'll return <code>254</code>, and <code>0x400000</code> is certainly bigger than <code>10</code>. 
+
+<p>Let's make our custom property a little more robust. Let's suppose that we want to assert that <code>main</code> will put <code>7</code> in <code>RAX</code>, given some particular input argument. For example, let's say that, if the input argument is <code>5</code>, then <code>RAX</code> will be <code>7</code>. 
+
+<p>We can do that by asserting a precondition for the function. In this case, we want the precondition to be that the argument to our <code>main</code> function, which is stored in the <code>RDI</code> register, is <code>5</code>. Here is how we would express that in <code>SMTLIB</code>:
+
+<pre>
+(assert (= RDI #x0000000000000005))
+</pre>
+
+<p>And now we can add this as a precondition to our check, using the <code>--wp-precond</code> parameter:
+
+<pre>
+    $ bap 07/binary/main \
+          --pass=wp \
+          --wp-func=main \
+          --wp-show=refuted-goals \
+          --wp-precond='(assert (= RDI #x0000000000000005))' \
+          --wp-postcond='(assert (= RAX #x0000000000000007))'
+</pre>
+
+<p>Now <code class="wp">wp</code> will check that the postcondition holds, given that the precondition holds. In this case, it will check that, if <code>RDI</code> is <code>5</code> at the start of the function, then <code>RAX</code> will be <code>7</code> at the end of the function.
+
+<p>When you run this, <code class="wp">wp</code> will output something like this:
+
+<pre>
+Evaluating precondition.
+Checking precondition with Z3.
+
+UNSAT!
+</pre>
+
+<p>In other words, <code class="wp">wp</code> was not able to find a way to falsify our assertions, and hence our assertions hold.
+
+</section>
+
+
+<section>
+
+<a name="custom-postcondition-two-binaries"></a>
+<h2>Custom Postcondition (Two Binaries)</h2>
+
+<p>In the last two examples, we looked at specifying custom properties that <code class="wp">wp</code> can check for a single binary program. We can also specify custom properties that <code class="wp">wp</code> can check to compare two binary programs. 
+
+<p>To illustrate, consider the <code>same_signs</code> function we looked at before. Here is the first version of the function (which can be seen at <code>08/binary/main_1.c</code>:
+
+<pre>
+bool same_signs(int x, int y) {
+
+    // When x is negative
+    if(x < 0){
+
+        // They have the same sign if x is negative too
+        if (y < 0) { return true; }
+        else { return false; }
+
+    // When x is positive
+    } else{
+
+        // They have the same sign if y is positive too
+        if (y >= 0) { return true; }
+        else { return false; }
+
+    }
+
+}
+</pre>
+
+<p>And here's the optimized version (which can be seen at <code>08/binary/main_2.c</code>:
+
+<pre>
+bool same_signs(int x, int y) {
+    return !((x ^ y) < 0);
+}
+</pre>
+
+<p>Before we asked <code class="wp">wp</code> to check that these two functions produce the same output in <code>RAX</code>, using the <code>--wp-compare-post-reg-values=RAX</code> parameter. But we can specify this same thing as a custom property. 
+
+<p>What we want to say is that, when the function <code>same_signs</code> finishes executing, the values in <code>RAX</code> are exactly the same. More exactly, we want to say that at the end of the <b>original</b> function's execution, <code>RAX</code> is the same as it is at the end of the <b>modified</b> function's execution. 
+
+<p>To explicitly refer to a register in the original function, we can append <code>_orig</code> to the regiser name, like this:
+
+<pre>
+RAX_orig
+</pre>
+
+<p>Similarly, to explicitly refer to a register in the modified version of the function, we can append <code>_mod</code>, like this:
+
+<pre>
+RAX_mod
+</pre>
+
+<p>Then, we can formulate an <code>SMTLIB</code> expression asserting that the two are equal:
+
+<pre>
+(assert (= RAX_orig RAX_mod))
+</pre>
+
+<p>To have <code class="wp">wp</code> check this, we first need to save both programs. To save the first:
+
+<pre>
+    $ bap 08/binary/main_1 \
+          --pass=save-project \
+          --save-project-filename=main_1.bpj
+</pre>
+
+<p>To save the second:
+
+<pre>
+    $ bap 08/binary/main_2 \
+          --pass=save-project \
+          --save-project-filename=main_2.bpj
+</pre>
+
+<p>Then call <code class="wp">wp</code> in comparison mode, with our custom postcondition:
+
+<pre>
+    $ bap /bin/true \
+          --pass=wp \
+          --wp-compare \
+          --wp-func=same_signs \
+          --wp-show=refuted-goals \
+          --wp-postcond='(assert (= RAX_orig RAX_mod))' \
+          --wp-file1=main_1.bpj \
+          --wp-file2=main_2.bpj
+</pre>
+
+<p>When you run this, <code class="wp">wp</code> outputs the following:
+
+<pre>
+Evaluating precondition.
+Checking precondition with Z3.
+
+UNSAT!
+</pre>
+
+<p>In other words, <code class="wp">wp</code> could not find a way to falsify our assertion. Hence, the property we've asserted here holds. <code>RAX</code> in the original and the modified program will indeed always be equal.
+
+</section>
+
+
+<section>
+
+<a name="reference"></a>
+<h2>Reference Guide</h2>
+
+This tutorial has introduced many command line options for CBAT.  A complete
+reference for the command line interface, including many options not described int the tutorial, can be found <a href="reference.html">here</a>.  This page also includes a guide to common smtlib expressions for use in your custom properties.
+</section>
+
+</body>
+</html>
