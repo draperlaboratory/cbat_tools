@@ -20,7 +20,7 @@ This page contains a brief reference to CBAT's command line options.
 These options apply in most circumstances to adjust CBAT's behavior or output.
 
 <ul>
-<li><code>--wp-inline=&lt;posix-regexp&gt;</code> &mdash; If present, functions specfied by the provided POSIX regular expression will inlined.  When functions are not inline, heuristic function summaries are used at function call sites. For example, If you want to inline everything, set to <code>--wp-inline=.*</code> or <code>--wp-inline=foo|bar</code> will inline the functions <code>foo</code> and <code>bar</code>.</li>
+<li><code>--wp-inline=&lt;posix-regexp&gt;</code> &mdash; If present, functions specfied by the provided POSIX regular expression will inlined.  When functions are not inlined, heuristic function summaries are used at function call sites. For example, If you want to inline the functions <code>foo</code> and <code>bar</code>, you can write <code>--wp-inline=foo|bar</code>. To inline everything, use <code>--wp-inline=.*</code> (not generally recommended).</li>
 
 <li><code>--wp-num-unroll=&lt;num&gt;</code> &mdash; If present, replaces the default number of times to unroll each loop. The number of loop unrollings is 5 by default.</code></li>
 
