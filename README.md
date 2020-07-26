@@ -1,6 +1,6 @@
 # CBAT
 
-![CBAT Logo](cbat_logo.png)
+![CBAT Logo](docs/cbat_logo.png)
 
 This repository contains tools built on top of [BAP](https://github.com/BinaryAnalysisPlatform/bap). For details and instructions on how to get started with any of these tools, follow the the links below and see their respective READMEs.
 

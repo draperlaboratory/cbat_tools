@@ -1,0 +1,170 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="cbat.css">
+<title>CBAT reference</title>
+</head>
+<body>
+
+This page contains a brief reference to CBAT's command line options.
+<ul>
+<li><a href="#general-options">General-purpose options</a></li>
+<li><a href="#single-program">Single program analysis</a></li>
+<li><a href="#comparative">Comparative analysis</a></li>
+<li><a href="#smt-lib">Custom property smt-lib reference</a></li>
+</ul>
+
+<section>
+<a name="general-options"></a>
+<h2>General options</h2>
+
+These options apply in most circumstances to adjust CBAT's behavior or output.
+
+<ul>
+<li><code>--wp-inline=&lt;posix-regexp&gt;</code> &mdash; If present, functions specfied by the provided POSIX regular expression will inlined.  When functions are not inline, heuristic function summaries are used at function call sites. For example, If you want to inline everything, set to <code>--wp-inline=.*</code> or <code>--wp-inline=foo|bar</code> will inline the functions <code>foo</code> and <code>bar</code>.</li>
+
+<li><code>--wp-num-unroll=&lt;num&gt;</code> &mdash; If present, replaces the default number of times to unroll each loop. The number of loop unrollings is 5 by default.</code></li>
+
+<li><code>--wp-gdb-filename=&lt;my_exec.gdb&gt;</code> &mdash; If present, output a <code>gdb</code> script to file <code>my_exec.gdb</code>. From within <code>gdb</code>, run source <code>my_exec.gdb</code> to set a breakpoint at the function given by <code>--wp-function</code> and fill the appropriate registers with a found counter-model.</li>
+
+<li><code>--wp-bildb-output=&lt;filename.yml&gt;</code> &mdash; If present, output a BILDB initialization script to file <code>filename.yml</code>. This YAML file sets the registers and memory to the values specified in the countermodel found during WP analysis, allowing BILDB to follow the same execution trace. In the case the analysis returns UNSAT or UNKNOWN, no script will be output.</li>
+
+<li><code>--wp-use-fun-input-regs=[true|false]</code> &mdash; If true, at a function call site, uses all possible input registers as arguments to a function symbol generated for an output register that represents the result of the function call. If set to false, no registers will be used. Defaults to true.</li>
+
+<li><code>--wp-stack-base=&lt;address&gt;</code> &mdash; If present, sets the location of the stack frame for the function under analysis. By default, WP assumes the stack frame for the current function is between <code>0x40000000</code> and <code>0x3F800080</code>.</li>
+
+<li><code>--wp-stack-size=&lt;size&gt;</code> &mdash; If present, sets the size of the stack. size should be denoted in bytes. By default, the size of the stack is <code>0x800000</code>, which is 8MB.</li>
+
+<li><code>--wp-show=[bir|refuted-goals|paths|precond-internal|precond-smtlib]</code> &mdash; A list of details to print out from the analysis. Multiple options can be specified as a comma-separated list. For example: <code>--wp-show=bir,refuted-goals</code>. The options are:
+  <ul>
+    <li><code>bir</code>: The code of the binary/binaries in BAP Immediate Representation.</li>
+    <li><code>refuted-goals</code>: In the case the analysis results in SAT, a list of goals refuted in the model that contains their tagged names, the concrete values of the goals, and the Z3 representation of the goal.</li>
+    <li><code>paths</code>: The execution path of the binary that results in a refuted goal. The path contains information about the jumps taken, their addresses, and the values of the registers at each jump. This option automatically prints out the refuted-goals.</li>
+    <li><code>precond-smtlib</code>: The precondition printed out in Z3's SMT-LIB2 format.</li>
+    <li><code>precond-internal</code>: The precondition printed out in WP's internal format for the <code>Constr.t</code> type.</li>
+  </ul>
+</li>
+<li><code>--wp-debug=[z3-solver-stats|z3-verbose|constraint-stats|eval-constraint-stats]</code> &mdash; A list of debugging statistics to display.  Multiple statistics may be specified in a comma-separated list.  The options are:
+  <ul>
+    <li><code>z3-solver-stats</code>: Information and statistics about Z3's solver.</li>
+    <li><code>z3-verbose</code>: Z3's verbosity level.</li>
+    <li><code>constraint-stats</code>: Statistics regarding the internal <code>constr.t</code> data structure.</li>
+    <li><code>eval-constraint-stats</code>: Statistics regarding the internal expression lists during the <code>eval</code> function.</li>
+  </ul>
+</li>
+</ul>
+
+</section>
+
+<section>
+<a name="single-program"></a>
+<h2>Single program analysis</h2>
+
+<p>To analyze a single program, the command you want to invoke has this basic form:
+
+<pre>
+    $ bap /path/to/exe \    <-- The path to a binary program
+        --pass=wp \         <-- The pass/plugin is wp
+        --wp-func=FUNC \    <-- The function to examine
+        [options]           <-- Any extra options
+</pre>
+
+The following options select or adjust the property that will be checked for the function <code>FUNC</code> in the case of single-program analysis.
+
+<ul>
+<li><code>--wp-trip-asserts=[true|false]</code> &mdash; If true, WP will look for inputs to the subroutine that would cause an __assert_fail to __VERIFIER_error to be reached.</li>
+<li><code>--wp-check-null-deref=[true|false]</code> &mdash; If true, WP will check for inputs that would result in dereferencing a NULL address during a memory read or write. This flag also can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
+<li><code>--wp-precond=&lt;smt-lib-string&gt;</code> &mdash; If present, allows the introduction of assertions to the beginning of a query. This allows pruning of possible models.  Assertions are specified in the <a href="#smt-lib">smt-lib2 format</a>. This flag also can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
+<li><code>--wp-postcond=&lt;smt-lib-string&gt;</code> &mdash; If present, replaces the default post-condition by the user-specified one, using the <a href="#smt-lib">smt-lib2 format</a>. This flag also can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
+</ul>
+</section>
+
+
+<section>
+<a name="comparative"></a>
+<h2>Comparative analysis</h2>
+
+<p>To analyze two programs, the command is a little more complicated. BAP is designed to load a single program at a time, but we want to load two. To get around this, first save both projects (using a plugin called <code>save-project</code>):
+
+<pre>
+    bap /path/to/exe_1 --pass=save-project --save-project-filename=exe_1.bpj
+    bap /path/to/exe_2 --pass=save-project --save-project-filename=exe_2.bpj
+</pre>
+
+<p>This serializes and saves each project as <code>exe_1.bpj</code> and <code>exe_2.bpj</code>.
+
+<p>Then, to compare these programs with <code class="wp">wp</code>:
+
+<pre>
+    bap /path/to/dummy/exe \    <-- The path to a dummy exe
+        --pass=wp \             <-- The pass/plugin is wp
+        --wp-compare \          <-- Run in comparative mode (compare two programs)
+        --wp-func=FUNC \        <-- The function to examine in both programs
+        --wp-file1=exe_1.bpj \  <-- The first saved program
+        --wp-file2=exe_2.bpj \  <-- The second saved program
+        [options]
+</pre>
+
+<p>Notice that you must specify a path to a dummy <code>exe</code> (i.e., <code>/path/to/dummy/exe</code> in the above command). It is a "dummy <code>exe</code>" because the BAP command line tool requires that you specify <b>some</b> program, but you can put any program here. When using the <code>--wp-compare</code> flag, this dummy program will be thrown away.  We often use <code>/bin/true</code>.
+<ul>
+<li><code>--wp-check-null-deref=[true|false]</code> &mdash; If true, adds the contraint that if a memory read or write dereferences a non-null address in the original binary, then that same address is also non-null in the modified binary.</li>
+<li><code>--wp-check-calls=[true|false]</code> &mdash; If true, determines whether to compare the semantics of two programs by examining the return values of the function to be compared, or whether to compare which sub-routines are invoked in the body of the function.</li>
+<li><code>--mem-offset=[true|false]</code> &mdash; If true, at a memory read, adds an assumption to the precondition that the memory of the modified binary is the same as the original binary at an offset calculated by aligning the data and bss sections of the binary. We do this by invoking <code>objdump</code> on both binaries, and determining the starting addresses of the symbols in these sections. If this flag is set to false, we assume that memory between both binaries are equal during a memory read.  Defaults to false.</li>
+<li><code>--wp-precond=&lt;smt-lib-string&gt;</code> &mdash; If present, allows the introduction of assertions to the beginning of a query using the <a href="#smt-lib">smt-lib2 format</a>. This allows pruning of possible models. For comparative predicates, one may refer to variables in the original and modified program by appending the suffix <code>_orig</code> and <code>_mod</code> to variable names in the smt-lib expression. For example, <code>--wp-precond="(assert (= RDI_mod #x0000000000000003)) (assert (= RDI_orig #x0000000000000003))"</code>.</li>
+<li><code>--wp-postcond=&lt;smt-lib-string&gt;</code> &mdash; If present, replaces the default post-condition by the user-specified one, using the <a href="#smt-lib">smt-lib2 format</a>. Similar to --wp-precond, one may create comparative postconditions on variables by appending <code>_orig</code> and <code>_mod</code> to register names.</li>
+</section>
+
+<section>
+<a name="smt-lib"></a>
+<h2>Custom property cheat sheet</h2>
+Custom properties use the <code>smt-lib2</code> format.  Here we provide a quick reference to commonly used features.
+
+In the following, let <code>E1</code>, <code>E2</code>, and so on refer to <code>SMTLIB</code> expressions.
+
+<h3>Assertion</h3>
+
+<ul>
+  <li><b>Assert</b>: <code>(assert E1)</code></li>
+</ul>
+
+<h3>Boolean operations</h3>
+
+<ul>
+  <li><b>Conjunction</b>: <code>(and E1 E2)</code></li>
+  <li><b>Disjunction</b>: <code>(or E1 E2)</code></li>
+  <li><b>Implies</b>: <code>(=> E1 E2)</code></li>
+  <li><b>Negation</b>: <code>(not E1)</code></li>
+</ul>
+
+<h3>Arithmetic operations</h3>
+
+<ul>
+  <li><b>Equality</b>: <code>(= E1 E2)</code></li>
+  <li><b>Inequality</b>: <code>(not (= E1 E2))</code></li>
+  <li><b>Addition</b>: <code>(+ E1 E2)</code></li>
+  <li><b>Subtraction</b>: <code>(- E1 E2)</code></li>
+  <li><b>Multiplication</b>: <code>(* E1 E2)</code></li>
+  <li><b>Less than</b>: <code>(< E1 E2)</code></li>
+  <li><b>Less-than-or-equal-to</b>: <code>(<= E1 E2)</code></li>
+  <li><b>Greater than</b>: <code>(> E1 E2)</code></li>
+  <li><b>Greater-than-or-equal-to</b>: <code>(>= E1 E2)</code></li>
+</ul>
+
+<h3>Bitvector operations</h3>
+
+<ul>
+  <li><b>Bitvector addition</b>: <code>(bvadd E1 E2)</code></li>
+  <li><b>Bitvector subtraction</b>: <code>(bvsub E1 E2)</code></li>
+  <li><b>Bitvector unsigned less-than</b>: <code>(bvult E1 E2)</code></li>
+  <li><b>Bitvector unsigned less-than-or-equal-to</b>: <code>(bvule E1 E2)</code></li>
+  <li><b>Bitvector unsigned greater-than</b>: <code>(bvugt E1 E2)</code></li>
+  <li><b>Bitvector unsigned greater-than-or-equal-to</b>: <code>(bvuge E1 E2)</code></li>
+  <li><b>Bitvector signed less-than</b>: <code>(bvslt E1 E2)</code></li>
+  <li><b>Bitvector signed less-than-or-equal-to</b>: <code>(bvsle E1 E2)</code></li>
+  <li><b>Bitvector signed greater-than</b>: <code>(bvsgt E1 E2)</code></li>
+  <li><b>Bitvector signed greater-than-or-equal-to</b>: <code>(bvsge E1 E2)</code></li>
+</ul>
+
+</section>
+
+</body>
+</html>
