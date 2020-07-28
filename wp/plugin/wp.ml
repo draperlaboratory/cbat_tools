@@ -593,15 +593,6 @@ module Cli = struct
              deviation of the number of subsitutions that occur during the
              evaluation of the constraint datatype.|}
 
-  let stack_base = Cmd.parameter Typ.(some int) "stack-base"
-      ~doc:"The default address of the stack base. WP assumes the stack base \
-            is the highest address and the stack grows downward. By default, \
-            set to 0x40000000."
-
-  let stack_size = Cmd.parameter Typ.(some int) "stack-size"
-      ~doc:"The default size of the stack in bytes. By default, set to \
-            0x800000 which is 8Mbs."
-
   let show = Cmd.parameter Typ.(list string) "show"
       ~doc:{|A list of details to print out from the analysis. Multiple options
              as a list can be passed into the flag to print out multiple
@@ -627,6 +618,16 @@ module Cli = struct
             `precond-smtlib': The precondition printed out in Z3's SMT-LIB2
              format.|}
 
+  let stack_base = Cmd.parameter Typ.(some int) "stack-base"
+      ~doc:"The default address of the stack base. WP assumes the stack base \
+            is the highest address and the stack grows downward. By default, \
+            set to 0x40000000."
+
+  let stack_size = Cmd.parameter Typ.(some int) "stack-size"
+      ~doc:"The default size of the stack in bytes. By default, set to \
+            0x800000 which is 8Mbs."
+
+
   let grammar = Cmd.(
       args
         $ func
@@ -643,9 +644,9 @@ module Cli = struct
         $ use_fun_input_regs
         $ mem_offset
         $ debug
+        $ show
         $ stack_base
         $ stack_size
-        $ show
         $ files)
 
   (* Ensures the user inputted a function for analysis. *)
@@ -708,9 +709,9 @@ module Cli = struct
       (use_fun_input_regs : bool)
       (mem_offset : bool)
       (debug : string list)
+      (show : string list)
       (stack_base : int option)
       (stack_size : int option)
-      (show : string list)
       (files : string list)
       (_ : ctxt) =
     let func = check_func func in
@@ -731,9 +732,9 @@ module Cli = struct
         use_fun_input_regs = use_fun_input_regs;
         mem_offset = mem_offset;
         debug = debug;
+        show = show;
         stack_base = stack_base;
-        stack_size = stack_size;
-        show = show
+        stack_size = stack_size
       })
     in
     Analysis.run flags files;
