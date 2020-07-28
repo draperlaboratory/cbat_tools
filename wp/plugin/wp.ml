@@ -210,7 +210,6 @@ module Analysis = struct
     debug : string list;
     stack_base : int option;
     stack_size : int option;
-    files : string list;
     show : string list
   }
 
@@ -443,7 +442,7 @@ module Analysis = struct
     { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
 
   (* Entrypoint for the WP analysis. *)
-  let run (f : flags) : unit =
+  let run (f : flags) files : unit =
     if (List.mem f.debug "z3-verbose"  ~equal:(String.equal)) then
       Z3.set_global_param "verbose" "10";
     let ctx = Env.mk_ctx () in
@@ -452,13 +451,13 @@ module Analysis = struct
     Utils.update_default_num_unroll f.num_unroll;
     let combined_pre =
       (* Determine whether to perform a single or comparative analysis. *)
-      match f.files with
+      match files with
       | [file] -> single ctx var_gen f file
       | [file1; file2] -> comparative ctx var_gen f file1 file2
       | _ ->
         Printf.printf "WP can only analyze one binary for a single analysis or \
                        two binaries for a comparative analysis. Number of \
-                       binaries provided: %d.%!" (List.length f.files);
+                       binaries provided: %d.%!" (List.length files);
         exit 1
     in
     if (List.mem f.debug "constraint-stats" ~equal:(String.equal)) then
@@ -484,7 +483,7 @@ module Cli = struct
   let name = "wp"
 
   let doc = "WP is a comparative analysis tool. It can compare two binaries \
-             and check thay they behave in similar ways. It can also be used \
+             and check that they behave in similar ways. It can also be used \
              to check a single binary for certain behaviors."
 
   (* Mandatory arguments. *)
@@ -501,16 +500,14 @@ module Cli = struct
   (* Arguments that determine which properties CBAT should analyze. *)
 
   let precond = Cmd.parameter Typ.string "precond"
-      ~doc:"A precondition in SMT-LIB format that will be used as a hypothesis \
-            to the precondition calculated during WP analysis. If no \
-            precondition is specified, a trivial precondition of `true' will \
-            be used."
+      ~doc:"A custom precondition in SMT-LIB format to be used during the \
+            analysis. If no precondition is specified, a trivial precondition \
+            of `true' will be used."
 
   let postcond = Cmd.parameter Typ.string "postcond"
-      ~doc:"A postcondition in SMT-LIB format. This is the postcondition that \
-            will be used to calculate the weakest precondition. If no \
-            postcondition is specified, a trivial postcondition of `true' will \
-            be used."
+      ~doc:"A custom postcondition in SMT-LIB format to be used during the \
+            analysis. If no postcondition is specified, a trivial \
+            postcondition of `true' will be used."
 
   let trip_asserts = Cmd.flag "trip-asserts"
       ~doc:"If set, WP will look for inputs to the subroutine that would cause \
@@ -519,25 +516,21 @@ module Cli = struct
   let check_null_derefs = Cmd.flag "check-null-derefs"
       ~doc:"If set, the WP analysis will check for inputs that would result in \
             dereferencing a NULL value. In the case of a comparative analysis, \
-            WP will check for inputs that would cause a null dereference in \
-            the modified binary, assuminig that the same dereference in the \
-            original binary is not a null dereference."
+            WP will check that the modified binary has no additional null \
+            dereferences in comparison with the original binary."
 
   let compare_func_calls = Cmd.flag "compare-func-calls"
-      ~doc:"This flag is used for a comparative analysis, so a \
-            /path/to/exe1 and /path/to/exe2 must be provided. If set, WP will \
+      ~doc:"This flag is used for a comparative analysis. If set, WP will \
             check that function calls should not occur in the modified binary \
             if they have not occurred in the original binary."
 
-  let compare_post_reg_values = Cmd.parameter Typ.(list string)
-      "compare-post-reg-values"
+  let compare_post_reg_values = Cmd.parameter Typ.(list string) "compare-post-reg-values"
       ~doc:"This flag is used for a comparatve analysis. If set, WP will \
             compare the values stored in the specified registers at the end of \
-            the analyzed function's execution. For example, \
-            --compare-post-reg-values=RAX,RDI compares the values of RAX \
-            and RDI at the end of execution. If unsure about which registers \
-            to compare, x86_64 architectures place their output in RAX, and \
-            ARM architectures place their output in R0."
+            the analyzed function's execution. For example, `RAX,RDI' compares \
+            the values of RAX and RDI at the end of execution. If unsure about \
+            which registers to compare, x86_64 architectures place their \
+            output in RAX, and ARM architectures place their output in R0."
 
   (* Options. *)
 
@@ -554,18 +547,18 @@ module Cli = struct
 
   let gdb_output = Cmd.parameter Typ.(some string) "gdb-output"
       ~doc:"In the case WP determines input registers that result in a refuted \
-            goal, this flag outputs a gdb script file to the file specified. \
+            goal, this flag outputs a gdb script to the filename specified. \
             This script file sets a breakpoint at the the start of the \
             function being analyzed, and sets the registers and memory to the \
-            values specified in the countermodel found during the analysis, \
-            allowing GDB to follow the same execution trace."
+            values specified in the countermodel, allowing GDB to follow the \
+            same execution trace."
 
   let bildb_output = Cmd.parameter Typ.(some string) "bildb-output"
       ~doc:"In the case WP determines input registers that result in a refuted \
             goal, this flag outputs a BilDB YAML file to the filename \
             specified. This file sets the registers and memory to the values \
-            specified in the countermodel found during WP analysis, allowing \
-            BilDB to follow the same execution trace."
+            specified in the countermodel, allowing BilDB to follow the same \
+            execution trace."
 
   let use_fun_input_regs = Cmd.flag "use-fun-input-regs"
       ~doc:"If set, at a function call site, uses all possible input registers \
@@ -579,13 +572,26 @@ module Cli = struct
             modified binary. This flag is experimental."
 
   let debug = Cmd.parameter Typ.(list string) "debug"
-      ~doc:"If set, debug will print the various debugging statistics, \
-            including information and statistics for Z3's solver, Z3's \
-            verbosity-level, constr.t, and expression-lists when calling eval. \
-            These can also be called with the key-words: z3-solver-stats, \
-            z3-verbose, constraint-stats and eval-constraint-stats \
-            respectively. If the flag is not called, it defaults to printing \
-            none of them."
+      ~doc:{|A list of various debugging statistics to print out during the
+             analysis. Multiple options as a list can be passed into the flag
+             to print multiple statistics. For example:
+             `--debug=z3-solver-stats,z3-verbose'.
+
+             The options are:
+             `z3-solver-stats': Statistics about the Z3 solver including
+             information such as the maximum amount of memory and number of
+             allocations.
+
+             `z3-verbose': Increases Z3's verbosity level to output information
+             during the precondition check time including the tactics the solver
+             used.
+
+             `constraint-stats': Prints out the number of goals, ITES, clauses,
+             and substitutions in the constraint data type of the precondition.
+
+             `eval-constraint-stats': Prints out the mean, max, and standard
+             deviation of the number of subsitutions that occur during the
+             evaluation of the constraint datatype.|}
 
   let stack_base = Cmd.parameter Typ.(some int) "stack-base"
       ~doc:"The default address of the stack base. WP assumes the stack base \
@@ -597,29 +603,29 @@ module Cli = struct
             0x800000 which is 8Mbs."
 
   let show = Cmd.parameter Typ.(list string) "show"
-      ~doc:"A list of details to print out from the analysis. Multiple options \
-            as a list can be passed into the flag to print out multiple \
-            details. For example: `--show=bir,refuted-goals'. \
-            \
-            The options are:\n \
-            `bir': The code of the binary/binaries in BAP Immediate \
-            Representation.\n \
-            \
-            `refuted-goals': In the case the analysis results in SAT, a list \
-            of goals refuted in the model that contains their tagged names, \
-            the concrete values of the goals, and the Z3 representation of the \
-            goal.\n \
-            \
-            `paths': The execution path of the binary that results in a \
-            refuted goal. The path contains information about the jumps taken, \
-            their addresses, and the values of the registers at each jump. \
-            This option automatically prints out the refuted-goals.\n \
-            \
-            `precond-internal': The precondition printed out in WP's internal \
-            format for the Constr.t type.\n \
-            \
-           `precond-smtlib': The precondition printed out in Z3's SMT-LIB2 \
-            format."
+      ~doc:{|A list of details to print out from the analysis. Multiple options
+             as a list can be passed into the flag to print out multiple
+             details. For example: `--show=bir,refuted-goals'.
+
+             The options are:
+             `bir': The code of the binary/binaries in BAP Immediate
+             Representation.
+
+             `refuted-goals': In the case the analysis results in SAT, a list
+             of goals refuted in the model that contains their tagged names,
+             the concrete values of the goals, and the Z3 representation of the
+             goal.
+
+             `paths': The execution path of the binary that results in a
+             refuted goal. The path contains information about the jumps taken,
+             their addresses, and the values of the registers at each jump.
+             This option automatically prints out the refuted-goals.
+
+             `precond-internal': The precondition printed out in WP's internal
+             format for the Constr.t type.
+
+            `precond-smtlib': The precondition printed out in Z3's SMT-LIB2
+             format.|}
 
   let grammar = Cmd.(
       args
@@ -648,22 +654,41 @@ module Cli = struct
     | Some f -> f
     | None -> Printf.printf "Function is not provided for analysis.\n%!"; exit 1
 
-  (* Ensures the inputted only supported options for the show flag. *)
+
+  (* Looks for an invalid option among the options the user inputted. *)
+  let find_invalid_option (opts : string list) (valid : string list)
+    : string option =
+    List.find opts ~f:(fun opt ->
+        not @@ List.mem valid opt ~equal:String.equal)
+
+  (* Ensures the user inputted only supported options for the debug flag. *)
+  let check_debug (debug : string list) : unit =
+    let valid = [
+      "z3-solver-stats";
+      "z3-verbose";
+      "constraint-stats";
+      "eval-constraint-stats"
+    ] in
+    match find_invalid_option debug valid with
+    | Some s ->
+      Printf.printf "'%s' is not a valid option for --debug. Available options \
+                     are: %s\n%!" s (List.to_string valid ~f:String.to_string);
+      exit 1
+    | None -> ()
+
+  (* Ensures the user inputted only supported options for the show flag. *)
   let check_show (show : string list) : unit =
-    let opts = [
+    let valid = [
       "bir";
       "refuted-goals";
       "paths";
       "precond-internal";
       "precond-smtlib"
     ] in
-    let find_invalid_option =
-      List.find show ~f:(fun s -> not @@ List.mem opts s ~equal:String.equal)
-    in
-    match find_invalid_option with
+    match find_invalid_option show valid with
     | Some s ->
       Printf.printf "'%s' is not a valid option for --show. Available options \
-                     are: %s\n%!" s (List.to_string opts ~f:String.to_string);
+                     are: %s\n%!" s (List.to_string valid ~f:String.to_string);
       exit 1
     | None -> ()
 
@@ -689,9 +714,9 @@ module Cli = struct
       (files : string list)
       (_ : ctxt) =
     let func = check_func func in
+    let () = check_debug debug in
     let () = check_show show in
     let flags = Analysis.({
-        files = files;
         func = func;
         precond = precond;
         postcond = postcond;
@@ -711,7 +736,7 @@ module Cli = struct
         show = show
       })
     in
-    Analysis.run flags;
+    Analysis.run flags files;
     Ok ()
 
 end
