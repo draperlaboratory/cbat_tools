@@ -57,6 +57,7 @@ type t = {
   fun_name_tid : Tid.t StringMap.t;
   call_map : string TidMap.t;
   sub_handler : fun_spec TidMap.t;
+  indirect_handler : indirect_spec;
   jmp_handler : jmp_spec;
   int_handler : int_spec;
   loop_handler : loop_handler;
@@ -77,6 +78,8 @@ and fun_spec = {
   spec_name : string;
   spec : fun_spec_type
 }
+
+and indirect_spec = t -> Constr.t -> Constr.t * t
 
 and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option
 
@@ -267,6 +270,7 @@ let mk_env
     ~subs:(subs : Sub.t Seq.t)
     ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
     ~default_spec:(default_spec : Sub.t -> Arch.t -> fun_spec)
+    ~indirect_spec:(indirect_spec : indirect_spec)
     ~jmp_spec:(jmp_spec : jmp_spec)
     ~int_spec:(int_spec : int_spec)
     ~exp_conds:(exp_conds : exp_cond list)
@@ -289,6 +293,7 @@ let mk_env
     fun_name_tid = init_fun_name subs;
     call_map = init_call_map var_gen subs;
     sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
+    indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
     loop_handler = init_loop_unfold num_loop_unroll;
@@ -379,6 +384,9 @@ let get_sub_handler (env : t) (tid : Tid.t) : fun_spec_type option =
   match TidMap.find env.sub_handler tid with
   | Some compute_func -> Some compute_func.spec
   | None -> None
+
+let get_indirect_handler (env : t) (_exp : Exp.t) : indirect_spec =
+  env.indirect_handler
 
 let get_jmp_handler (env : t) : jmp_spec =
   env.jmp_handler

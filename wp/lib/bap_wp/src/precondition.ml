@@ -95,9 +95,11 @@ let lookup_sub (label : Label.t) (post : Constr.t) (env : Env.t) : Constr.t * En
       | Some Inline -> !inline_func post env tid
       | None -> post, env
     end
-  (* TODO: Evaluate the expression for the indirect jump and
-   * figure out how to handle this case *)
-  | Indirect _ -> post, env
+  | Indirect exp ->
+    begin
+      warning "Encountered indirect call";
+      Env.get_indirect_handler env exp env post
+    end
 
 let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Constr.z3_expr)
     ~addr:(addr : Constr.z3_expr) (endian : Bap.Std.endian) : Constr.z3_expr =
@@ -643,6 +645,9 @@ let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t)
   else
     None
 
+let indirect_spec_default : Env.indirect_spec =
+  fun env post -> increment_stack_ptr post env
+
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
 
@@ -669,6 +674,7 @@ let mk_env
     ?subs:(subs = Seq.empty)
     ?specs:(specs = [])
     ?default_spec:(default_spec = spec_default)
+    ?indirect_spec:(indirect_spec = indirect_spec_default)
     ?jmp_spec:(jmp_spec = jmp_spec_default)
     ?int_spec:(int_spec = int_spec_default)
     ?exp_conds:(exp_conds = [])
@@ -681,7 +687,7 @@ let mk_env
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
+  Env.mk_env ~subs ~specs ~default_spec ~indirect_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
     ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
 
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =

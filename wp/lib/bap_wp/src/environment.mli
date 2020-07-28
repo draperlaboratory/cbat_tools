@@ -52,6 +52,9 @@ type fun_spec = {
   spec: fun_spec_type
 }
 
+(** Type that specifies what rules should be used when encountering an indirect call*)
+type indirect_spec = t -> Constr.t -> (Constr.t * t)
+
 (** Type that specifies what rules should be used when visiting a jump in a BIR program. *)
 type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> (Constr.t * t) option
 
@@ -92,6 +95,7 @@ type mem_range = {
     - a list of {!fun_spec}s that each summarize the precondition for its mapped function
     - the default fun_spec in the case a function does not satisfy the requirements
       of the other fun_specs
+    - a {!indirect_spec} for handling indirect calls
     - a {!jmp_spec} for handling branches
     - an {!int_spec} for handling interrupts
     - a list of {!exp_cond}s to satisfy
@@ -107,6 +111,7 @@ val mk_env
   :  subs:Bap.Std.Sub.t Bap.Std.Seq.t
   -> specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec option) list
   -> default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec)
+  -> indirect_spec:indirect_spec
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
@@ -206,6 +211,11 @@ val get_called : t -> Bap.Std.tid -> string option
 (** Looks up the specification of a subroutine that is used to calculate the precondition
     of a function call. *)
 val get_sub_handler : t -> Bap.Std.Tid.t -> fun_spec_type option
+
+(** Looks up the indirect call spec for an expression. Used to calculate the precondition
+    of an indirect call. *)
+val get_indirect_handler : t -> Bap.Std.Exp.t -> indirect_spec
+
 
 (** Looks up the list of jmp_specs that is used to calculate the precondition of
     jumps in a BIR program. *)

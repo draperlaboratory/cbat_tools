@@ -178,6 +178,9 @@ val spec_default : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec
 (** The default jmp spec for handling branches in a BIR program. *)
 val jmp_spec_default : Env.jmp_spec
 
+(** The default indirect call spec. *)
+val indirect_spec_default : Env.indirect_spec
+
 (** A jump spec that generates constraints for reaching a program point,
     according to a map specifying whether a jump was taken or not. *)
 val jmp_spec_reach : Constr.path -> Env.jmp_spec
@@ -241,6 +244,7 @@ val mk_env
   :  ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
   -> ?specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option) list
   -> ?default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec)
+  -> ?indirect_spec:Env.indirect_spec
   -> ?jmp_spec:Env.jmp_spec
   -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
