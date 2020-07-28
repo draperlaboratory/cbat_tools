@@ -442,7 +442,7 @@ module Analysis = struct
     { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
 
   (* Entrypoint for the WP analysis. *)
-  let run (f : flags) files : unit =
+  let run (f : flags) (files : string list) : unit =
     if (List.mem f.debug "z3-verbose"  ~equal:(String.equal)) then
       Z3.set_global_param "verbose" "10";
     let ctx = Env.mk_ctx () in
@@ -492,7 +492,7 @@ module Cli = struct
       ~doc:"Path(s) to one or two binaries to analyze. If two binaries are \
             specified, WP will run a comparative analysis."
 
-  let func = Cmd.parameter Typ.(some string) "func"
+  let func = Cmd.parameter Typ.(some string) ~aliases:["function"] "func"
       ~doc:"Function to run the WP analysis on. If no function is specified or \
             the function cannot be found in the binaries, the analysis will \
             fail."
@@ -654,7 +654,6 @@ module Cli = struct
     match func with
     | Some f -> f
     | None -> Printf.printf "Function is not provided for analysis.\n%!"; exit 1
-
 
   (* Looks for an invalid option among the options the user inputted. *)
   let find_invalid_option (opts : string list) (valid : string list)
