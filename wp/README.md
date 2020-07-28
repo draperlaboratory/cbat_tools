@@ -290,100 +290,109 @@ Use the bap CLI:
 
 To view the man page:
 
-    bap --wp-help
+    bap wp --help
 
 To find the precondition of a subroutine:
 
-    bap /path/to/exec --pass=wp \
-      [--wp-function=function_name] \
-      [OPTIONS]
+    bap wp \
+      [--func=function_name] \
+      [OPTIONS] \
+      -- /path/to/exec
 
 To compare two binaries:
 
-    bap /path/to/dummy/exec --pass=wp \
-      --wp-compare=true \
-      --wp-file1=/path/to/main1.bpj \
-      --wp-file2=/path/to/main2.bpj \
-      [OPTIONS]
+    bap wp \
+      [--func=function_name] \
+      [OPTIONS] \
+      -- /path/to/exe1 /path/to/exe2
 
 The various options are:
 
-- `--wp-compare=[true|false]`. This flag determines whether or
-  not to analyze a single function. If enabled, you will need to
-  specify the `file1` and `file2` options as well. `false` by default.
-
-- `--wp-file1=file_name.bpj`. Determines the location of the
-  first file in the case of a comparative analysis.
-
-- `--wp-file2=file_name.bpj`. Determines the location of the
-  second file in the case of a comparative analysis.
-
-- `--wp-function=function_name`. Determines which function to
+- `--func=function_name`. Determines which function to
   verify. `wp` verifies a single function, though calling it on
   the `main` function along with the `inline` option will analyze the
-  whole program. Has value `main` by default.
+  whole program. If no function is specified or the function cannot be found
+  in the binary/binaries, the analysis will fail.
 
-- `--wp-check-calls=[true|false]`. Determines whether to compare
-  the semantics of two programs by examining the return values of the
-  function to be compared, or whether to compare which sub-routines
-  are invoked in the body of the function. `false` by default.
-
-- `--wp-inline=posix-re`. Function calls to inline as specified by a POSIX
-  regular expression.  If not inlined, heuristic function summaries are used at
-  function call sites. For example, If you want to inline everything, set to
-  --wp-inline=.\* or --wp-inline=foo|bar will inline the functions foo and bar.
-
-- `--wp-precond=smt-lib-string`. If present, allows the introduction of assertions
+- `--precond=smt-lib-string`. If present, allows the introduction of assertions
   to the beginning of a query. This allows pruning of possible models. For
-  comparative predicates, one may refer to variables in the original and modified program by appending the suffix "_orig" and "_mod" to variable names in the smt-lib expression.
-  For examples `--wp-precond="(assert (= RDI_mod #x0000000000000003))  (assert (= RDI_orig #x0000000000000003))"`
+  comparative predicates, one may refer to variables in the original and
+  modified program by appending the suffix "_orig" and "_mod" to variable names
+  in the smt-lib expression. For example, `--precond="(assert (= RDI_mod #x0000000000000003)) (assert (= RDI_orig #x0000000000000003))"`.
 
-- `--wp-postcond=smt-lib-string`. If present, replaces the
-  default post-condition by the user-specified one, using the
-  [smt-lib2] format. Similar to `--wp-precond`, one may create comparative
-  postconditions on variables by appending "_orig" and "_mod" to register names.
+- `--postcond=smt-lib-string`. If present, replaces the default postcondition
+  by the user-specified one, using the [smt-lib2] format. Similar to
+  `--precond`, one may create comparative postconditions on variables by
+  appending "_orig" and "_mod" to register names.
 
-- `--wp-num-unroll=num`. If present, replaces the default number of
+- `--trip-asserts=[true|false]`. If set, WP will look for inputs to the
+  subroutine that would cause an `__assert_fail` to `__VERIFIER_error` to be
+  reached.
+
+- `--check-null-derefs=[true|false]` If present, in the case of a single binary
+  analysis, WP will check for inputs that would result in dereferencing a NULL
+  address during a memory read or write. In the case of a comparative analysis,
+  WP will check that the modified binary has no additional null dereferences in
+  comparison with the original binary.
+
+- `--compare-func-calls=[true|false]`. Determines whether to compare
+  the semantics of two programs by comparing which subroutines are invoked in
+  the body of the function. `false` by default.
+
+- `--compare-post-reg-values=reg_list`. This flag is used for a comparison
+  analysis. If set, WP will compare the values stored in the specified registers
+  at the end of the analyzed function's execution. For example, `RAX,RDI`
+  compares the values of RAX and RDI at the end of execution. If unsure about
+  which registers to compare, x86_64 architectures place their output in RAX,
+  and ARM architectures place their output in R0.
+
+- `--inline=posix-re`. Function calls to inline as specified by a POSIX
+  regular expression.  If not inlined, heuristic function summaries are used at
+  function call sites. For example, if you want to inline everything, set to
+  --inline=.\* or if you want to inline functions foo and bar, set to
+  --inline=foo|bar.
+
+- `--num-unroll=num`. If present, replaces the default number of
   times to unroll each loop. The number of loop unrollings is 5 by default.
 
-- `--wp-compare-post-reg-values=reg_list`. This flag is used for a comparison
-  analysis. If set, WP will compare the values stored in the specified registers
-  at the end of the analyzed function's execution. For example,
-  `--wp-compare-post-reg-values=RAX,RDI` compares the values of RAX and RDI at
-  the end of execution. If unsure about which registers to compare, x86_64
-  architectures place their output in RAX, and ARM architectures place their
-  output in R0.
-
-- `--wp-gdb-filename=my_exec.gdb`. Output a gdb script to file `my_exec.gdb`. From
+- `--gdb-output=my_exec.gdb`. Output a gdb script to file `my_exec.gdb`. From
   within gdb, run `source my_exec.gdb` to set a breakpoint at the function given
-  by `--wp-function` and fill the appropriate registers with a found counter-model.
+  by `--func` and fill the appropriate registers with a found counter-model.
 
-- `--wp-bildb-output=filename.yml`. Output a BilDB initialization script to file
+- `--bildb-output=filename.yml`. Output a BilDB initialization script to file
   `filename.yml`. This YAML file sets the registers and memory to the values
   specified in the countermodel found during WP analysis, allowing BilDB to
   follow the same execution trace. In the case the analysis returns UNSAT or
   UNKNOWN, no script will be outputted.
 
-- `--wp-use-fun-input-regs=[true|false].` If present, at a function call site, uses
+- `--use-fun-input-regs=[true|false].` If present, at a function call site, uses
   all possible input registers as arguments to a function symbol generated for
   an output register that represents the result of the function call. If set to
   false, no registers will be used. Defaults to true.
 
-- `--wp-mem-offset=[true|false]`. If present, at a memory read, adds an assumption to
-  the precondition that the memory of the modified binary is the same as the original
-  binary at an offset calculated by aligning the data and bss sections of the binary.
+- `--mem-offset=[true|false]`. If present, at a memory read, adds an assumption
+  to the precondition that the memory of the modified binary is the same as the
+  original binary at an offset calculated by aligning the data and bss sections.
   We do this by invoking `objdump` on both binaries, and determining the starting
-  addresses of the symbols in these sections. If this flag is set to false, we assume
-  that memory between both binaries are equal during a memory read.
+  addresses of the symbols in these sections. If this flag is set to false, we
+  assume that memory between both binaries are equal during a memory read.
 
-- `--wp-check-null-deref=[true|false]` If present, in the case of a single binary
-  analysis, WP will check for inputs that would result in dereferencing a NULL address
-  during a memory read or write. In the case of a comparative analysis, adds the
-  contraint that if a memory read or write dereferences a non-null address in the
-  original binary, then that same address is also non-null in the modified binary.
-  Defaults to false.
+- `--debug=[z3-solver-stats|z3-verbose|constraint-stats|eval-constraint-stats]
+  or some comma delimited combination`. A list of various debugging statistics
+  to print out during the analysis. Multiple options as a list can be passed
+  into the flag to print multiple statistics. For example:
+  `--debug=z3-solver-stats,z3-verbose`. The options are:
+  - `z3-solver-stats`: Statistics about the Z3 solver including information such
+    as the maximum amount of memory and number of allocations.
+  - `z3-verbose`: Increases Z3's verbosity level to output information during
+    the precondition check time including the tactics the solver used.
+  - `constraint-stats`: Prints out the number of goals, ITES, clauses, and
+    substitutions in the constraint data type of the precondition.
+  - `eval-constraint-stats`: Prints out the mean, max, and standard deviation of
+    the number of subsitutions that occur during the evaluation of the
+    constraint datatype.
 
-- `--wp-show=[bir|refuted-goals|paths|precond-internal|precond-smtlib]`. A list
+- `--show=[bir|refuted-goals|paths|precond-internal|precond-smtlib]`. A list
   of details to print out from the analysis. Multiple options as a list can be
   passed into the flag to print out multiple details. For example:
   `--wp-show=bir,refuted-goals`. The options are:
@@ -399,22 +408,10 @@ The various options are:
      for the Constr.t type.
    - `precond-smtlib`: The precondition printed out in Z3's SMT-LIB2 format.
 
-- `--wp-debug=[z3-solver-stats|z3-verbose|constraint-stats|eval-constraint-stats]
-  or some comma delimited combination`. If set, debug will print the various
-  debugging statistics, including information and statistics for Z3's solver, Z3's
-  verbosity-level, constr.t, and expression-lists when calling eval. These can also
-  be called with the key-words: z3-solver-stats, z3-verbose, constraint-stats and
-  eval-constraint-stats respectively. If the flag is not called, it defaults to
-  printing none of them.
-
-- `--wp-trip-asserts=[true|false]`. If set, WP will look for inputs to the
-  subroutine that would cause an `__assert_fail` to `__VERIFIER_error` to be
-  reached.
-
-- `--wp-stack-base=address`. If present, sets the base or top address of the stack.
+- `--stack-base=address`. If present, sets the base or top address of the stack.
   By default, WP places the stack at a base address of 0x40000000.
 
-- `--wp-stack-size=size`. If present, sets the size of the stack. `size` should
+- `--stack-size=size`. If present, sets the size of the stack. `size` should
   be denoted in bytes. By default, the size of the stack is 0x800000, which is
   8Mbs.
 
