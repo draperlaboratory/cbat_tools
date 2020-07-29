@@ -97,8 +97,8 @@ let lookup_sub (label : Label.t) (post : Constr.t) (env : Env.t) : Constr.t * En
     end
   | Indirect exp ->
     begin
-      warning "Encountered indirect call";
-      Env.get_indirect_handler env exp env post
+      warning "Encountered indirect call to exp : %s" (Exp.to_string exp);
+      Env.get_indirect_handler env exp env post exp
     end
 
 let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Constr.z3_expr)
@@ -646,7 +646,10 @@ let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t)
     None
 
 let indirect_spec_default : Env.indirect_spec =
-  fun env post -> increment_stack_ptr post env
+  (* NOTE we keep around exp for that point in the future
+   * when we can use it to determine the destination of the
+   * indirect call. *)
+  fun env post _exp -> increment_stack_ptr post env
 
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
