@@ -325,16 +325,27 @@ let visit_call (call: Bap.Std.Call.t) (post : Constr.t) (env : Env.t) : Constr.t
   let target = Call.target call in
   let return = Call.return call in
   match target, return with
-  | Direct _, Some (Indirect _)
-  | Indirect _, Some (Indirect _) -> post, env
+  | Direct t_tid, Some (Indirect _) ->
+    warning "making direct call to %s with indirect return!\n%!"
+      (Tid.to_string t_tid);
+    post, env
+  | Indirect _, Some (Indirect _) ->
+    warning "making indirect call with indirect return!\n%!";
+    post, env
   | Indirect t_exp, None ->
+    warning "Making an indirect call with expression %s with no return;
+    applying the default spec (do nothing)!\n%!" (Exp.to_string t_exp);
     Env.get_indirect_handler env t_exp env post t_exp false
   | Direct t_tid, None ->
+    debug "Call label %s with no return%!" (Label.to_string target);
     lookup_sub_handler t_tid env post
   | Direct t_tid, Some (Direct r_tid) ->
     let ret_pre = lookup_precond r_tid env post in
     lookup_sub_handler t_tid env ret_pre
   | Indirect t_exp, Some (Direct r_tid) ->
+    warning "Making an indirect call with expression %s with return to tid %s;
+    incrementing the stack pointer!\n%!"
+      (Exp.to_string t_exp) (Tid.to_string r_tid);
     let ret_pre = lookup_precond r_tid env post in
     Env.get_indirect_handler env t_exp env ret_pre t_exp true
 
