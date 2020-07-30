@@ -208,7 +208,9 @@ let suite = [
   "Goto string"                    >: test_plugin "goto_string" sat;
   "Goto string: inline all"        >: test_plugin "goto_string" sat ~script:"run_wp_inline.sh";
 
-  "Indirect call with return: UNSAT" >: test_plugin "indirect_call" unsat;
+  "Indirect call with return: UNSAT" >: test_plugin "indirect_call_return" unsat;
+
+  "Indirect call with return: UNSAT" >: test_plugin "indirect_call_no_return" unsat;
 
   "Init var value in post: UNSAT:" >: test_plugin "init_var" unsat;
   "Init var value in post: SAT"    >: test_plugin "init_var" sat ~script:"run_wp_sat.sh";

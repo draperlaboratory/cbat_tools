@@ -86,21 +86,6 @@ let inline_func :
   (Constr.t -> Env.t -> Tid.t -> Constr.t * Env.t) ref =
   ref (fun _ _ _ -> assert false)
 
-let lookup_sub (label : Label.t) (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
-  match label with
-  | Direct tid ->
-    begin
-      match Env.get_sub_handler env tid with
-      | Some (Summary compute_func) -> compute_func env post tid
-      | Some Inline -> !inline_func post env tid
-      | None -> post, env
-    end
-  | Indirect exp ->
-    begin
-      warning "Encountered indirect call to exp : %s" (Exp.to_string exp);
-      Env.get_indirect_handler env exp env post exp
-    end
-
 let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Constr.z3_expr)
     ~addr:(addr : Constr.z3_expr) (endian : Bap.Std.endian) : Constr.z3_expr =
   assert (Z3Array.is_array mem && mem |> Expr.get_sort
@@ -322,6 +307,37 @@ let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
     end
   else
     post, env
+
+let lookup_precond (tid: Bap.Std.Tid.t) (env: Env.t) (post: Constr.t) =
+  match Env.get_precondition env tid with
+  | Some pre -> pre
+  | None ->
+    info "Precondition for return %s not found!" (Tid.to_string tid);
+    post
+
+let lookup_sub_handler (tid: Bap.Std.Tid.t) (env: Env.t) (post: Constr.t) =
+  match Env.get_sub_handler env tid with
+  | Some (Summary compute_func) -> compute_func env post tid
+  | Some Inline -> !inline_func post env tid
+  | None -> post, env
+
+let visit_call (call: Bap.Std.Call.t) (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
+  let target = Call.target call in
+  let return = Call.return call in
+  match target, return with
+  | Direct _, Some (Indirect _)
+  | Indirect _, Some (Indirect _) -> post, env
+  | Indirect t_exp, None ->
+    Env.get_indirect_handler env t_exp env post t_exp false
+  | Direct t_tid, None ->
+    lookup_sub_handler t_tid env post
+  | Direct t_tid, Some (Direct r_tid) ->
+    let ret_pre = lookup_precond r_tid env post in
+    lookup_sub_handler t_tid env ret_pre
+  | Indirect t_exp, Some (Direct r_tid) ->
+    let ret_pre = lookup_precond r_tid env post in
+    Env.get_indirect_handler env t_exp env ret_pre t_exp true
+
 
 let var_of_arg_t (arg : Arg.t) : Var.t =
   let vars = arg |> Arg.rhs |> Exp.free_vars in
@@ -649,7 +665,9 @@ let indirect_spec_default : Env.indirect_spec =
   (* NOTE we keep around exp for that point in the future
    * when we can use it to determine the destination of the
    * indirect call. *)
-  fun env post _exp -> increment_stack_ptr post env
+  fun env post _exp has_return ->
+  if has_return then increment_stack_ptr post env
+  else post, env
 
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
@@ -745,29 +763,7 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
             warning "Making an indirect jump, using the default postcondition!\n%!";
             post, env
         end
-      | Call call ->
-        begin
-          let target = Call.target call in
-          match Call.return call with
-          | Some (Direct tid) ->
-            debug "Call label %s with return to %s%!"
-              (Label.to_string target) (Tid.to_string tid);
-            let ret_pre =
-              match Env.get_precondition env tid with
-              | Some pre -> pre
-              | None ->
-                info "Precondition for return %s not found!" (Tid.to_string tid);
-                post
-            in
-            lookup_sub target ret_pre env
-          | None ->
-            debug "Call label %s with no return%!" (Label.to_string target);
-            lookup_sub target post env
-          (* If we reach this case, we couldn't figure out the return address *)
-          | Some (Indirect _) ->
-            warning "Making an indirect call, using the default postcondition!\n%!";
-            post, env
-        end
+      | Call call -> visit_call call post env
       (* TODO: do something here? *)
       | Ret l ->
         debug "Return to: %s%!" (Label.to_string l);
@@ -816,13 +812,13 @@ let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t
   (pre, Env.add_precond env (Term.tid blk) pre)
 
 let visit_graph (env : Env.t) (post : Constr.t)
-      ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
+    ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
   let module G = Graphs.Ir in
   (* Prune non-reachable sub-graphs from the DFS *)
   let module Reachable_from_start =
     (val
-       Graphlib.filtered (module G)
-         ~skip_node:(fun n -> not (Graphlib.is_reachable (module G) g start n)) ())
+      Graphlib.filtered (module G)
+        ~skip_node:(fun n -> not (Graphlib.is_reachable (module G) g start n)) ())
   in
   let leave_node _ n (_, env) =
     let b = G.Node.label n in

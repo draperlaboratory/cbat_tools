@@ -15,7 +15,8 @@ run () {
     --wp-file1=main_1.bpj \
     --wp-file2=main_2.bpj \
     --wp-function=indirect_call \
-    --wp-check-calls
+    --wp-check-calls \
+    --wp-postcond="(assert (and (= RSP_orig (bvadd init_RSP_orig #x0000000000000008)) (= RSP_mod (bvadd init_RSP_mod #x0000000000000008))))" 
 }
 
 compile && run

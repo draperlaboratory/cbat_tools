@@ -59,9 +59,8 @@ val unop : Z3.context -> Bap.Std.unop -> Constr.z3_expr -> Constr.z3_expr
 (** Translate a BIR cast operation into a Z3 one. *)
 val cast : Z3.context -> Bap.Std.cast -> int -> Constr.z3_expr -> Constr.z3_expr
 
-(** Look up the precondition for a subroutine in the given environment,
-    for a given postcondition. *)
-val lookup_sub : Bap.Std.Label.t -> Constr.t -> Env.t -> Constr.t * Env.t
+(** Compute a precondition for given call given a postcondition. *)
+val visit_call : Bap.Std.Call.t -> Constr.t -> Env.t -> Constr.t * Env.t
 
 (** Get {e every} variable from a subroutine. *)
 val get_vars : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
