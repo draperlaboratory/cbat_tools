@@ -52,8 +52,8 @@ type fun_spec = {
   spec: fun_spec_type
 }
 
-(** Type that specifies what rules should be used when encountering an indirect call*)
-type indirect_spec = t -> Constr.t -> Bap.Std.Exp.t -> Constr.t * t
+(** Type that specifies what rules should be used when encountering an indirect call *)
+type indirect_spec = t -> Constr.t -> Bap.Std.Exp.t -> bool -> Constr.t * t
 
 (** Type that specifies what rules should be used when visiting a jump in a BIR program. *)
 type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> (Constr.t * t) option

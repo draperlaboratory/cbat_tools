@@ -79,7 +79,7 @@ and fun_spec = {
   spec : fun_spec_type
 }
 
-and indirect_spec = t -> Constr.t -> Exp.t -> Constr.t * t
+and indirect_spec = t -> Constr.t -> Exp.t -> bool -> Constr.t * t
 
 and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option
 
