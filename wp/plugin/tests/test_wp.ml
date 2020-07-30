@@ -193,6 +193,9 @@ let suite = [
   "Switch Cases"                   >: test_plugin "switch_cases" sat ~expected_regs:[("RDI", "0x0000000000000003")];
   "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat ~expected_regs:[("RDI", "0x0000000000000003")];
 
+  "Indirect call with return" >: test_plugin "indirect_call_return" unsat;
+  "Indirect call with no return" >: test_plugin "indirect_call_no_return" unsat;
+
   (* Test single elf *)
 
   "Function call"                  >: test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh"
@@ -207,10 +210,6 @@ let suite = [
 
   "Goto string"                    >: test_plugin "goto_string" sat;
   "Goto string: inline all"        >: test_plugin "goto_string" sat ~script:"run_wp_inline.sh";
-
-  "Indirect call with return: UNSAT" >: test_plugin "indirect_call_return" unsat;
-
-  "Indirect call with return: UNSAT" >: test_plugin "indirect_call_no_return" unsat;
 
   "Init var value in post: UNSAT:" >: test_plugin "init_var" unsat;
   "Init var value in post: SAT"    >: test_plugin "init_var" sat ~script:"run_wp_sat.sh";
