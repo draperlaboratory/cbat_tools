@@ -418,11 +418,15 @@ The various options are:
   8Mbs.
 
 - `--op-uninterp=[plus|sub|mul|udiv|et.seq.] or some comma-delimited combination`.
-  If set, certain binary operations will be made uninterpreted. The binary-
-  operations that can be called are plus, sub, mul, udiv, sdiv, urem,
-  smod, and, or, xor, eq, neq, lt, le, slt, sle, shl, lshr, and ashr.
-  If declared but no binary-operations are specified, shl, lshr and ashr
-  will be called. By default, all flags remain interpreted."
+  If set, specified operations will be made uninterpreted during comparisons. The
+  --wp-compare flag must be set to true for uninterpretation to work. When
+  an operation is uninterpreted, its functionality is removed, making it a dummy-
+  function. For example, we can uninterpret the operation "+" by replacing it with
+  a dummy-function "_BIR_Z3_add" that does nothing but act as a placeholder where
+  "+" was. The binary-operations that can be called are plus, sub, mul, udiv,
+  sdiv, urem, smod, and, or, xor, eq, neq, lt, le, slt, sle, shl, lshr, and ashr.
+  If declared but no binary-operations are specified, all operations will remain
+  interpreted, and if the flag is not called, all operations remain interpreted.
 
 ## C checking API
 

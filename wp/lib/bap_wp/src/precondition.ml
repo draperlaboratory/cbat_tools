@@ -236,8 +236,8 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
         (Exp.to_string x) (Bil.string_of_binop bop) (Exp.to_string y);
       let x_val, env = exp_to_z3_body x env in
       let y_val, env = exp_to_z3_body y env in
-      let op_interp = Env.get_op_interp_handler env in
-        (match (op_interp bop x_val y_val) with
+      let op_uninterp = Env.get_op_uninterp_handler env in
+        (match (op_uninterp bop x_val y_val) with
         | Some opaque -> (opaque , env)
         | None -> (binop ctx bop x_val y_val, env))
     | UnOp (u, x) ->
@@ -643,7 +643,7 @@ let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t)
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
 
-let op_interp_default : Env.op_interp =
+let op_uninterp_default : Env.op_uninterp =
   fun _ _ _ -> None
 
 let int_spec_default : Env.int_spec =
@@ -670,7 +670,7 @@ let mk_env
     ?specs:(specs = [])
     ?default_spec:(default_spec = spec_default)
     ?jmp_spec:(jmp_spec = jmp_spec_default)
-    ?op_interp:(op_interp = op_interp_default)
+    ?op_uninterp:(op_uninterp = op_uninterp_default)
     ?int_spec:(int_spec = int_spec_default)
     ?exp_conds:(exp_conds = [])
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
@@ -682,7 +682,7 @@ let mk_env
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~op_interp ~int_spec ~exp_conds ~num_loop_unroll
+  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~op_uninterp ~int_spec ~exp_conds ~num_loop_unroll
     ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
 
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
@@ -1009,7 +1009,7 @@ let opaq_name (b : binop) : string =
   | RSHIFT -> "_BIR_Z3_lshr"
   | ARSHIFT -> "_BIR_Z3_ashr"
 
-let create_interp (flag : string list) (ctx : Z3.context)  : Env.op_interp =
+let create_uninterp (flag : string list) (ctx : Z3.context)  : Env.op_uninterp =
   fun b x y ->
   let opaq_name = opaq_name(b) in
   if (List.mem flag opaq_name ~equal:(fun x y -> (x = "_BIR_Z3_"^y))) then

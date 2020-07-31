@@ -44,8 +44,8 @@ type flags =
     debug : string list;
     trip_asserts : bool;
     stack_base : int option;
-    stack_size : int option; (*ADDED*)
-    op_interp : string list
+    stack_size : int option;
+    op_uninterp : string list
   }
 
 let missing_func_msg (func : string) : string =
@@ -171,9 +171,7 @@ let analyze_proj (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let specs = fun_specs flags to_inline in
   let exp_conds = exp_conds_mod flags in
   let stack_range = set_stack flags in
-  let op_interp = (if (flags.op_interp = []) then Pre.op_interp_default
-      else Pre.create_interp (flags.op_interp) (ctx)) in
-  let env = Pre.mk_env ctx var_gen ~subs ~op_interp:op_interp ~arch ~specs
+  let env = Pre.mk_env ctx var_gen ~subs ~arch ~specs
       ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds ~stack_range in
   (* call visit sub with a dummy postcondition to fill the
      environment with variables *)
@@ -261,7 +259,6 @@ let comparators_of_flags
   in
   List.unzip comps
 
-(*ADDED*)
 let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     (flags : flags) : Constr.t * Env.t * Env.t =
   let prog1 = Program.Io.read flags.file1 in
@@ -274,13 +271,13 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let main_sub1 = find_func_err subs1 flags.func in
   let main_sub2 = find_func_err subs2 flags.func in
   let stack_range = set_stack flags in
-  let op_interp = (if (flags.op_interp = []) then Pre.op_interp_default
-      else Pre.create_interp (flags.op_interp) (ctx)) in
+  let op_uninterp = (if (flags.op_uninterp = []) then Pre.op_uninterp_default
+      else Pre.create_uninterp (flags.op_uninterp) (ctx)) in
   let env2 =
     let to_inline2 = match_inline flags.inline subs2 in
     let specs2 = fun_specs flags to_inline2 in
     let exp_conds2 = exp_conds_mod flags in
-    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~op_interp:op_interp ~arch:arch ~specs:specs2
+    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~op_uninterp:op_uninterp ~arch:arch ~specs:specs2
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds2 ~stack_range in
     let env2 = Env.set_freshen env2 true in
     let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
@@ -290,7 +287,7 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     let to_inline1 = match_inline flags.inline subs1 in
     let specs1 = fun_specs flags to_inline1 in
     let exp_conds1 = exp_conds_orig flags env2 in
-    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~op_interp:op_interp ~arch:arch ~specs:specs1
+    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~op_uninterp:op_uninterp ~arch:arch ~specs:specs1
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 ~stack_range in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
@@ -468,13 +465,18 @@ module Cmdline = struct
       ~doc:"The default size of the stack in bytes. By default, set to \
             0x800000 which is 8Mbs."
 
-  let op_interp = param (list string) "op-uninterp"
-       ~as_flag:["shl";"lshr";"ashr"] ~default:[]
-       ~doc:"If set, certain binary operations will be made uninterpreted. The binary
-             operations that can be called are plus, sub, mul, udiv, sdiv, urem,
-             smod, and, or, xor, eq, neq, lt, le, slt, sle, shl, lshr, and ashr.
-             If declared but no binary-operations are specified, shl, lshr and ashr
-             will be called. By default, all flags remain interpreted."
+  let op_uninterp = param (list string) "op-uninterp" ~as_flag:[] ~default:[]
+       ~doc:"If set, specified operations will be made uninterpreted during \
+            comparisons.The --wp-compare flag must be set to true for \
+            uninterpretation to take effect. When an operation is uninterpreted, \
+            its functionality is removed, making it a dummy-function. For example, \
+            we can uninterpret the operation+ by replacing it with a dummy-function \
+            _BIR_Z3_add that does nothing butact as a placeholder where + was. \
+            The binary-operations that can be calledare plus, sub, mul, udiv, \
+            sdiv, urem, smod, and, or, xor, eq, neq, lt, le,slt, sle, shl, lshr, \
+            and ashr. If declared but no binary-operations arespecified, all \
+            operations will remain interpreted, and if the flag is not called, \
+            all operations remain interpreted."
 
   let () = when_ready (fun {get=(!!)} ->
       let flags =
@@ -501,7 +503,7 @@ module Cmdline = struct
           trip_asserts = !!trip_asserts;
           stack_base = !!stack_base;
           stack_size = !!stack_size;
-          op_interp = !!op_interp;
+          op_uninterp = !!op_uninterp;
         }
       in
       Project.register_pass' @@
