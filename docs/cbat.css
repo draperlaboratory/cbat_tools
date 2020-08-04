@@ -1,10 +1,10 @@
 body {
   font-family: Arial, sans-serif;
   font-size: 13pt;
-  line-height: 20pt;
+  line-height: 2rem;
   font-weight: 100;
   color: hsla(228, 0%, 25%, 1.0);
-  margin: 1em 2em;
+  margin: 1rem 2rem;
 }
 
 h1 {
@@ -33,7 +33,7 @@ blockquote {
   background: hsla(228, 0%, 95%, 1.0);
   border-radius: 3px;
   border: 1px solid hsla(228, 0%, 25%, 1.0);
-  padding: 0.5em 1em;
+  padding: 0.5rem 1rem;
   font-weight: bold;
 }
 
@@ -41,45 +41,39 @@ pre {
   background: hsla(228, 0%, 10%, 1.0);
   border-radius: 3px;
   border: 1px solid hsla(228, 0%, 75%, 1.0);
-  padding: 0.5em;
+  padding: 0.5rem;
   color: white;
 }
 
 code {
+  position: inline-block;
+  position: relative;
   color: hsla(228, 0%, 20%, 1.0);
   background: hsla(228, 0%, 85%, 1.0);
-  padding: 0em 0.25em 0.05em 0.25em;
-  border-radius: 3px;
+  padding: 0 0.25rem 0 0.25rem;
+  border-radius: 0.25rem;
   border: 1px solid hsla(228, 0%, 75%, 1.0);
+}
+
+li {
+  margin-bottom: 0.5rem;
 }
 
 a {
   display: inline-block;
-  padding: 0em 0.25em 0.05em 0.25em;
-  font-weight: 100;
-  color: cornflowerblue;
-  border-radius: 3px;
-  border: 1px solid hsla(228, 0%, 100%, 1.0);
-}
-
-a:visited {
-  display: inline-block;
-  padding: 0em 0.25em 0.05em 0.25em;
-  font-weight: 100;
-  color: blue;
-  border-radius: 3px;
-  border: 1px solid hsla(228, 0%, 100%, 1.0);
+  position: relative;
+  padding: 0 0.25rem 0 0.25rem;
+  border-radius: 0.25rem;
+  border: 1px solid hsla(225, 100%, 75%, 0.75);;
+  background-color: hsla(0, 0%, 0%, 0.06);
+  color: black;
+  transition: 0.25s background;
 }
 
 a:hover {
-  display: inline-block;
-  padding: 0em 0.25em 0.05em 0.25em;
-  font-weight: 100;
+  background-color: orange;
   text-decoration: none;
-  color: hsla(228, 0%, 100%, 1.0);
-  background: hsla(15, 100%, 53%, 1.0);
-  border-radius: 3px;
-  border: 1px solid hsla(228, 0%, 20%, 1.0);
+  color: black;
 }
 
 .centerImage {
