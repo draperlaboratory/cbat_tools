@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../../cbat.css">
+<title>Exercise 02: Solving Sudoku</title>
+</head>
+<body>
+
+<h1>Exercise 02: Solving Sudoku</h1>
+
+<p>For this exercise, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/exercises/02
+</pre>
+
+The task of this exercise is to let <code>wp</code> solve a 3x3 Sudoku cube.
+
+
+<h2>3x3 Sudoku cubes</h2>
+
+A 3x3 sudoku cube has 9 squares, some of which have a <code>1</code>, <code>2</code>, or <code>3</code> in them. For example:
+
+<pre>
++---+---+---+
+|   |   | 2 |
++---+---+---+
+| 2 |   |   |
++---+---+---+
+|   | 2 |   |
++---+---+---+
+</pre>
+
+To solve a cube such as this, you must fill in each square with a <code>1</code>, <code>2</code>, or <code>3</code>, so that each row and each column in the cube contains one each of <code>1</code>, <code>2</code>, and <code>3</code>.
+
+For example, a correct solution to the above would be this:
+
+<pre>
++---+---+---+
+| 3 | 1 | 2 |
++---+---+---+
+| 2 | 3 | 1 |
++---+---+---+
+| 1 | 2 | 3 |
++---+---+---+
+</pre>
+
+Such a solution can be encoded as a 32-bit number. To do that, convert each digit into a 2-bit binary number (so <code>1</code> becomes <code>01</code>, <code>2</code> becomes <code>10</code>, and <code>3</code> becomes <code>11</code>), then concatenate them, and pad with 12 zeros on the right to make the whole number 32 bits wide. 
+
+For example, to encode the above solution as a 32-bit number, do it like this:
+
+<pre>
++---+---+---+      +----+----+----+
+| 3 | 1 | 2 |      | 11 | 01 | 10 |    11 01 10
++---+---+---+      +----+----+----+
+| 2 | 3 | 1 |  =>  | 10 | 11 | 01 | => 10 11 01
++---+---+---+      +----+----+----+
+| 1 | 2 | 3 |      | 01 | 10 | 11 |    01 10 11
++---+---+---+      +----+----+----+
+
+
+=>  11 01 10   10 11 01   01 10 11    00000000000000
+
+        ^          ^         ^              ^
+        |          |         |              |
+     1st row    2nd row   3rd row     Pad with zeros
+
+
+=>  110110 101101 011011 00000000000000
+=>  11011010110101101100000000000000 
+</pre>
+
+Finally, use a binary-to-hex converter (easily found online) to convert that binary number to a hex value. In this case:
+
+<pre>
+11011010110101101100000000000000  =>  0xDAD6C000
+</pre>
+
+So <code>0xDAD6C000</code> represents the above solution to the 3x3 cube.
+
+Here is another solution to a 3x3 cube, which is not correct (can you see why it is not correct?):
+
+<pre>
++---+---+---+      +----+----+----+
+| 1 | 3 | 2 |      | 01 | 11 | 10 |    01 11 10
++---+---+---+      +----+----+----+
+| 2 | 3 | 1 |  =>  | 10 | 11 | 01 | => 10 11 01
++---+---+---+      +----+----+----+
+| 3 | 2 | 1 |      | 11 | 10 | 01 |    11 10 01
++---+---+---+      +----+----+----+
+
+
+=>  01 11 10   10 11 01   11 10 01    00000000000000
+=>  01111010110111100100000000000000
+=>  0x7ADE4000 (in hex)
+</pre>
+
+So, <code>0x7ADE4000</code> is a solution to a 3x3 sudoku cube, but it is a solution which is incorrect.
+
+
+<h2>The sample binary program</h2>
+
+There is a program at <code>binary/main</code>. The source code lives at <a href="binary/main.c">binary/main.c</a>, but you should be able to complete this exercise without looking at the source code.
+
+This program checks solutions to a 3x3 sudoku cube. The program contains a function <code>check</code>, which takes for its argument a solution encoded as a 32-bit number in the manner described above. This function checks if the provided number represents a correct solution. If so, it trips an assert.
+
+Try it out, using the number we constructed above, namely <code>0x7ADE4000</code>, which represents an incorrect solution:
+
+<pre>
+    $ ./binary/main 0x7ADE4000
+</pre>
+
+When you run this, the program prints the solution you provided:
+
+<pre>
++---+---+---+
+| 1 | 3 | 2 |
++---+---+---+
+| 2 | 3 | 1 |
++---+---+---+
+| 3 | 2 | 1 |
++---+---+---+
+</pre>
+
+Check the exit code:
+
+<pre>
+    $ echo $?
+</pre>
+
+You will see that the program returned <code>1</code>, to indicate that the solution is not correct.
+
+Now try it with the number we constructed above that represents a correct solution, namely <code>0xDAD6C000</code>:
+
+<pre>
+    $ ./binary/main 0xDAD6C000
+</pre>
+
+Again, it prints the solution you provided: 
+
+<pre>
++---+---+---+
+| 3 | 1 | 2 |
++---+---+---+
+| 2 | 3 | 1 |
++---+---+---+
+| 1 | 2 | 3 |
++---+---+---+
+</pre>
+
+But this time, since the solution is correct, it trips the assert:
+
+<pre>
+main: main.c:68: check: Assertion `0' failed.
+Aborted
+</pre>
+
+
+<h2>Your task</h2>
+
+Use <code>wp</code> to complete the following task:
+
+<ol>
+  <li>Use <code>wp</code> to find a hex number that represents a correct solution to a 3x3 sudoku cube.</li>
+  <li>Convert that hex number to a 3x3 sudoku cube board (draw the board, with the correct <code>1</code>s, <code>2</code>s, and <code>3</code>s in it).</li>
+</ol>
+
+<h2>Solution</h2>
+
+<p>To see the solution, click <a href="solution.html">here</a>.
+
+</section>
+
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../../cbat.css">
+<title>Exercise 04: Compare Function Calls</title>
+</head>
+<body>
+
+<h1>Exercise 04: Compare Function Calls</h1>
+
+<p>For this exercise, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/exercises/04
+</pre>
+
+
+<h2>The sample binary programs</h2>
+
+<p>In the <code>binary</code> folder, there are two programs: <code>binary/main_1</code> and <code>binary/main_2</code>. Their source code resides at <a href="binary/main_1.c">binary/main_1.c</a> and <a href="binary/main_2.c">binary/main_2.c</a>. 
+
+<p>These two programs are simplified versions of some code from Apple's SSL library, and they mimic a real bug that was discovered in Apple's SSL library a few years back (it was called the "goto fail" exploit). 
+
+<p>The important function is called <code>SSLVerifySignedServerKeyExchange</code>. The first version of this function (in <code>binary/main_1</code>) has a bug. In the second version (in <code>binary/main_2</code>), the bug is fixed.
+
+<p>This particular bug is revealed by analyzing the function calls that can occur inside <code>SSLVerifySignedServerKeyExchange</code>. It turns out that the bug makes it so that different function calls can occur in the buggy and fixed versions.
+
+<h2>Your task</h2>
+
+<p>Your task is to use <code>wp</code> to find the bug. To do that, complete the following tasks:
+
+<ol>
+  <li>Use <code>wp</code> to check the function calls in the <code>SSLVerifySignedServerKeyExchange</code> function. Be sure to include <code>--wp-show=refuted-goals</code> when you run <code>wp</code>. How do the two programs differ, with respect to the function calls they can make?</li>
+  <li>Study the output of <code>wp</code>, and then study the source code of the two programs, to identify where the bug lies in the source code.</li>
+</ol>
+
+<h2>Solution</h2>
+
+<p>To see the solution, click <a href="solution.html">here</a>.
+
+</section>
+
+</body>
+</html>

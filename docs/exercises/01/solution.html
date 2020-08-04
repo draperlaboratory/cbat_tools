@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../../cbat.css">
+<title>Solution: Exercise 01</title>
+</head>
+<body>
+
+<h1>Solution: Exercise 01</h1>
+
+<p>The following is the solution for <a href="exercise.html">Exercise 01</a>.
+
+<p>For this exercise, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/exercises/01
+</pre>
+
+<h2>Task 1</h2>
+
+<blockquote>Find out if it is possible to trip the assert in the function <code>is_valid_ID</code>.</blockquote>
+
+<p>First, run <code>wp</code> on the <code>is_vaid_ID</code> function in <code>./binary/main</code> using <code>--wp-trip-assert</code>:
+
+<pre>
+    $ bap binary/main \
+          --pass=wp \
+          --wp-func=is_valid_ID \
+          --wp-trip-assert
+</pre>
+
+<p>In response, <code>wp</code> says <code>SAT</code>, which means that <code>wp</code> did find a way to trip the assert. Hence, the solution to the first task is: yes, it is possible to trip the assert in the <code>is_valid_ID</code> function. 
+
+
+<h2>Task 2</h2>
+
+<blockquote>If it is possible to try the assert, use <code>wp</code>'s output to determine an example of an argument that will trip the assert.</blockquote>
+
+<p>When you ran the above command, <code>wp</code> provides an example of an argument that will trip the assert. Your output should look something like this (it may not be identical, but it should be very close):
+
+<pre>
+SAT!
+
+Model:
+	ZF  |->  0x0
+	SF  |->  0x0
+	RSP |->  0x000000003f800084
+	RSI |->  0x0000000000000000
+	RDX |->  0x0000000000000000
+	RDI |->  0x00000000dde4ddef  <-- An argument to trip the assert
+	RCX |->  0x0000000000000000
+	RBP |->  0x0000000000000000
+	RAX |->  0x0000000000000000
+	R9  |->  0x0000000000000000
+	R8  |->  0x0000000000000000
+	PF  |->  0x0
+	OF  |->  0x0
+	CF  |->  0x0
+	AF  |->  0x0
+	mem_orig |-> [
+		else |-> 0x00]
+	mem_mod = mem_orig
+</pre>
+
+<p>The argument to the function is always placed in <code>RDI</code>, so look at the value that <code>wp</code> suggests for <code>RDI</code>. In my case, it is <code>0x00000000dde4ddef</code>, but yours may be different. Whatever value you see there is an example of a number that will trip the assert. Try it from the command line:
+
+<pre>
+    $ ./binary/main 0x00000000dde4ddef
+</pre>
+
+<p>The output shows that the assertion does indeed get triggered:
+
+<pre>
+main: main.c:10: is_valid_ID: Assertion `0' failed.
+Aborted
+</pre>
+
+<p>So, an example of an argument that will trip the assert is the value suggested by <code>wp</code> for <code>RDI</code> (which in my case is <code>0x00000000dde4ddef</code>).
+
+
+<h2>Task 3</h2>
+
+<blockquote>Use <code>bildb</code> to step through the program line-by-line, and replicate the behavior of tripping the assert.</blockquote>
+
+<p>You know a value to put in <code>RDI</code> at the beginning of <code>is_valid_ID</code> that will trip the assert. In my case, it was <code>0x00000000dde4ddef</code>.
+
+<p>Start up <code>bildb</code> at the <code>is_valid_ID</code> function:
+
+<pre>
+    $ bap binary/main \
+          --pass=run \
+          --run-entry-point=is_valid_ID \
+          --bildb-debug
+</pre>
+
+<p>You will see <code>bildb</code> start up, and stop at the first instruction in the <code>is_valid_ID</code> function:
+
+<pre>
+BIL Debugger
+Starting up...
+
+Architecture
+Type: x86_64
+Address size: 64
+Registers:
+R10    R11    R12    R13    R14    R15    R8     R9     RAX    RBP    RBX    
+RCX    RDI    RDX    RSI    RSP    YMM0   YMM1   YMM10  YMM11  YMM12  YMM13  
+YMM14  YMM15  YMM2   YMM3   YMM4   YMM5   YMM6   YMM7   YMM8   YMM9   
+
+Entering subroutine: [%000009e9] is_valid_ID
+00000a16: is_valid_ID_result :: out u32 = RAX
+Entering block %0000042d
+00000434: #47 := RBP
+</pre>
+
+<p>Now, set <code>RDI</code> to the value <code>wp</code> suggested earlier, by typing <code>set RDI=VAL</code>, where <code>VAL</code> is the value <code>wp</code> suggested. In my case:
+
+<pre>
+>>> (h for help) set RDI=0x00000000dde4ddef
+RDI   : 0xDDE4DDEF
+</pre>
+
+<p>Next, let <code>bildb</code> run the function. Type <code>n</code> (followed by <code>enter</code>) to tell <code>bildb</code> to run to the next block. It will stop at the next block:
+
+<pre>
+>>> (h for help) n
+Entering block %0000087a
+0000087f: RCX := 0x4006B8
+</pre>
+
+<p>Type <code>n</code> (followed by <code>enter</code>) again, to tell <code>bildb</code> to run forward again. This time, it will enter the <code>__assert_fail</code> function:
+
+<pre>
+>>> (h for help) n
+Entering subroutine: [%000009d3] __assert_fail
+00000a07: __assert_fail_result :: out u32 = RAX
+Entering block %000000bc
+000000c2: call mem[0x601018, el]:u64 with noreturn
+</pre>
+
+<p>So, you have triggered the assert. You can now quite <code>bildb</code> by typing <code>q</code> (followed by <code>enter</code>):
+
+<pre>
+>>> (h for help) q
+Goodbye
+</pre>
+
+<p>Go back to the <a href="../../exercises.html">list of exercises</a>.
+
+</body>
+</html>

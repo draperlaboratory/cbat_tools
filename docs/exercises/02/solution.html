@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../../cbat.css">
+<title>Solution: Exercise 02</title>
+</head>
+<body>
+
+<h1>Solution: Exercise 02</h1>
+
+<p>The following is the solution for <a href="exercise.html">Exercise 02</a>.
+
+<p>For this exercise, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/exercises/02
+</pre>
+
+<h2>Task 1</h2>
+
+<blockquote>Use <code>wp</code> to find a hex number that represents a correct solution to a 3x3 sudoku cube.</blockquote>
+
+<p>First, run <code>wp</code> on the <code>check</code> function in <code>./binary/main</code> using <code>--wp-trip-assert</code>:
+
+<pre>
+    $ bap binary/main \
+          --pass=wp \
+          --wp-func=check \
+          --wp-trip-assert
+</pre>
+
+<p>In response, <code>wp</code> says <code>SAT</code>, which means that <code>wp</code> did find a way to trip the assert. 
+
+<p>Next, look at the output to find a sample argument to <code>check</code>. The argument always goes in <code>RDI</code>, so we want to look at <code>RDI</code>. In my case, the output looks like this (yours may not be identical, but it should be close):
+
+<pre>
+SAT!
+
+Model:
+	ZF  |->  0x0
+	SF  |->  0x0
+	RSP |->  0x000000003f800090
+	RSI |->  0x0000000000000000
+	RDX |->  0x0000000000000000
+	RDI |->  0x000000009dee4000  <-- An argument to trip the assert
+	RCX |->  0x0000000000000000
+	RBP |->  0x0000000000000000
+	RAX |->  0x0000000000000000
+	R9  |->  0x0000000000000000
+	R8  |->  0x0000000000000000
+	PF  |->  0x0
+	OF  |->  0x0
+	CF  |->  0x0
+	AF  |->  0x0
+	mem_orig |-> [
+		else |-> 0x00]
+	mem_mod = mem_orig
+</pre>
+
+<p>In this case, it tells me that <code>0x000000009dee4000</code> is an argument that I can give to the <code>check</code> function, which will cause it to trip the assert. Try it to confirm it:
+
+<pre>
+    $ ./binary/main 0x000000009dee4000
+</pre>
+
+<p>You will see that it does indeed trip the assert:
+
+<pre>
++---+---+---+
+| 2 | 1 | 3 |
++---+---+---+
+| 1 | 3 | 2 |
++---+---+---+
+| 3 | 2 | 1 |
++---+---+---+
+main: main.c:68: check: Assertion `0' failed.
+Aborted
+</pre>
+
+<p>Since the <code>check</code> function only trips the assert for correct solutions, we can conclude that <code>0x000000009dee4000</code> is a hex number that represents a correct solution to a 3x3 sudoku cube. If <code>wp</code> suggested to you a different value for <code>RDI</code>, then that number will represent a correct solution too.
+
+
+<h2>Task 2</h2>
+
+<blockquote>Convert that hex number to a 3x3 sudoku cube board (draw the board, with the correct <code>1</code>s, <code>2</code>s, and <code>3</code>s in it).</blockquote>
+
+<p>The hex value I received was <code>0x000000009dee4000</code>. Yours may be different. To convert the hex number to the graphical version of a 3x3 sudoku cube, first convert the number to a binary number (a hex to binary converter is easily found by googling). In my case:
+
+<pre>
+0x000000009dee4000   =>   10011101111011100100000000000000
+</pre>
+
+<p>Every two bits represents a number on the board (the last 12 zeros are just extra padding). We can see this by breaking up the binary number with some spaces:
+
+<pre>
+10 01 11    01 11 10    11 10 01    00000000000000
+</pre>
+
+<p>Put each two-bit chunk onto a 3x3 board, and convert to decimal:
+
+<pre>
++----+----+----+        +---+---+---+
+| 10 | 01 | 11 |        | 2 | 1 | 3 |
++----+----+----+        +---+---+---+
+| 01 | 11 | 10 |   =>   | 1 | 3 | 2 |
++----+----+----+        +---+---+---+
+| 11 | 10 | 01 |        | 3 | 2 | 1 |
++----+----+----+        +---+---+---+
+</pre>
+
+<p>And with that, you have the graphical version of the board. Of course, the program itself also prints this out for you, which you can use to check your solution. For example, using <code>0x000000009dee4000</code>:
+
+<pre>
+$ ./binary/main 0x000000009dee4000
++---+---+---+
+| 2 | 1 | 3 |
++---+---+---+
+| 1 | 3 | 2 |
++---+---+---+
+| 3 | 2 | 1 |
++---+---+---+
+main: main.c:68: check: Assertion `0' failed.
+Aborted
+</pre>
+
+<p>Go back to the <a href="../../exercises.html">list of exercises</a>.
+
+</body>
+</html>

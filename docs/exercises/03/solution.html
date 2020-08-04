@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../../cbat.css">
+<title>Solution: Exercise 03</title>
+</head>
+<body>
+
+<h1>Solution: Exercise 03</h1>
+
+<p>The following is the solution for <a href="exercise.html">Exercise 03</a>.
+
+<p>For this exercise, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/exercises/03
+</pre>
+
+
+<h2>Task 1</h2>
+
+<blockquote>Compare the output in <code>RAX</code> of the function <code>calculate_price</code> in the older program (<code>binary/main_1</code>) and the newer program (<code>binary/main_2</code>). Can <code>binary/main_2</code> produce different output than <code>main_1</code>, when given the same argument?</blockquote>
+
+<p>First, save/serialize the first binary program:
+
+<pre>
+    $ bap binary/main_1 \
+          --pass=save-project \
+          --save-project-filename=main_1.bpj
+</pre>
+
+<p>Then save/serialize the second binary program:
+
+<pre>
+    $ bap binary/main_2 \
+          --pass=save-project \
+          --save-project-filename=main_2.bpj
+</pre>
+
+<p>Finally, run <code>wp</code> on the <code>calculate_price</code> function in the two, and compare the output value in <code>RAX</code>:
+
+<pre>
+    $ bap /bin/true \
+          --pass=wp \
+          --wp-compare \
+          --wp-func=calculate_price \
+          --wp-compare-post-reg-values=RAX \
+          --wp-file1=main_1.bpj \
+          --wp-file2=main_2.bpj
+</pre>
+
+<p>When you run this, you will see that <code>wp</code> responds with <code>SAT</code>, meaning that it did indeed find a way to make the second version of the <code>calculate_price</code> function produce a different output than the first version, given the same input.
+
+<p>So, the answer to the first task is: yes, <code>binary/main_2</code> can produce a different result than <code>binary/main_1</code>, when given the same argument.
+
+
+<h2>Task 2</h2>
+
+<blockquote>If so, what is an example of an argument that makes <code>calculate_price</code> behave differently than the original version?</blockquote>
+
+<p>To find an example of an argument that causes <code>binary/main_1</code> and <code>binary/main_2</code> to produce different results, look at the output of <code>wp</code>. When you run the above command, you should see output that looks like this (yours may not be exactly like this, but it should be similar):
+
+<pre>
+SAT!
+
+Model:
+	ZF  |->  0x0
+	SF  |->  0x0
+	RSP |->  0x000000003fc00000
+	RSI |->  0x0000000000000000
+	RDX |->  0x0000000000000000
+	RDI |->  0x0000000000000064  <-- An argument that yields different results
+	RCX |->  0x0000000000000000
+	RBP |->  0x0000000000000000
+	RAX |->  0x0000000000000000
+	R9  |->  0x0000000000000000
+	R8  |->  0x0000000000000000
+	PF  |->  0x0
+	OF  |->  0x0
+	CF  |->  0x0
+	AF  |->  0x0
+	mem_orig |-> [
+		#x000000003fbfffee |-> 0xff ;
+		#x000000003fbffff6 |-> 0xff ;
+		else |-> 0x00]
+	mem_mod |-> [
+		else |-> 0x00]
+</pre>
+
+<p>In particular, you want to look at the value that <code>wp</code> suggests for <code>RDI</code>, which is the argument to the <code>calculate_price</code> function. Here, it gives me <code>0x0000000000000064</code> as an example of an argument that will cause the two versions of <code>calculate_price</code> to produce different values. 
+
+<p>We can confirm that this value does cause the two versionsof <code>calculate_price</code> to yield different results. First, try it with <code>binary/main_1</code>:
+
+<pre>
+    $ ./binary/main_1 0x0000000000000064
+    Total price: 5000.00
+</pre>
+
+<p>Then, try it with <code>binary/main_2</code>:
+
+<pre>
+    $ ./binary/main_2 0x0000000000000064
+    Total price: 10000.00
+</pre>
+
+<p>As you can see, these two programs calculate different prices if the input is <code>0x0000000000000064</code> (which in decimal is exactly <code>100</code>).
+
+<p>Go back to the <a href="../../exercises.html">list of exercises</a>.
+
+</body>
+</html>

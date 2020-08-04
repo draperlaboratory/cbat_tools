@@ -14,7 +14,7 @@
   <li><a href="#binary-programs">Binary Programs</a></li>
   <li><a href="#cbat-usage">CBAT Usage</a></li>
   <li><a href="#tripping-asserts">Tripping Asserts</a></li>
-  <li><a href="#4-Rooks">4-Rooks</a></li>
+  <li><a href="#4-rooks">4-Rooks</a></li>
   <li><a href="#null-dereference">Find a Null Dereference</a></li>
   <li><a href="#compare-function-outputs">Comparing Function Outputs</a></li>
   <li><a href="#compare-function-calls">Comparing Function Calls</a></li>
@@ -25,6 +25,12 @@
   <li><a href="#conclusion">Conclusion</a></li>
 </ul>
 </section>
+
+<p>For this tutorial, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/tutorial
+</pre>
 
 
 <section>
@@ -223,7 +229,7 @@ int foo(int x) {
 
 <p>As a convenience, we have provided some predefined properties, which are built-in to the tool. One of them is this: <code class="wp">wp</code> can check if it is possible to trigger an assert in a function in your program.
 
-<p>Consider the following simple C program (which lives at <code>01/binary/main.c</code>):
+<p>Consider the following simple C program (which lives at <a href="tutorial/01/binary/main.c">tutorial/01/binary/main.c</a>):
 
 <pre>
 #include &lt;assert.h&gt;
@@ -621,7 +627,7 @@ solution = 1000 0010 0100 0001 (or 0x4281 in hex)
 
 <p>So, the <code>check</code> function takes a 16-bit number as the argument, it then checks the proposed solution to see if it is correct, and it trips an assert if it is correct. 
 
-<p>The full code for this function can be found at <code>02/binary/main.c</code>. The compiled version of this program is at <code>02/binary/main</code>. You can try it out by passing it a hex version of a possible solution. For example:
+<p>The full code for this function can be found at <a href="tutorial/02/binary/main.c">tutorial/02/binary/main.c</a>. The compiled version of this program is at <code>02/binary/main</code>. You can try it out by passing it a hex version of a possible solution. For example:
 
 <pre>
     $ ./02/binary/main 0x2212
@@ -701,7 +707,7 @@ Model:
 <a name="null-dereference"></a>
 <h2>Find a Null Dereference</h2>
 
-<p>Another predefined property that <code class="wp">wp</code> can check is that it can find null dereferences in a function. To illustrate, consider the following C program, which can be found at <code>03/binary/main.c</code>:
+<p>Another predefined property that <code class="wp">wp</code> can check is that it can find null dereferences in a function. To illustrate, consider the following C program, which can be found at <a href="tutorial/03/binary/main.c">tutorial/03/binary/main.c</a>:
 
 <pre>
 #include <stdlib.h>
@@ -767,7 +773,7 @@ malloc_ret_RAX016 |->  0x0000000000000000
 
 <p>This is tells us that if <code>malloc</code> returns <code>0</code>, then we'll end up with a null dereference. And that's exactly right. As we saw, if <code>malloc</code> returns <code>NULL</code> (i.e., <code>0</code>, which indicates that no address could be allocated), then trying to store a character there will segfault.
 
-<p>Note that we could rewrite the program at <code>03/binary/main.c</code> so that it checks for the <code>NULL</code> memory address before trying to store something there. There is a corrected version at <code>03/binary/main_fixed.c</code>: 
+<p>Note that we could rewrite the program at <a href="tutorial/03/binary/main.c">tutorial/03/binary/main.c</a> so that it checks for the <code>NULL</code> memory address before trying to store something there. There is a corrected version at <a href="tutorial/03/binary/main_fixed.c">tutorial/03/binary/main_fixed.c</a>: 
 
 <pre>
 #include <stdlib.h>
@@ -848,7 +854,7 @@ UNSAT!
 
 <p>This can be very useful if, say, you optimize a function. You can ask <code class="wp">wp</code> to compare the old unoptimized version with the new optimized version, and tell you if it's possible for the two functions to give you different outputs.
 
-<p>Suppose we are writing a C program, and we need to know if two integers have the same sign (positive or negative). Here is a very straightforward way to write a function to check (you can find this code in <code>04/binary/main_1.c</code>:
+<p>Suppose we are writing a C program, and we need to know if two integers have the same sign (positive or negative). Here is a very straightforward way to write a function to check (you can find this code in <a href="tutorial/04/binary/main_1.c">tutorial/04/binary/main_1.c</a>:
 
 <pre>
 bool same_signs(int x, int y) {
@@ -874,7 +880,7 @@ bool same_signs(int x, int y) {
 
 <p>First, we check if <code>x</code> is less than zero. If it is, we then check if <code>y</code> is also less than zero. If so, they have the same sign. Alternatively, if <code>x</code> is greater than zero, then we check if <code>y</code> is also greater than zero, and again, if so, then they have the same sign.
 
-<p>This code is fine, but it has a lot of <code>if</code> statements, so it branches a lot, and hence is not the fastest code on the planet. Suppose we want to optimize this, and we ask a clever junior engineer write a new version. Suppose they come up with the following (this version can be found in <code>04/binary/main_2.c</code>:
+<p>This code is fine, but it has a lot of <code>if</code> statements, so it branches a lot, and hence is not the fastest code on the planet. Suppose we want to optimize this, and we ask a clever junior engineer write a new version. Suppose they come up with the following (this version can be found in <a href="tutorial/04/binary/main_2.c">tutorial/04/binary/main_2.c</a>:
 
 <pre>
 bool same_signs(int x, int y) {
@@ -1031,7 +1037,7 @@ int process_signal(signal_t signal) {
 
 <p>But notice that there is no <code>break</code> statement in the <code>NAV</code> case. The programmer wanted to have a log happen after every <code>NAV</code> signal, so they cleverly left off the <code>break</code> here. That causes execution to fall through from the <code>NAV</code> case to the <code>LOG</code> case. Hence, every time this program handles a <code>NAV</code> signal, it does that, but then it falls through to <code>LOG</code>, and so it <b>also</b> logs the system status.
 
-<p>The full code for this example can be found at <code>05/binary/main_1.c</code>.
+<p>The full code for this example can be found at <a href="tutorial/05/binary/main_1.c">tutorial/05/binary/main_1.c</a>.
 
 <p>Suppose now that, many years later, we have decided that we do not need to have logging in this program anymore, so we apply an automated patch that strips the logging code out.
 
@@ -1095,7 +1101,7 @@ int process_signal(signal_t signal) {
 
 <p>Of course, stripping out that <code>LOG</code> case introduced a bug. Before the patch, every time a <code>NAV</code> signal was processed, the <code>NAV</code> case would fall through to the <code>LOG</code> case, and log the system's status. But now, in the patched version, there is no <code>LOG</code> case, so every time a <code>NAV</code> signal gets processed, it falls right on through to the <code>DEPLOY</code> case, and deploys the payload!
 
-<p>The full code for the patched version can be found at <code>05/binary/main_2.c</code>.
+<p>The full code for the patched version can be found at <a href="tutorial/05/binary/main_2.c">tutorial/05/binary/main_2.c</a>.
 
 <p>We can ask <code class="wp">wp</code> to analyze both versions of the <code>process_signal</code> function, and check that they call the same functions. Then <code class="wp">wp</code> will find out if there is any way that the original and patched versions differ with respect to function calls.
 
@@ -1253,7 +1259,7 @@ deploy_payload not called in modified
 
 <p>To define a custom property of a function in your program, you basically describe what you want the state of your program to look like, after the function finishes execution. Then <code class="wp">wp</code> will check if that description holds true of your program. If <code class="wp">wp</code> can find a way to make it false, it will find it, and provide you with some example inputs that will make your function exhibit that behavior.
 
-<p>Let's do a simple example. Consider this toy C function (which can be found at <code>06/binary/main.c</code>:
+<p>Let's do a simple example. Consider this toy C function (which can be found at <a href="tutorial/06/binary/main.c">tutorial/06/binary/main.c</a>:
 
 <pre>
 int main() {
@@ -1383,7 +1389,7 @@ Refuted goals:
 <a name="custom-pre-and-postcondition-one-binary"></a>
 <h2>Custom Pre and Postcondition (One Binary)</h2>
 
-<p>Consider the following C program (the source code can be seen at <code>07/binary/main.c</code>):
+<p>Consider the following C program (the source code can be seen at <a href="tutorial/07/binary/main.c">tutorial/07/binary/main.c</a>):
 
 <pre>
 int main(int argc, char **argv) {
@@ -1484,7 +1490,7 @@ UNSAT!
 
 <p>In the last two examples, we looked at specifying custom properties that <code class="wp">wp</code> can check for a single binary program. We can also specify custom properties that <code class="wp">wp</code> can check to compare two binary programs. 
 
-<p>To illustrate, consider the <code>same_signs</code> function we looked at before. Here is the first version of the function (which can be seen at <code>08/binary/main_1.c</code>:
+<p>To illustrate, consider the <code>same_signs</code> function we looked at before. Here is the first version of the function (which can be seen at <a href="tutorial/08/binary/main_1.c">tutorial/08/binary/main_1.c</a>:
 
 <pre>
 bool same_signs(int x, int y) {
@@ -1508,7 +1514,7 @@ bool same_signs(int x, int y) {
 }
 </pre>
 
-<p>And here's the optimized version (which can be seen at <code>08/binary/main_2.c</code>:
+<p>And here's the optimized version (which can be seen at <a href="tutorial/08/binary/main_2.c">tutorial/08/binary/main_2.c</a>:
 
 <pre>
 bool same_signs(int x, int y) {

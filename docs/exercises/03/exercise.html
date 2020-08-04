@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../../cbat.css">
+<title>Exercise 03: Comparing Function Outputs</title>
+</head>
+<body>
+
+<h1>Exercise 03: Comparing Function Outputs</h1>
+
+<p>For this exercise, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/exercises/03
+</pre>
+
+<h2>The first sample binary program</h2>
+
+<p>There is a program at <code>binary/main_1</code>. The source code is at <a href="binary/main_1.c">binary/main_1.c</a>. 
+
+<p>You may imagine that this is a program used by a distributor of a particular product. The program takes as its argument the number of units ordered, and returns the price for that many units. There is a function <code>calculate_price</code> that actually computes the price for the order.
+
+<p>Built in to the <code>calculate_price</code> function is an algorithm for computing a discount, which can be summarized as follows:
+
+<ul>
+  <li>The price-per-unit is heavily discounted when 1000 or more units are ordered.</li>
+  <li>The price-per-unit is less discounted if 100 to 999 units are ordered.</li>
+  <li>The price-per-unit is not discounted if 20 to 99 units are ordered.</li>
+</ul>
+
+<p>There are some requirements on orders:
+
+<ul>
+  <li>20 units is the mininum number that can be ordered.</li>
+  <li>If 20 to 100 units are ordered, units must be ordered in multiples of 10.</li>
+  <li>If more than 100 units are ordered, units must be ordered in multiples of 100.</li>
+</ul>
+
+<p>Try it out with various different numbers:
+
+<pre>
+    $ ./binary/main_1 50
+    $ ./binary/main_1 52
+    $ ./binary/main_1 500
+    $ ./binary/main_1 3400
+</pre>
+
+<h2>The second sample binary program</h2>
+
+<p>Some time after the first program was written, an engineer decided to move the logic for smaller orders higher up in the <code>calculate_price</code> function. Why this was done is now long forgotten. Whatever the case, the modified version of the program lives at <code>binary/main_2</code>, and the source code lives at <a href="binary/main_2.c">binary/main_2.c</a>. 
+
+<p>You can try this version of the program too:
+
+<pre>
+    $ ./binary/main_2 50
+    $ ./binary/main_2 52
+    $ ./binary/main_2 500
+    $ ./binary/main_2 3400
+</pre>
+
+<h2>Your task</h2>
+
+<p>Your task is to figure out if the modified version of the program is functionally equivalent to the first version. Does the modified version of <code>calculate_price</code> produce the same output as the original version, given the same arguments?
+
+<p>To answer that, use <code>wp</code> to complete the following tasks:
+
+<ol>
+  <li>Compare the output in <code>RAX</code> of the function <code>calculate_price</code> in the older program (<code>binary/main_1</code>) and the newer program (<code>binary/main_2</code>). Can <code>binary/main_2</code> produce different output than <code>main_1</code>, when given the same argument?</li>
+  <li>If so, what is an example of an argument that makes <code>calculate_price</code> behave differently than the original version?</li>
+</ol>
+
+<h2>Solution</h2>
+
+<p>To see the solution, click <a href="solution.html">here</a>.
+
+</section>
+
+</body>
+</html>

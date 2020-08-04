@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../../cbat.css">
+<title>Exercise 01: Tripping an Assert</title>
+</head>
+<body>
+
+<h1>Exercise 01: Tripping an Assert</h1>
+
+<p>For this exercise, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/exercises/01
+</pre>
+
+<h2>The sample binary program</h2>
+
+<p>There is a program at <code>binary/main</code>. The source code lives at <a href="binary/main.c">binary/main.c</a>, though you should be able to complete this exercise without looking at the source code.
+
+<p>Imagine that this program is part of the software that runs on a badge reader. The task of this particular program is to check if a number is a valid employee ID.
+
+<ul>
+  <li>If the provided number is a valid employee ID, it returns <code>0</code>.</li>
+  <li>If the provided number is not a valid employee ID, it returns <code>1</code>.</li>
+  <li>There is an assert to ensure the number is within reasonable bounds.</li>
+</ul>
+
+<p>You can try it, if you like. Try it with a valid employee ID:
+
+<pre>
+    $ ./binary/main 0x39256
+    $ echo $?
+</pre>
+
+<p>Try it with an invalid employee ID:
+
+<pre>
+    $ ./binary/main 0x234
+    $ echo $?
+</pre>
+
+<h2>Your task</h2>
+
+<p>Use <code>wp</code> to complete the following tasks:
+
+<ol>
+  <li>Find out if it is possible to trip the assert in the function <code>is_valid_ID</code>.</li>
+  <li>If it is possible to try the assert, use <code>wp</code>'s output to determine an example of an argument that will trip the assert.</li>
+  <li>Use <code>bildb</code> to step through the program line-by-line, and replicate the behavior of tripping the assert.</li>
+</ol>
+
+<h2>Solution</h2>
+
+<p>To see the solution, click <a href="solution.html">here</a>.
+
+</section>
+
+</body>
+</html>

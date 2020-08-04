@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="../../cbat.css">
+<title>Solution: Exercise 04</title>
+</head>
+<body>
+
+<h1>Solution: Exercise 04</h1>
+
+<p>The following is the solution for <a href="exercise.html">Exercise 04</a>.
+
+<p>For this exercise, make sure you run all commands from the directory: 
+
+<pre>
+  /path/to/cbat_tools/docs/exercises/04
+</pre>
+
+
+<h2>Task 1</h2>
+
+<blockquote>Use <code>wp</code> to check the function calls in the <code>SSLVerifySignedServerKeyExchange</code> function. Be sure to include <code>--wp-show=refuted-goals</code> when you run <code>wp</code>. How do the two programs differ, with respect to the function calls they can make?</blockquote>
+
+<p>First, save/serialize the first binary program:
+
+<pre>
+    $ bap binary/main_1 \
+          --pass=save-project \
+          --save-project-filename=main_1.bpj
+</pre>
+
+<p>Then save/serialize the second binary program:
+
+<pre>
+    $ bap binary/main_2 \
+          --pass=save-project \
+          --save-project-filename=main_2.bpj
+</pre>
+
+<p>Finally, run <code>wp</code> on the <code>SSLVerifySignedServerKeyExchange</code> function in the two, and compare the function calls (and include <code>--wp-show=refuted-goals</code>):
+
+<pre>
+    $ bap /bin/true \
+          --pass=wp \
+          --wp-compare \
+          --wp-func=SSLVerifySignedServerKeyExchange \
+          --wp-check-calls \
+          --wp-show=refuted-goals \
+          --wp-file1=main_1.bpj \
+          --wp-file2=main_2.bpj
+</pre>
+
+<p>When you run this, you will see that <code>wp</code> responds with <code>SAT</code>, meaning that it did indeed find a way to make the second version of the <code>SSLVerifySignedServerKeyExchange</code> function call different functions than the first version.
+
+<p>The output of <code>wp</code> reveals the difference in function calls. Note the refuted goals near the bottom of the output:
+
+<pre>
+SAT!
+
+Model:
+  ZF  |->  0x0
+  SF  |->  0x0
+  RSP |->  0x000000003f800082
+  RSI |->  0x0000000000000000
+  RDX |->  0x0000000000000000
+  RDI |->  0x0000000000000000
+  RCX |->  0x0000000000000000
+  RBP |->  0x0000000000000000
+  RAX |->  0x0000000000000000
+  R9  |->  0x0000000000000000
+  R8  |->  0x0000000000000000
+  PF  |->  0x0
+  OF  |->  0x0
+  CF  |->  0x0
+  AF  |->  0x0
+  mem_orig |-> [
+    else |-> 0x00]
+  mem_mod = mem_orig
+
+Refuted goals:
+SSLHashSHA1_final not called in modified: <-- An extra function call
+  Z3 Expression: false
+</pre>
+
+<p>This tells us that in the modified version of the program (in <code>binary/main_2</code>), <code>wp</code> found a way to make the second version call <code>SSLHashSHA1_final</code>, when the first version does not.
+
+
+<h2>Task 2</h2>
+
+<blockquote>Study the output of <code>wp</code>, and then study the source code of the two programs, to identify where the bug lies in the source code.</blockquote>
+
+<p>The output of <code>wp</code> tells us that <code>SSLHashSHA1_final</code> is called in the second version of the program, but not in the first version of the program. Look at the source code to see how this can happen.
+
+<p>In the first version of the program, in (binary/main_1.c)[./binary/main_1.c]), there is an important line:
+
+<pre>
+/* Check that the key exchange is signed correctly. */
+status SSLVerifySignedServerKeyExchange(hash *data, hash *signature) {
+
+    status code;
+
+    if ((code = ReadyHash(data)) != 0)
+        return cleanUp(data, code);
+    if ((code = SSLHashSHA1_update(data)) != 0)
+        return cleanUp(data, code);
+        return cleanUp(data, code);            <-- Why is this here?
+    if ((code = SSLHashSHA1_final(data)) != 0)
+        return cleanUp(data, code);
+
+    code = sslRawVerify(data, signature);
+
+    return cleanUp(data, code);
+
+}
+</pre>
+
+<p>There is an extra <code>return cleanUp(data, code)</code> that occurs in this function. This looks very much like a simple typo/mistake. The extra <code>return cleanUp(data, code)</code> is indented, so it is easy to think that it is a part of the body of the <code>if</code> statement that appears just two lines above it. However, there are no curly braces here, so that extra <code>return cleanUp(data, code)</code> is actually not a part of that <code>if</code> statement. It is really this:
+
+<pre>
+/* Check that the key exchange is signed correctly. */
+status SSLVerifySignedServerKeyExchange(hash *data, hash *signature) {
+
+    status code;
+
+    if ((code = ReadyHash(data)) != 0)
+        return cleanUp(data, code);
+    if ((code = SSLHashSHA1_update(data)) != 0)
+        return cleanUp(data, code);
+    return cleanUp(data, code);            <-- Correct indentation
+    if ((code = SSLHashSHA1_final(data)) != 0)
+        return cleanUp(data, code);
+
+    code = sslRawVerify(data, signature);
+
+    return cleanUp(data, code);
+
+}
+</pre>
+
+<p>With the indentation fixed like this, now it is clear that the last <code>if</code> statement will never be executed, because this function will always return before it gets to it. Even worse, that very crucial <code>sslRawVerify</code> function that occurs at the end of the function will never be called either! Here we have the bug. This function returns before it ever verifies the SSL key exchange.
+
+<p>But notice that this is very easy to miss because of the incorrect indentation, and the missing curly braces.
+
+<p>In the second version of the program, in (binary/main_2.c)[./binary_main_2.c], the extra <code>return cleanUp(data, code)</code> has been removed:
+
+<pre>
+/* Check that the key exchange is signed correctly. */
+status SSLVerifySignedServerKeyExchange(hash *data, hash *signature) {
+
+    status code;
+
+    if ((code = ReadyHash(data)) != 0)
+        return cleanUp(data, code);
+    if ((code = SSLHashSHA1_update(data)) != 0)
+        return cleanUp(data, code);
+    if ((code = SSLHashSHA1_final(data)) != 0)
+        return cleanUp(data, code);
+
+    code = sslRawVerify(data, signature);
+
+    return cleanUp(data, code);
+
+}
+</pre>
+
+<p>In this second (fixed) version of the function, execution can continue through the entirety of the function, and crucially, that means <code>sslRawVerify</code> <em>will</em> be called when it is supposed to be called.
+
+
+<p>Go back to the <a href="../../exercises.html">list of exercises</a>.
+
+</body>
+</html>
