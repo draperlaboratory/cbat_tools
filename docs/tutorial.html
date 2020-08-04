@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <head>
 <link rel="stylesheet" type="text/css" href="cbat.css">
@@ -21,6 +22,7 @@
   <li><a href="#custom-pre-and-postcondition-one-binary">Custom Pre and Postcondition (One Binary)</a></li>
   <li><a href="#custom-postcondition-two-binaries">Custom Postcondition (Two Binaries)</a></li>
   <li><a href="#reference">Command line reference</a></li>
+  <li><a href="#conclusion">Conclusion</a></li>
 </ul>
 </section>
 
@@ -1584,9 +1586,25 @@ UNSAT!
 <a name="reference"></a>
 <h2>Reference Guide</h2>
 
-This tutorial has introduced many command line options for CBAT.  A complete
+<p>This tutorial has introduced many command line options for CBAT.  A complete
 reference for the command line interface, including many options not described int the tutorial, can be found <a href="reference.html">here</a>.  This page also includes a guide to common smtlib expressions for use in your custom properties.
+
 </section>
+
+
+<a name="conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>As we noted at the outset, CBAT is a family of tools designed to verify the behavior of binary programs.
+
+<p>At the heart of the CBAT toolset is <code>wp</code>. As we have seen, <code>wp</code> is a tool that verifies whether functions behave in specified ways. <code>wp</code> can be used to verify the behavior of a function in a single binary program, but it can also be used to verify the behavior of a function in two binaries.
+
+<p>Because of its ability to compare two programs, <code>wp</code> can be used to check patches and modifications that you might make to your binary programs. Patches are meant to change some aspects of a program, while preserving certain other behaviors. With <code>wp</code>, you can check whether the patched version of your program preserves the desired behavior that is present in the original version.
+
+<p><center><img src="cbat_logo.png" width="50%"></center>
+
+</section>
+
 
 </body>
 </html>
