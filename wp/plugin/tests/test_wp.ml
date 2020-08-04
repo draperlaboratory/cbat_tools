@@ -289,4 +289,19 @@ let suite = [
 
   "Update Number of Unrolls"       >: test_update_num_unroll (Some 3);
   "Original Number of Unrolls"     >: test_update_num_unroll None;
+
+
+  (* Test performance *)
+
+  "Debruijn: 8 bit"                >: test_plugin "debruijn" unsat ~script:"run_wp_8bit.sh";
+  "Debruijn: 16 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_16bit.sh";
+  "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_32bit.sh";
+  "Debruijn: 64 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_64bit.sh";
+
+  "NQueens solver"                 >: test_plugin "nqueens" sat ~expected_regs:[("RDI", "0x0000000000002814")];
+  "Sudoku solver"                  >: test_plugin "sudoku" sat ~expected_regs:[("RDI", "0x00000000d82d7287")];
+
+  "Hash function"                  >: test_plugin "hash_function" sat
+    ~expected_regs:[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")];
+
 ]
