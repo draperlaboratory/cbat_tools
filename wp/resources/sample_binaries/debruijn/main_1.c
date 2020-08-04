@@ -69,38 +69,6 @@ int rightmost_index_64( uint64_t bb){
         return index64[((bb & -bb) * debruijn64) >> 58];
 }
 
-// calculate the index of the least significant bit (128 bit version)
-#define uint128_t __uint128_t
-int rightmost_index_128(uint128_t bb) {
-        if(bb == 0){
-                return  0;
-        }
-
-        bb = ((uint128_t) ((uint64_t) bb));
-
-        const int index128[128] = {
-                0, 1, 2, 8, 3, 15, 9, 22, 4, 29, 16, 36, 10, 43, 23, 50, 5, 33,
-                30, 57, 17, 64, 37, 71, 11, 60, 44, 78, 24, 85, 51, 92, 6, 20,
-                34, 48, 31, 69, 58, 90, 18, 67, 65, 99, 38, 101, 72, 106, 12,
-                40, 61, 82, 45, 103, 79, 113, 25, 74, 86, 116, 52, 108, 93,
-                120, 127, 7, 14, 21, 28, 35, 42, 49, 32, 56, 63, 70, 59, 77,
-                84, 91, 19, 47, 68, 89, 66, 98, 100, 105, 39, 81, 102, 112, 73,
-                115, 107, 119, 126, 13, 27, 41, 55, 62, 76, 83, 46, 88, 97, 104,
-                80, 111, 114, 118, 125, 26, 54, 75, 87, 96, 110, 117, 124, 53,
-                95, 109, 123, 94, 122, 121
-        };
-
-
-        //uint64_t debruijn_arr[2] = {0x106143891634793, 0x2a5cd9d3ead7b77f};
-        uint128_t debruijn128 = ( ((uint128_t) 0x106143891634793) << 64) +
-                ((uint128_t) 0x2a5cd9d3ead7b77f);
-        int index = ((bb & -bb) * debruijn128) >> 121;
-        return index128[index];
-}
-
-
-
-
 // sample invocation
 int main(int argc,char ** argv) {
 	printf("%d\n", rightmost_index_128(0x2));

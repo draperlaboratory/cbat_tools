@@ -74,20 +74,6 @@ int rightmost_index_64(uint64_t bb){
         }
 }
 
-#define uint128_t __uint128_t
-// calculate the least significant bit (64bit version)
-int rightmost_index_128(uint128_t bb){
-        if(bb == 0){
-                return  0;
-        }
-        bb = ((uint128_t) ((uint64_t) bb));
-        for(int i = 0; i < 128; i++){
-                if((bb >> i) & 1){
-                        return i;
-                }
-        }
-}
-
 
 int main(int argc,char ** argv) {
 	printf("%d\n", rightmost_index_128(0x2));
