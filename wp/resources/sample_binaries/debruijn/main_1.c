@@ -71,6 +71,5 @@ int rightmost_index_64( uint64_t bb){
 
 // sample invocation
 int main(int argc,char ** argv) {
-	printf("%d\n", rightmost_index_128(0x2));
         return 0;
 }
