@@ -58,7 +58,7 @@ type t = {
   call_map : string TidMap.t;
   sub_handler : fun_spec TidMap.t;
   jmp_handler : jmp_spec;
-  op_uninterp_handler : op_uninterp;
+  op_handler : op_spec;
   int_handler : int_spec;
   loop_handler : loop_handler;
   exp_conds : exp_cond list;
@@ -81,7 +81,7 @@ and fun_spec = {
 
 and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option
 
-and op_uninterp = Bap.Std.binop ->  Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr option
+and op_spec = Bap.Std.binop ->  Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr option
 
 and int_spec = t -> Constr.t -> int -> Constr.t * t
 
@@ -255,7 +255,7 @@ let mk_env
     ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
     ~default_spec:(default_spec : Sub.t -> Arch.t -> fun_spec)
     ~jmp_spec:(jmp_spec : jmp_spec)
-    ~op_uninterp:(op_uninterp : op_uninterp)
+    ~op_spec:(op_spec : op_spec)
     ~int_spec:(int_spec : int_spec)
     ~exp_conds:(exp_conds : exp_cond list)
     ~num_loop_unroll:(num_loop_unroll : int)
@@ -278,7 +278,7 @@ let mk_env
     call_map = init_call_map var_gen subs;
     sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
     jmp_handler = jmp_spec;
-    op_uninterp_handler = op_uninterp;
+    op_handler = op_spec;
     int_handler = int_spec;
     loop_handler = init_loop_unfold num_loop_unroll;
     exp_conds = exp_conds;
@@ -372,8 +372,8 @@ let get_sub_handler (env : t) (tid : Tid.t) : fun_spec_type option =
 let get_jmp_handler (env : t) : jmp_spec =
   env.jmp_handler
 
-let get_op_uninterp_handler (env : t) : op_uninterp =
-  env.op_uninterp_handler
+let get_op_handler (env : t) : op_spec =
+  env.op_handler
 
 let get_int_handler (env : t) : int_spec =
   env.int_handler

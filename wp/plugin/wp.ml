@@ -271,13 +271,13 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
   let main_sub1 = find_func_err subs1 flags.func in
   let main_sub2 = find_func_err subs2 flags.func in
   let stack_range = set_stack flags in
-  let op_uninterp = (if (flags.op_uninterp = []) then Pre.op_uninterp_default
+  let op_spec = (if (flags.op_uninterp = []) then Pre.op_spec_default
       else Pre.create_uninterp (flags.op_uninterp) (ctx)) in
   let env2 =
     let to_inline2 = match_inline flags.inline subs2 in
     let specs2 = fun_specs flags to_inline2 in
     let exp_conds2 = exp_conds_mod flags in
-    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~op_uninterp:op_uninterp ~arch:arch ~specs:specs2
+    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~op_spec:op_spec ~arch:arch ~specs:specs2
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds2 ~stack_range in
     let env2 = Env.set_freshen env2 true in
     let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
@@ -287,7 +287,7 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     let to_inline1 = match_inline flags.inline subs1 in
     let specs1 = fun_specs flags to_inline1 in
     let exp_conds1 = exp_conds_orig flags env2 in
-    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~op_uninterp:op_uninterp ~arch:arch ~specs:specs1
+    let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~op_spec:op_spec ~arch:arch ~specs:specs1
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 ~stack_range in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
