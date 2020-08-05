@@ -158,6 +158,19 @@ let test_update_num_unroll
   in
   test_case ~length test
 
+let test_validate_input
+    ?length:(length = Immediate)
+    ~valid:(valid : bool)
+    (validator : unit -> 'a)
+   : test =
+  let test _ =
+    if not valid then
+      assert_raises Wp.Flags.Invalid_input validator
+    else
+      validator ()
+  in
+  test_case ~length test
+
 let test_skip (msg : string) (_ : test) (_ : test_ctxt) : unit =
   skip_if true msg
 
@@ -290,7 +303,6 @@ let suite = [
   "Update Number of Unrolls"       >: test_update_num_unroll (Some 3);
   "Original Number of Unrolls"     >: test_update_num_unroll None;
 
-
   (* Test performance *)
 
   "Debruijn: 8 bit"                >: test_plugin "debruijn" unsat ~script:"run_wp_8bit.sh";
@@ -305,5 +317,32 @@ let suite = [
 
   "Hash function"                  >: test_plugin "hash_function" sat
     ~expected_regs:[[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")]];
+
+  (* Test flag validation. *)
+
+  "No function specified" >: test_validate_input ~valid:false
+    (fun () -> Wp.Flags.validate_func "");
+  "Function specified" >: test_validate_input ~valid:true
+    (fun () -> Wp.Flags.validate_func "main");
+
+  "Invalid option for debug" >: test_validate_input ~valid:false
+    (fun () -> Wp.Flags.validate_debug ["foo"]);
+  "Valid option for debug" >: test_validate_input ~valid:true
+    (fun () -> Wp.Flags.validate_debug ["z3-solver-stats"]);
+
+  "Invalid option for show" >: test_validate_input ~valid:false
+    (fun () -> Wp.Flags.validate_show ["foo"]);
+  "Valid option for debug" >: test_validate_input ~valid:true
+    (fun () -> Wp.Flags.validate_show ["bir"]);
+
+  "One file for compare_func_calls" >: test_validate_input ~valid:false
+    (fun () -> Wp.Flags.validate_compare_func_calls true ["exe1"]);
+  "Two files for compare_func_calls" >: test_validate_input ~valid:true
+    (fun () -> Wp.Flags.validate_compare_func_calls true ["exe1"; "exe2"]);
+
+  "One file for compare_post_reg_values" >: test_validate_input ~valid:false
+    (fun () -> Wp.Flags.validate_compare_post_reg_vals ["x"] ["exe1"]);
+  "Two files for compare_post_reg_values" >: test_validate_input ~valid:true
+    (fun () -> Wp.Flags.validate_compare_post_reg_vals ["x"] ["exe1"; "exe2"]);
 
 ]
