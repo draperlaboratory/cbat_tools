@@ -19,9 +19,9 @@ open Regular.Std
 open Bap_wp
 include Self()
 
-module Cmd = Bap_main.Extension.Command
-module Conf = Bap_main.Extension.Configuration
-module Typ = Bap_main.Extension.Type
+module Cmd = Extension.Command
+module Conf = Extension.Configuration
+module Typ = Extension.Type
 
 module Comp = Compare
 module Pre = Precondition
@@ -190,10 +190,11 @@ module Utils = struct
 
 end
 
+module Flags = struct
 
-module Analysis = struct
+  exception Invalid_input
 
-  type flags = {
+  type t = {
     func : string;
     precond : string;
     postcond : string;
@@ -213,6 +214,88 @@ module Analysis = struct
     show : string list
   }
 
+  (* Ensures the user inputted a function for analysis. *)
+  let validate_func (func : string) =
+    if String.is_empty func then begin
+      Printf.printf "Function is not provided for analysis. Usage: \
+                     --func=<name>\n%!";
+      raise Invalid_input
+    end else
+      ()
+
+  (* Looks for an invalid option among the options the user inputted. *)
+  let find_invalid_option (opts : string list) (valid : string list)
+    : string option =
+    List.find opts ~f:(fun opt ->
+        not @@ List.mem valid opt ~equal:String.equal)
+
+  (* Ensures the user inputted only supported options for the debug flag. *)
+  let validate_debug (debug : string list) =
+    let valid = [
+      "z3-solver-stats";
+      "z3-verbose";
+      "constraint-stats";
+      "eval-constraint-stats"
+    ] in
+    match find_invalid_option debug valid with
+    | Some s ->
+      Printf.printf "'%s' is not a valid option for --debug. Available options \
+                     are: %s\n%!" s (List.to_string valid ~f:String.to_string);
+      raise Invalid_input
+    | None -> ()
+
+  (* Ensures the user inputted only supported options for the show flag. *)
+  let validate_show (show : string list) =
+    let valid = [
+      "bir";
+      "refuted-goals";
+      "paths";
+      "precond-internal";
+      "precond-smtlib"
+    ] in
+    match find_invalid_option show valid with
+    | Some s ->
+      Printf.printf "'%s' is not a valid option for --show. Available options \
+                     are: %s\n%!" s (List.to_string valid ~f:String.to_string);
+      raise Invalid_input
+    | None -> ()
+
+  (* Ensures the user passed in two files to compare function calls. *)
+  let validate_compare_func_calls (flag : bool) (files : string list) =
+    if flag && (List.length files <> 2) then begin
+      Printf.printf "--compare-func-calls is only used for a comparative \
+                     analysis. Please specify two files. Number of files \
+                     given: %d\n%!" (List.length files);
+      raise Invalid_input
+    end else
+      ()
+
+  (* Ensures the user passed in two files to compare post register values. *)
+  let validate_compare_post_reg_vals (regs : string list) (files : string list) =
+    if (not @@ List.is_empty regs) && (List.length files <> 2) then begin
+      Printf.printf "--compare-post-reg-values is only used for a comparative \
+                     analysis. Please specify two files. Number of files \
+                     given: %d\n%!" (List.length files);
+      raise Invalid_input
+    end else
+      ()
+
+  let validate (f : t) (files : string list) : unit =
+    try begin
+      validate_func f.func;
+      validate_compare_func_calls f.compare_func_calls files;
+      validate_compare_post_reg_vals f.compare_post_reg_values files;
+      validate_debug f.debug;
+      validate_show f.show
+    end with Invalid_input ->
+      exit 1
+
+end
+
+module Analysis = struct
+
+  open Flags
+
   (* Contains information about the precondition and the subroutines from
      the analysis to be printed out. *)
   type combined_pre = {
@@ -224,7 +307,7 @@ module Analysis = struct
   (* If an offset is specified, generates a function of the address of a memory
      read in the original binary to the address plus an offset in the modified
      binary. *)
-  let get_mem_offsets (ctx : Z3.context) (f : flags) (file1 : string)
+  let get_mem_offsets (ctx : Z3.context) (f : Flags.t) (file1 : string)
       (file2 : string) : Constr.z3_expr -> Constr.z3_expr =
     if f.mem_offset then
       let get_symbols file =
@@ -245,7 +328,7 @@ module Analysis = struct
   (* Generate the exp_conds for the original binary based on the flags passed in
      from the CLI. Generating the memory offsets requires the environment of
      the modified binary. *)
-  let exp_conds_orig (f : flags) (env_mod : Env.t) (file1 : string)
+  let exp_conds_orig (f : Flags.t) (env_mod : Env.t) (file1 : string)
       (file2 : string) : Env.exp_cond list =
     let ctx = Env.get_context env_mod in
     let offsets =
@@ -259,14 +342,14 @@ module Analysis = struct
 
   (* Generate the exp_conds for the modified binary based on the flags passed in
      from the CLI. *)
-  let exp_conds_mod (f : flags) : Env.exp_cond list =
+  let exp_conds_mod (f : Flags.t) : Env.exp_cond list =
     if f.check_null_derefs then
       [Pre.non_null_load_vc; Pre.non_null_store_vc]
     else
       []
 
   (* Determine which function specs to use in WP. *)
-  let fun_specs (f : flags) (to_inline : Sub.t Seq.t)
+  let fun_specs (f : Flags.t) (to_inline : Sub.t Seq.t)
     : (Sub.t -> Arch.t -> Env.fun_spec option) list =
     let default = [
       Pre.spec_verifier_assume;
@@ -337,7 +420,7 @@ module Analysis = struct
   let comparators_of_flags
       ~orig:(sub1, env1 : Sub.t * Env.t)
       ~modif:(sub2, env2 : Sub.t * Env.t)
-      (f : flags)
+      (f : Flags.t)
     : Comp.comparator list * Comp.comparator list =
     let arch = Env.get_arch env1 in
     let comps = [
@@ -357,7 +440,7 @@ module Analysis = struct
     List.unzip comps
 
   (* Runs a single binary analysis. *)
-  let single (ctx : Z3.context) (var_gen : Env.var_gen) (f : flags)
+  let single (ctx : Z3.context) (var_gen : Env.var_gen) (f : Flags.t)
       (file : string) : combined_pre =
     let proj = Utils.load_proj "wp" Utils.loader file in
     let arch = Project.arch proj in
@@ -386,7 +469,7 @@ module Analysis = struct
     { pre = pre; orig = env, main_sub; modif = env, main_sub }
 
   (* Runs a comparative analysis. *)
-  let comparative (ctx : Z3.context) (var_gen : Env.var_gen) (f : flags)
+  let comparative (ctx : Z3.context) (var_gen : Env.var_gen) (f : Flags.t)
       (file1 : string) (file2 : string) : combined_pre =
     let prog1 = Program.Io.read file1 in
     let prog2 = Program.Io.read file2 in
@@ -442,7 +525,7 @@ module Analysis = struct
     { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
 
   (* Entrypoint for the WP analysis. *)
-  let run (f : flags) (files : string list) : unit =
+  let run (f : Flags.t) (files : string list) : unit =
     if (List.mem f.debug "z3-verbose"  ~equal:(String.equal)) then
       Z3.set_global_param "verbose" "10";
     let ctx = Env.mk_ctx () in
@@ -492,7 +575,7 @@ module Cli = struct
       ~doc:"Path(s) to one or two binaries to analyze. If two binaries are \
             specified, WP will run a comparative analysis."
 
-  let func = Cmd.parameter Typ.(some string) ~aliases:["function"] "func"
+  let func = Cmd.parameter Typ.string ~aliases:["function"] "func"
       ~doc:"Function to run the WP analysis on. If no function is specified or \
             the function cannot be found in the binaries, the analysis will \
             fail."
@@ -649,52 +732,9 @@ module Cli = struct
         $ stack_size
         $ files)
 
-  (* Ensures the user inputted a function for analysis. *)
-  let check_func (func : string option) : string =
-    match func with
-    | Some f -> f
-    | None -> Printf.printf "Function is not provided for analysis.\n%!"; exit 1
-
-  (* Looks for an invalid option among the options the user inputted. *)
-  let find_invalid_option (opts : string list) (valid : string list)
-    : string option =
-    List.find opts ~f:(fun opt ->
-        not @@ List.mem valid opt ~equal:String.equal)
-
-  (* Ensures the user inputted only supported options for the debug flag. *)
-  let check_debug (debug : string list) : unit =
-    let valid = [
-      "z3-solver-stats";
-      "z3-verbose";
-      "constraint-stats";
-      "eval-constraint-stats"
-    ] in
-    match find_invalid_option debug valid with
-    | Some s ->
-      Printf.printf "'%s' is not a valid option for --debug. Available options \
-                     are: %s\n%!" s (List.to_string valid ~f:String.to_string);
-      exit 1
-    | None -> ()
-
-  (* Ensures the user inputted only supported options for the show flag. *)
-  let check_show (show : string list) : unit =
-    let valid = [
-      "bir";
-      "refuted-goals";
-      "paths";
-      "precond-internal";
-      "precond-smtlib"
-    ] in
-    match find_invalid_option show valid with
-    | Some s ->
-      Printf.printf "'%s' is not a valid option for --show. Available options \
-                     are: %s\n%!" s (List.to_string valid ~f:String.to_string);
-      exit 1
-    | None -> ()
-
   (* The callback run when the command is invoked from the command line. *)
   let callback
-      (func : string option)
+      (func : string)
       (precond : string)
       (postcond : string)
       (trip_asserts : bool)
@@ -713,10 +753,7 @@ module Cli = struct
       (stack_size : int option)
       (files : string list)
       (_ : ctxt) =
-    let func = check_func func in
-    let () = check_debug debug in
-    let () = check_show show in
-    let flags = Analysis.({
+    let flags = Flags.({
         func = func;
         precond = precond;
         postcond = postcond;
@@ -736,6 +773,7 @@ module Cli = struct
         stack_size = stack_size
       })
     in
+    Flags.validate flags files;
     Analysis.run flags files;
     Ok ()
 
