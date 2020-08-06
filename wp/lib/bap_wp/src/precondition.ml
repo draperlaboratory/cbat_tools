@@ -188,6 +188,7 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
         (Exp.to_string mem) (Exp.to_string addr) (Size.to_string size);
       let mem_val, env = exp_to_z3_body mem env in
       let addr_val, env = exp_to_z3_body addr env in
+      let addr_val = Env.mem_map env addr_val in
       load_z3_mem ctx ~word_size:(Size.in_bits size) ~mem:mem_val ~addr:addr_val endian, env
     | Store (mem, addr, exp, endian, size) ->
       debug "Visiting store: Mem:%s  Addr:%s  Exp:%s  Size:%s%!"
@@ -195,6 +196,7 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
       let mem_val, env = exp_to_z3_body mem env in
       let addr_val, env = exp_to_z3_body addr env in
       let exp_val, env = exp_to_z3_body exp env in
+      let addr_val = Env.mem_map env addr_val in
       store_z3_mem ctx ~word_size:(Size.in_bits size)
         ~mem:mem_val ~addr:addr_val ~content:exp_val endian, env
     | BinOp (bop, x, y) ->
@@ -716,11 +718,12 @@ let mk_env
     ?use_fun_input_regs:(use_fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
     ?data_section_range:(data_section_range = default_data_section_range)
+    ?offsets:(offsets = fun addr -> addr)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
   Env.mk_env ~subs ~specs ~default_spec ~indirect_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
-    ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
+    ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ~offsets ctx var_gen
 
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
   let jmp_spec = Env.get_jmp_handler env in

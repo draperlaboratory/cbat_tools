@@ -125,9 +125,9 @@ let exp_conds_orig (flags : flags) (env_mod : Env.t) : Env.exp_cond list =
     |> Pre.mem_read_offsets env_mod
   in
   if flags.check_null_deref then
-    [Pre.non_null_load_assert; Pre.non_null_store_assert; offsets]
+    [Pre.non_null_load_assert; Pre.non_null_store_assert ] (* ; offsets] *)
   else
-    [offsets]
+    [] (* offsets] *)
 
 (* Generate the exp_conds for the modified binary based on the flags passed in
    from the CLI. *)
@@ -275,7 +275,10 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     let to_inline2 = match_inline flags.inline subs2 in
     let specs2 = fun_specs flags to_inline2 in
     let exp_conds2 = exp_conds_mod flags in
-    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~specs:specs2
+
+                       (*  fun addr -> Bool.mk_ite ctx (in_data_section env addr) (BV.mk_add ctx addr) addr *)
+                    
+    let env2 = Pre.mk_env ctx var_gen ~subs:subs2 ~arch:arch ~specs:specs2 (* ~mem_map:mem_map2 *)
         ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds2 ~stack_range in
     let env2 = Env.set_freshen env2 true in
     let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
@@ -285,8 +288,9 @@ let compare_projs (ctx : Z3.context) (var_gen : Env.var_gen) (proj : project)
     let to_inline1 = match_inline flags.inline subs1 in
     let specs1 = fun_specs flags to_inline1 in
     let exp_conds1 = exp_conds_orig flags env2 in
+    let offsets1 = get_mem_offsets ctx flags in
     let env1 = Pre.mk_env ctx var_gen ~subs:subs1 ~arch:arch ~specs:specs1
-        ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 ~stack_range in
+        ~use_fun_input_regs:flags.use_fun_input_regs ~exp_conds:exp_conds1 ~stack_range (* ~offsets:offsets1  *) in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
     env1
   in

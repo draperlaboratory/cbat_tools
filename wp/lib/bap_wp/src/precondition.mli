@@ -253,6 +253,7 @@ val mk_env
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
   -> ?data_section_range:Env.mem_range
+  -> ?offsets:(Constr.z3_expr -> Constr.z3_expr)
   -> Z3.context
   -> Env.var_gen
   -> Env.t

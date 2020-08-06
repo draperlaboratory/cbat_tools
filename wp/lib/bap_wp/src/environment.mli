@@ -121,6 +121,7 @@ val mk_env
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
   -> data_section_range:mem_range
+  -> offsets:(Constr.z3_expr -> Constr.z3_expr)
   -> Z3.context
   -> var_gen
   -> t
@@ -298,3 +299,4 @@ val mk_z3_expr : Z3.context -> name:string -> typ:Bap.Std.Type.t -> Constr.z3_ex
 val new_z3_expr : ?name:string -> t -> Bap.Std.Type.t -> Constr.z3_expr
 
 (*---------------------------------------------------*)
+val mem_map : t -> Constr.z3_expr -> Constr.z3_expr

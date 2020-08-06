@@ -66,6 +66,7 @@ type t = {
   use_fun_input_regs : bool;
   stack : mem_range;
   data_section : mem_range;
+  offsets : Constr.z3_expr -> Constr.z3_expr; 
   init_vars : Constr.z3_expr EnvMap.t;
   consts : ExprSet.t
 }
@@ -280,6 +281,7 @@ let mk_env
     ~use_fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : mem_range)
     ~data_section_range:(data_section_range : mem_range)
+    ~offsets:(offsets : Constr.z3_expr -> Constr.z3_expr)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -302,6 +304,7 @@ let mk_env
     use_fun_input_regs = fun_input_regs;
     stack = stack_range;
     data_section = data_section_range;
+    offsets = offsets; 
     init_vars = EnvMap.empty;
     consts = ExprSet.empty
   }
@@ -473,3 +476,9 @@ let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
 
 let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.init_vars var
+
+let mem_map (env : t) (addr : Constr.z3_expr) : Constr.z3_expr = 
+  let ctx = get_context env in
+  Bool.mk_ite ctx (in_data_section env addr) (env.offsets addr) addr
+
+(*BV.mk_add ctx addr*)
