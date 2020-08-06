@@ -101,24 +101,33 @@ module Utils = struct
 
   let loader = "llvm"
 
-  let api = "api"
+  (* Runs the passes set to autorun by default. (abi and api). *)
+  let autorun_passes (proj : Project.t) : Project.t =
+    Project.passes ()
+    |> List.filter ~f:Project.Pass.autorun
+    |> List.fold ~init:proj ~f:(fun proj pass -> Project.Pass.run_exn pass proj)
 
-  (* Runs the API pass on the project to determine argument terms for each
-     subroutine. *)
-  let api_pass (proj : Project.t) : Project.t =
-    match Project.find_pass api with
-    | Some pass -> Project.Pass.run_exn pass proj
-    | None -> failwith "API pass not found! Check if bap-api is installed.%!"
-
-  (* Loads a BAP project from a binary file. *)
-  let load_proj (package : string) (loader : string) (filename : string)
-    : Project.t =
+  (* Creates a BAP project from an input file. *)
+  let create_proj (state : Project.state option) (loader : string)
+      (filename : string) : Project.t =
     let input = Project.Input.file ~loader ~filename in
-    match Project.create ~package input with
-    | Ok proj -> api_pass proj
+    match Project.create ~package:filename ?state input with
+    | Ok proj -> autorun_passes proj
     | Error e ->
       let msg = Error.to_string_hum e in
       failwith (Printf.sprintf "Error loading project: %s\n%!" msg)
+
+  (* Loads a BAP project from a binary file. *)
+  let load_proj (ctxt : ctxt) (loader : string) (file : string) : Project.t =
+    let mk_digest = Digests.get_generator ctxt file loader in
+    let knowledge_digest = Digests.knowledge mk_digest in
+    let project_digest = Digests.project mk_digest in
+    let () = Knowledge_cache.load knowledge_digest in
+    let state = Project_cache.load project_digest in
+    let project = create_proj state loader file in
+    let () = Knowledge_cache.save knowledge_digest in
+    let () = Project_cache.save project_digest (Project.state project) in
+    project
 
   (* Finds a function in the binary. *)
   let find_func_err (subs : Sub.t Seq.t) (func : string) : Sub.t =
@@ -440,9 +449,9 @@ module Analysis = struct
     List.unzip comps
 
   (* Runs a single binary analysis. *)
-  let single (ctx : Z3.context) (var_gen : Env.var_gen) (f : Flags.t)
-      (file : string) : combined_pre =
-    let proj = Utils.load_proj "wp" Utils.loader file in
+  let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
+      (f : Flags.t) (file : string) : combined_pre =
+    let proj = Utils.load_proj bap_ctx Utils.loader file in
     let arch = Project.arch proj in
     let subs = proj |> Project.program |> Term.enum sub_t in
     let main_sub = Utils.find_func_err subs f.func in
@@ -450,7 +459,7 @@ module Analysis = struct
     let specs = fun_specs f to_inline in
     let exp_conds = exp_conds_mod f in
     let stack_range = Utils.update_stack ~base:f.stack_base ~size:f.stack_size in
-    let env = Pre.mk_env ctx var_gen ~subs ~arch ~specs
+    let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs
         ~use_fun_input_regs:f.use_fun_input_regs ~exp_conds ~stack_range in
     let true_constr = Env.trivial_constr env in
     let hyps, env = Pre.init_vars (Pre.get_vars env main_sub) env in
@@ -469,10 +478,12 @@ module Analysis = struct
     { pre = pre; orig = env, main_sub; modif = env, main_sub }
 
   (* Runs a comparative analysis. *)
-  let comparative (ctx : Z3.context) (var_gen : Env.var_gen) (f : Flags.t)
-      (file1 : string) (file2 : string) : combined_pre =
-    let prog1 = Program.Io.read file1 in
-    let prog2 = Program.Io.read file2 in
+  let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
+      (f : Flags.t) (file1 : string) (file2 : string) : combined_pre =
+    let proj1 = Utils.load_proj bap_ctx Utils.loader file1 in
+    let proj2 = Utils.load_proj bap_ctx Utils.loader file2 in
+    let prog1 = Project.program proj1 in
+    let prog2 = Project.program proj2 in
     let subs1 = Term.enum sub_t prog1 in
     let subs2 = Term.enum sub_t prog2 in
     (* Temporarily hardcoding the architecture to x86_64 until we add the
@@ -485,7 +496,7 @@ module Analysis = struct
       let to_inline2 = Utils.match_inline f.inline subs2 in
       let specs2 = fun_specs f to_inline2 in
       let exp_conds2 = exp_conds_mod f in
-      let env2 = Pre.mk_env ctx var_gen
+      let env2 = Pre.mk_env z3_ctx var_gen
           ~subs:subs2
           ~arch:arch
           ~specs:specs2
@@ -501,7 +512,7 @@ module Analysis = struct
       let to_inline1 = Utils.match_inline f.inline subs1 in
       let specs1 = fun_specs f to_inline1 in
       let exp_conds1 = exp_conds_orig f env2 file1 file2 in
-      let env1 = Pre.mk_env ctx var_gen
+      let env1 = Pre.mk_env z3_ctx var_gen
           ~subs:subs1
           ~arch:arch
           ~specs:specs1
@@ -525,18 +536,18 @@ module Analysis = struct
     { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
 
   (* Entrypoint for the WP analysis. *)
-  let run (f : Flags.t) (files : string list) : unit =
+  let run (f : Flags.t) (files : string list) (bap_ctx : ctxt) : unit =
     if (List.mem f.debug "z3-verbose"  ~equal:(String.equal)) then
       Z3.set_global_param "verbose" "10";
-    let ctx = Env.mk_ctx () in
+    let z3_ctx = Env.mk_ctx () in
     let var_gen = Env.mk_var_gen () in
-    let solver = Z3.Solver.mk_solver ctx None in
+    let solver = Z3.Solver.mk_solver z3_ctx None in
     Utils.update_default_num_unroll f.num_unroll;
     let combined_pre =
       (* Determine whether to perform a single or comparative analysis. *)
       match files with
-      | [file] -> single ctx var_gen f file
-      | [file1; file2] -> comparative ctx var_gen f file1 file2
+      | [file] -> single bap_ctx z3_ctx var_gen f file
+      | [file1; file2] -> comparative bap_ctx z3_ctx var_gen f file1 file2
       | _ ->
         Printf.printf "WP can only analyze one binary for a single analysis or \
                        two binaries for a comparative analysis. Number of \
@@ -548,7 +559,7 @@ module Analysis = struct
     let debug_eval =
       (List.mem f.debug "eval-constraint-stats" ~equal:(String.equal)) in
     let result = Pre.check ~print_constr:f.show ~debug:debug_eval
-        solver ctx combined_pre.pre in
+        solver z3_ctx combined_pre.pre in
     if (List.mem f.debug "z3-solver-stats" ~equal:(String.equal)) then
       Printf.printf "Showing solver statistics : \n %s \n %!" (
         Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
@@ -752,7 +763,7 @@ module Cli = struct
       (stack_base : int option)
       (stack_size : int option)
       (files : string list)
-      (_ : ctxt) =
+      (ctxt : ctxt) =
     let flags = Flags.({
         func = func;
         precond = precond;
@@ -774,7 +785,7 @@ module Cli = struct
       })
     in
     Flags.validate flags files;
-    Analysis.run flags files;
+    Analysis.run flags files ctxt;
     Ok ()
 
 end
