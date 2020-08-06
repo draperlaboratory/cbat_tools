@@ -14,7 +14,7 @@ run () {
     --func=main \
     --inline=.* \
     --compare-post-reg-values=RAX \
-    -- main-original.bpj main-rop.bpj
+    -- main-original main-rop
 }
 
 compile && run

@@ -6,17 +6,13 @@
 
 set -x
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=main \
     --compare-post-reg-values=RAX \
     --use-fun-input-regs \
     --inline=.* \
-    -- csmith-10684.bpj csmith-16812.bpj
+    -- csmith-10684 csmith-16812
 }
 
-compile && run
+run

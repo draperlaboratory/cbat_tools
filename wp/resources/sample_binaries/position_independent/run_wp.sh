@@ -15,7 +15,7 @@ run () {
     --func=example \
     --inline=init \
     --compare-post-reg-values=RAX \
-    -- main_1.bpj main_2.bpj
+    -- main_1.so main_2.so
 }
 
 compile && run

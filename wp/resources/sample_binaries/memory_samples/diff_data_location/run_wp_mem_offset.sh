@@ -17,7 +17,8 @@ run () {
     --func=main \
     --compare-post-reg-values=RAX \
     --mem-offset \
-    -- main_1.bpj main_2.bpj
+    --no-glibc-runtime \
+    -- main_1 main_2
 }
 
 compile && run
