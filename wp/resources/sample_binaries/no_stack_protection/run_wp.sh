@@ -12,7 +12,7 @@ run () {
   bap wp \
     --func=main \
     --compare-post-reg-values=RSI,RAX \
-    -- main_1.bpj main_2.bpj
+    -- main_1 main_2
 }
 
 compile && run

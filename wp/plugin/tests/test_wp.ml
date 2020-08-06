@@ -273,7 +273,7 @@ let suite = [
   "Linked list: no mem check"      >: test_plugin "linked_list" unsat;
   "Linked list: with mem check"    >: test_plugin "linked_list" sat ~script:"run_wp_null_deref.sh";
 
-  "Loop"                           >:: test_skip fail_msg (test_plugin "loop" sat);
+  "Loop"                           >: test_plugin "loop" sat;
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
   "Nested function calls: inline regex" >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh"

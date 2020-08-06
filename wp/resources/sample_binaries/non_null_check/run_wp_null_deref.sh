@@ -20,7 +20,8 @@ run () {
     --func=main \
     --compare-post-reg-values=RAX \
     --check-null-derefs \
-    -- main_1.bpj main_2.bpj
+    --no-glibc-runtime \
+    -- main_1 main_2
 }
 
 compile && run

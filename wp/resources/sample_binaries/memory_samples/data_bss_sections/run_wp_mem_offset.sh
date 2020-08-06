@@ -18,7 +18,7 @@ run () {
     --func=main \
     --compare-post-reg-values=RAX,RBX,RSP,RBP,R12,R13,R14,R15 \
     --mem-offset \
-    -- main_1.bpj main_2.bpj
+    -- main_1 main_2
 }
 
 compile && run

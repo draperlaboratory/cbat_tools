@@ -20,7 +20,7 @@ run () {
     --func=foo_get \
     --compare-post-reg-values=RAX,RBX,RSP,RBP,R12,R13,R14,R15  \
     --precond="(assert (bvult RDI_orig #x000000000000000a))" \
-    -- main_1.bpj main_2.bpj
+    -- main_1 main_2
 }
 
 compile && run

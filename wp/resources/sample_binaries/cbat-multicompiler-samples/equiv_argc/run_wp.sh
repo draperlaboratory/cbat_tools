@@ -4,15 +4,12 @@
 
 set -x
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=main \
     --compare-post-reg-values=RAX \
-    -- equiv_argc-6404.bpj equiv_argc-6487.bpj
+    --no-byteweight \
+    -- equiv_argc-6404 equiv_argc-6487
 }
 
-compile && run
+run
