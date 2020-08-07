@@ -1,0 +1,25 @@
+# This tests inlining a function that has been compiled without the  fPIC flag.
+# init() returns different values, and if inlined properly, WP should be able
+# to capture this.
+
+# Should return SAT.
+
+set -x
+
+dummy_dir=../dummy
+
+compile () {
+  make
+}
+
+run () {
+  bap $dummy_dir/hello_world.out --pass=wp \
+    --wp-compare \
+    --wp-file1=main_1.bpj \
+    --wp-file2=main_2.bpj \
+    --wp-op-uninterp=plus,mul,shl,lshr,ashr,neq,xor,or,and \
+    --wp-function=example \
+    --wp-inline=init
+}
+
+compile && run
