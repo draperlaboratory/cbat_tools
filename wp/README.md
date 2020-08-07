@@ -63,7 +63,7 @@ Compile with
 
 And then invoke the bap plugin with
 
-> bap my_exec --pass=wp
+> bap wp --func=main my_exec
 
 You should get an output which includes something like the following:
 
@@ -91,7 +91,7 @@ UNSAT!
 Meaning there is no way to reach the `assert(0)` statement.
 
 Alternatively one may assert custom assumptions specified as smt-lib expressions
-via the command line option `--wp-precond="(assert (= RDI #x0000000000000002))"`
+via the command line option `--precond="(assert (= RDI #x0000000000000002))"`
 
 -------
 
@@ -183,9 +183,7 @@ As one might already notice, there is no break statement after the
 `NAV` case, in which case the fall-through will create different
 semantics for the return value.
 
-To invoke `wp` on pairs of binaries, it is necessary to compile
-each C file, and then call the `save-project` pass which creates a
-serialized form of the decompiled code. To do this, invoke:
+Compile both C files with:
 
 > gcc -g -o main_1 main_1.c
 
@@ -193,19 +191,12 @@ and
 
 > gcc -g -o main_2 main_2.c
 
-and then
-
-> bap --pass=save-project main_1 && bap --pass=save-project main_2
-
-which should create the `main_1.bpj` and `main_2.bpj` serialized files.
-
 One can then invoke the `wp` plugin to compare the functional
 behavior of that function, using the invocation:
 
-> bap dummy_binary --pass=wp --wp-compare=true --wp-file1=main_1.bpj --wp-file2=main_2.bpj --wp-function=process_status
+> bap wp --func=process_status main_1 main_2
 
-Where `dummy_binary` is any valid binary file, it will be
-ignored. Note that we pass in the function name we are interested in,
+Note that we pass in the function name we are interested in,
 here `process_status`.
 
 This gives a result including many assignments to registers and
@@ -437,7 +428,9 @@ will assume an unknown value for variable `c`.
 
 ## Logging
 
-By default, logs are printed to `STDERR`. You can save the logs to a file by specifying a log directory with the `--log-dir` flag or exporting the `$BAP_LOG_DIR` environment variable.
+By default, logs are stored at `~/.local/state/bap`. You can change the location
+of the logs by specifying the new log directory with the `--log-dir` flag or
+exporting the `$BAP_LOG_DIR` environment variable.
 
 By default, `debug` logs are not shown. To show debug logs:
 
