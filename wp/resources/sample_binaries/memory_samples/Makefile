@@ -1,4 +1,4 @@
-SAMPLE_DIRS = diff_data diff_data_location diff_stack
+SAMPLE_DIRS = $(wildcard */)
 BUILD_DIRS = $(SAMPLE_DIRS:%=build-%)
 CLEAN_DIRS = $(SAMPLE_DIRS:%=clean-%)
 
