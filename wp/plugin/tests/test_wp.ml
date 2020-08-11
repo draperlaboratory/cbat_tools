@@ -39,42 +39,78 @@ let check_z3_result (line : string) (expected : string) (ctxt : test_ctxt) : uni
   else
     ()
 
-(* Checks to see if a line of output belongs to the countermodel where a register
-   is given a value. If the register is one that we have an expected value for,
-   assert the model's value is equal to our expected value. *)
-let check_model (line : string) (regs : (string * string) list) (ctxt : test_ctxt)
-  : unit =
-  List.iter regs ~f:(fun (reg, expected) ->
-      (* Our model is printed in the form "reg |-> value". This regex will break
-         if this changes. *)
-      let pattern = Format.sprintf "^\t+%s +|-> +#[a-z0-9]$" reg in
-      let re = Re.Posix.compile_pat pattern in
-      if Re.execp re line then begin
-        let re = Re.Posix.compile_pat " +" in
-        let tokens = Re.split re line in
-        (* Value is stored in the last index. *)
-        let actual = List.last_exn tokens in
-        assert_equal
-          ~ctxt
-          ~printer:String.to_string
-          ~cmp:String.equal
-          expected actual
-      end)
+(* Given a line of input, a register, and its expected
+ * value, checks if that register contains the expected value on that line.
+ * Returns an error message if the line contains the register but not
+ * expected value. Else returns None. *)
+let check_for_match (line : string) (reg : string) (expected : string)
+  : string option =
+  (* Our model is printed in the form "reg |-> value".
+   *  This regex will break if this changes. *)
+  let pattern = Format.sprintf "^\t+%s +|-> +#[a-z0-9]$" reg in
+  let re = Re.Posix.compile_pat pattern in
+  if Re.execp re line then
+    begin
+      let re = Re.Posix.compile_pat " +" in
+      let tokens = Re.split re line in
+      (* Value is stored in the last index. *)
+      let actual = List.last_exn tokens in
+      if String.equal actual expected then
+        None
+      else (
+        Printf.sprintf "\t%s: expected %s, got: %s\n"
+          reg expected actual |> Some
+      )
+    end
+  else None
 
+(* Checks to see if a line of output contains a register from one of
+ * the provided countermodels. If the register is in the countermodel, check
+ * that the value matches what is expected for that countermodel. If matches,
+ * do nothing; if does not match, append to the model's error message. *)
+let check_models (line : string) (models : (string * string) list list)
+    (err_msgs : (string option) list) : (string option) list =
+  List.foldi models ~init:(err_msgs)
+    ~f:(fun model_index err_msgs_list reg_list ->
+        let result = List.fold reg_list ~init:(None)
+            ~f:(fun acc (reg, expected) ->
+                match acc with
+                | None -> check_for_match line reg expected
+                | _ -> acc ) in
+        let cur_msg = List.nth_exn err_msgs_list model_index in
+        let updated_err_msg =
+          Option.merge ~f:(fun a b -> Printf.sprintf "%s %s" a b) cur_msg result in
+        List.mapi err_msgs_list
+          ~f:(fun index ele -> if index = model_index then updated_err_msg else ele))
 
 (* Look for a line containing SAT!, UNSAT!, or UNKNOWN! in
    plugin output and compare with expected *)
 let check_result (stream : char Stream.t) (expected : string)
-    (expected_regs : (string * string) list) (ctxt : test_ctxt) : unit =
+    (expected_regs : (string * string) list list) (ctxt : test_ctxt) : unit =
   let buff = Buffer.create 16 in
-  Stream.iter (function
+  let err_msgs = List.map expected_regs ~f:( fun _ -> None) in
+  let acc = ref err_msgs in
+  Stream.iter (fun c ->
+      match c with
       |'\n' ->
         let line = Buffer.contents buff in
         check_z3_result line expected ctxt;
-        check_model line expected_regs ctxt;
+        let new_err_msgs = check_models line expected_regs !acc in
+        acc := new_err_msgs;
         Buffer.clear buff
-      | chr -> Buffer.add_char buff chr)
-    stream
+      | chr ->
+        Buffer.add_char buff chr)
+    stream;
+  let matches_a_model = List.exists !acc
+      (fun ele -> ele = None) || (List.length expected_regs = 0)
+  in
+  if not matches_a_model then
+    List.foldi !acc ~init:("") ~f:(fun index a ele ->
+        match ele with
+        | Some msg -> Printf.sprintf "%s \n Model %d: \n %s" a index msg
+        | _ -> "" )
+    |> assert_failure
+
 
 (* The length of a test_case is in seconds.
    OUnit has predefined test lengths of:
@@ -125,6 +161,7 @@ let test_update_num_unroll
 let test_skip (msg : string) (_ : test) (_ : test_ctxt) : unit =
   skip_if true msg
 
+
 let suite = [
 
   (* Test elf comparison *)
@@ -140,8 +177,10 @@ let suite = [
 
   "Double dereference"             >: test_plugin "double_dereference" unsat;
 
-  "Equiv argc"                     >: test_plugin "equiv_argc" sat ~expected_regs:[("RDI", "0x0000000000000002")];
-  "Precondition: force 2"          >: test_plugin "equiv_argc" sat ~script:"run_wp_force.sh" ~expected_regs:[("RDI", "0x0000000000000002")];
+  "Equiv argc"                     >: test_plugin "equiv_argc" sat
+    ~expected_regs:[ [("RDI", "0x0000000000000002")]; ];
+  "Precondition: force 2"          >: test_plugin "equiv_argc" sat ~script:"run_wp_force.sh"
+    ~expected_regs:[ [("RDI", "0x0000000000000002")]; ];
   "Precondition: disallow 2"       >: test_plugin "equiv_argc" unsat ~script:"run_wp_disallow.sh";
 
   "Equiv null check"               >: test_plugin "equiv_null_check" sat;
@@ -189,9 +228,13 @@ let suite = [
   "Same signs: post registers"     >: test_plugin "same_signs" unsat;
   "Same signs: postcondition"      >: test_plugin "same_signs" unsat ~script:"run_wp_postcond.sh";
 
-  "Switch case assignments"        >: test_plugin "switch_case_assignments" sat ~expected_regs:[("RDI", "0x0000000000000000")];
-  "Switch Cases"                   >: test_plugin "switch_cases" sat ~expected_regs:[("RDI", "0x0000000000000003")];
-  "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat ~expected_regs:[("RDI", "0x0000000000000003")];
+  "Switch case assignments"        >: test_plugin "switch_case_assignments" sat
+    ~expected_regs:[ [("RDI", "0x0000000000000000")]; ];
+  "Switch Cases"                   >: test_plugin "switch_cases" sat
+    ~expected_regs:[ [("RDI", "0x0000000000000003")]; ];
+
+  "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat
+    ~expected_regs:[ [("RDI", "0x0000000000000003")]; ];
 
   "Indirect call with return" >: test_plugin "indirect_call_return" unsat;
   "Indirect call with no return" >: test_plugin "indirect_call_no_return" unsat;
@@ -199,9 +242,9 @@ let suite = [
   (* Test single elf *)
 
   "Function call"                  >: test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh"
-    ~expected_regs:[("RDI", "0x0000000000000005")];
+    ~expected_regs:[ [("RDI", "0x0000000000000005")]; ];
   "Function call: inline all"      >: test_plugin "function_call" sat ~script:"run_wp_inline_all.sh"
-    ~expected_regs:[("RDI", "0x0000000000000005")];
+    ~expected_regs:[ [("RDI", "0x0000000000000005")]; ];
 
   "Function spec: no inlining"     >: test_plugin "function_spec" sat;
   "Function spec: inline foo"      >: test_plugin "function_spec" unsat ~script:"run_wp_inline_foo.sh";
@@ -221,9 +264,9 @@ let suite = [
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
   "Nested function calls: inline regex" >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh"
-    ~expected_regs:[("RDI", "0x0000000000000004")];
+    ~expected_regs:[ [("RDI", "0x0000000000000004")]; ];
   "Nested function calls: inline all"   >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_all.sh"
-    ~expected_regs:[("RDI", "0x0000000000000004")];
+    ~expected_regs:[ [("RDI", "0x0000000000000004")]; ];
 
   "Nested ifs"                     >: test_plugin "nested_ifs" unsat;
   "Nested ifs: goto"               >: test_plugin "nested_ifs" unsat ~script:"run_wp_goto.sh";
@@ -234,7 +277,8 @@ let suite = [
 
   "User defined postcondition"     >: test_plugin "return_argc" sat;
 
-  "Simple WP"                      >: test_plugin "simple_wp" sat ~expected_regs:[("RDI", "0x0000000000000003")];
+  "Simple WP"                      >: test_plugin "simple_wp" sat
+    ~expected_regs:[ [("RDI", "0x0000000000000003")]; ];
   "Simple WP: precondition"        >: test_plugin "simple_wp" unsat ~script:"run_wp_pre.sh";
 
   "Verifier assume SAT"            >: test_plugin "verifier_calls" sat ~script:"run_wp_assume_sat.sh";
