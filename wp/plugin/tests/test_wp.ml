@@ -102,7 +102,7 @@ let check_result (stream : char Stream.t) (expected : string)
         Buffer.add_char buff chr)
     stream;
   let matches_a_model = List.exists !acc
-      (fun ele -> ele = None) || (List.length expected_regs = 0)
+      ~f:(fun ele -> ele = None) || (List.length expected_regs = 0)
   in
   if not matches_a_model then
     List.foldi !acc ~init:("") ~f:(fun index a ele ->
