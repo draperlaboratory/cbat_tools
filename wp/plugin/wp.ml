@@ -255,6 +255,8 @@ let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
            left-hand side of an assignment in the target function.
 
            `empty': Used for empty subroutines. Performs no actions.|}
+let ext_solver_path = Cmd.parameter Typ.(some string) "ext-solver-path"
+    ~doc:{|Path of external smt solver to call. Boolector recommended. |}
 
 let grammar = Cmd.(
     args
@@ -281,7 +283,8 @@ let grammar = Cmd.(
     $ func_name_map
     $ user_func_spec
     $ fun_specs
-    $ files)
+    $ files
+    $ ext_solver_path)
 
 (* The callback run when the command is invoked from the command line. *)
 let callback
@@ -309,6 +312,7 @@ let callback
     (user_func_spec : (string*string*string) option)
     (fun_specs : string list)
     (files : string list)
+    (ext_solver_path : string option)
     (ctxt : ctxt) =
   let open Parameters.Err.Syntax in
   let params = Parameters.({
@@ -334,7 +338,8 @@ let callback
       stack_size = stack_size;
       func_name_map = func_name_map;
       user_func_spec = user_func_spec;
-      fun_specs = fun_specs
+      fun_specs = fun_specs;
+      ext_solver_path = ext_solver_path
     })
   in
   Parameters.validate params files >>= fun () ->

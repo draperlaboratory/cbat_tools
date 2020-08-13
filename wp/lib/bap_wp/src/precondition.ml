@@ -39,7 +39,9 @@ type hooks = {
 let z3_expr_zero (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "0" size
 let z3_expr_one (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "1" size
 
-let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr =
+let binop (env : Env.t) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr =
+  let ctx = Env.get_context env in
+  let smtlib_compat = Env.get_smtlib_compat env in
   let open Bap.Std.Bil.Types in
   let zero = z3_expr_zero ctx 1 in
   let one = z3_expr_one ctx 1 in
@@ -57,8 +59,11 @@ let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> C
   | AND -> BV.mk_and ctx
   | OR -> BV.mk_or ctx
   | XOR -> BV.mk_xor ctx
-  | EQ -> fun x y -> BV.mk_not ctx @@ BV.mk_redor ctx @@ BV.mk_xor ctx x y
-  | NEQ -> fun x y -> BV.mk_redor ctx @@ BV.mk_xor ctx x y
+  | EQ -> fun x y -> if smtlib_compat then (Bool.mk_ite ctx (Bool.mk_eq ctx x y) one zero)
+    else  (BV.mk_not ctx @@ BV.mk_redor ctx @@ BV.mk_xor ctx x y)
+  | NEQ -> fun x y -> if smtlib_compat 
+    then  Bool.mk_ite ctx (Bool.mk_eq ctx x y) zero one
+    else  BV.mk_redor ctx @@ BV.mk_xor ctx x y
   | LT -> fun x y -> Bool.mk_ite ctx (BV.mk_ult ctx x y) one zero
   | LE -> fun x y -> Bool.mk_ite ctx (BV.mk_ule ctx x y) one zero
   | SLT -> fun x y -> Bool.mk_ite ctx (BV.mk_slt ctx x y) one zero
@@ -227,7 +232,7 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
         | _ -> x_val, y_val
       in
       assert (get_size x_val = get_size y_val);
-      binop ctx bop x_val y_val, env
+      binop env bop x_val y_val, env
     | UnOp (u, x) ->
       debug "Visiting unop: %s %s%!" (Bil.string_of_unop u) (Exp.to_string x);
       let x_val, env = exp_to_z3_body x env in
@@ -753,6 +758,7 @@ let mk_env
     ?stack_range:(stack_range = default_stack_range)
     ?data_section_range:(data_section_range = default_data_section_range)
     ?func_name_map:(func_name_map = String.Map.empty)
+    ?smtlib_compat:(smtlib_compat = false)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
@@ -771,6 +777,7 @@ let mk_env
     ~stack_range
     ~data_section_range
     ~func_name_map
+    ~smtlib_compat
     ctx var_gen
 
 (* Determines the condition for taking a jump, and uses it to generate the jump
@@ -1076,7 +1083,7 @@ let non_null_load_vc : Env.exp_cond = fun env exp ->
     None
   else
     Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem load"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 let non_null_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -1085,7 +1092,7 @@ let non_null_load_assert : Env.exp_cond = fun env exp ->
     None
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem load"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 (* This adds a non-null condition for every memory write in the term *)
 let non_null_store_vc : Env.exp_cond = fun env exp ->
@@ -1095,7 +1102,7 @@ let non_null_store_vc : Env.exp_cond = fun env exp ->
     None
   else
     Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem store"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 let non_null_store_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -1104,7 +1111,7 @@ let non_null_store_assert : Env.exp_cond = fun env exp ->
     None
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem store"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 (* For a given address, generates the constraint of:
    addr >= RSP \/ addr <= stack_bottom - 0x256 *)
@@ -1302,9 +1309,9 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   if List.is_empty conds then
     None
   else
-    Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
+    Some (Assume (AfterExec (Constr.mk_goal name (Z3_utils.mk_and ctx conds))))
 
-let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
+let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
     (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   printf "Evaluating precondition.\n%!";
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
@@ -1320,7 +1327,10 @@ let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
   Z3.Solver.add solver [is_correct];
   if (List.mem print_constr "precond-smtlib" ~equal:(String.equal)) then (
     Printf.printf "Z3 : \n %s \n %!" (Z3.Solver.to_string solver) );
-  Z3.Solver.check solver []
+  match ext_solver with
+  | None -> Z3.Solver.check solver []
+  | Some (solver_path, declsyms) ->
+    Z3_utils.check_external solver solver_path ctx declsyms
 
 let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
     ~pre:(pre : Constr.t) : Solver.status =

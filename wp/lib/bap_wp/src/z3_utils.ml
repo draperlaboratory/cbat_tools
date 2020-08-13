@@ -32,9 +32,9 @@ let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) 
   let var_to_decl ~key:_ ~data:z3_var decls =
     assert (Expr.is_const z3_var);
     let decl = FuncDecl.mk_const_decl_s ctx
-        (Expr.to_string z3_var)
+        (Expr.to_string z3_var |> (String.strip ~drop:(fun c -> Char.(c = '|'))))
         (Expr.get_sort z3_var) in
-    let sym =  Symbol.mk_string ctx (Expr.to_string z3_var) in
+    let sym =  Symbol.mk_string ctx (Expr.to_string z3_var |> (String.strip ~drop:(fun c -> Char.(c = '|')))) in
     (decl, sym) :: decls
   in
   let var_map = Env.get_var_map env in
@@ -110,3 +110,211 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   let decl_syms = get_decls_and_symbols env in
   let ctx = Env.get_context env in
   mk_smtlib2 ctx smt_post decl_syms
+
+let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
+    (l_mod : (Constr.z3_expr list) option) (env2: Env.t option) : Constr.t =
+  let stack_end = Env.get_stack_end env1 in
+  let ctx = Env.get_context env1 in
+  let arch = match Env.get_arch env1 |> Bap.Std.Arch.addr_size with
+    | `r32 -> 32
+    | `r64 -> 64 in
+  let rsp = Env.get_sp env1 |> Var.name in
+  let function_name = "construct_pointer_constraint: " in
+  let err_msg_rsp = "stack pointer not found" in
+  let sb_bv = Z3.BitVector.mk_numeral ctx (stack_end |> Int.to_string) arch in
+  let gen_constr, l = match l_mod, env2 with
+    (* comparative case *)
+    | Some l_mod, Some env2 ->
+      let init_var_map_orig = Env.get_init_var_map env1 in
+      let init_var_map_mod = Env.get_init_var_map env2 in
+      (* we do want exceptions here if RSP doesn't exist *)
+      let rsp_orig = Option.value_exn
+          ~message:(function_name ^ "original " ^ err_msg_rsp)
+          (get_z3_name init_var_map_orig rsp Var.name) in
+      let rsp_mod = Option.value_exn
+          ~message:(function_name ^ "modified " ^ err_msg_rsp)
+          (get_z3_name init_var_map_mod rsp Var.name) in
+      (* Encode constraint that each register is not within stack*)
+      (fun acc (reg_orig, reg_mod) ->
+         (* NOTE: we are assuming stack grows down.*)
+         (* R_orig >= RSP_orig *)
+         let uge_1 = Z3.BitVector.mk_uge ctx reg_orig rsp_orig in
+         (* R_mod >= RSP_mod *)
+         let uge_2 = Z3.BitVector.mk_uge ctx reg_mod rsp_mod in
+         (*  R_orig <= stack_bottom *)
+         let ule_1 =  Z3.BitVector.mk_ule ctx reg_orig sb_bv in
+         (* R_mod <= stack_bottom *)
+         let ule_2 =  Z3.BitVector.mk_ule ctx reg_mod sb_bv in
+         (* R_orig >= RSP \/ R_orig <= stack_bottom *)
+         let or_c_1 = Z3.Boolean.mk_or ctx [uge_1; ule_1] in
+         (* R_mod >= RSP \/ R_mod <= stack_bottom *)
+         let or_c_2 = Z3.Boolean.mk_or ctx [uge_2; ule_2] in
+         (* (R_orig >= RSP \/ R_orig <= stack_bottom) /\
+            (R_mod >= RSP \/ R_mod <= stack_bottom)     *)
+         let and_c = Z3.Boolean.mk_and ctx [or_c_1; or_c_2;] in
+         Z3.Boolean.mk_and ctx [and_c; acc]
+      ), List.zip_exn l_orig l_mod
+    (* single binary case *)
+    | _, _ ->
+      let init_var_map = Env.get_init_var_map env1 in
+      let stack_pointer = Option.value_exn ~message:err_msg_rsp
+          (get_z3_name init_var_map rsp Var.name) in
+      (fun acc (reg, _) ->
+         (* R >= RSP_orig *)
+         let uge = Z3.BitVector.mk_ugt ctx reg stack_pointer in
+         (* R <= stack_bottom *)
+         let ule = Z3.BitVector.mk_ult ctx reg sb_bv in
+         (* R >= RSP \/ R <= stack_bottom *)
+         let or_c = Z3.Boolean.mk_or ctx [uge; ule] in
+         Z3.Boolean.mk_and ctx [or_c; acc]
+      ), List.zip_exn l_orig l_orig
+  in
+  let expr = List.fold l ~init:(Z3.Boolean.mk_true ctx) ~f:gen_constr in
+  Constr.mk_goal "pointer_precond" expr |> Constr.mk_constr
+
+(** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an 
+    [and] node if the number of operands is less than 2. This may improve sharing,
+    but also improves compatibility of smtlib2 expressions with other solvers  *)
+let mk_and ( ctx : Z3.context ) (xs : Constr.z3_expr list) : Constr.z3_expr = 
+  match xs with
+  | []  -> Bool.mk_true ctx
+  | [x] -> x
+  | _   -> Bool.mk_and ctx xs
+
+
+(** [asserts_of_model] takes a string of an smtlib2 model returned by an external solver and 
+    processes it into an equivalent list of assert strings.
+
+    The models are expected to be of the form
+
+    (model
+      (define-fun strlen_ret_RAX () (_ BitVec 64) #b0000000000000000000000000000000000100100110000000000000000000000)
+      (define-fun RSP0 () (_ BitVec 64) #b0000000000000000000000000000000000111111110000000000000000000101)
+      (define-fun RBX0 () (_ BitVec 64) #b0010111100101110111111110010111100101101111111111111111111111111)
+      (define-fun mem0 (
+      (mem0_x0 (_ BitVec 64))) (_ BitVec 8)
+        (ite (= mem0_x0 #b0000000000000000000000000000000000000000000111111111111111111111) #b00101111
+        (ite (= mem0_x0 #b0000000000000000000000000000000000111111110000000000000000000101) #b11111111
+        (ite (= mem0_x0 #b0000000000000000000000000000000000111111110000000000000000000110) #b11111111
+          #b00000000)))))))))))))))))))
+    )
+
+    This is processed via parsing as an S-expression into assert strings of the form
+
+    [
+      (assert (= strlen_ret_RAX #b0000000000000000000000000000000000100100110000000000000000000000)) ;
+      (assert (= RSP0 #b0000000000000000000000000000000000111111110000000000000000000101)) ;
+      (assert (= RBX0 #b0010111100101110111111110010111100101101111111111111111111111111)) ;
+      (assert (= mem0 (lambda (
+      (mem0_x0 (_ BitVec 64)))
+        (ite (= mem0_x0 #b0000000000000000000000000000000000000000000111111111111111111111) #b00101111
+        (ite (= mem0_x0 #b0000000000000000000000000000000000111111110000000000000000000101) #b11111111
+        (ite (= mem0_x0 #b0000000000000000000000000000000000111111110000000000000000000110) #b11111111
+          #b00000000))))))))))))))))))))
+    ] *)
+
+let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t list = 
+  let process_decl l = match l with 
+    | Sexp.List [Sexp.Atom "define-fun" ; Sexp.Atom varname; args ; _ ; model_val ] -> 
+      (* If variable is not in sym_names, z3 will crash on processing it.
+         Z3 can fill in gaps in the model via it's own smt search.
+         The main cost is slowdown. *)
+      if (List.mem sym_names varname ~equal:String.equal)
+      then
+        let model_val = match args with
+          | Sexp.List [] ->  (* Constant case *)
+            model_val
+          | Sexp.List _  ->  (* Function model *)
+            Sexp.List [Sexp.Atom "lambda" ; args; model_val] (* Sexp.Atom varname *)
+          | Sexp.Atom _ -> failwith "Unexpected atom" 
+        in 
+        Sexp.List [Sexp.Atom "assert" ; 
+                   Sexp.List [Sexp.Atom "=" ; Sexp.Atom varname ; model_val]] 
+      else 
+        begin
+          Printf.printf "Warning: %s not instantiated in Z3 query" varname;
+          Sexp.List [Sexp.Atom "assert" ; Sexp.Atom "true"]
+        end
+    | _ -> failwith "Error: Unexpected form in external smt model" 
+  in
+  let model_sexp = Sexp.of_string model_string in
+  match model_sexp with
+  | Sexp.List (Sexp.Atom "model" :: t) -> 
+    List.map ~f:process_decl t
+  | _ -> failwith "Error: Unexpected form in external smt model" 
+
+(* We are still missing some funcdecls, particularly function return values *)
+(** [check_external] invokes an external smt solver as a process. It communicates to the 
+    process via a fairly rigid interpretation of the smtlib2 protocol. It extracts the 
+    smtlib2 query string from the given z3_solver, queries the external solver, receives 
+    a counter model if SAT. It then asserts this model back to the z3_solver, which should
+    check quickly. This solver can then be used with the regular cbat z3 model 
+    interpretation machinery. Tested with Boolector, results with other solvers may vary.*)
+
+let check_external 
+    (solver : Z3.Solver.solver) 
+    (solver_path : string) 
+    (ctx : Z3.context) 
+    (declsyms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : Z3.Solver.status =
+  let smt_string = Z3.Solver.to_string solver in
+  let smt_preamble = "(set-logic QF_AUFBV) (set-option :produce-models true)" in
+  let smt_postamble = "(check-sat) (get-model) (exit)" in
+  (* Todo: Forward verbose flags to external solver? *)
+  let (solver_stdout, solver_stdin) = Caml_unix.open_process solver_path in
+  (* Send query to solver *)
+  Out_channel.output_string solver_stdin smt_preamble;
+  Out_channel.output_string solver_stdin smt_string;
+  Out_channel.output_string solver_stdin smt_postamble;
+  Out_channel.flush solver_stdin;
+  printf "Running external solver %s\n%!" solver_path;
+  let result = In_channel.input_line_exn solver_stdout in
+  (* Parse external model into SExp, convert into smtlib asserts, 
+     assert to Z3, verify that it is a model *)
+  let process_sat (_ : unit) = 
+    let model_string = In_channel.input_all solver_stdout in
+    (* SexpLib unfortunately uses # as an comment delimitter.
+       We replace it with a special token and revert this after parsing. *)
+    let pound_token = "MYSPECIALPOUND682" in
+    let model_string = String.substr_replace_all model_string ~pattern:"#" ~with_:pound_token in
+    let decls, syms = (* get_decls_and_symbols env*) declsyms |> List.unzip in
+    let smt_asserts = asserts_of_model model_string (List.map ~f:Z3.Symbol.to_string syms) in
+    let smt_asserts = List.map smt_asserts ~f:(fun assert_ -> 
+        Sexp.to_string assert_ |>
+        String.substr_replace_all ~pattern:pound_token ~with_:"#") in
+    List.iter smt_asserts ~f:(fun smt_assert -> 
+        let asts = Z3.SMT.parse_smtlib2_string ctx smt_assert [] [] syms decls  in 
+        Z3.Solver.add solver (Z3.AST.ASTVector.to_expr_list asts)
+      );
+    let res = Z3.Solver.check solver [] in
+    match res with
+    | Z3.Solver.SATISFIABLE -> ()
+    | Z3.Solver.UNSATISFIABLE -> 
+      failwith (sprintf "External smt model returns unsat for Z3: \n 
+                           Old_query: %s \n
+                           Model : %s \n
+                           Asserts: %s \n
+                           New query :%s \n" 
+                  smt_string 
+                  (String.concat ~sep:"\n" smt_asserts) 
+                  (Z3.Solver.to_string solver)
+                  (model_string))
+    | Z3.Solver.UNKNOWN -> failwith "External smt model returns unknown for Z3"
+  in
+  if String.(result = "unsat") then (* Regexp it? *)
+    Z3.Solver.UNSATISFIABLE
+  else if String.(result = "sat") then
+    begin
+      let () = process_sat () in
+      Z3.Solver.SATISFIABLE
+    end
+  else if String.(result = "unknown") then
+    Z3.Solver.UNKNOWN
+  else
+    begin
+      let unknown_output = In_channel.input_all solver_stdout in
+      failwith (sprintf "Unidentified external solver %s output : %s\n%s " 
+                  solver_path result unknown_output)
+    end
+
+
+
