@@ -111,3 +111,11 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   let ctx = Env.get_context env in
   mk_smtlib2 ctx smt_post decl_syms
 
+(** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an 
+    [and] node if the number of operands is less than 2. This may improve sharing,
+    but also improves compatibility of smtlib2 expressions with other solvers  *)
+let mk_and ( ctx : Z3.context ) (xs : Constr.z3_expr list) : Constr.z3_expr = 
+  match xs with
+  | []  -> Bool.mk_true ctx
+  | [x] -> x
+  | _   -> Bool.mk_and ctx xs

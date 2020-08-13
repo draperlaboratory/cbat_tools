@@ -52,3 +52,9 @@ val mk_smtlib2_single : Env.t -> string -> Constr.t
     [get_decls_and_symbols] function. *)
 
 val mk_smtlib2 : Z3.context -> string -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)  -> Constr.t
+
+(** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an 
+    [and] node if the number of operands is less than 2. This may improve sharing,
+    but also improves compatibility of smtlib2 expressions with other solvers.  *)
+
+val mk_and : Z3.context -> Constr.z3_expr list -> Constr.z3_expr

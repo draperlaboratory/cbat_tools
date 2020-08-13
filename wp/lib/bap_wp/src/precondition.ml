@@ -57,8 +57,8 @@ let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> C
   | AND -> BV.mk_and ctx
   | OR -> BV.mk_or ctx
   | XOR -> BV.mk_xor ctx
-  | EQ -> fun x y -> BV.mk_not ctx @@ BV.mk_redor ctx @@ BV.mk_xor ctx x y
-  | NEQ -> fun x y -> BV.mk_redor ctx @@ BV.mk_xor ctx x y
+  | EQ -> fun x y -> Bool.mk_ite ctx (Bool.mk_eq ctx x y) one zero
+  | NEQ -> fun x y -> Bool.mk_ite ctx (Bool.mk_eq ctx x y) zero one
   | LT -> fun x y -> Bool.mk_ite ctx (BV.mk_ult ctx x y) one zero
   | LE -> fun x y -> Bool.mk_ite ctx (BV.mk_ule ctx x y) one zero
   | SLT -> fun x y -> Bool.mk_ite ctx (BV.mk_slt ctx x y) one zero
@@ -1018,7 +1018,7 @@ let non_null_load_vc : Env.exp_cond = fun env exp ->
     None
   else
     Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem load"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 let non_null_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -1027,7 +1027,7 @@ let non_null_load_assert : Env.exp_cond = fun env exp ->
     None
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem load"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 (* This adds a non-null condition for every memory write in the term *)
 let non_null_store_vc : Env.exp_cond = fun env exp ->
@@ -1037,7 +1037,7 @@ let non_null_store_vc : Env.exp_cond = fun env exp ->
     None
   else
     Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem store"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 let non_null_store_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -1046,7 +1046,7 @@ let non_null_store_assert : Env.exp_cond = fun env exp ->
     None
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem store"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 (* At a memory read, add two assumptions of the form:
    Data(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
@@ -1109,7 +1109,7 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   if List.is_empty conds then
     None
   else
-    Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
+    Some (Assume (AfterExec (Constr.mk_goal name (Z3_utils.mk_and ctx conds))))
 
 let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
     (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
