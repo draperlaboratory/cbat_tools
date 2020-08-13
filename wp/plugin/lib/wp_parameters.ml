@@ -52,7 +52,8 @@ type t = {
   show : string list;
   func_name_map : (string * string) list;
   user_func_spec : (string * string * string) option;
-  fun_specs : string list
+  fun_specs : string list;
+  ext_solver_path : string option
 }
 
 (* Ensures the user inputted a function for analysis. *)

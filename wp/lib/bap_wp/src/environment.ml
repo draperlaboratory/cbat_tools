@@ -68,7 +68,8 @@ type t = {
   data_section : mem_range;
   init_vars : Constr.z3_expr EnvMap.t;
   call_preds : ExprSet.t;
-  func_name_map : string StringMap.t
+  func_name_map : string StringMap.t;
+  smtlib_compat : bool
 }
 
 and fun_spec_type =
@@ -293,6 +294,7 @@ let mk_env
     ~stack_range:(stack_range : mem_range)
     ~data_section_range:(data_section_range : mem_range)
     ~func_name_map:(func_name_map : string StringMap.t)
+    ~smtlib_compat:(smtlib_compat : bool)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -317,7 +319,8 @@ let mk_env
     data_section = data_section_range;
     init_vars = EnvMap.empty;
     call_preds = ExprSet.empty;
-    func_name_map = func_name_map
+    func_name_map = func_name_map;
+    smtlib_compat = smtlib_compat
   }
 
 let env_to_string (env : t) : string =
@@ -442,6 +445,10 @@ let is_x86 (a : Arch.t) : bool =
 let use_input_regs (env : t) : bool =
   env.use_fun_input_regs
 
+(** Determine whether to generate constraints that are smtlib compatible or using
+    optimizations that are Z3 specific. Put to [true] if using external smt solver *)
+let get_smtlib_compat (env : t) : bool = env.smtlib_compat
+
 (* Returns a function that takes in a memory address as a z3_expr and outputs a
    z3_expr that checks if that address is within the region of stack we are
    defining for the hypothesis. *)
@@ -495,7 +502,7 @@ let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
-  let name = Format.sprintf "init_%s" (Expr.to_string z3_var) in
+  let name = Format.sprintf "init_%s" (String.strip ~drop:(fun c -> Char.(c = '|')) (Expr.to_string z3_var)) in
   let init_var = Expr.mk_const_s ctx name sort in
   let env = { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var } in
   init_var, env

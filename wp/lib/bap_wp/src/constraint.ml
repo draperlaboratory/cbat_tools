@@ -246,12 +246,12 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
       (eval_aux ~stats:stats c2 olds news ctx)
   | Clause (hyps, concs) ->
     let eval_conjunction conj =
-      if List.length conj = 1 then 
-        (* This is tail recursive. Avoids And node. *)
-        eval_aux ~stats:stats (List.hd_exn conj) olds news ctx 
-      else
+      (* This adds possible tail recursion, avoids And node. *)
+      match conj with
+      | []  -> Bool.mk_true ctx
+      | [x] -> eval_aux ~stats:stats x olds news ctx
+      | _   -> Bool.mk_and ctx @@
         List.map conj ~f:(fun c -> eval_aux ~stats:stats c olds news ctx)
-        |> Bool.mk_and ctx
     in
     if List.is_empty hyps then
       eval_conjunction concs(* possibly tail recursive? *)

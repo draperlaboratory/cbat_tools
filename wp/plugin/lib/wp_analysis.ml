@@ -242,7 +242,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let specs = fun_specs p to_inline in
   let exp_conds = exp_conds_mod p in
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
-  let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs
+  let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs ~smtlib_compat:(Option.is_some p.ext_solver_path)
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
   let vars = Pre.get_vars env main_sub in
@@ -300,6 +300,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~subs:subs2
         ~arch:arch2
         ~specs:specs2
+        ~smtlib_compat:(Option.is_some p.ext_solver_path)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds2
         ~stack_range
@@ -319,6 +320,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~subs:subs1
         ~arch:arch1
         ~specs:specs1
+        ~smtlib_compat:(Option.is_some p.ext_solver_path)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds1
         ~stack_range
@@ -343,15 +345,20 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       (Sub.to_string main_sub1) (Sub.to_string main_sub2);
   { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
 
-let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
+let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre) 
   : (unit, error) result =
   let solver = Z3.Solver.mk_solver ctx None in
   if (List.mem p.debug "constraint-stats" ~equal:(String.equal)) then
     Constr.print_stats cp.pre;
   let debug_eval =
     (List.mem p.debug "eval-constraint-stats" ~equal:(String.equal)) in
-  let result = Pre.check ~print_constr:p.show ~debug:debug_eval
-      solver ctx cp.pre in
+  let result = match p.ext_solver_path with
+  | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx cp.pre 
+  | Some ext_solver_path -> 
+      let declsyms = List.append (Z3_utils.get_decls_and_symbols (fst cp.modif)) (Z3_utils.get_decls_and_symbols (fst cp.orig)) in 
+      Pre.check ~print_constr:p.show ~debug:debug_eval ~ext_solver:(ext_solver_path, declsyms)
+      solver ctx cp.pre 
+  in
   if (List.mem p.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!" (
       Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
