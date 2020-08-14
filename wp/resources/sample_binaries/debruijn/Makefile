@@ -6,7 +6,7 @@ PROG2=$(BASE)_2
 all: $(PROG1) $(PROG1).bpj $(PROG2) $(PROG2).bpj
 
 %: %.c
-	gcc -O3 -Wall -fno-stack-protector -o $@ $<
+	gcc -O1 -funroll-loops -Wall -fno-stack-protector -o $@ $<
 
 %.bpj: %
 	bap $< --no-byteweight --pass=save-project --save-project-filename=$@
