@@ -297,10 +297,13 @@ let suite = [
   "Debruijn: 16 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_16bit.sh";
   "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_32bit.sh";
 
-  "NQueens solver"                 >: test_plugin "nqueens" sat ~expected_regs:[("RDI", "0x0000000000002814")];
-  "Sudoku solver"                  >: test_plugin "sudoku" sat ~expected_regs:[("RDI", "0x00000000d82d7287")];
+  "NQueens solver 4x4"                 >: test_plugin "nqueens" sat
+    ~expected_regs:[[("RDI", "0x0000000000002814")]; [("RDI", "0x0000000000004182")]];
+
+  "Sudoku solver"                  >: test_plugin "sudoku" sat
+    ~expected_regs:[[("RDI", "0x00000000d82d7287")]];
 
   "Hash function"                  >: test_plugin "hash_function" sat
-    ~expected_regs:[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")];
+    ~expected_regs:[[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")]];
 
 ]
