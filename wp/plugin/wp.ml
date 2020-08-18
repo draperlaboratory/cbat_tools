@@ -13,10 +13,10 @@
 
 open !Core_kernel
 open Bap_main
-open Bap_knowledge
 open Bap.Std
 open Regular.Std
 open Bap_wp
+
 include Self()
 
 module Cmd = Extension.Command
@@ -46,8 +46,9 @@ module Digests = struct
 
 end
 
-
 module Knowledge_cache = struct
+
+  open Bap_knowledge
 
   (* Creates the knowledge cache. *)
   let knowledge_cache () =
@@ -69,7 +70,6 @@ module Knowledge_cache = struct
     |> Data.Cache.save cache digest
 
 end
-
 
 module Project_cache = struct
 
@@ -96,6 +96,78 @@ module Project_cache = struct
 
 end
 
+module KB_program = struct
+
+  open Bap_core_theory
+  open KB.Let_syntax
+
+  let package = "program"
+
+  (* Gives a unique name to a KB object from the filename of the program. *)
+  let for_program (filename : string) =
+    KB.Symbol.intern filename Theory.Unit.cls ~package ~public:true
+
+  (* Creates an optional domain for programs. *)
+  let program_t = KB.Domain.optional "program_t" ~equal:Program.equal
+
+  (* Creates a persistent program slot for the KB that is preserved between
+     program runs. *)
+  let program =
+    let module Program = struct
+      type t = Program.t option [@@deriving bin_io]
+    end in
+    KB.Class.property Theory.Unit.cls "program" program_t
+      ~package
+      ~public:true
+      ~desc:"The program term under analysis."
+      ~persistent:(KB.Persistent.of_binable (module Program))
+
+  (* Adds the program_t to the KB. *)
+  let provide (file : string) (prog : Program.t) : unit =
+    let obj =
+      for_program file >>= fun label ->
+      KB.provide program label (Some prog) >>| fun () ->
+      label in
+    let state = Toplevel.current () in
+    match KB.run Theory.Unit.cls obj state with
+    | Ok (_, state) -> Toplevel.set state
+    | Error c ->
+      let msg = Format.asprintf "Unable to provide program_t: %a%!"
+          KB.Conflict.pp c in
+      failwith msg
+
+  (* Obtains the program from the KB. *)
+  let collect (file : string) : Program.t option =
+    let obj = for_program file in
+    let state = Toplevel.current () in
+    match KB.run Theory.Unit.cls obj state with
+    | Ok (value, _) -> KB.Value.get program value
+    | Error c ->
+      let msg = Format.asprintf "Unable to collect program_t: %a%!"
+          KB.Conflict.pp c in
+      failwith msg
+
+end
+
+module KB_arch = struct
+
+  open Bap_core_theory
+
+  (* Obtains the program's architecture from the KB. *)
+  let collect (file : string) : Arch.t option =
+    let obj = Theory.Unit.for_file file in
+    let state = Toplevel.current () in
+    match KB.run Theory.Unit.cls obj state with
+    | Ok (value, _) ->
+      value
+      |> KB.Value.get Theory.Unit.Target.arch
+      |> Option.bind ~f:Arch.of_string
+    | Error c ->
+      let msg = Format.asprintf "Unable to collect arch: %a%!"
+          KB.Conflict.pp c in
+      failwith msg
+
+end
 
 module Utils = struct
 
@@ -117,17 +189,41 @@ module Utils = struct
       let msg = Error.to_string_hum e in
       failwith (Printf.sprintf "Error loading project: %s\n%!" msg)
 
-  (* Loads a BAP project from a binary file. *)
-  let load_proj (ctxt : ctxt) (loader : string) (file : string) : Project.t =
+  (* Clears the attributes from the terms to remove unnecessary bloat and
+     slowdown. We rain the addresses for printing paths. *)
+  let clear_mapper = object
+    inherit Term.mapper as super
+    method! map_term cls t =
+      let new_dict =
+        Option.value_map (Term.get_attr t address)
+          ~default:Dict.empty
+          ~f:(Dict.set Dict.empty address)
+      in
+      let t' = Term.with_attrs t new_dict in
+      super#map_term cls t'
+  end
+
+  (* Reads in the program_t from a file. *)
+  let read_program (ctxt : ctxt) (loader : string) (file : string) : Program.t =
     let mk_digest = Digests.get_generator ctxt file loader in
     let knowledge_digest = Digests.knowledge mk_digest in
-    let project_digest = Digests.project mk_digest in
     let () = Knowledge_cache.load knowledge_digest in
-    let state = Project_cache.load project_digest in
-    let project = create_proj state loader file in
+    let prog = match KB_program.collect file with
+      | Some prog ->
+        info "Program (%s) found in cache.\n%!" file;
+        prog
+      | None ->
+        (* The program_t is not in the cache. Disassemble the binary. *)
+        let project_digest = Digests.project mk_digest in
+        let state = Project_cache.load project_digest in
+        let project = create_proj state loader file in
+        let prog = project |> Project.program |> clear_mapper#run in
+        let () = Project_cache.save project_digest (Project.state project) in
+        let () = KB_program.provide file prog in
+        prog
+    in
     let () = Knowledge_cache.save knowledge_digest in
-    let () = Project_cache.save project_digest (Project.state project) in
-    project
+    prog
 
   (* Finds a function in the binary. *)
   let find_func_err (subs : Sub.t Seq.t) (func : string) : Sub.t =
@@ -442,9 +538,9 @@ module Analysis = struct
   (* Runs a single binary analysis. *)
   let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       (f : Flags.t) (file : string) : combined_pre =
-    let proj = Utils.load_proj bap_ctx Utils.loader file in
-    let arch = Project.arch proj in
-    let subs = proj |> Project.program |> Term.enum sub_t in
+    let prog = Utils.read_program bap_ctx Utils.loader file in
+    let arch = Option.value_exn (KB_arch.collect file) in
+    let subs = Term.enum sub_t prog in
     let main_sub = Utils.find_func_err subs f.func in
     let to_inline = Utils.match_inline f.inline subs in
     let specs = fun_specs f to_inline in
@@ -471,15 +567,12 @@ module Analysis = struct
   (* Runs a comparative analysis. *)
   let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       (f : Flags.t) (file1 : string) (file2 : string) : combined_pre =
-    let proj1 = Utils.load_proj bap_ctx Utils.loader file1 in
-    let proj2 = Utils.load_proj bap_ctx Utils.loader file2 in
-    let prog1 = Project.program proj1 in
-    let prog2 = Project.program proj2 in
+    let prog1 = Utils.read_program bap_ctx Utils.loader file1 in
+    let prog2 = Utils.read_program bap_ctx Utils.loader file2 in
+    let arch1 = Option.value_exn (KB_arch.collect file1) in
+    let arch2 = Option.value_exn (KB_arch.collect file2) in
     let subs1 = Term.enum sub_t prog1 in
     let subs2 = Term.enum sub_t prog2 in
-    (* Temporarily hardcoding the architecture to x86_64 until we add the
-       collator interface. *)
-    let arch = `x86_64 in
     let main_sub1 = Utils.find_func_err subs1 f.func in
     let main_sub2 = Utils.find_func_err subs2 f.func in
     let stack_range = Utils.update_stack ~base:f.stack_base ~size:f.stack_size in
@@ -489,7 +582,7 @@ module Analysis = struct
       let exp_conds2 = exp_conds_mod f in
       let env2 = Pre.mk_env z3_ctx var_gen
           ~subs:subs2
-          ~arch:arch
+          ~arch:arch2
           ~specs:specs2
           ~use_fun_input_regs:f.use_fun_input_regs
           ~exp_conds:exp_conds2
@@ -505,7 +598,7 @@ module Analysis = struct
       let exp_conds1 = exp_conds_orig f env2 file1 file2 in
       let env1 = Pre.mk_env z3_ctx var_gen
           ~subs:subs1
-          ~arch:arch
+          ~arch:arch1
           ~specs:specs1
           ~use_fun_input_regs:f.use_fun_input_regs
           ~exp_conds:exp_conds1
@@ -561,7 +654,6 @@ module Analysis = struct
       ~modif:combined_pre.modif ~show:f.show
 
 end
-
 
 module Cli = struct
 
