@@ -90,5 +90,5 @@ void pretty_print_board(int64_t* board){
 int main(int argc,char ** argv) {
   int64_t board[4] = {0x124048, 0, 0, 0};
   pretty_print_board(board);
-  encode_nqueens(0x2814, 0x0, 0x0, 0x0);
+  encode_nqueens(0x4182, 0x0, 0x0, 0x0);
 }
