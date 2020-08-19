@@ -17,4 +17,4 @@ run () {
     -- verifier_nondet
 }
 
-compile && run
+run

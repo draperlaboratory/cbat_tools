@@ -16,4 +16,4 @@ run () {
     -- verifier_assume_unsat
 }
 
-compile && run
+run

@@ -17,4 +17,4 @@ run () {
     -- main-original main-rop
 }
 
-compile && run
+run

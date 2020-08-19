@@ -16,4 +16,4 @@ run () {
     -- verifier_assume_sat
 }
 
-compile && run
+run

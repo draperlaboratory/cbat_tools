@@ -20,4 +20,4 @@ run () {
       -- main
 }
 
-compile && run
+run
