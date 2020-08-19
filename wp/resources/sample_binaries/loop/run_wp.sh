@@ -21,4 +21,4 @@ run() {
     -- main
 }
 
-compile && run
+clean && run

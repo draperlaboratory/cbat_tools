@@ -25,4 +25,4 @@ run () {
     -- main_1 main_2
 }
 
-compile && run
+run

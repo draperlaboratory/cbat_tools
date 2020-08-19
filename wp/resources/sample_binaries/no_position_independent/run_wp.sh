@@ -18,4 +18,4 @@ run () {
     -- main_1.so main_2.so
 }
 
-compile && run
+run
