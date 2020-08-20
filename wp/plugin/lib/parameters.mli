@@ -14,17 +14,18 @@
 (**
 
    This module contains the parameters the user can set from the command line
-   interface to WP. These flags specify which properties WP should look for
-   and updates the default analysis options.
+   interface to WP. These flags specify which properties WP should check
+   and updates the default options.
 
 *)
 
-(** An exception that get raised when a user inputs a invalid options to a
-    parameter or parameters that are not compatible to each other. *)
+(** An exception that is raised when a user inputs an invalid options to a
+    parameter or when the inputted parameters are not compatible to with each
+    other. *)
 exception Invalid_input
 
 (** The available options to be set. Each flag corresponds to a parameter in
-    the cli module. *)
+    the set with the BAP custom command line. *)
 type t = {
   func : string;
   precond : string;
@@ -46,23 +47,22 @@ type t = {
 }
 
 (** [validate flags files] ensures the user inputted the appropriate flags for
-    the type of analysis to be run on the inputted [files]. In the case the
-    user does not input valid flags, an error message will print and WP will
-    exit. *)
+    the inputted [files]. In the case the user has invalid flags, an error
+    message will print and WP will exit. *)
 val validate : t -> string list -> unit
 
-(** [validate_func name] checks the user inputted a non-empty [name] for
-    analysis. Raises {!Invalid_input} when [name] is empty. *)
+(** [validate_func name] checks the user inputted a [name] for the function to
+    analyze. Raises {!Invalid_input} when [name] is empty. *)
 val validate_func : string -> unit
 
-(** [validate_debug options] checks the user inputted only the supported
-    options for the debug printer flag. Raises {!Invalid_input} when an
-    unsupported option is inputted. *)
+(** [validate_debug options] checks the user inputted the supported options for
+    the debug printer flag. Raises {!Invalid_input} when an unsupported option
+    is inputted. *)
 val validate_debug : string list -> unit
 
-(** [validate_show options] checks the user inputted only the supported
-    options for the show printer flag. Raises {!Invalid_input} when an
-    unsupported option is inputted. *)
+(** [validate_show options] checks the user inputted the supported options for
+    the show printer flag. Raises {!Invalid_input} when an unsupported option
+    is inputted. *)
 val validate_show : string list -> unit
 
 (** [validate_compare_func_calls flag files] checks that the flag is only set

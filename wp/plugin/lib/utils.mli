@@ -26,11 +26,10 @@ open Bap_wp
 
 module Env = Environment
 
-(** The default loader WP uses for lifting a binary. The default loader is
-    LLVM. *)
+(** The loader WP uses for lifting a binary, defaulting to LLVM. *)
 val loader : string
 
-(** Obtains the program representation of the binary at the filepath using
+(** Obtains the program representation of the binary at the given filepath using
     the BAP context and loader for lifting the binary. *)
 val read_program : ctxt -> loader:string -> filepath:string -> Program.t
 
@@ -49,11 +48,11 @@ val varset_to_string : Var.Set.t -> string
 val update_default_num_unroll : int option -> unit
 
 (** Returns a record that can be used when creating an {!Environment.t} to
-    change the default the stacks base and size. *)
+    change the default the stack base and size. *)
 val update_stack : base:int option -> size:int option -> Env.mem_range
 
-(** Checks if the user provided a filename to output a gdb script to. If a
-    filename is provided, outputs the gdb script. *)
+(** Checks if the user provided a filename to output a gdb script to, and if
+    provided, outputs the script. *)
 val output_to_gdb :
      filename:string option
   -> func:string
@@ -62,8 +61,8 @@ val output_to_gdb :
   -> Env.t
   -> unit
 
-(** Checks if the user provided a filename to input a bildb init file to. If a
-    filename is provided, outputs the bildb init file. *)
+(** Checks if the user provided a filename to input a bildb init file to, and if
+    provided, outputs the script. *)
 val output_to_bildb :
      filename:string option
   -> Z3.Solver.solver

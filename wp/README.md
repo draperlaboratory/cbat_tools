@@ -328,7 +328,7 @@ The various options are:
 
 - `--compare-func-calls`. Determines whether to compare
   the semantics of two programs by comparing which subroutines are invoked in
-  the body of the function. `false` by default.
+  the body of the function.
 
 - `--compare-post-reg-values=reg_list`. This flag is used for a comparison
   analysis. If set, WP will compare the values stored in the specified registers
@@ -340,15 +340,17 @@ The various options are:
 - `--inline=posix-re`. Function calls to inline as specified by a POSIX
   regular expression.  If not inlined, heuristic function summaries are used at
   function call sites. For example, if you want to inline everything, set to
-  --inline=.\* or if you want to inline functions foo and bar, set to
-  --inline=foo|bar.
+  `--inline=.\*` or if you want to inline functions `foo` and `bar`, set to
+  `--inline=foo|bar`.
 
 - `--num-unroll=num`. If present, replaces the default number of
   times to unroll each loop. The number of loop unrollings is 5 by default.
 
 - `--gdb-output=my_exec.gdb`. Output a gdb script to file `my_exec.gdb`. From
   within gdb, run `source my_exec.gdb` to set a breakpoint at the function given
-  by `--func` and fill the appropriate registers with a found counter-model.
+  by `--func` and fill the appropriate registers with the counter-model found
+  in the case WP results in SAT. In the case WP returns UNSAT or UNKNOWN, no
+  script will be outputted.
 
 - `--bildb-output=filename.yml`. Output a BilDB initialization script to file
   `filename.yml`. This YAML file sets the registers and memory to the values
@@ -365,28 +367,28 @@ The various options are:
   to the precondition that the memory of the modified binary is the same as the
   original binary at an offset calculated by aligning the data and bss sections.
   We do this by invoking `objdump` on both binaries, and determining the starting
-  addresses of the symbols in these sections. If this flag is set to false, we
+  addresses of the symbols in these sections. If this flag is not set, we
   assume that memory between both binaries are equal during a memory read.
 
-- `--debug=[z3-solver-stats|z3-verbose|constraint-stats|eval-constraint-stats]
-  or some comma delimited combination`. A list of various debugging statistics
+- `--debug=[z3-solver-stats|z3-verbose|constraint-stats|eval-constraint-stats]`
+  or some comma delimited combination. A list of various debugging statistics
   to print out during the analysis. Multiple options as a list can be passed
   into the flag to print multiple statistics. For example:
   `--debug=z3-solver-stats,z3-verbose`. The options are:
   - `z3-solver-stats`: Statistics about the Z3 solver including information such
-    as the maximum amount of memory and number of allocations.
+    as the maximum amount of memory used and the number of allocations.
   - `z3-verbose`: Increases Z3's verbosity level to output information during
-    the precondition check time including the tactics the solver used.
+    precondition check time including the tactics the solver used.
   - `constraint-stats`: Prints out the number of goals, ITES, clauses, and
     substitutions in the constraint data type of the precondition.
   - `eval-constraint-stats`: Prints out the mean, max, and standard deviation of
-    the number of subsitutions that occur during the evaluation of the
+    the number of substitutions that occur during the evaluation of the
     constraint datatype.
 
-- `--show=[bir|refuted-goals|paths|precond-internal|precond-smtlib]`. A list
-  of details to print out from the analysis. Multiple options as a list can be
-  passed into the flag to print out multiple details. For example:
-  `--wp-show=bir,refuted-goals`. The options are:
+- `--show=[bir|refuted-goals|paths|precond-internal|precond-smtlib]` or some
+  comma delimited combination. A list of details to print out from the analysis.
+  Multiple options as a list can be passed into the flag to print out multiple
+  details. For example: `--wp-show=bir,refuted-goals`. The options are:
    - `bir`: The code of the binary/binaries in BAP Immediate Representation.
    - `refuted-goals`: In the case the analysis results in SAT, a list of goals
       refuted in the model that contains their tagged names, the concrete values
@@ -394,9 +396,9 @@ The various options are:
    - `paths`: The execution path of the binary that results in a refuted goal.
      The path contains information about the jumps taken, their addresses, and
      the values of the registers at each jump. This option automatically prints
-     out the refuted-goals.
+     out the refuted goals.
    - `precond-internal`: The precondition printed out in WP's internal format
-     for the Constr.t type.
+     for the `Constr.t` type.
    - `precond-smtlib`: The precondition printed out in Z3's SMT-LIB2 format.
 
 - `--stack-base=address`. If present, sets the base or top address of the stack.
