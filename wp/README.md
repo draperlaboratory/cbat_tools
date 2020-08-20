@@ -316,17 +316,17 @@ The various options are:
   `--precond`, one may create comparative postconditions on variables by
   appending "_orig" and "_mod" to register names.
 
-- `--trip-asserts=[true|false]`. If set, WP will look for inputs to the
+- `--trip-asserts`. If set, WP will look for inputs to the
   subroutine that would cause an `__assert_fail` to `__VERIFIER_error` to be
   reached.
 
-- `--check-null-derefs=[true|false]` If present, in the case of a single binary
+- `--check-null-derefs`. If present, in the case of a single binary
   analysis, WP will check for inputs that would result in dereferencing a NULL
   address during a memory read or write. In the case of a comparative analysis,
   WP will check that the modified binary has no additional null dereferences in
   comparison with the original binary.
 
-- `--compare-func-calls=[true|false]`. Determines whether to compare
+- `--compare-func-calls`. Determines whether to compare
   the semantics of two programs by comparing which subroutines are invoked in
   the body of the function. `false` by default.
 
@@ -356,12 +356,12 @@ The various options are:
   follow the same execution trace. In the case the analysis returns UNSAT or
   UNKNOWN, no script will be outputted.
 
-- `--use-fun-input-regs=[true|false].` If present, at a function call site, uses
+- `--use-fun-input-regs`. If present, at a function call site, uses
   all possible input registers as arguments to a function symbol generated for
   an output register that represents the result of the function call. If set to
   false, no registers will be used. Defaults to true.
 
-- `--mem-offset=[true|false]`. If present, at a memory read, adds an assumption
+- `--mem-offset`. If present, at a memory read, adds an assumption
   to the precondition that the memory of the modified binary is the same as the
   original binary at an offset calculated by aligning the data and bss sections.
   We do this by invoking `objdump` on both binaries, and determining the starting
