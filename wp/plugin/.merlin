@@ -1,5 +1,6 @@
 S ./wp.ml
 S ./tests
+S ./lib
 
 PKG bap
 PKG core
@@ -9,3 +10,4 @@ PKG bap_wp
 
 B _build/
 B _build/tests
+B _build/lib
