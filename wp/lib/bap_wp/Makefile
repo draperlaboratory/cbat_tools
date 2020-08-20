@@ -1,5 +1,7 @@
-project := bap_wp
+PROJECT := bap_wp
 SHELL=/bin/bash
+
+.PHONY: test all install
 
 ifeq ($(shell opam pin list | grep "bap_wp" | grep -oE "file://.*" | cut -c 8-), $(shell pwd))
 IS_INSTALLED := true
@@ -14,57 +16,42 @@ all: install
 
 clean: uninstall clean.local
 	rm -f build install
+	rm -f _build/build
 
 clean.local:
 	dune clean
 
-$(ML_FILES): ;
-$(MLI_FILES): ;
-
 build: $(ML_FILES) $(MLI_FILES)
-	@printf "\n\u001b[31mBUILDING LIB\u001b[0m\n"
-	dune build -p $(project)
-	touch build
-	echo $?
+	dune build -p $(PROJECT)
 
 test: test.unit test.performance
 
 test.unit:
 	dune runtest tests/unit
-	@echo "skipping for now"
 
 test.performance:
 	dune runtest tests/performance
-	@echo "skipping for now"
 
 doc:
 	dune build @doc
 
 check.installed.findlib:
-	ocamlfind query $(project)
+	ocamlfind query $(PROJECT)
 
 check.installed.opam:
-	opam show $(project)
+	opam show $(PROJECT)
 
-install: hack
-	@printf "\n\u001b[31mINSTALLING LIB\u001b[0m\n"
+install: build
 	dune install
+# only needs to be added if does not already exist
+ifeq ($(IS_INSTALLED),false)
 	opam pin add -y .
-	touch install
-
-hack: build
-ifeq ($(IS_INSTALLED),true)
-	@printf "\n\u001b[31mUNINSTALLING LIB\u001b[0m\n"
-	opam pin remove -y .
-	dune uninstall
 endif
-	touch hack
 
 reinstall: clean install
 
 uninstall:
 ifeq ($(IS_INSTALLED),true)
-	@printf "\n\u001b[31mUNINSTALLING LIB\u001b[0m\n"
 	opam pin remove -y .
 	dune uninstall
 endif

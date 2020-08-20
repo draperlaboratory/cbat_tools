@@ -2,54 +2,66 @@ SHELL=/bin/bash
 LIB := lib/bap_wp
 PLUGIN := plugin
 SAMPLE_BINS := resources/sample_binaries
+FMT_STR := "\u001b[31m%s\u001b[0m\n"
 
-.PHONY: test.integration test.lib test.plugin
+.PHONY: test.lib test.plugin test all
+
+all: install
 
 install: uninstall.plugin install.lib build.plugin install.plugin
 
 uninstall.lib:
-	@printf "\n\u001b[31mUNINSTALLING LIB\u001b[0m\n"
+	@printf $(FMT_STR) "UNINSTALLING LIB"
 	$(MAKE) -C $(LIB) uninstall
 
 uninstall.plugin:
-	@printf "\n\u001b[31mUNINSTALLING PLUGIN\u001b[0m\n"
+	@printf $(FMT_STR) "UNINSTALLING PLUGIN"
 	$(MAKE) -C $(PLUGIN) uninstall
 
 
 build: build.lib build.plugin
 
 build.lib:
+	@printf $(FMT_STR) "BUILDING LIB"
 	$(MAKE) -C $(LIB) $*
 
 build.plugin: install.lib
+	@printf $(FMT_STR) "BUILDING PLUGIN"
 	$(MAKE) -C $(PLUGIN) build
 
 doc:
 	$(MAKE) -C $(LIB) $@
 
-test: install test.lib test.plugin test.integration
+test: install test.lib test.plugin
 
 test.lib:
-	$(MAKE) -C $(LIB) $*
+	@printf $(FMT_STR) "TESTING LIB"
+	$(MAKE) -C $(LIB) test
 
 test.plugin:
-	$(MAKE) -C $(SAMPLE_BINS) $*
-	$(MAKE) -C $(PLUGIN) $*
+	@printf $(FMT_STR) "TESTING PLUGIN"
+	$(MAKE) -C $(SAMPLE_BINS)
+	$(MAKE) -C $(PLUGIN) test
 
 test.clean:
+	@printf $(FMT_STR) "CLEANING SAMPLE BINS"
 	$(MAKE) -C $(SAMPLE_BINS) clean
 
 clean: test.clean
-	$(MAKE) -C $(PLUGIN) $@
-	$(MAKE) -C $(LIB) $@
+	@printf $(FMT_STR) "CLEANING LIB"
+	$(MAKE) -C $(LIB) clean
+	@printf $(FMT_STR) "CLEANING PLUGIN"
+	$(MAKE) -C $(PLUGIN) clean
 
 reinstall: clean install
 
 install.plugin:
+	@printf $(FMT_STR) "INSTALLING PLUGIN"
 	$(MAKE) -C $(PLUGIN) $*
 
 # lib must be installed BEFORE building plugin
 install.lib:
+	@printf $(FMT_STR) "INSTALLING LIB"
 	$(MAKE) -C $(LIB) install
 
 reinstall.lib:
