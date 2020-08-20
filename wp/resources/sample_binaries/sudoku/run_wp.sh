@@ -13,11 +13,11 @@ compile () {
 }
 
 run () {
-  compile
-  bap main --pass=wp \
-    --wp-function=sudoku_solver \
-    --wp-check-null-deref \
-    --no-byteweight
+  bap wp \
+    --func=sudoku_solver \
+    --check-null-derefs \
+    --no-byteweight \
+    -- main
 }
 
 run

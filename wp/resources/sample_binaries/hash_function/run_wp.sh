@@ -10,11 +10,11 @@ compile() {
 }
 
 run() {
-  bap main --pass=wp \
-    --wp-function=perform_hash \
-    --wp-inline=bad_hash \
-    --wp-trip-assert
-
+  bap wp \
+    --func=perform_hash \
+    --inline=bad_hash \
+    --trip-asserts \
+    -- main
 }
 
 clean() {

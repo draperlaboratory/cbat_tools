@@ -127,7 +127,6 @@ module Program = struct
       for_program file >>= fun label ->
       KB.provide program label (Some prog) >>| fun () ->
       label in
-    KB.pp_state Format.std_formatter (Toplevel.current());
     let state = Toplevel.current () in
     match KB.run Theory.Unit.cls obj state with
     | Ok (_, state) -> Toplevel.set state
