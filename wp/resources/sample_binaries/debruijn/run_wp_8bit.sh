@@ -12,12 +12,11 @@ compile () {
 }
 
 run () {
-  bap ../dummy/hello_world.out --pass=wp \
-    --wp-compare=true \
-    --wp-file1=main_1.bpj \
-    --wp-file2=main_2.bpj \
-    --wp-function=rightmost_index_8 \
-    --wp-compare-post-reg-values=RAX
+  bap wp \
+    --func=rightmost_index_8 \
+    --compare-post-reg-values=RAX \
+    --no-byteweight \
+    -- main_1 main_2
 }
 
 compile && run
