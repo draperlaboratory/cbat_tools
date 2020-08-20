@@ -5,14 +5,15 @@ SAMPLE_BIN_DIR = ../resources/sample_binaries
 API_PATH = $(shell bap --api-list-paths)
 
 # .PHONY: all install clean verifier save_project uninstall test
+.PHONY: all verifier save_project test
 
-install: build verifier save_project
+all: install
+
+install: verifier save_project build
 	@printf "\n\u001b[31mINSTALLING PLUGINs\u001b[0m\n"
 	bapbundle update -desc 'Computes the weakest precondition of a subroutine given a postcondition.' $(PASS_NAME).plugin
 	bapbundle install $(PASS_NAME).plugin
 
-
-wp.ml: ;
 
 build: wp.ml
 	@printf "\n\u001b[31mBUILDING PLUGIN\u001b[0m\n"
@@ -43,4 +44,4 @@ clean: uninstall
 	bapbuild -clean
 	rm -f *.plugin 
 	rm -rf _build
-	rm build
+	rm -f build

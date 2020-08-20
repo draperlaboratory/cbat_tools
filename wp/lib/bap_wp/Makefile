@@ -10,10 +10,10 @@ endif
 ML_FILES = $(wildcard src/*.ml)
 MLI_FILES = $(wildcard src/*.mli)
 
-all: build
+all: install
 
 clean: uninstall clean.local
-	rm build
+	rm -f build install
 
 clean.local:
 	dune clean
@@ -46,15 +46,25 @@ check.installed.findlib:
 check.installed.opam:
 	opam show $(project)
 
-install: build
+install: hack
 	@printf "\n\u001b[31mINSTALLING LIB\u001b[0m\n"
 	dune install
 	opam pin add -y .
+	touch install
+
+hack: build
+ifeq ($(IS_INSTALLED),true)
+	@printf "\n\u001b[31mUNINSTALLING LIB\u001b[0m\n"
+	opam pin remove -y .
+	dune uninstall
+endif
+	touch hack
 
 reinstall: clean install
 
 uninstall:
 ifeq ($(IS_INSTALLED),true)
+	@printf "\n\u001b[31mUNINSTALLING LIB\u001b[0m\n"
 	opam pin remove -y .
 	dune uninstall
 endif
