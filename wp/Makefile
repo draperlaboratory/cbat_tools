@@ -5,7 +5,7 @@ SAMPLE_BINS := resources/sample_binaries
 
 .PHONY: test.integration test.lib test.plugin
 
-install: build.lib uninstall.plugin uninstall.lib install.lib build.plugin install.plugin
+install: uninstall.plugin install.lib build.plugin install.plugin
 
 uninstall.lib:
 	@printf "\n\u001b[31mUNINSTALLING LIB\u001b[0m\n"
@@ -22,7 +22,7 @@ build.lib:
 	$(MAKE) -C $(LIB) $*
 
 build.plugin: install.lib
-	$(MAKE) -C $(PLUGIN) $*
+	$(MAKE) -C $(PLUGIN) build
 
 doc:
 	$(MAKE) -C $(LIB) $@
@@ -50,4 +50,7 @@ install.plugin:
 
 # lib must be installed BEFORE building plugin
 install.lib:
+	$(MAKE) -C $(LIB) install
+
+reinstall.lib:
 	$(MAKE) -C $(LIB) $*
