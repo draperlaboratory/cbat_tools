@@ -54,7 +54,7 @@ module Knowledge : sig
 end
 
 (** A cache containing the initial state of a project for loading in binaries
-    as a Project.t *)
+    as a {!Project.t}. *)
 module Project : sig
 
   (** Loads project state (if any) from the cache. *)
@@ -65,11 +65,11 @@ module Project : sig
 
 end
 
-(** This module contains functions for interacting with a binary's Program.t,
+(** This module contains functions for interacting with a binary's {!Program.t},
     which is BAP's representation of the program in BIR after disassembly. This
-    program is stored in the knowledge base cache, and will persist on different
-    runs of WP on the same unchanged binary given the same flags are used for
-    disassembly. *)
+    program is stored in the knowledge base cache, and will persist through
+    different runs of WP on the same unchanged binary given the same flags are
+    used for disassembly. *)
 module Program : sig
 
   (** [load filename] obtains the program representation of [filename] (if any)

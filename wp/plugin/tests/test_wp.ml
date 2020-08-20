@@ -17,17 +17,17 @@ open OUnitTest
 
 (* To run these tests: `make test` in wp directory *)
 
-let bin_dir : string = "../resources/sample_binaries"
+let bin_dir = "../resources/sample_binaries"
 
-let timeout_msg : string = "Test times out!"
+let timeout_msg = "Test times out!"
 
-let fail_msg : string = "Test currently fails!"
+let fail_msg = "Test currently fails!"
 
-let sat : string = "SAT!"
+let sat = "SAT!"
 
-let unsat : string = "UNSAT!"
+let unsat = "UNSAT!"
 
-let unknown : string = "UNKNOWN!"
+let unknown = "UNKNOWN!"
 
 let check_z3_result (line : string) (expected : string) (ctxt : test_ctxt) : unit =
   if List.exists [sat; unsat; unknown] ~f:(String.equal line) then
@@ -111,7 +111,6 @@ let check_result (stream : char Stream.t) (expected : string)
         | _ -> "" )
     |> assert_failure
 
-
 (* The length of a test_case is in seconds.
    OUnit has predefined test lengths of:
    - Immediate (1.0 s)
@@ -139,7 +138,6 @@ let test_plugin
 
 let test_skip (msg : string) (_ : test) (_ : test_ctxt) : unit =
   skip_if true msg
-
 
 let suite = [
 
@@ -215,8 +213,8 @@ let suite = [
   "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat
     ~expected_regs:[ [("RDI", "0x0000000000000003")]; ];
 
-  "Indirect call with return" >: test_plugin "indirect_call_return" unsat;
-  "Indirect call with no return" >: test_plugin "indirect_call_no_return" unsat;
+  "Indirect call with return"      >: test_plugin "indirect_call_return" unsat;
+  "Indirect call with no return"   >: test_plugin "indirect_call_no_return" unsat;
 
   (* Test single elf *)
 
@@ -270,7 +268,7 @@ let suite = [
   "Debruijn: 16 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_16bit.sh";
   "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_32bit.sh";
 
-  "NQueens solver 4x4"                 >: test_plugin "nqueens" sat
+  "NQueens solver 4x4"             >: test_plugin "nqueens" sat
     ~expected_regs:[[("RDI", "0x0000000000002814")]; [("RDI", "0x0000000000004182")]];
 
   "Sudoku solver"                  >: test_plugin "sudoku" sat

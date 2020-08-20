@@ -13,8 +13,8 @@
 
 (**
 
-   This module is the runner for the WP analysis. It will run either a single
-   or comparative analysis based on the number of files inputted by the user.
+   This module is the runner for WP. It will run either a single or comparative
+   analysis based on the number of files inputted by the user.
 
 *)
 
@@ -22,6 +22,6 @@ open Bap_main
 
 (** [run params files ctxt] is the main entrypoint for WP. Based on the length
     of [files], it will run either a single or comparative analysis. If 0 or
-    more than 2 files are given, no analysis will be run. [params] set the
-    properties WP will look for or can update default options. *)
+    more than 2 files are given, no analysis will be run. [params] sets the
+    properties WP will check and update default options. *)
 val run : Parameters.t -> string list -> ctxt -> unit
