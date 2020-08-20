@@ -22,8 +22,8 @@ $(BUILD): wp.ml
 	touch $(BUILD)
 
 test: install save_project dummy
-	ocamlbuild -r -use-ocamlfind
-		-pkgs 'bap,z3,bap_wp,oUnit,re'
+	ocamlbuild -r -use-ocamlfind \
+		-pkgs 'bap,z3,bap_wp,oUnit,re' \
 		-tag 'warn(A-48-44),debug,thread' -Is "lib,tests" test.native
 	./test.native
 
