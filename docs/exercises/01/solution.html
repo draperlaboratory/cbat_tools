@@ -20,13 +20,13 @@
 
 <blockquote>Find out if it is possible to trip the assert in the function <code>is_valid_ID</code>.</blockquote>
 
-<p>First, run <code>wp</code> on the <code>is_vaid_ID</code> function in <code>./binary/main</code> using <code>--wp-trip-assert</code>:
+<p>First, run <code>wp</code> on the <code>is_vaid_ID</code> function in <code>./binary/main</code> using <code>--trip-asserts</code>:
 
 <pre>
-    $ bap binary/main \
-          --pass=wp \
-          --wp-func=is_valid_ID \
-          --wp-trip-assert
+    $ bap wp \
+          --func=is_valid_ID \
+          --trip-asserts \
+          binary/main
 </pre>
 
 <p>In response, <code>wp</code> says <code>SAT</code>, which means that <code>wp</code> did find a way to trip the assert. Hence, the solution to the first task is: yes, it is possible to trip the assert in the <code>is_valid_ID</code> function. 

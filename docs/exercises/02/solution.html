@@ -20,13 +20,13 @@
 
 <blockquote>Use <code>wp</code> to find a hex number that represents a correct solution to a 3x3 sudoku cube.</blockquote>
 
-<p>First, run <code>wp</code> on the <code>check</code> function in <code>./binary/main</code> using <code>--wp-trip-assert</code>:
+<p>First, run <code>wp</code> on the <code>check</code> function in <code>./binary/main</code> using <code>--trip-asserts</code>:
 
 <pre>
-    $ bap binary/main \
-          --pass=wp \
-          --wp-func=check \
-          --wp-trip-assert
+    $ bap wp \
+          --func=check \
+          --trip-asserts \
+          binary/main
 </pre>
 
 <p>In response, <code>wp</code> says <code>SAT</code>, which means that <code>wp</code> did find a way to trip the assert. 

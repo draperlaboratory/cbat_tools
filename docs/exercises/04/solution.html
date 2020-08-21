@@ -19,35 +19,17 @@
 
 <h2>Task 1</h2>
 
-<blockquote>Use <code>wp</code> to check the function calls in the <code>SSLVerifySignedServerKeyExchange</code> function. Be sure to include <code>--wp-show=refuted-goals</code> when you run <code>wp</code>. How do the two programs differ, with respect to the function calls they can make?</blockquote>
+<blockquote>Use <code>wp</code> to check the function calls in the <code>SSLVerifySignedServerKeyExchange</code> function. Be sure to include <code>--show=refuted-goals</code> when you run <code>wp</code>. How do the two programs differ, with respect to the function calls they can make?</blockquote>
 
-<p>First, save/serialize the first binary program:
-
-<pre>
-    $ bap binary/main_1 \
-          --pass=save-project \
-          --save-project-filename=main_1.bpj
-</pre>
-
-<p>Then save/serialize the second binary program:
+<p>Run <code>wp</code> on the <code>SSLVerifySignedServerKeyExchange</code> function in the two, and compare the function calls (and include <code>--show=refuted-goals</code>):
 
 <pre>
-    $ bap binary/main_2 \
-          --pass=save-project \
-          --save-project-filename=main_2.bpj
-</pre>
-
-<p>Finally, run <code>wp</code> on the <code>SSLVerifySignedServerKeyExchange</code> function in the two, and compare the function calls (and include <code>--wp-show=refuted-goals</code>):
-
-<pre>
-    $ bap /bin/true \
-          --pass=wp \
-          --wp-compare \
-          --wp-func=SSLVerifySignedServerKeyExchange \
-          --wp-check-calls \
-          --wp-show=refuted-goals \
-          --wp-file1=main_1.bpj \
-          --wp-file2=main_2.bpj
+    $ bap wp \
+          --func=SSLVerifySignedServerKeyExchange \
+          --compare-func-calls \
+          --show=refuted-goals \
+          binary/main_1 \
+          binary/main_2
 </pre>
 
 <p>When you run this, you will see that <code>wp</code> responds with <code>SAT</code>, meaning that it did indeed find a way to make the second version of the <code>SSLVerifySignedServerKeyExchange</code> function call different functions than the first version.

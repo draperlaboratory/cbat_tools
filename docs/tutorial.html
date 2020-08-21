@@ -212,13 +212,13 @@ int foo(int x) {
 <p>To analyze a single program, the command you want to invoke has this basic form:
 
 <pre>
-    $ bap /path/to/exe \    <-- The path to a binary program
-        --pass=wp \         <-- The pass/plugin is wp
-        --wp-func=FUNC \    <-- The function to examine
-        [options]           <-- Any extra options
+    $ bap wp \              <-- The command is wp
+        --func=FUNC \       <-- The function to examine
+        [options] \         <-- Any extra options
+        /path/to/exe        <-- The path to a binary program
 </pre>
 
-<p>This will tell CBAT to go into the program at <code>/path/to/your/exe</code>, and analyze the function <code>FUNC</code> that occurs in that program.
+<p>This will tell CBAT to go into the program at <code>/path/to/exe</code>, and analyze the function <code>FUNC</code> that occurs in that program.
 
 <p>There are various <code>[options]</code> you can specify, to tell CBAT to do different things as it analyzes your program. We will illustrate the most important options throughout the following tutorial.
 </section>
@@ -343,10 +343,10 @@ else:
 <p>We can ask <code class="wp">wp</code> to find out if this is possible. To do that, invoke <code class="wp">wp</code> like this:
 
 <pre>
-    $ bap 01/binary/main \
-          --pass=wp \
-          --wp-func=main \
-          --wp-trip-assert
+    $ bap wp \
+          --func=main \
+          --trip-asserts \
+          01/binary/main
 </pre>
 
 <p>Here we ask <code class="wp">wp</code> to try to trip an assert inside the <code>main</code> function of the program at <code>01/binary/main</code>. When we run this command, the relevant output comes at the end, which looks like this:
@@ -533,14 +533,14 @@ Entering block %000006f9
 <p>Instead of manually setting the values of registers in <code>bildb</code> to see the behavior that <code class="wp">wp</code> tells you about, you can have <code class="wp">wp</code> dump its output into a YAML file, and then have <code>bildb</code> read that in, at startup. To have <code class="wp">wp</code> dump its output like this, run the following command:
 
 <pre>
-    $ bap 01/binary/main \
-          --pass=wp \
-          --wp-func=main \
-          --wp-trip-assert \
-          --wp-bildb-output=init.yml
+    $ bap wp \
+          --func=main \
+          --trip-asserts \
+          --bildb-output=init.yml \
+          01/binary/main
 </pre>
 
-<p>Notice how you simply added the option <code>--wp-bildb-output=init.yml</code> to the command. That tells <code class="wp">wp</code> to dump the appropriate output into a file called <code>init.yml</code>. 
+<p>Notice how you simply added the option <code>--bildb-output=init.yml</code> to the command. That tells <code class="wp">wp</code> to dump the appropriate output into a file called <code>init.yml</code>. 
 
 <p>Once you have that file at hand, you can start <code>bildb</code> with it, like this:
 
@@ -639,13 +639,13 @@ solution = 1000 0010 0100 0001 (or 0x4281 in hex)
 
 <p>Since we have a function that trips an assert if the solution is correct, we can ask <code class="wp">wp</code> to try and find a way to trip that assert. If <code class="wp">wp</code> can find a way to trip the assert, it will give us an example of an input to the function that will cause this behavior.
 
-<p>Let's try it. Here is the command. We only want to analyze the <code>check</code> function, which we specify with <code>--wp-func=check</code>: 
+<p>Let's try it. Here is the command. We only want to analyze the <code>check</code> function, which we specify with <code>--func=check</code>:
 
 <pre>
-    $ bap 02/binary/main \
-          --pass=wp \
-          --wp-func=check \
-          --wp-trip-assert
+    $ bap wp \
+          --func=check \
+          --trip-asserts \
+          02/binary/main
 </pre>
 
 <p>After a moment, <code class="wp">wp</code> returns a result. At the end of the output, you should see something like this:
@@ -732,13 +732,13 @@ int main() {
 
 <p>But things needn't turn out that way. It's always possible that <code>malloc</code> won't be able to allocate the memory I've asked for, in which case it can't return an address to me. If that happens, it will return <code>NULL</code> (i.e., <code>0</code>). And then, when I try to store <code>z</code> at that address . . . well, there is no address, so this will segfault.
 
-<p>We can ask <code class="wp">wp</code> to find null dereferences like this one. To check this particular <code>main</code> function, we can use the following command (note that we add <code>--wp-check-null-deref</code> as a flag):
+<p>We can ask <code class="wp">wp</code> to find null dereferences like this one. To check this particular <code>main</code> function, we can use the following command (note that we add <code>--check-null-derefs</code> as a flag):
 
 <pre>
-    $ bap 03/binary/main \
-          --pass=wp \
-          --wp-func=main \
-          --wp-check-null-deref
+    $ bap wp \
+          --func=main \
+          --check-null-derefs \
+          03/binary/main
 </pre>
 
 <p>If you run this, you'll see output that looks something like this:
@@ -798,10 +798,10 @@ int main() {
 <p>Let's have <code class="wp">wp</code> check <b>this</b> version of the function. The compiled program lives at <code>03/binary/main_fixed</code>. So:
 
 <pre>
-    $ bap 03/binary/main_fixed \
-          --pass=wp \
-          --wp-func=main \
-          --wp-check-null-deref
+    $ bap wp \
+          --func=main \
+          --check-null-derefs \
+          03/binary/main_fixed
 </pre>
 
 <p>Now <code class="wp">wp</code> gives back output that looks like this:
@@ -828,27 +828,15 @@ UNSAT!
 
 <h3>Analyzing two programs</h3>
 
-<p>To analyze two programs, the command is a little more complicated. BAP is designed to load a single program at a time, but we want to load two. To get around this, first save both projects (using a plugin called <code>save-project</code>):
+<p>To analyze two programs, the command you want to invoke has this basic form:
 
 <pre>
-    bap /path/to/exe_1 --pass=save-project --save-project-filename=exe_1.bpj
-    bap /path/to/exe_2 --pass=save-project --save-project-filename=exe_2.bpj
+    bap wp \                    <-- The command is wp
+        --func=FUNC \           <-- The function to examine in both programs
+        [options] \             <-- Any extra options
+        /path/to/exe1 \         <-- The path to the first binary
+        /path/to/exe2           <-- The path to the second binary
 </pre>
-
-<p>This serializes and saves each project as <code>exe_1.bpj</code> and <code>exe_2.bpj</code>.
-
-<p>Then you can use <code class="wp">wp</code> to analyze these two serialized projects. To do that, you tell <code class="wp">wp</code> to run in its two-program mode (using the flag <code>--wp-compare</code>), and you point it to your saved project files (using the parameters <code>--wp-file1</code> and <code>--wp-file2</code>):
-
-<pre>
-    bap /path/to/dummy/exe \    <-- The path to a dummy exe
-        --pass=wp \             <-- The pass/plugin is wp
-        --wp-compare \          <-- Run in comparative mode (compare two programs)
-        --wp-func=FUNC \        <-- The function to examine in both programs
-        --wp-file1=exe_1.bpj \  <-- The first saved program
-        --wp-file2=exe_2.bpj    <-- The second saved program
-</pre>
-
-<p>Notice that you must specify a path to a dummy <code>exe</code> (i.e., <code>/path/to/dummy/exe</code> in the above command). It is a "dummy <code>exe</code>" because the BAP command line tool requires that you specify <b>some</b> program, but you can put any program here. If you specify <code>--wp-compare</code> and provide two saved programs, then whatever you specify for the dummy <code>exe</code>, <code class="wp">wp</code> will throw it away and look only at your two saved programs. These examples will just use <code>/bin/true</code>.
 
 
 <h3>Example: Verifying an optimization</h3>
@@ -899,39 +887,17 @@ bool same_signs(int x, int y) {
 
 <p>Remember that the output of a function is always placed in the <code>RAX</code> register, so what we really want to know is if there is any way for these two functions to put different values in </code>RAX</code>, given the same inputs. And this is something we can ask <code class="wp">wp</code> to check for us.
 
-<p>This is our first example of using <code class="wp">wp</code> to compare two programs. Recall from earlier that, to compare two programs, we first need to save each program in a serialized format.
-
-<p>Let's do that. To save the first in a serialized format, run this:
+<p>This is our first example of using <code class="wp">wp</code> to compare two programs. You can ask <code class="wp">wp</code> to check if both versions of the <code>same_signs</code> function produce the same output in <code>RAX</code>. Here is the command:
 
 <pre>
-    $ bap 04/binary/main_1 \
-          --pass=save-project \
-          --save-project-filename=main_1.bpj
+    $ bap wp \
+          --func=same_signs \
+          --compare-post-reg-values=RAX \
+          04/binary/main_1 \
+          04/binary/main_2
 </pre>
 
-<p>That serializes the program <code>04/binary/main_1</code> and saves it in a file called <code>main_1.bpj</code>. 
-
-<p>Next, serialize the second program, in the same way:
-
-<pre>
-    $ bap 04/binary/main_2 \
-          --pass=save-project \
-          --save-project-filename=main_2.bpj
-</pre>
-
-<p>Now that you have saved both of the projects, you can ask <code class="wp">wp</code> to check if both versions of the <code>same_signs</code> function produce the same output in <code>RAX</code>. Here is the command:
-
-<pre>
-    $ bap /bin/true \
-          --pass=wp \
-          --wp-compare \
-          --wp-func=same_signs \
-          --wp-compare-post-reg-values=RAX \
-          --wp-file1=main_1.bpj \
-          --wp-file2=main_2.bpj 
-</pre>
-
-<p>Note the parameter <code>--wp-compare-post-reg-values=RAX</code> in this command. That tells <code class="wp">wp</code> to compare the value in <code>RAX</code> after the functions finish execution.
+<p>Note the parameter <code>--compare-post-reg-values=RAX</code> in this command. That tells <code class="wp">wp</code> to compare the value in <code>RAX</code> after the functions finish execution.
 
 <p>When <code class="wp">wp</code> finishes its check, it prints out the following:
 
@@ -1108,35 +1074,17 @@ int process_signal(signal_t signal) {
 
 <p>We can ask <code class="wp">wp</code> to analyze both versions of the <code>process_signal</code> function, and check that they call the same functions. Then <code class="wp">wp</code> will find out if there is any way that the original and patched versions differ with respect to function calls.
 
-<p>First, we need to save each of our programs (the original program and the patched one). To save the first:
+<p>e can ask <code class="wp">wp</code> to compare both binaries and find out if both versions of the <code>process_signal</code> functions differ, with respect to the function calls they make. Here is the command:
 
 <pre>
-    $ bap 05/binary/main_1 \
-          --pass=save-project \
-          --save-project-filename=main_1.bpj
+    $ bap wp \
+          --func=process_signal \
+          --compare-func-calls \
+          05/binary/main_1 \
+          05/binary/main_2
 </pre>
 
-<p>To save the second:
-
-<pre>
-    $ bap 05/binary/main_2 \
-          --pass=save-project \
-          --save-project-filename=main_2.bpj
-</pre>
-
-<p>Now that we have saved both of our programs, we can ask <code class="wp">wp</code> to compare them, and find out if both versions of the <code>process_signal</code> functions differ, with respect to the function calls they make. Here is the command:
-
-<pre>
-    $ bap /bin/true \
-          --pass=wp \
-          --wp-compare \
-          --wp-func=process_signal \
-          --wp-check-calls \
-          --wp-file1=main_1.bpj \
-          --wp-file2=main_2.bpj 
-</pre>
-
-<p>Notice that we added the flag <code>--wp-check-calls</code>. This tells <code class="wp">wp</code> to check the function calls in both versions of the <code>process_signal</code> function.
+<p>Notice that we added the flag <code>--compare-func-calls</code>. This tells <code class="wp">wp</code> to check the function calls in both versions of the <code>process_signal</code> function.
 
 <p>The output looks something like this:
 
@@ -1194,17 +1142,15 @@ typedef enum {SURFACE, NAV, DEPLOY} signal_t;      <-- items indexed 0, 1, 2
 
 <p>With that in mind, we can make sense of what <code class="wp">wp</code> is telling us here. It's telling us that if we call <code>process_signal</code> with the <code>NAV</code> signal (i.e., with <code>RDI</code> holding the index <code>0x01</code>), then the functions will behave differently, in the sense that they will make different functions calls.
 
-<p>Which function calls do they differ on, exactly? We can find out by asking <code class="wp">wp</code> to print out its refuted goals. To do that, we add the parameter <code>--wp-show=refuted-goals</code> when we run <code class="wp">wp</code>, like this:
+<p>Which function calls do they differ on, exactly? We can find out by asking <code class="wp">wp</code> to print out its refuted goals. To do that, we add the parameter <code>--show=refuted-goals</code> when we run <code class="wp">wp</code>, like this:
 
 <pre>
-    $ bap /bin/true \
-          --pass=wp \
-          --wp-compare \
-          --wp-func=process_signal \
-          --wp-check-calls \
-          --wp-show=refuted-goals \
-          --wp-file1=main_1.bpj \
-          --wp-file2=main_2.bpj 
+    $ bap wp \
+        --func=process_signal \
+        --compare-func-calls \
+        --show=refuted-goals \
+        05/binary/main_1 \
+        05/binary/main_2
 </pre>
 
 <p>Then <code class="wp">wp</code> prints output that looks something like this:
@@ -1308,7 +1254,7 @@ RAX
 <p>Now we can tell <code class="wp">wp</code> to check that this holds for our function. To do that, we ask <code class="wp">wp</code> to analyze our <code>main</code> function just as we have done before, but we will specify our custom property with the following parameter: 
 
 <pre>
---wp-postcond='(assert (= RAX #x0000000000000007))'
+--postcond='(assert (= RAX #x0000000000000007))'
 </pre>
 
 <p>This tells <code class="wp">wp</code> to check that the specified property holds after the function executes. Note that we enclose the <code>SMTLIB</code> expression in single quotes. This is just to force bash to treat it as a literal string and not perform any shell expansion. 
@@ -1316,11 +1262,11 @@ RAX
 <p>Here is the full command to run:
 
 <pre>
-    $ bap 06/binary/main \
-          --pass=wp \
-          --wp-func=main \
-          --wp-show=refuted-goals \
-          --wp-postcond='(assert (= RAX #x0000000000000007))'
+    $ bap wp \
+          --func=main \
+          --show=refuted-goals \
+          --postcond='(assert (= RAX #x0000000000000007))' \
+          06/binary/main
 </pre>
 
 <p>When <code class="wp">wp</code> runs this, it will try to falsify this property. That is, it will explore all logical possibilities (up to our simplifying assumptions), and find a way to make our <code>main</code> function put something other than <code>7</code> in <code>RAX</code>.
@@ -1350,11 +1296,11 @@ UNSAT!
 <p>Now have <code class="wp">wp</code> check this:
 
 <pre>
-    $ bap 06/binary/main \
-          --pass=wp \
-          --wp-func=main \
-          --wp-show=refuted-goals \
-          --wp-postcond='(assert (= RAX #x0000000000000003))'
+    $ bap wp \
+        --func=main \
+        --show=refuted-goals \
+        --postcond='(assert (= RAX #x0000000000000003))' \
+        06/binary/main
 </pre>
 
 <p>This time, <code class="wp">wp</code> outputs something that looks like this:
@@ -1409,11 +1355,11 @@ int main(int argc, char **argv) {
 <p>Suppose we want to assert that at the end of this function <code>RAX</code> will always produce <code>7</code>. We could have <code class="wp">wp</code> check that, just as we did before:
 
 <pre>
-    $ bap 07/binary/main \
-          --pass=wp \
-          --wp-func=main \
-          --wp-show=refuted-goals \
-          --wp-postcond='(assert (= RAX #x0000000000000007))'
+    $ bap wp \
+          --func=main \
+          --show=refuted-goals \
+          --postcond='(assert (= RAX #x0000000000000007))' \
+          07/binary/main
 </pre>
 
 <p>When you run that, you'll see that <code class="wp">wp</code> produces output that looks something like this:
@@ -1459,15 +1405,15 @@ Refuted goals:
 (assert (= RDI #x0000000000000005))
 </pre>
 
-<p>And now we can add this as a precondition to our check, using the <code>--wp-precond</code> parameter:
+<p>And now we can add this as a precondition to our check, using the <code>--precond</code> parameter:
 
 <pre>
-    $ bap 07/binary/main \
-          --pass=wp \
-          --wp-func=main \
-          --wp-show=refuted-goals \
-          --wp-precond='(assert (= RDI #x0000000000000005))' \
-          --wp-postcond='(assert (= RAX #x0000000000000007))'
+    $ bap wp \
+          --func=main \
+          --show=refuted-goals \
+          --precond='(assert (= RDI #x0000000000000005))' \
+          --postcond='(assert (= RAX #x0000000000000007))' \
+          -7/binary/main
 </pre>
 
 <p>Now <code class="wp">wp</code> will check that the postcondition holds, given that the precondition holds. In this case, it will check that, if <code>RDI</code> is <code>5</code> at the start of the function, then <code>RAX</code> will be <code>7</code> at the end of the function.
@@ -1525,7 +1471,7 @@ bool same_signs(int x, int y) {
 }
 </pre>
 
-<p>Before we asked <code class="wp">wp</code> to check that these two functions produce the same output in <code>RAX</code>, using the <code>--wp-compare-post-reg-values=RAX</code> parameter. But we can specify this same thing as a custom property. 
+<p>Before we asked <code class="wp">wp</code> to check that these two functions produce the same output in <code>RAX</code>, using the <code>--compare-post-reg-values=RAX</code> parameter. But we can specify this same thing as a custom property.
 
 <p>What we want to say is that, when the function <code>same_signs</code> finishes executing, the values in <code>RAX</code> are exactly the same. More exactly, we want to say that at the end of the <b>original</b> function's execution, <code>RAX</code> is the same as it is at the end of the <b>modified</b> function's execution. 
 
@@ -1547,33 +1493,15 @@ RAX_mod
 (assert (= RAX_orig RAX_mod))
 </pre>
 
-<p>To have <code class="wp">wp</code> check this, we first need to save both programs. To save the first:
+<p>To have <code class="wp">wp</code> check this, we call <code class="wp">wp</code> in comparison mode, with our custom postcondition:
 
 <pre>
-    $ bap 08/binary/main_1 \
-          --pass=save-project \
-          --save-project-filename=main_1.bpj
-</pre>
-
-<p>To save the second:
-
-<pre>
-    $ bap 08/binary/main_2 \
-          --pass=save-project \
-          --save-project-filename=main_2.bpj
-</pre>
-
-<p>Then call <code class="wp">wp</code> in comparison mode, with our custom postcondition:
-
-<pre>
-    $ bap /bin/true \
-          --pass=wp \
-          --wp-compare \
-          --wp-func=same_signs \
-          --wp-show=refuted-goals \
-          --wp-postcond='(assert (= RAX_orig RAX_mod))' \
-          --wp-file1=main_1.bpj \
-          --wp-file2=main_2.bpj
+    $ bap wp \
+          --func=same_signs \
+          --show=refuted-goals \
+          --postcond='(assert (= RAX_orig RAX_mod))' \
+          08/binary/main_1 \
+          08/binary/main_2
 </pre>
 
 <p>When you run this, <code class="wp">wp</code> outputs the following:
