@@ -21,32 +21,14 @@
 
 <blockquote>Compare the output in <code>RAX</code> of the function <code>calculate_price</code> in the older program (<code>binary/main_1</code>) and the newer program (<code>binary/main_2</code>). Can <code>binary/main_2</code> produce different output than <code>main_1</code>, when given the same argument?</blockquote>
 
-<p>First, save/serialize the first binary program:
+<p>Run <code>wp</code> on the <code>calculate_price</code> function in the two, and compare the output value in <code>RAX</code>:
 
 <pre>
-    $ bap binary/main_1 \
-          --pass=save-project \
-          --save-project-filename=main_1.bpj
-</pre>
-
-<p>Then save/serialize the second binary program:
-
-<pre>
-    $ bap binary/main_2 \
-          --pass=save-project \
-          --save-project-filename=main_2.bpj
-</pre>
-
-<p>Finally, run <code>wp</code> on the <code>calculate_price</code> function in the two, and compare the output value in <code>RAX</code>:
-
-<pre>
-    $ bap /bin/true \
-          --pass=wp \
-          --wp-compare \
-          --wp-func=calculate_price \
-          --wp-compare-post-reg-values=RAX \
-          --wp-file1=main_1.bpj \
-          --wp-file2=main_2.bpj
+    $ bap wp \
+          --func=calculate_price \
+          --compare-post-reg-values=RAX \
+          binary/main_1 \
+          binary/main_2
 </pre>
 
 <p>When you run this, you will see that <code>wp</code> responds with <code>SAT</code>, meaning that it did indeed find a way to make the second version of the <code>calculate_price</code> function produce a different output than the first version, given the same input.
