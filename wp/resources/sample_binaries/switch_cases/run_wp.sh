@@ -9,10 +9,6 @@
 
 set -x
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=process_message \

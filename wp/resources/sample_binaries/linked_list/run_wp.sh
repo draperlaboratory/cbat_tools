@@ -8,10 +8,6 @@
 
 set -x
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=create_linked_list \

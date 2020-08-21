@@ -6,10 +6,6 @@
 
 set -x
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=example \

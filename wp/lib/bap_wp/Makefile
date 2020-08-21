@@ -9,6 +9,8 @@ else
 IS_INSTALLED := false
 endif
 
+BUILD := _build/build_unique_id
+
 ML_FILES = $(wildcard src/*.ml)
 MLI_FILES = $(wildcard src/*.mli)
 
@@ -16,13 +18,16 @@ all: install
 
 clean: uninstall clean.local
 	rm -f build install
-	rm -f _build/build
+	rm -f $(BUILD)
 
 clean.local:
 	dune clean
 
-build: $(ML_FILES) $(MLI_FILES)
+$(BUILD): $(ML_FILES) $(MLI_FILES)
 	dune build -p $(PROJECT)
+	touch $(BUILD)
+
+build: $(BUILD)
 
 test: test.unit test.performance
 
@@ -41,7 +46,7 @@ check.installed.findlib:
 check.installed.opam:
 	opam show $(PROJECT)
 
-install: build
+install: $(BUILD)
 	dune install
 # only needs to be added if does not already exist
 ifeq ($(IS_INSTALLED),false)

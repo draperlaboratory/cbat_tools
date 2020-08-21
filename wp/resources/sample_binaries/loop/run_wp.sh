@@ -9,10 +9,6 @@
 
 set -x
 
-compile() {
-  make
-}
-
 run() {
   bap wp \
     --func=main \
@@ -21,4 +17,4 @@ run() {
     -- main
 }
 
-clean && run
+run

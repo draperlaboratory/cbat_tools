@@ -4,7 +4,7 @@ PLUGIN := plugin
 SAMPLE_BINS := resources/sample_binaries
 FMT_STR := "\u001b[31m%s\u001b[0m\n"
 
-.PHONY: test.lib test.plugin test all
+.PHONY: test.lib test.plugin test all clean
 
 all: install
 
@@ -40,14 +40,9 @@ test.lib:
 
 test.plugin:
 	@printf $(FMT_STR) "TESTING PLUGIN"
-	$(MAKE) -C $(SAMPLE_BINS)
 	$(MAKE) -C $(PLUGIN) test
 
-test.clean:
-	@printf $(FMT_STR) "CLEANING SAMPLE BINS"
-	$(MAKE) -C $(SAMPLE_BINS) clean
-
-clean: test.clean
+clean:
 	@printf $(FMT_STR) "CLEANING LIB"
 	$(MAKE) -C $(LIB) clean
 	@printf $(FMT_STR) "CLEANING PLUGIN"
