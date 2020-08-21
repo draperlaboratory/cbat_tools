@@ -5,10 +5,6 @@
 
 set -x
 
-compile() {
-  make
-}
-
 run() {
   bap wp \
     --func=perform_hash \
@@ -17,8 +13,4 @@ run() {
     -- main
 }
 
-clean() {
-  make clean
-}
-
-clean && compile && run
+run

@@ -13,10 +13,6 @@ set -x
 
 dummy_dir=../dummy
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=process_message \

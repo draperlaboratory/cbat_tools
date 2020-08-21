@@ -12,10 +12,6 @@
 set -x
 
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=same_signs \

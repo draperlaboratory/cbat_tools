@@ -7,10 +7,6 @@
 
 set -x
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=rightmost_index_8 \
@@ -19,4 +15,4 @@ run () {
     -- main_1 main_2
 }
 
-compile && run
+run

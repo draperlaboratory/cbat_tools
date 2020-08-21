@@ -5,10 +5,6 @@
 
 set -x
 
-compile () {
-  make
-}
-
 run () {
   bap wp \
     --func=encode_nqueens \
@@ -18,4 +14,4 @@ run () {
     -- main
 }
 
-compile && run
+run

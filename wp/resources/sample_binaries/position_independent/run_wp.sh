@@ -6,10 +6,6 @@
 
 set -x
 
-compile () {
-  make FLAGS="-fPIC -shared"
-}
-
 run () {
   bap wp \
     --func=example \
