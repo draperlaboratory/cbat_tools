@@ -11,8 +11,7 @@ endif
 
 BUILD := _build/build_unique_id
 
-ML_FILES = $(wildcard src/*.ml)
-MLI_FILES = $(wildcard src/*.mli)
+SRC_FILES = $(wildcard src/*.ml) $(wildcard src/*.mli)
 
 all: install
 
@@ -23,7 +22,7 @@ clean: uninstall clean.local
 clean.local:
 	dune clean
 
-$(BUILD): $(ML_FILES) $(MLI_FILES)
+$(BUILD): $(SRC_FILES)
 	dune build -p $(PROJECT)
 	touch $(BUILD)
 
