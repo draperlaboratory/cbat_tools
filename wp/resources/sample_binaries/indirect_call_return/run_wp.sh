@@ -3,8 +3,6 @@
 
 set -x
 
-dummy_dir=../dummy
-
 run () {
   bap wp \
     --func=indirect_call \
