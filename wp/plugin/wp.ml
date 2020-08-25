@@ -19,149 +19,158 @@ module Typ = Extension.Type
 
 let name = "wp"
 
-let doc = "WP is a comparative analysis tool. It can compare two binaries \
-           and check that they behave in similar ways. It can also be used \
-           to check a single binary for certain behaviors."
+let doc = {|WP is a comparative analysis tool. It can compare two binaries
+            and check that they behave in similar ways. It can also be used
+            to check a single binary for certain behaviors.|}
 
 (* Mandatory arguments. *)
 
 let files = Cmd.arguments Typ.file
-    ~doc:"Path(s) to one or two binaries to analyze. If two binaries are \
-          specified, WP will run a comparative analysis."
+    ~doc:{|Path(s) to one or two binaries to analyze. If two binaries are
+           specified, WP will run a comparative analysis. If 0 or more than 2
+           files are give, WP will fail.|}
 
 let func = Cmd.parameter Typ.string ~aliases:["function"] "func"
-    ~doc:"Function to run the WP analysis on. If no function is specified or \
-          the function cannot be found in the binaries, the analysis will \
-          fail."
+    ~doc:{|Determines which function to verify. WP verifies a single function,
+           though calling it on the `main' function along with the `inline'
+           option will analyze the whole program. If no function is specified
+           or the function cannot be found in the binary/binaries, the analysis
+           will fail.|}
 
 (* Arguments that determine which properties CBAT should analyze. *)
 
 let precond = Cmd.parameter Typ.string "precond"
-    ~doc:"A custom precondition in SMT-LIB format to be used during the \
-          analysis. If no precondition is specified, a trivial precondition \
-          of `true' will be used."
+    ~doc:{|Allows the introduction of assertions to the beginning of a query.
+           This allows pruning of possible models. Assertions are specified in
+           the smt-lib2 format. For comparative predicates, one may refer to
+           variables in the original and modified programs by appending the
+           suffix `_orig' and `_mod' to variable names in the smt-lib
+           expression. For example, `--precond="(assert (= RDI_mod
+           #x0000000000000003)) (assert (= RDI_orig #x0000000000000003))".' If
+           no precondition is specified, a trivial precondition of `true' will
+           be used.|}
 
 let postcond = Cmd.parameter Typ.string "postcond"
-    ~doc:"A custom postcondition in SMT-LIB format to be used during the \
-          analysis. If no postcondition is specified, a trivial \
-          postcondition of `true' will be used."
+    ~doc:{|Replaces the default postcondition with the user-specified one,
+           using the smt-lib2 format. Similar to `--precond', one may create
+           comparative postconditions on variables by appending `_orig' and
+           `_mod' to variable names. If no postcondition is specified, a
+           trivial postcondition of `true' will be used.|}
 
 let trip_asserts = Cmd.flag "trip-asserts"
-    ~doc:"If set, WP will look for inputs to the subroutine that would cause \
-          an __assert_fail or __VERIFIER_error to be reached."
+    ~doc:{|Looks for inputs to the subroutine that would cause an
+           `__assert_fail' or `__VERIFIER_error' to be reached.|}
 
 let check_null_derefs = Cmd.flag "check-null-derefs"
-    ~doc:"If set, the WP analysis will check for inputs that would result in \
-          dereferencing a NULL value. In the case of a comparative analysis, \
-          WP will check that the modified binary has no additional null \
-          dereferences in comparison with the original binary."
+    ~doc:{|Checks for inputs that would result in dereferencing a null value
+           during a memory read or write. In the case of a comparative
+           analysis, checks that the modified binary has no additional null
+           dereferences in comparison with the original binary.|}
 
 let compare_func_calls = Cmd.flag "compare-func-calls"
-    ~doc:"This flag is used for a comparative analysis. If set, WP will \
-          check that function calls should not occur in the modified binary \
-          if they have not occurred in the original binary."
+    ~doc:{|This flag is only used in a comparative analysis. Checks that
+           function calls do not occur in the modified binary if they have not
+           occurred in the original binary.|}
 
 let compare_post_reg_values = Cmd.parameter Typ.(list string) "compare-post-reg-values"
-    ~doc:"This flag is used for a comparatve analysis. If set, WP will \
-          compare the values stored in the specified registers at the end of \
-          the analyzed function's execution. For example, `RAX,RDI' compares \
-          the values of RAX and RDI at the end of execution. If unsure about \
-          which registers to compare, x86_64 architectures place their \
-          output in RAX, and ARM architectures place their output in R0."
+    ~doc:{|This flag is only used in a comparatve analysis. Compares the values
+           stored in the specified registers at the end of the function's
+           execution. For example, `RAX,RDI' compares the values of RAX and RDI
+           at the end of execution. If unsure about which registers to compare,
+           x86_64 architectures place their output in RAX, and ARM
+           architectures place their output in R0.|}
 
 (* Options. *)
 
 let inline = Cmd.parameter Typ.(some string) "inline"
-    ~doc:"Function calls to inline at a function call site as specified by a \
-          POSIX regular expression on the name of the target function. If \
-          not inlined, function summaries are used at function call time. To \
-          inline everything, set to `.*'. For example, `foo|bar' will inline \
-          the functions foo and bar."
+    ~doc:{|Functions specified by the provided POSIX regular expression will be
+           inlined. When functions are not inlined, heuristic function
+           summaries are used at function call sites. For example, if you want
+           to inline the functions `foo' and `bar', you can write
+           `--inline=foo|bar'. To inline everything, use `--inline=.*' (not
+           generally recommended).|}
 
 let num_unroll = Cmd.parameter Typ.(some int) "num-unroll"
-    ~doc:"Amount of times to unroll each loop. By default, WP will unroll \
-          each loop 5 times."
+    ~doc:{|Replaces the default number of times to unroll each loop. WP will
+           unroll each loop 5 times by default.|}
 
 let gdb_output = Cmd.parameter Typ.(some string) "gdb-output"
-    ~doc:"In the case WP determines input registers that result in a refuted \
-          goal, this flag outputs a gdb script to the filename specified. \
-          This script file sets a breakpoint at the the start of the \
-          function being analyzed, and sets the registers and memory to the \
-          values specified in the countermodel, allowing GDB to follow the \
-          same execution trace."
+    ~doc:{|When WP results in SAT, outputs a gdb script to the filename
+           specified. From within gdb, run `source filename.gdb' to set a
+           breakpoint at the function given by `--func' and fill the
+           appropriate registers with the values found in the countermodel. In
+           the case WP returns UNSAT or UNKNOWN, no script will be outputted.|}
 
 let bildb_output = Cmd.parameter Typ.(some string) "bildb-output"
-    ~doc:"In the case WP determines input registers that result in a refuted \
-          goal, this flag outputs a BilDB YAML file to the filename \
-          specified. This file sets the registers and memory to the values \
-          specified in the countermodel, allowing BilDB to follow the same \
-          execution trace."
+    ~doc:{|When WP results in SAT, outputs a BILDB initialization script to the
+           filename specified. This YAML file sets the registers and memory to
+           the values found in the countermodel, allowing BILDB to follow the
+           same execution trace. In the case WP returns UNSAT or UNKNOWN, no
+           script will be outputted.|}
 
 let use_fun_input_regs = Cmd.flag "use-fun-input-regs"
-    ~doc:"If set, at a function call site, uses all possible input registers \
-          as arguments to a function symbol generated for an output register \
-          that represents the result of the function call. If this flag is not \
-          set, no registers will be used."
+    ~doc:{|At a function call site, uses all possible input registers as
+           arguments to a function symbol generated for an output register. If
+           this flag is not present, no registers will be used.|}
 
 let mem_offset = Cmd.flag "mem-offset"
-    ~doc:"If set, maps the symbols in the data and bss sections from their \
-          addresses in the original binary to their addresses in the \
-          modified binary."
+    ~doc:{|This flag is only used in a comparative analysis. Maps the symbols
+           in the data and bss sections from their addresses in the original
+           binary to their addresses in the modified binary. If this flag is
+           not present, WP assumes that memory between both binaries are
+           equal.|}
 
 let debug = Cmd.parameter Typ.(list string) "debug"
-    ~doc:{|A list of various debugging statistics to print out during the
-           analysis. Multiple options as a list can be passed into the flag
-           to print multiple statistics. For example:
-           `--debug=z3-solver-stats,z3-verbose'.
+    ~doc:{|A list of various debugging statistics to display. Multiple
+           statistics may be specified in a comma-separated list. For example:
+           `--debug=z3-solver-stats,z3-verbose'. The options are:
 
-           The options are:
-           `z3-solver-stats': Statistics about the Z3 solver including
-           information such as the maximum amount of memory used and the number
-           of allocations.
+           `z3-solver-stats': Information and statistics about Z3's solver.
+           It includes information such as the maximum amount of memory used
+           and the number of allocations.
 
-           `z3-verbose': Increases Z3's verbosity level to output information
-           during precondition check time including the tactics the solver used.
+           `z3-verbose': Z3's verbosity level. It outputs information such as
+           the tactics the Z3 solver used.
 
-           `constraint-stats': Prints out the number of goals, ITES, clauses,
-           and substitutions in the constraint data type of the precondition.
+           `constraint-stats': Statistics regarding the internal `Constr.t'
+           data structure, including the number of goals, ITES, clauses, and
+           substitutions.
 
-           `eval-constraint-stats': Prints out the mean, max, and standard
-           deviation of the number of substitutions that occur during the
-           evaluation of the constraint datatype.|}
+           `eval-constraint-stats': Statistics regarding the internal
+           expression lists during evaluation of the `Constr.t' data type.|}
 
 let show = Cmd.parameter Typ.(list string) "show"
     ~doc:{|A list of details to print out from the analysis. Multiple options
-           as a list can be passed into the flag to print out multiple
-           details. For example: `--show=bir,refuted-goals'.
+           can be specified as a comma-separated list. For example:
+           `--show=bir,refuted-goals'. The options are:
 
-           The options are:
-           `bir': The code of the binary/binaries in BAP Immediate
+           `bir': The code of the binary/binaries in BAP Intermediate
            Representation.
 
-           `refuted-goals': In the case the analysis results in SAT, a list
-           of goals refuted in the model that contains their tagged names,
-           the concrete values of the goals, and the Z3 representation of the
-           goal.
+           `refuted-goals': In the case WP results in SAT, a list of goals
+           refuted in the model that contains their tagged names, their
+           concrete values, and their Z3 representation.
 
            `paths': The execution path of the binary that results in a
            refuted goal. The path contains information about the jumps taken,
            their addresses, and the values of the registers at each jump.
            This option automatically prints out the refuted goals.
 
-           `precond-internal': The precondition printed out in WP's internal
-           format for the Constr.t type.
+           `precond-smtlib': The precondition printed out in Z3's SMT-LIB2
+           format.
 
-          `precond-smtlib': The precondition printed out in Z3's SMT-LIB2
-           format.|}
+           `precond-internal': The precondition printed out in WP's internal
+           format for the `Constr.t' type.|}
+
 
 let stack_base = Cmd.parameter Typ.(some int) "stack-base"
-    ~doc:"The default address of the stack base. WP assumes the stack base \
-          is the highest address and the stack grows downward. By default, \
-          set to 0x40000000."
+    ~doc:{|Sets the location of the stack frame for the function under
+           analysis. By default, WP assumes the stack frame for the current
+           function is between 0x40000000 and 0x3F800080.|}
 
 let stack_size = Cmd.parameter Typ.(some int) "stack-size"
-    ~doc:"The default size of the stack in bytes. By default, set to \
-          0x800000 which is 8Mbs."
+    ~doc:{|Sets the size of the stack, which should be denoted in bytes. By
+           default, the size of the stack is 0x800000 which is 8MB.|}
 
 let grammar = Cmd.(
     args

@@ -29,11 +29,11 @@ These options apply in most circumstances to adjust CBAT's behavior or output.
 
 <li><code>--num-unroll=&lt;num&gt;</code> &mdash; Replaces the default number of times to unroll each loop. WP will unroll each loop 5 times by default.</code></li>
 
-<li><code>--gdb-output=&lt;filename.gdb&gt;</code> &mdash; When WP results in SAT, outputs a <code>gdb</code> script to file <code>filename.gdb</code>. From within <code>gdb</code>, run source <code>filename.gdb</code> to set a breakpoint at the function given by <code>--func</code> and fill the appropriate registers with the values found in the countermodel. In the case WP returns UNSAT or UNKNOWN, no script will be outputted.</li>
+<li><code>--gdb-output=&lt;filename.gdb&gt;</code> &mdash; When WP results in SAT, outputs a <code>gdb</code> script to file <code>filename.gdb</code>. From within <code>gdb</code>, run <code>source filename.gdb</code> to set a breakpoint at the function given by <code>--func</code> and fill the appropriate registers with the values found in the countermodel. In the case WP returns UNSAT or UNKNOWN, no script will be outputted.</li>
 
 <li><code>--bildb-output=&lt;filename.yml&gt;</code> &mdash; When WP results in SAT, outputs a BILDB initialization script to file <code>filename.yml</code>. This YAML file sets the registers and memory to the values found in the countermodel, allowing BILDB to follow the same execution trace. In the case the analysis returns UNSAT or UNKNOWN, no script will be outputted.</li>
 
-<li><code>--use-fun-input-regs</code> &mdash; At a function call site, uses all possible input registers as arguments to a function symbol generated for an output register that represents the result of a function call. If this flag is not present, no registers will be used.</li>
+<li><code>--use-fun-input-regs</code> &mdash; At a function call site, uses all possible input registers as arguments to a function symbol generated for an output register. If this flag is not present, no registers will be used.</li>
 
 <li><code>--stack-base=&lt;address&gt;</code> &mdash; Sets the location of the stack frame for the function under analysis. By default, WP assumes the stack frame for the current function is between <code>0x40000000</code> and <code>0x3F800080</code>.</li>
 
