@@ -5,7 +5,7 @@ A weakest-precondition analysis library, called `bap_wp`. This library is used b
 
 ## Build/Install
 
-Before installing, make sure you have the required dependencies installed on your system. See the build/install/test instructions in the [website](https://draperlaboratory.github.io/cbat_tools/installation.html#manual-installation) for details.
+Before installing, make sure you have the required dependencies installed on your system. See the build/install/test instructions in the [website](https://draperlaboratory.github.io/cbat_tools/installation.html#manual) for details.
 
 Once the dependencies are installed, build by running the following `make` command from this directory:
 
