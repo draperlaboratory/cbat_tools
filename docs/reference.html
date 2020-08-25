@@ -113,7 +113,7 @@ The following options select or adjust the property that will be checked for the
 
 <li><code>--precond=&lt;smt-lib-string&gt;</code> &mdash; Allows the introduction of assertions to the beginning of a query using the <a href="#smt-lib">smt-lib2 format</a>. This allows pruning of possible models. For comparative predicates, one may refer to variables in the original and modified programs by appending the suffix <code>_orig</code> and <code>_mod</code> to variable names in the smt-lib expression. For example, <code>--precond="(assert (= RDI_mod #x0000000000000003)) (assert (= RDI_orig #x0000000000000003))"</code>. If no precondition is specified, a trivial precondition of <code>true</code> will be used.</li>
 
-<li><code>--postcond=&lt;smt-lib-string&gt;</code> &mdash; Replaces the default postcondition with the user-specified one, using the <a href="#smt-lib">smt-lib2 format</a>. Similar to --precond, one may create comparative postconditions on variables by appending <code>_orig</code> and <code>_mod</code> to variable names. If no postcondition is specified, a trivial postcondition of <code>true</code> will be used.</li>
+<li><code>--postcond=&lt;smt-lib-string&gt;</code> &mdash; Replaces the default postcondition with the user-specified one, using the <a href="#smt-lib">smt-lib2 format</a>. Similar to <code>--precond</code>, one may create comparative postconditions on variables by appending <code>_orig</code> and <code>_mod</code> to variable names. If no postcondition is specified, a trivial postcondition of <code>true</code> will be used.</li>
 </section>
 
 <section>

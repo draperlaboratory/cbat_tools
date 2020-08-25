@@ -1413,7 +1413,7 @@ Refuted goals:
           --show=refuted-goals \
           --precond='(assert (= RDI #x0000000000000005))' \
           --postcond='(assert (= RAX #x0000000000000007))' \
-          -7/binary/main
+          07/binary/main
 </pre>
 
 <p>Now <code class="wp">wp</code> will check that the postcondition holds, given that the precondition holds. In this case, it will check that, if <code>RDI</code> is <code>5</code> at the start of the function, then <code>RAX</code> will be <code>7</code> at the end of the function.
