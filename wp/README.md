@@ -245,27 +245,8 @@ nothing else is causing those changes.
 
 ## Invocation
 
-Use the bap CLI:
-
-To view the man page:
-
-    bap wp --help
-
-To find the precondition of a subroutine:
-
-    bap wp \
-      [--func=function_name] \
-      [OPTIONS] \
-      -- /path/to/exec
-
-To compare two binaries:
-
-    bap wp \
-      [--func=function_name] \
-      [OPTIONS] \
-      -- /path/to/exe1 /path/to/exe2
-
-The various options are documented in the ![CBAT Reference](https://draperlaboratory.github.io/cbat_tools/reference.html)
+Information about invocation and the various options are documented in the
+[CBAT Reference](https://draperlaboratory.github.io/cbat_tools/reference.html).
 
 ## C checking API
 
