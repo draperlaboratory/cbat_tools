@@ -40,6 +40,7 @@ type t = {
   check_null_derefs : bool;
   compare_func_calls : bool;
   compare_post_reg_values : string list;
+  pointer_reg_list : string list;
   inline : string option;
   num_unroll : int option;
   gdb_output : string option;

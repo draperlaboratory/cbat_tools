@@ -72,7 +72,7 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let names = List.zip_exn maps fmts in
   let to_z3_name token =
     List.find_map names ~f:(fun (map, fmt) -> Z3_utils.get_z3_name map token fmt)
-    |> Option.value ~default:token
+    |> Base.Option.map ~f:Expr.to_string |> Option.value ~default:token
   in
   let smtlib_str =
     smtlib_str

@@ -32,7 +32,7 @@ val build_str : string list -> string
     [fmt] is used to add prefixes and suffixes to a variable name. For example,
     init_RDI_orig. *)
 val get_z3_name :
-  Constr.z3_expr Bap.Std.Var.Map.t -> string -> (Bap.Std.Var.t -> string) -> string option
+  Constr.z3_expr Bap.Std.Var.Map.t -> string -> (Bap.Std.Var.t -> string) -> (Z3.Expr.expr option)
 
 (** [get_decls_and_symbols] builds from a the var_map in an environment
     a mapping of all Z3 func_decl to their symbol. This is a helper function for
@@ -50,5 +50,11 @@ val mk_smtlib2_single : Env.t -> string -> Constr.t
     to symbols and returns a constraint [Constr.t] corresponding to the smtlib2 string.
     The [func_decl * symbol] mapping can be constructed from an [Env.t] using the
     [get_decls_and_symbols] function. *)
-
 val mk_smtlib2 : Z3.context -> string -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)  -> Constr.t
+
+(** [construct_pointer_constraint] generates a precondition that asserts that
+    the register names provided in `l` are treated as pointers. That means
+    all of these registers cannot point to the uninitalized stack region. This
+    means, they must be either below the bottom of the stack or above the initial
+    stack pointer. *)
+val construct_pointer_constraint : string list -> int -> Z3.context -> Env.t -> Env.t option -> string
