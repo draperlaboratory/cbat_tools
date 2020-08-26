@@ -21,7 +21,7 @@
 
 <blockquote>Compare the output in <code>RAX</code> of the function <code>calculate_price</code> in the older program (<code>binary/main_1</code>) and the newer program (<code>binary/main_2</code>). Can <code>binary/main_2</code> produce different output than <code>main_1</code>, when given the same argument?</blockquote>
 
-<p>Run <code>wp</code> on the <code>calculate_price</code> function in the two, and compare the output value in <code>RAX</code>:
+<p>Run <code>wp</code> on the <code>calculate_price</code> function in the two binaries, and compare the output values in <code>RAX</code>:
 
 <pre>
     $ bap wp \
@@ -71,7 +71,7 @@ Model:
 
 <p>In particular, you want to look at the value that <code>wp</code> suggests for <code>RDI</code>, which is the argument to the <code>calculate_price</code> function. Here, it gives me <code>0x0000000000000064</code> as an example of an argument that will cause the two versions of <code>calculate_price</code> to produce different values. 
 
-<p>We can confirm that this value does cause the two versionsof <code>calculate_price</code> to yield different results. First, try it with <code>binary/main_1</code>:
+<p>We can confirm that this value does cause the two versions of <code>calculate_price</code> to yield different results. First, try it with <code>binary/main_1</code>:
 
 <pre>
     $ ./binary/main_1 0x0000000000000064

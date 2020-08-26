@@ -66,7 +66,7 @@ These options apply in most circumstances to adjust CBAT's behavior or output.
   <ul>
     <li><code>z3-solver-stats</code>: Information and statistics about Z3's solver. It includes information such as the maximum amount of memory used and the number of allocations.</li>
     <li><code>z3-verbose</code>: Z3's verbosity level. It outputs information such as the tactics the Z3 solver used.</li>
-    <li><code>constraint-stats</code>: Statistics regarding the internal <code>Constr.t</code> data structure, including the number of goals, ITES, clauses, and substitutions.</li>
+    <li><code>constraint-stats</code>: Statistics regarding the internal <code>Constr.t</code> data structure, including the number of goals, ITEs, clauses, and substitutions.</li>
     <li><code>eval-constraint-stats</code>: Statistics regarding the internal expression lists during evaluation of the <code>Constr.t</code> data type.</li>
   </ul>
 </li>
@@ -118,7 +118,7 @@ The following options select or adjust the property that will be checked for the
 <ul>
 <li><code>--check-null-derefs</code> &mdash; Checks that the modified binary has no additional null dereferences in comparison with the original binary.</li>
 
-<li><code>--compare-func-calls</code> &mdash; Checks that function calls do not occur in the modiied binary if they have not occurred in the original binary.</li>
+<li><code>--compare-func-calls</code> &mdash; Checks that function calls do not occur in the modified binary if they have not occurred in the original binary.</li>
 
 <li><code>--compare-post-reg-values=&lt;reg-list&gt;</code> &mdash; Compares the values stored in the registers specified in <code>reg-list</code> at the end of the function's execution. For example, <code>RAX,RDI</code> compares the values of RAX and RDI at the end of execution. If unsure about which registers to compare, x86_64 architectures place their output in RAX and ARM architectures place their output in R0.</li>
 
