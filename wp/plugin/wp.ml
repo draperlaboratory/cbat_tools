@@ -133,7 +133,7 @@ let debug = Cmd.parameter Typ.(list string) "debug"
            the tactics the Z3 solver used.
 
            `constraint-stats': Statistics regarding the internal `Constr.t'
-           data structure, including the number of goals, ITES, clauses, and
+           data structure, including the number of goals, ITEs, clauses, and
            substitutions.
 
            `eval-constraint-stats': Statistics regarding the internal

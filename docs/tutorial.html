@@ -165,7 +165,7 @@ int foo(int x) {
 }
 </pre>
 
-<p>In BAP's IR, the return vaule would be handled like this:
+<p>In BAP's IR, the return value would be handled like this:
 
 <pre>
 00000436: subroutine foo... <-- Start of the function foo
@@ -377,7 +377,7 @@ Model:
 
 <p>The first thing it says is <code>SAT!</code>, which means that CBAT was able to find a way to trip the assert.
 
-<p>Next, it says <code>Model</code>, afer which it lists some information. There, you can see a bunch of registers on the left, and a bunch of values on the right (and a mention of memory at the bottom, which we can ignore for now).
+<p>Next, it says <code>Model</code>, after which it lists some information. There, you can see a bunch of registers on the left, and a bunch of values on the right (and a mention of memory at the bottom, which we can ignore for now).
 
 <p>What this tells us is how to trip the assert. The idea here is that if we set the registers (and memory) to these particular values at the start of the <code>main</code> function, then <code>main</code> will trip the assert.
 
@@ -467,7 +467,7 @@ RBP   : 0
 RDI   : 0xDEADBEEF
 </pre>
 
-<p>Now you should be able to step through this program, instruction by intruction, and you should end up triggering the assert.
+<p>Now you should be able to step through this program, instruction by instruction, and you should end up triggering the assert.
 
 <p>To move to the next instruction, hit <code>s</code> (for "step"), and hit <code>enter</code>. That moves to the next instruction:
 
@@ -552,7 +552,7 @@ Entering block %000006f9
           --bildb-init=init.yml
 </pre>
 
-<p>Notice how we added the option <code>--bildb-init=init.yml</code>. When <code>bilbd</code> starts up, it will read <code>init.yml</code>, and set the registers to the values listed there. From there, you can set the breakpoint at <code>00000722</code> and run through the program exactly as before.
+<p>Notice how we added the option <code>--bildb-init=init.yml</code>. When <code>bildb</code> starts up, it will read <code>init.yml</code>, and set the registers to the values listed there. From there, you can set the breakpoint at <code>00000722</code> and run through the program exactly as before.
 
 </section>
 
@@ -1475,7 +1475,7 @@ bool same_signs(int x, int y) {
 
 <p>What we want to say is that, when the function <code>same_signs</code> finishes executing, the values in <code>RAX</code> are exactly the same. More exactly, we want to say that at the end of the <b>original</b> function's execution, <code>RAX</code> is the same as it is at the end of the <b>modified</b> function's execution. 
 
-<p>To explicitly refer to a register in the original function, we can append <code>_orig</code> to the regiser name, like this:
+<p>To explicitly refer to a register in the original function, we can append <code>_orig</code> to the register name, like this:
 
 <pre>
 RAX_orig
