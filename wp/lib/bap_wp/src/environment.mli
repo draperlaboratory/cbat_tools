@@ -251,6 +251,9 @@ val use_input_regs : t -> bool
     defined by the concrete range of the stack in the env. *)
 val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
 
+(** [get_stack_bottom] retrieves the address of the bottom of the stack *)
+val get_stack_bottom : t -> int
+
 (** [in_data_section env addr] is the constraint [DATA_MIN <= addr < DATA_MAX] as
     defined by the concrete range of the data section in the env. *)
 val in_data_section : t -> Constr.z3_expr -> Constr.z3_expr

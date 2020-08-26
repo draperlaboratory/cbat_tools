@@ -37,6 +37,7 @@ type t = {
   check_null_derefs : bool;
   compare_func_calls : bool;
   compare_post_reg_values : string list;
+  pointer_reg_list : string list;
   inline : string option;
   num_unroll : int option;
   gdb_output : string option;
@@ -48,6 +49,8 @@ type t = {
   stack_size : int option;
   show : string list
 }
+
+(* TODO add in validate pointer_reg_list *)
 
 (* Ensures the user inputted a function for analysis. *)
 let validate_func (func : string) : (unit, error) result =

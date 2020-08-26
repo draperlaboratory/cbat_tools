@@ -79,13 +79,13 @@ let build_str (tokens : string list) : string =
    [fmt] is used to add prefixes and suffixes to a variable name. For example,
    init_RDI_orig. *)
 let get_z3_name (map : Constr.z3_expr Var.Map.t) (name : string) (fmt : Var.t -> string)
-  : string option =
+  : (Z3.Expr.expr option) =
   map
   |> Var.Map.to_alist
   |> List.find_map
     ~f:(fun (var, z3_var) ->
         if String.equal name (fmt var) then
-          Some (Expr.to_string z3_var)
+          Some z3_var
         else
           None)
 
@@ -97,11 +97,11 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
     |> tokenize
     |> List.map ~f:(fun token ->
         match get_z3_name var_map token Var.name with
-        | Some n -> n
+        | Some n -> n |> Expr.to_string
         | None ->
           begin
             match get_z3_name init_var_map token (fun v -> "init_" ^ Var.name v) with
-            | Some n -> n
+            | Some n -> n |> Expr.to_string
             | None -> token
           end)
     |> build_str
@@ -111,3 +111,51 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   let ctx = Env.get_context env in
   mk_smtlib2 ctx smt_post decl_syms
 
+(* TODO english descrption *)
+let construct_pointer_constraint (l: string list) (stack_bottom: int)
+    (ctx: Z3.context) (env1 : Env.t) (env2: Env.t option): string =
+  let arch = match Env.get_arch env1 |> Bap.Std.Arch.addr_size with
+    | `r32 -> 32
+    | `r64 -> 64 in
+  let err_msg = "invalid register name" in
+  let sb_bv = Z3.BitVector.mk_numeral ctx (stack_bottom |> Int.to_string) arch in
+  let gen_constr = match env2 with
+    | Some env2 ->
+      let init_var_map_orig = Env.get_init_var_map env1 in
+      let init_var_map_mod = Env.get_init_var_map env2 in
+      (fun acc reg ->
+         (* we do want exceptions here if the register names are invalid
+          *  or RSP doesn't exist *)
+         let reg_name_orig = Option.value_exn ~message:err_msg
+             (get_z3_name init_var_map_orig reg Var.name) in
+         let reg_name_mod = Option.value_exn ~message:err_msg
+             (get_z3_name init_var_map_mod reg Var.name) in
+         let rsp_orig = Option.value_exn ~message:"original stack pointer not found"
+             (get_z3_name init_var_map_orig "RSP" Var.name) in
+         let rsp_mod = Option.value_exn ~message:"modified stack pointer not found"
+             (get_z3_name init_var_map_mod "RSP" Var.name) in
+         let uge_1 = Z3.BitVector.mk_uge ctx reg_name_orig rsp_orig in
+         let uge_2 = Z3.BitVector.mk_uge ctx reg_name_mod rsp_mod in
+         let ule_1 =  Z3.BitVector.mk_ule ctx reg_name_orig sb_bv in
+         let ule_2 =  Z3.BitVector.mk_ule ctx reg_name_mod sb_bv in
+         let or_c_1 = Z3.Boolean.mk_or ctx [uge_1; ule_1] in
+         let or_c_2 = Z3.Boolean.mk_or ctx [uge_2; ule_2] in
+         let and_c = Z3.Boolean.mk_and ctx [or_c_1; or_c_2;] in
+         Z3.Boolean.mk_and ctx [and_c; acc]
+      )
+    | None ->
+      let init_var_map = Env.get_init_var_map env1 in
+      let stack_pointer = Option.value_exn ~message:"stack pointer not found"
+          (get_z3_name init_var_map "RSP" Var.name) in
+      (fun acc reg ->
+         let reg_name = Option.value_exn ~message:err_msg
+             (get_z3_name init_var_map reg Var.name)in
+         let uge = Z3.BitVector.mk_ugt ctx reg_name stack_pointer in
+         let ule = Z3.BitVector.mk_ult ctx reg_name sb_bv in
+         let or_c = Z3.Boolean.mk_or ctx [uge; ule] in
+         Z3.Boolean.mk_and ctx [or_c; acc]
+      )
+  in
+  let tmp = List.fold l ~init:(Z3.Boolean.mk_true ctx) ~f:gen_constr |> Z3.Expr.to_string in
+  Printf.printf "(assert %s )" tmp ;
+  Printf.sprintf "(assert %s )" tmp

@@ -216,6 +216,9 @@ let suite = [
   "Indirect call with return"      >: test_plugin "indirect_call_return" unsat;
   "Indirect call with no return"   >: test_plugin "indirect_call_no_return" unsat;
 
+  "Test without pointer flag"      >: test_plugin "pointer_flag" sat ~script:"run_wp_sat.sh";
+  "Test with pointer flag"         >: test_plugin "pointer_flag" unsat ~script:"run_wp_unsat.sh";
+
   (* Test single elf *)
 
   "Function call"                  >: test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh"

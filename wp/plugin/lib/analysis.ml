@@ -185,7 +185,12 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       Z3_utils.mk_smtlib2_single env p.postcond
   in
   let pre, env = Pre.visit_sub env post main_sub in
-  let pre = Constr.mk_clause [Z3_utils.mk_smtlib2_single env p.precond] [pre] in
+  let precond_from_flag = Z3_utils.mk_smtlib2_single env p.precond in
+  let stack_bottom = Env.get_stack_bottom env in
+  let pointer_constr = Z3_utils.mk_smtlib2_single env
+      (Z3_utils.construct_pointer_constraint p.pointer_reg_list
+         stack_bottom z3_ctx env None) in
+  let pre = Constr.mk_clause [precond_from_flag; pointer_constr;] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
