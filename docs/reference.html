@@ -36,11 +36,11 @@ This page contains a brief reference to CBAT's command line options.
 These options apply in most circumstances to adjust CBAT's behavior or output.
 
 <ul>
-<li><code>--func=&lt;function_name&gt;</code> &mdash; Determines which function to verify. WP verifies a single function, though calling it on the <code>main</code> function along with the <code>inline</code> option will analyze the whole program. If no function is specified or the function cannot be found in the binary/binaries, the analysis will fail.</li>
+<li><code>--func=&lt;function_name&gt;</code> &mdash; Determines which function to verify. WP verifies a single function, though calling it on the <code>main</code> function along with the <code>inline</code> option will analyze the whole program. If no function is specified or the function cannot be found in the binary/binaries, WP will exit with an error message.</li>
 
 <li><code>--inline=&lt;posix-regexp&gt;</code> &mdash; Functions specified by the provided POSIX regular expression will inlined. When functions are not inlined, heuristic function summaries are used at function call sites. For example, if you want to inline the functions <code>foo</code> and <code>bar</code>, you can write <code>--inline=foo|bar</code>. To inline everything, use <code>--inline=.*</code> (not generally recommended).</li>
 
-<li><code>--num-unroll=&lt;num&gt;</code> &mdash; Replaces the default number of times to unroll each loop. WP will unroll each loop 5 times by default.</code></li>
+<li><code>--num-unroll=&lt;num&gt;</code> &mdash; Specifies the number of times to unroll each loop. WP will unroll each loop 5 times by default.</code></li>
 
 <li><code>--gdb-output=&lt;filename.gdb&gt;</code> &mdash; When WP results in SAT, outputs a <code>gdb</code> script to file <code>filename.gdb</code>. From within <code>gdb</code>, run <code>source filename.gdb</code> to set a breakpoint at the function given by <code>--func</code> and fill the appropriate registers with the values found in the countermodel. In the case WP returns UNSAT or UNKNOWN, no script will be outputted.</li>
 
@@ -94,9 +94,9 @@ The following options select or adjust the property that will be checked for the
 
 <li><code>--check-null-derefs</code> &mdash; Checks for inputs that would result in dereferencing a NULL address during a memory read or write. This flag can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
 
-<li><code>--precond=&lt;smt-lib-string&gt;</code> &mdash; Allows the introduction of assertions to the beginning of a query. This allows pruning of possible models. Assertions are specified in the <a href="#smt-lib">smt-lib2 format</a>. If no precondition is specified, a trivial precondition of <code>true</code> will be used. This flag can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
+<li><code>--precond=&lt;smt-lib-string&gt;</code> &mdash; Allows you to specify an assertion that WP will assume is true at the beginning of the function it is analyzing. Assertions are specified in the <a href="#smt-lib">smt-lib2 format</a>. If no precondition is specified, a trivial precondition of <code>true</code> will be used. This flag can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
 
-<li><code>--postcond=&lt;smt-lib-string&gt;</code> &mdash; Replaces the default postcondition with the user-specified one, using the <a href="#smt-lib">smt-lib2 format</a>. If no postcondition is specified, a trivial postcondition of <code>true</code> will be used. This flag can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
+<li><code>--postcond=&lt;smt-lib-string&gt;</code> &mdash; Allows you to specify an assertion that WP will assume is true at the end of the function it is analyzing, using the <a href="#smt-lib">smt-lib2 format</a>. If no postcondition is specified, a trivial postcondition of <code>true</code> will be used. This flag can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
 </ul>
 </section>
 
@@ -116,17 +116,17 @@ The following options select or adjust the property that will be checked for the
 </pre>
 
 <ul>
-<li><code>--check-null-derefs</code> &mdash; Checks that the modified binary has no additional null dereferences in comparison with the original binary.</li>
+<li><code>--check-null-derefs</code> &mdash; Checks that the modified binary has no additional paths with null dereferences in comparison with the original binary.</li>
 
 <li><code>--compare-func-calls</code> &mdash; Checks that function calls do not occur in the modified binary if they have not occurred in the original binary.</li>
 
-<li><code>--compare-post-reg-values=&lt;reg-list&gt;</code> &mdash; Compares the values stored in the registers specified in <code>reg-list</code> at the end of the function's execution. For example, <code>RAX,RDI</code> compares the values of RAX and RDI at the end of execution. If unsure about which registers to compare, x86_64 architectures place their output in RAX and ARM architectures place their output in R0.</li>
+<li><code>--compare-post-reg-values=&lt;reg-list&gt;</code> &mdash; Compares the values stored in the registers specified in <code>reg-list</code> at the end of the function's execution. For example, <code>RAX,RDI</code> compares the values of RAX and RDI at the end of execution. If unsure about which registers to compare, check the architecture's ABI. x86_64 architectures place their output in RAX and ARM architectures place their output in R0.</li>
 
-<li><code>--mem-offset</code> &mdash; Maps the symbols in the data and bss sections from their addresses in the original binary to their addresses in the modified binary. If this flag is not present, WP assumes that memory between both binaries are equal.</li>
+<li><code>--mem-offset</code> &mdash; Maps the symbols in the data and bss sections from their addresses in the original binary to their addresses in the modified binary. If this flag is not present, WP assumes that memory between both binaries start at the same offsets.</li>
 
-<li><code>--precond=&lt;smt-lib-string&gt;</code> &mdash; Allows the introduction of assertions to the beginning of a query using the <a href="#smt-lib">smt-lib2 format</a>. This allows pruning of possible models. For comparative predicates, one may refer to variables in the original and modified programs by appending the suffix <code>_orig</code> and <code>_mod</code> to variable names in the smt-lib expression. For example, <code>--precond="(assert (= RDI_mod #x0000000000000003)) (assert (= RDI_orig #x0000000000000003))"</code>. If no precondition is specified, a trivial precondition of <code>true</code> will be used.</li>
+<li><code>--precond=&lt;smt-lib-string&gt;</code> &mdash; Allows you to specify an assertion that WP will assume is true at the beginning of the function it is analyzing, using the <a href="#smt-lib">smt-lib2 format</a>. For comparative predicates, one may refer to variables in the original and modified programs by appending the suffix <code>_orig</code> and <code>_mod</code> to variable names in the smt-lib expression. For example, <code>--precond="(assert (= RDI_mod #x0000000000000003)) (assert (= RDI_orig #x0000000000000003))"</code>. If no precondition is specified, a trivial precondition of <code>true</code> will be used.</li>
 
-<li><code>--postcond=&lt;smt-lib-string&gt;</code> &mdash; Replaces the default postcondition with the user-specified one, using the <a href="#smt-lib">smt-lib2 format</a>. Similar to <code>--precond</code>, one may create comparative postconditions on variables by appending <code>_orig</code> and <code>_mod</code> to variable names. If no postcondition is specified, a trivial postcondition of <code>true</code> will be used.</li>
+<li><code>--postcond=&lt;smt-lib-string&gt;</code> &mdash; Allows you to specify an assertion that WP will assume is true at the end of the function it is analyzing, using the <a href="#smt-lib">smt-lib2 format</a>. Similar to <code>--precond</code>, one may create comparative postconditions on variables by appending <code>_orig</code> and <code>_mod</code> to variable names. If no postcondition is specified, a trivial postcondition of <code>true</code> will be used.</li>
 </section>
 
 <section>

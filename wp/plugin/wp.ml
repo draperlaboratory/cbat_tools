@@ -28,34 +28,35 @@ let doc = {|WP is a comparative analysis tool. It can compare two binaries
 let files = Cmd.arguments Typ.file
     ~doc:{|Path(s) to one or two binaries to analyze. If two binaries are
            specified, WP will run a comparative analysis. If 0 or more than 2
-           files are give, WP will fail.|}
+           files are given, WP will exit with an error message.|}
 
 let func = Cmd.parameter Typ.string ~aliases:["function"] "func"
     ~doc:{|Determines which function to verify. WP verifies a single function,
            though calling it on the `main' function along with the `inline'
            option will analyze the whole program. If no function is specified
-           or the function cannot be found in the binary/binaries, the analysis
-           will fail.|}
+           or the function cannot be found in the binary/binaries, WP will
+           exit with an error message.|}
 
 (* Arguments that determine which properties CBAT should analyze. *)
 
 let precond = Cmd.parameter Typ.string "precond"
-    ~doc:{|Allows the introduction of assertions to the beginning of a query.
-           This allows pruning of possible models. Assertions are specified in
-           the smt-lib2 format. For comparative predicates, one may refer to
-           variables in the original and modified programs by appending the
-           suffix `_orig' and `_mod' to variable names in the smt-lib
-           expression. For example, `--precond="(assert (= RDI_mod
+    ~doc:{|Allows you to specify an assertion that WP will assume is true at
+           the beginning of the function it is analyzing. Assertions are
+           specified in the smt-lib2 format. For comparative predicates, one
+           may refer to variables in the original and modified programs by
+           appending the suffix `_orig' and `_mod' to variable names in the
+           smt-lib expression. For example, `--precond="(assert (= RDI_mod
            #x0000000000000003)) (assert (= RDI_orig #x0000000000000003))".' If
            no precondition is specified, a trivial precondition of `true' will
            be used.|}
 
 let postcond = Cmd.parameter Typ.string "postcond"
-    ~doc:{|Replaces the default postcondition with the user-specified one,
-           using the smt-lib2 format. Similar to `--precond', one may create
-           comparative postconditions on variables by appending `_orig' and
-           `_mod' to variable names. If no postcondition is specified, a
-           trivial postcondition of `true' will be used.|}
+    ~doc:{|Allows you to specify an assertion that WP will assume is true at
+           the end of the function it is analyzing, using the smt-lib2 format.
+           Similar to `--precond', one may create comparative postconditions on
+           variables by appending `_orig' and `_mod' to variable names. If no
+           postcondition is specified, a trivial postcondition of `true' will
+           be used.|}
 
 let trip_asserts = Cmd.flag "trip-asserts"
     ~doc:{|Looks for inputs to the subroutine that would cause an
@@ -64,8 +65,8 @@ let trip_asserts = Cmd.flag "trip-asserts"
 let check_null_derefs = Cmd.flag "check-null-derefs"
     ~doc:{|Checks for inputs that would result in dereferencing a null value
            during a memory read or write. In the case of a comparative
-           analysis, checks that the modified binary has no additional null
-           dereferences in comparison with the original binary.|}
+           analysis, checks that the modified binary has no additional paths
+           with null dereferences in comparison with the original binary.|}
 
 let compare_func_calls = Cmd.flag "compare-func-calls"
     ~doc:{|This flag is only used in a comparative analysis. Checks that
@@ -77,8 +78,8 @@ let compare_post_reg_values = Cmd.parameter Typ.(list string) "compare-post-reg-
            stored in the specified registers at the end of the function's
            execution. For example, `RAX,RDI' compares the values of RAX and RDI
            at the end of execution. If unsure about which registers to compare,
-           x86_64 architectures place their output in RAX, and ARM
-           architectures place their output in R0.|}
+           check the architecture's ABI. x86_64 architectures place their
+           output in RAX, and ARM architectures place their output in R0.|}
 
 (* Options. *)
 
@@ -91,8 +92,8 @@ let inline = Cmd.parameter Typ.(some string) "inline"
            generally recommended).|}
 
 let num_unroll = Cmd.parameter Typ.(some int) "num-unroll"
-    ~doc:{|Replaces the default number of times to unroll each loop. WP will
-           unroll each loop 5 times by default.|}
+    ~doc:{|Specifies the number of times to unroll each loop. WP will unroll
+           each loop 5 times by default.|}
 
 let gdb_output = Cmd.parameter Typ.(some string) "gdb-output"
     ~doc:{|When WP results in SAT, outputs a gdb script to the filename
@@ -117,8 +118,8 @@ let mem_offset = Cmd.flag "mem-offset"
     ~doc:{|This flag is only used in a comparative analysis. Maps the symbols
            in the data and bss sections from their addresses in the original
            binary to their addresses in the modified binary. If this flag is
-           not present, WP assumes that memory between both binaries are
-           equal.|}
+           not present, WP assumes that memory between both binaries start at
+           the same offset.|}
 
 let debug = Cmd.parameter Typ.(list string) "debug"
     ~doc:{|A list of various debugging statistics to display. Multiple
@@ -161,7 +162,6 @@ let show = Cmd.parameter Typ.(list string) "show"
 
            `precond-internal': The precondition printed out in WP's internal
            format for the `Constr.t' type.|}
-
 
 let stack_base = Cmd.parameter Typ.(some int) "stack-base"
     ~doc:{|Sets the location of the stack frame for the function under
