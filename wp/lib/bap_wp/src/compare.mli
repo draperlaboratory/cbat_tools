@@ -104,6 +104,19 @@ val compare_subs_empty_post : comparator * comparator
     creation time. *)
 val compare_subs_sp : comparator * comparator
 
+(** Compare two subs by composition for restraints on a pointer.:
+
+    Give two subroutines and environments, return a postcondition
+    and hypothesis that, when passed to [compare_subs], will generate a
+    precondition which is provable only if (modulo soundness bugs) the VCs generated
+    by the hooks provided by the environment are satisfied, given that the
+    architecture of the binary is x86_64. The hypothesis comparator generates a
+    constraint which states whichever TODO *)
+val compare_subs_constraints
+  :  pre_conds:Constr.t
+  -> post_conds:Constr.t
+  -> comparator * comparator
+
 (** Compare two subroutines by composition for conservation of function calls:
 
     Given two subroutines and environments, return a postcondition

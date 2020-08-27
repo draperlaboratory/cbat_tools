@@ -138,6 +138,17 @@ let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
            memory for the x86_64 architecture.\n%!";
     None
 
+(* TODO document *)
+let gen_pointer_comparators
+    (l: string list) (env1: Env.t) (env2: Env.t option)
+  : (Comp.comparator * Comp.comparator) option =
+  if List.length l = 0 then None
+  else
+    let pre_conds = Z3_utils.construct_pointer_constraint l env1 env2 in
+    let post_conds = Env.trivial_constr env1 in
+    Comp.compare_subs_constraints ~pre_conds ~post_conds |> Some
+
+
 (* Returns a list of postconditions and a list of hypotheses based on the
    flags set from the command line. *)
 let comparators_of_flags
@@ -151,7 +162,8 @@ let comparators_of_flags
     post_reg_values p.compare_post_reg_values
       ~orig:(sub1, env1) ~modif:(sub2, env2);
     smtlib ~precond:p.precond ~postcond:p.postcond;
-    sp arch
+    sp arch;
+    gen_pointer_comparators p.pointer_reg_list env1 (Some env2);
   ] |> List.filter_opt
   in
   let comps =
@@ -177,7 +189,9 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
   let hyps, env = Pre.init_vars (Pre.get_vars env main_sub) env in
-  let hyps = (Pre.set_sp_range env) :: hyps in
+  let pointer_constr = Z3_utils.construct_pointer_constraint p.pointer_reg_list
+      env None in
+  let hyps = (Pre.set_sp_range env) :: pointer_constr :: hyps in
   let post =
     if String.is_empty p.postcond then
       true_constr
@@ -186,9 +200,6 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   in
   let pre, env = Pre.visit_sub env post main_sub in
   let precond_from_flag = Z3_utils.mk_smtlib2_single env p.precond in
-  let stack_bottom = Env.get_stack_bottom env in
-  let pointer_constr = Z3_utils.construct_pointer_constraint p.pointer_reg_list
-      stack_bottom env None in
   let pre = Constr.mk_clause [precond_from_flag; pointer_constr;] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem p.show "bir" ~equal:String.equal then

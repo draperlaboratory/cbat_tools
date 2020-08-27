@@ -227,6 +227,19 @@ let compare_subs_eq
   in
   postcond, hyps
 
+let compare_subs_constraints
+    ~pre_conds:(pre_conds : Constr.t)
+    ~post_conds:(post_conds : Constr.t)
+  : comparator * comparator =
+  let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    Constr.mk_clause [] [post_conds], env1, env2
+  in
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    Constr.mk_clause [] [pre_conds], env1, env2
+  in
+  postcond, hyps
+
+
 let compare_subs_fun : comparator * comparator =
   let mk_is_fun_called env f =
     let ctx = Env.get_context env in
