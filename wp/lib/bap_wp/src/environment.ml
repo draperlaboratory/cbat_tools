@@ -404,6 +404,10 @@ let get_consts (env : t) : ExprSet.t =
 let get_arch (env : t) : Arch.t =
   env.arch
 
+let get_rsp_name (env : t) : string =
+  let module Target = (val target_of_arch (get_arch env)) in
+  Var.name Target.CPU.sp
+
 let fold_fun_tids (env : t) ~init:(init : 'a)
     ~f:(f : key:string -> data:Tid.t -> 'a -> 'a) : 'a =
   StringMap.fold env.fun_name_tid ~init:init ~f:f
@@ -443,7 +447,7 @@ let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
     assert (BV.is_bv addr);
     Bool.mk_and ctx [BV.mk_ult ctx min addr; BV.mk_ule ctx addr max]
 
-let get_stack_bottom (env : t) : int =
+let get_stack_end (env : t) : int =
   env.stack.base_addr - env.stack.size
 
 (* Returns a function that takes in a memory address as a z3_expr and outputs a

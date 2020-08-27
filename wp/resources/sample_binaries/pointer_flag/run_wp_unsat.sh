@@ -1,7 +1,9 @@
-# This is a test that tests that the wp-pointer-reg-list flag works as expected
-# specifically, it calls a function, then tries to use the differing return address that 
-# is thereby pushed onto the stack to cause a different return value between functions.
-# Should return SAT
+# This is a test that tests that the wp-pointer-reg-list flag works as expected.
+# Specifically, the function foo tries to use differing
+# return addresses that are pushed onto the stack to cause a different return
+# value between functions. The inclusion of the flag should prevent the pointer
+# argument in RDI from being used to point to this return address, as it lives
+# on the uninitialized portion of the stack at the start of the function.
 
 # Should return UNSAT
 

@@ -79,7 +79,7 @@ let build_str (tokens : string list) : string =
    [fmt] is used to add prefixes and suffixes to a variable name. For example,
    init_RDI_orig. *)
 let get_z3_name (map : Constr.z3_expr Var.Map.t) (name : string) (fmt : Var.t -> string)
-  : (Z3.Expr.expr option) =
+  : (Constr.z3_expr option) =
   map
   |> Var.Map.to_alist
   |> List.find_map
@@ -113,15 +113,15 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
 
 let construct_pointer_constraint (l: string list) (env1 : Env.t)
     (env2: Env.t option): Constr.t =
-  let stack_bottom = Env.get_stack_bottom env1 in
+  let stack_end = Env.get_stack_end env1 in
   let ctx = Env.get_context env1 in
   let arch = match Env.get_arch env1 |> Bap.Std.Arch.addr_size with
     | `r32 -> 32
     | `r64 -> 64 in
-  let rsp = "RSP" in
+  let rsp = Env.get_rsp_name env1 in
   let err_msg_input = "invalid register name in pointer register list" in
   let err_msg_rsp = "stack pointer not found" in
-  let sb_bv = Z3.BitVector.mk_numeral ctx (stack_bottom |> Int.to_string) arch in
+  let sb_bv = Z3.BitVector.mk_numeral ctx (stack_end |> Int.to_string) arch in
   let gen_constr = match env2 with
     | Some env2 ->
       let init_var_map_orig = Env.get_init_var_map env1 in
@@ -142,11 +142,11 @@ let construct_pointer_constraint (l: string list) (env1 : Env.t)
           *  NOTE: we are assuming stack grows down *)
          let uge_1 = Z3.BitVector.mk_uge ctx reg_name_orig rsp_orig in
          let uge_2 = Z3.BitVector.mk_uge ctx reg_name_mod rsp_mod in
-         (* the pointer must be below the bottom of the stack *)
+         (* the pointer must be below the end of the stack *)
          let ule_1 =  Z3.BitVector.mk_ule ctx reg_name_orig sb_bv in
          let ule_2 =  Z3.BitVector.mk_ule ctx reg_name_mod sb_bv in
          (* encode that the pointer is either above RSP or below the stack
-          *  bottom and thereby outside the uninitialized stack region *)
+          *  end and thereby outside the uninitialized stack region *)
          let or_c_1 = Z3.Boolean.mk_or ctx [uge_1; ule_1] in
          let or_c_2 = Z3.Boolean.mk_or ctx [uge_2; ule_2] in
          let and_c = Z3.Boolean.mk_and ctx [or_c_1; or_c_2;] in
