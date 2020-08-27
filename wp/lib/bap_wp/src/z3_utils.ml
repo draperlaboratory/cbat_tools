@@ -126,14 +126,14 @@ let construct_pointer_constraint (l: string list) (env1 : Env.t)
     | Some env2 ->
       let init_var_map_orig = Env.get_init_var_map env1 in
       let init_var_map_mod = Env.get_init_var_map env2 in
+      (* we do want exceptions here if the register names are invalid
+       *  or RSP doesn't exist *)
       let rsp_orig = Option.value_exn ~message:("original " ^ err_msg_rsp)
           (get_z3_name init_var_map_orig rsp Var.name) in
       let rsp_mod = Option.value_exn ~message:("modified " ^ err_msg_rsp)
           (get_z3_name init_var_map_mod rsp Var.name) in
-      (* Encode constraint for each register and wrap them up in a massive and *)
+      (* Encode constraint that each register is not within stack*)
       (fun acc reg ->
-         (* we do want exceptions here if the register names are invalid
-          *  or RSP doesn't exist *)
          let reg_name_orig = Option.value_exn ~message:err_msg_input
              (get_z3_name init_var_map_orig reg Var.name) in
          let reg_name_mod = Option.value_exn ~message:err_msg_input
@@ -145,7 +145,8 @@ let construct_pointer_constraint (l: string list) (env1 : Env.t)
          (* the pointer must be below the bottom of the stack *)
          let ule_1 =  Z3.BitVector.mk_ule ctx reg_name_orig sb_bv in
          let ule_2 =  Z3.BitVector.mk_ule ctx reg_name_mod sb_bv in
-         (* encode that the pointer is outside the uninitialized stack region *)
+         (* encode that the pointer is either above RSP or below the stack
+          *  bottom and thereby outside the uninitialized stack region *)
          let or_c_1 = Z3.Boolean.mk_or ctx [uge_1; ule_1] in
          let or_c_2 = Z3.Boolean.mk_or ctx [uge_2; ule_2] in
          let and_c = Z3.Boolean.mk_and ctx [or_c_1; or_c_2;] in
