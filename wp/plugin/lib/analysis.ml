@@ -138,8 +138,10 @@ let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
            memory for the x86_64 architecture.\n%!";
     None
 
-(* TODO document *)
-let gen_pointer_comparators
+
+(* Returns a set of comparators that provide the constraint that
+   the pointer registers are treated as pointers. *)
+let gen_pointer_flag_comparators
     (l: string list) (env1: Env.t) (env2: Env.t option)
   : (Comp.comparator * Comp.comparator) option =
   if List.length l = 0 then None
@@ -163,7 +165,7 @@ let comparators_of_flags
       ~orig:(sub1, env1) ~modif:(sub2, env2);
     smtlib ~precond:p.precond ~postcond:p.postcond;
     sp arch;
-    gen_pointer_comparators p.pointer_reg_list env1 (Some env2);
+    gen_pointer_flag_comparators p.pointer_reg_list env1 (Some env2);
   ] |> List.filter_opt
   in
   let comps =

@@ -110,8 +110,9 @@ val compare_subs_sp : comparator * comparator
     and hypothesis that, when passed to [compare_subs], will generate a
     precondition which is provable only if (modulo soundness bugs) the VCs generated
     by the hooks provided by the environment are satisfied, given that the
-    architecture of the binary is x86_64. The hypothesis comparator generates a
-    constraint which states whichever TODO *)
+    architecture of the binary is x86_64. The hypothesis comparator generates
+    hypotheses that are the precondition; the post condition comparator
+    generates postconditions based on the input Constr.t. *)
 val compare_subs_constraints
   :  pre_conds:Constr.t
   -> post_conds:Constr.t

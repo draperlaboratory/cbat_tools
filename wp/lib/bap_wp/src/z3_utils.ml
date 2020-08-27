@@ -119,12 +119,17 @@ let construct_pointer_constraint (l: string list) (env1 : Env.t)
     | `r32 -> 32
     | `r64 -> 64 in
   let rsp = "RSP" in
-  let err_msg = "invalid register name" in
+  let err_msg_input = "invalid register name in pointer register list" in
+  let err_msg_rsp = "stack pointer not found" in
   let sb_bv = Z3.BitVector.mk_numeral ctx (stack_bottom |> Int.to_string) arch in
   let gen_constr = match env2 with
     | Some env2 ->
       let init_var_map_orig = Env.get_init_var_map env1 in
       let init_var_map_mod = Env.get_init_var_map env2 in
+      let rsp_orig = Option.value_exn ~message:"original " ^ err_msg_rsp
+                       (get_z3_name init_var_map_orig rsp Var.name) in
+      let rsp_mod = Option.value_exn ~message:"modified " ^ err_msg_rsp
+                      (get_z3_name init_var_map_mod rsp Var.name) in
       (* Encode constraint for each register and wrap them up in a massive and *)
       (fun acc reg ->
          (* we do want exceptions here if the register names are invalid
@@ -133,12 +138,8 @@ let construct_pointer_constraint (l: string list) (env1 : Env.t)
              (get_z3_name init_var_map_orig reg Var.name) in
          let reg_name_mod = Option.value_exn ~message:err_msg
              (get_z3_name init_var_map_mod reg Var.name) in
-         let rsp_orig = Option.value_exn ~message:"original stack pointer not found"
-             (get_z3_name init_var_map_orig rsp Var.name) in
-         let rsp_mod = Option.value_exn ~message:"modified stack pointer not found"
-             (get_z3_name init_var_map_mod rsp Var.name) in
          (* the pointer register must be above RSP
-          *  (we are assuming stack grows down) *)
+          *  NOTE: we are assuming stack grows down *)
          let uge_1 = Z3.BitVector.mk_uge ctx reg_name_orig rsp_orig in
          let uge_2 = Z3.BitVector.mk_uge ctx reg_name_mod rsp_mod in
          (* the pointer must be below the bottom of the stack *)
