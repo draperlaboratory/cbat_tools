@@ -12,6 +12,7 @@
 (***************************************************************************)
 
 open Bap_main
+open Parameters.Err.Syntax
 
 module Cmd = Extension.Command
 module Typ = Extension.Type
@@ -224,8 +225,8 @@ let callback
       stack_size = stack_size
     })
   in
-  Parameters.validate params files;
-  Analysis.run params files ctxt;
+  Parameters.validate params files >>= fun () ->
+  Analysis.run params files ctxt >>= fun () ->
   Ok ()
 
 let () =
