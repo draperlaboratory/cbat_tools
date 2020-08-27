@@ -126,17 +126,17 @@ let construct_pointer_constraint (l: string list) (env1 : Env.t)
     | Some env2 ->
       let init_var_map_orig = Env.get_init_var_map env1 in
       let init_var_map_mod = Env.get_init_var_map env2 in
-      let rsp_orig = Option.value_exn ~message:"original " ^ err_msg_rsp
-                       (get_z3_name init_var_map_orig rsp Var.name) in
-      let rsp_mod = Option.value_exn ~message:"modified " ^ err_msg_rsp
-                      (get_z3_name init_var_map_mod rsp Var.name) in
+      let rsp_orig = Option.value_exn ~message:("original " ^ err_msg_rsp)
+          (get_z3_name init_var_map_orig rsp Var.name) in
+      let rsp_mod = Option.value_exn ~message:("modified " ^ err_msg_rsp)
+          (get_z3_name init_var_map_mod rsp Var.name) in
       (* Encode constraint for each register and wrap them up in a massive and *)
       (fun acc reg ->
          (* we do want exceptions here if the register names are invalid
           *  or RSP doesn't exist *)
-         let reg_name_orig = Option.value_exn ~message:err_msg
+         let reg_name_orig = Option.value_exn ~message:err_msg_input
              (get_z3_name init_var_map_orig reg Var.name) in
-         let reg_name_mod = Option.value_exn ~message:err_msg
+         let reg_name_mod = Option.value_exn ~message:err_msg_input
              (get_z3_name init_var_map_mod reg Var.name) in
          (* the pointer register must be above RSP
           *  NOTE: we are assuming stack grows down *)
@@ -153,10 +153,10 @@ let construct_pointer_constraint (l: string list) (env1 : Env.t)
       )
     | None ->
       let init_var_map = Env.get_init_var_map env1 in
-      let stack_pointer = Option.value_exn ~message:"stack pointer not found"
+      let stack_pointer = Option.value_exn ~message:err_msg_rsp
           (get_z3_name init_var_map rsp Var.name) in
       (fun acc reg ->
-         let reg_name = Option.value_exn ~message:err_msg
+         let reg_name = Option.value_exn ~message:err_msg_input
              (get_z3_name init_var_map reg Var.name)in
          let uge = Z3.BitVector.mk_ugt ctx reg_name stack_pointer in
          let ule = Z3.BitVector.mk_ult ctx reg_name sb_bv in

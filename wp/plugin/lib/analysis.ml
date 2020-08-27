@@ -191,9 +191,11 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
   let hyps, env = Pre.init_vars (Pre.get_vars env main_sub) env in
-  let pointer_constr = Z3_utils.construct_pointer_constraint p.pointer_reg_list
-      env None in
-  let hyps = (Pre.set_sp_range env) :: pointer_constr :: hyps in
+  let hyps = (Pre.set_sp_range env) :: hyps in
+  let hyps =
+    if List.length p.pointer_reg_list > 0
+    then (Z3_utils.construct_pointer_constraint p.pointer_reg_list env None) :: hyps
+    else hyps in
   let post =
     if String.is_empty p.postcond then
       true_constr
@@ -202,7 +204,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   in
   let pre, env = Pre.visit_sub env post main_sub in
   let precond_from_flag = Z3_utils.mk_smtlib2_single env p.precond in
-  let pre = Constr.mk_clause [precond_from_flag; pointer_constr;] [pre] in
+  let pre = Constr.mk_clause [precond_from_flag;] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
