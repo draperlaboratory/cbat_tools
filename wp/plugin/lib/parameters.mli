@@ -19,10 +19,16 @@
 
 *)
 
-(** An exception that is raised when a user inputs an invalid options to a
-    parameter or when the inputted parameters are not compatible to with each
-    other. *)
-exception Invalid_input
+open Bap_main
+open Monads.Std
+
+(** A result monad that includes Extension.Error.t as the error type. This
+    error is returned when a user passes in an invalid parameter. *)
+module Err : Monad.Result.S with
+  type 'a t := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).t and
+  type 'a m := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).m and
+  type 'a e := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).e and
+  type err := Extension.Error.t
 
 (** The available options to be set. Each flag corresponds to a parameter in
     the set with the BAP custom command line. *)
@@ -47,29 +53,30 @@ type t = {
 }
 
 (** [validate flags files] ensures the user inputted the appropriate flags for
-    the inputted [files]. In the case the user has invalid flags, an error
-    message will print and WP will exit. *)
-val validate : t -> string list -> unit
+    the inputted [files]. In the case the user has invalid flags, an error is
+    returned. *)
+val validate : t -> string list -> (unit, error) result
 
 (** [validate_func name] checks the user inputted a [name] for the function to
-    analyze. Raises {!Invalid_input} when [name] is empty. *)
-val validate_func : string -> unit
+    analyze. Returns an error when [name] is empty. *)
+val validate_func : string -> (unit, error) result
 
 (** [validate_debug options] checks the user inputted the supported options for
-    the debug printer flag. Raises {!Invalid_input} when an unsupported option
-    is inputted. *)
-val validate_debug : string list -> unit
+    the debug printer flag. Returns an error when an unsupported option is
+    inputted. *)
+val validate_debug : string list -> (unit, error) result
 
 (** [validate_show options] checks the user inputted the supported options for
-    the show printer flag. Raises {!Invalid_input} when an unsupported option
-    is inputted. *)
-val validate_show : string list -> unit
+    the show printer flag. Returns an error when an unsupported option is
+    inputted. *)
+val validate_show : string list -> (unit, error) result
 
 (** [validate_compare_func_calls flag files] checks that the flag is only set
-    when there are two files to compare. Raises {!Invalid_input} otherwise. *)
-val validate_compare_func_calls : bool -> string list -> unit
+    when there are two files to compare. Returns an error otherwise. *)
+val validate_compare_func_calls : bool -> string list -> (unit, error) result
 
 (** [validate_compare_post_reg_vals regs files] checks that the list of
     registers to compare is only set when there are two files to compare.
-    Raises {!Invalid_input} otherwise. *)
-val validate_compare_post_reg_vals : string list -> string list -> unit
+    Returns an error otherwise. *)
+val validate_compare_post_reg_vals :
+  string list -> string list -> (unit, error) result

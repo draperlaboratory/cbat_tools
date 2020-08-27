@@ -25,6 +25,9 @@ module Env = Environment
 module Constr = Constraint
 module Params = Parameters
 
+(* Error for when the user specifies 0 or more than 2 files to analyze. *)
+type Extension.Error.t += Unsupported_file_count of string
+
 (* Contains information about the precondition and the subroutines from
    the analysis to be printed out. *)
 type combined_pre = {
@@ -243,36 +246,44 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       (Sub.to_string main_sub1) (Sub.to_string main_sub2);
   { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
 
+let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
+  : (unit, error) result =
+  let solver = Z3.Solver.mk_solver ctx None in
+  if (List.mem p.debug "constraint-stats" ~equal:(String.equal)) then
+    Constr.print_stats cp.pre;
+  let debug_eval =
+    (List.mem p.debug "eval-constraint-stats" ~equal:(String.equal)) in
+  let result = Pre.check ~print_constr:p.show ~debug:debug_eval
+      solver ctx cp.pre in
+  if (List.mem p.debug "z3-solver-stats" ~equal:(String.equal)) then
+    Printf.printf "Showing solver statistics : \n %s \n %!" (
+      Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
+  let env2, _ = cp.modif in
+  Utils.output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env2;
+  Utils.output_to_bildb ~filename:p.bildb_output solver result env2;
+  Output.print_result solver result cp.pre ~orig:cp.orig
+    ~modif:cp.modif ~show:p.show;
+  Ok ()
+
 (* Entrypoint for the WP analysis. *)
-let run (p : Params.t) (files : string list) (bap_ctx : ctxt) : unit =
+let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
+  : (unit, error) result =
   if (List.mem p.debug "z3-verbose"  ~equal:(String.equal)) then
     Z3.set_global_param "verbose" "10";
   let z3_ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let solver = Z3.Solver.mk_solver z3_ctx None in
   Utils.update_default_num_unroll p.num_unroll;
-  let combined_pre =
-    (* Determine whether to perform a single or comparative analysis. *)
-    match files with
-    | [file] -> single bap_ctx z3_ctx var_gen p file
-    | [file1; file2] -> comparative bap_ctx z3_ctx var_gen p file1 file2
-    | _ ->
-      Printf.printf "WP can only analyze one binary for a single analysis or \
+  (* Determine whether to perform a single or comparative analysis. *)
+  match files with
+  | [file] ->
+    single bap_ctx z3_ctx var_gen p file
+    |> check_pre p z3_ctx
+  | [file1; file2] ->
+    comparative bap_ctx z3_ctx var_gen p file1 file2
+    |> check_pre p z3_ctx
+  | _ ->
+    let err =
+      Printf.sprintf "WP can only analyze one binary for a single analysis or \
                      two binaries for a comparative analysis. Number of \
-                     binaries provided: %d.%!" (List.length files);
-      exit 1
-  in
-  if (List.mem p.debug "constraint-stats" ~equal:(String.equal)) then
-    Constr.print_stats combined_pre.pre;
-  let debug_eval =
-    (List.mem p.debug "eval-constraint-stats" ~equal:(String.equal)) in
-  let result = Pre.check ~print_constr:p.show ~debug:debug_eval
-      solver z3_ctx combined_pre.pre in
-  if (List.mem p.debug "z3-solver-stats" ~equal:(String.equal)) then
-    Printf.printf "Showing solver statistics : \n %s \n %!" (
-      Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
-  let env2, _ = combined_pre.modif in
-  Utils.output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env2;
-  Utils.output_to_bildb ~filename:p.bildb_output solver result env2;
-  Output.print_result solver result combined_pre.pre ~orig:combined_pre.orig
-    ~modif:combined_pre.modif ~show:p.show
+                     binaries provided: %d.%!" (List.length files) in
+    Error (Unsupported_file_count err)
