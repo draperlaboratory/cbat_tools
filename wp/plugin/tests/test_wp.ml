@@ -261,6 +261,10 @@ let suite = [
     ~expected_regs:[ [("RDI", "0x0000000000000003")]; ];
   "Simple WP: precondition"        >: test_plugin "simple_wp" unsat ~script:"run_wp_pre.sh";
 
+  "Single test without pointer flag" >: test_plugin "pointer_flag_single" sat ~script:"run_wp_sat.sh";
+  "Single test with pointer flag"    >: test_plugin "pointer_flag_single" unsat ~script:"run_wp_unsat.sh";
+
+
   "Verifier assume SAT"            >: test_plugin "verifier_calls" sat ~script:"run_wp_assume_sat.sh";
   "Verifier assume UNSAT"          >: test_plugin "verifier_calls" unsat ~script:"run_wp_assume_unsat.sh";
   "Verifier nondent"               >: test_plugin "verifier_calls" sat ~script:"run_wp_nondet.sh";
