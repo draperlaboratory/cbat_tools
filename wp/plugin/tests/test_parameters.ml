@@ -11,9 +11,10 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open !Core_kernel
 open OUnit2
 open OUnitTest
+open !Core_kernel
+open Bap_main
 
 module Params = Parameters
 
@@ -22,41 +23,39 @@ module Params = Parameters
 let test_validate_input
     ?length:(length = Immediate)
     ~valid:(valid : bool)
-    (validator : unit -> 'a)
+    (res : (unit, error) result)
    : test =
-  let test _ =
-    if not valid then
-      assert_raises Params.Invalid_input validator
-    else
-      validator ()
+  let test _ = match res with
+    | Error _ -> assert_bool "Returned an error when params are valid" (not valid)
+    | Ok () -> assert_bool "Should have returned an error for an invalid param" valid
   in
   test_case ~length test
 
 let suite = [
 
   "No function specified" >: test_validate_input ~valid:false
-    (fun () -> Params.validate_func "");
+    (Params.validate_func "");
   "Function specified" >: test_validate_input ~valid:true
-    (fun () -> Params.validate_func "main");
+    (Params.validate_func "main");
 
   "Invalid option for debug" >: test_validate_input ~valid:false
-    (fun () -> Params.validate_debug ["foo"]);
+    (Params.validate_debug ["foo"]);
   "Valid option for debug" >: test_validate_input ~valid:true
-    (fun () -> Params.validate_debug ["z3-solver-stats"]);
+    (Params.validate_debug ["z3-solver-stats"]);
 
   "Invalid option for show" >: test_validate_input ~valid:false
-    (fun () -> Params.validate_show ["foo"]);
+    (Params.validate_show ["foo"]);
   "Valid option for debug" >: test_validate_input ~valid:true
-    (fun () -> Params.validate_show ["bir"]);
+    (Params.validate_show ["bir"]);
 
   "One file for compare_func_calls" >: test_validate_input ~valid:false
-    (fun () -> Params.validate_compare_func_calls true ["exe1"]);
+    (Params.validate_compare_func_calls true ["exe1"]);
   "Two files for compare_func_calls" >: test_validate_input ~valid:true
-    (fun () -> Params.validate_compare_func_calls true ["exe1"; "exe2"]);
+    (Params.validate_compare_func_calls true ["exe1"; "exe2"]);
 
   "One file for compare_post_reg_values" >: test_validate_input ~valid:false
-    (fun () -> Params.validate_compare_post_reg_vals ["x"] ["exe1"]);
+    (Params.validate_compare_post_reg_vals ["x"] ["exe1"]);
   "Two files for compare_post_reg_values" >: test_validate_input ~valid:true
-    (fun () -> Params.validate_compare_post_reg_vals ["x"] ["exe1"; "exe2"]);
+    (Params.validate_compare_post_reg_vals ["x"] ["exe1"; "exe2"]);
 
 ]
