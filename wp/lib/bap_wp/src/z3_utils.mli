@@ -32,7 +32,7 @@ val build_str : string list -> string
     [fmt] is used to add prefixes and suffixes to a variable name. For example,
     init_RDI_orig. *)
 val get_z3_name :
-  Constr.z3_expr Bap.Std.Var.Map.t -> string -> (Bap.Std.Var.t -> string) -> (Z3.Expr.expr option)
+  Constr.z3_expr Bap.Std.Var.Map.t -> string -> (Bap.Std.Var.t -> string) -> (Constr.z3_expr option)
 
 (** [get_decls_and_symbols] builds from a the var_map in an environment
     a mapping of all Z3 func_decl to their symbol. This is a helper function for

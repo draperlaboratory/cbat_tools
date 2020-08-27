@@ -50,8 +50,6 @@ type t = {
   show : string list
 }
 
-(* TODO add in validate pointer_reg_list *)
-
 (* Ensures the user inputted a function for analysis. *)
 let validate_func (func : string) : (unit, error) result =
   let err = Printf.sprintf "Function is not provided for analysis. Usage: \

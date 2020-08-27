@@ -231,6 +231,9 @@ val get_loop_handler :
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t
 
+(** Obtains the name of the program's stack pointer *)
+val get_rsp_name : t -> string
+
 (** Obtains a list of all the {!Constr.z3_expr}s that represents constants that
     were generated during analysis. *)
 val get_consts : t -> ExprSet.t
@@ -251,8 +254,13 @@ val use_input_regs : t -> bool
     defined by the concrete range of the stack in the env. *)
 val in_stack : t -> Constr.z3_expr -> Constr.z3_expr
 
-(** [get_stack_bottom] retrieves the address of the bottom of the stack *)
-val get_stack_bottom : t -> int
+(** [get_stack_end] retrieves the address of the largest address that the top
+     of the stack can take. It is assumed the stack grows downwards, from
+     high addresss to low address. The top and start of the stack is defined as
+     stack_base and is the largest address in the stack. The stack end
+     (retrieved by this function) is the smallest value that the stack pointer
+     can take. *)
+val get_stack_end: t -> int
 
 (** [in_data_section env addr] is the constraint [DATA_MIN <= addr < DATA_MAX] as
     defined by the concrete range of the data section in the env. *)
