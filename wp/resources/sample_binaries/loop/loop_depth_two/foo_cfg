@@ -1,0 +1,30 @@
+digraph {
+node[shape=box];
+
+subgraph "cluster_foo" {
+  label="foo"
+  
+  "\%00000413"[label="\@foo
+0000041a: #46 := RBP\l0000041d: RSP := RSP - 8\l00000420: mem := mem with [RSP, el]:u64 <- #46\l00000427: RBP := RSP\l00000435: #47 := RSP\l00000438: RSP := RSP - 0x20\l0000043b: CF := #47 < 0x20\l0000043e: OF := high:1[(#47 ^ 0x20) & (#47 ^ RSP)]\l00000441: AF := 0x10 = (0x10 & (RSP ^ #47 ^ 0x20))\l00000444: PF := ~low:1[let $1 = RSP >> 4 ^ RSP in let $2 = $1 >> 2 ^ $1 in\l$2 >> 1 ^ $2]\l00000447: SF := high:1[RSP]\l0000044a: ZF := 0 = RSP\l00000451: RAX := pad:64[low:32[RDI]]\l00000458: mem := mem with [RBP - 0x14] <- low:8[RAX]\l0000045f: mem := mem with [RBP - 4, el]:u32 <- 0\l"]
+  "\%00000463"[label="\%00000463
+00000473: #50 := mem[RBP - 4, el]:u32 - 2\l00000476: CF := mem[RBP - 4, el]:u32 < 2\l00000479: OF := high:1[(mem[RBP - 4, el]:u32 ^ 2) & (mem[RBP - 4, el]:u32 ^ #50)]\l0000047c: AF := 0x10 = (0x10 & (#50 ^ mem[RBP - 4, el]:u32 ^ 2))\l0000047f: PF := ~low:1[let $1 = #50 >> 4 ^ #50 in let $2 = $1 >> 2 ^ $1 in\l$2 >> 1 ^ $2]\l00000482: SF := high:1[#50]\l00000485: ZF := 0 = #50\l"]
+  "\%0000050d"[label="\%0000050d
+00000512: RAX := pad:64[mem[RBP - 4, el]:u32]\l00000519: RSI := pad:64[low:32[RAX]]\l00000520: RDI := 0x400614\l00000527: RAX := 0\l00000530: RSP := RSP - 8\l00000533: mem := mem with [RSP, el]:u64 <- 0x400566\l00000536: call @printf with return %00000538\l"]
+  "\%00000538"[label="\%00000538
+0000053d: RAX := pad:64[mem[RBP - 4, el]:u32]\l00000546: RSP := RBP\l00000549: RBP := mem[RSP, el]:u64\l0000054c: RSP := RSP + 8\l00000555: #60 := mem[RSP, el]:u64\l00000558: RSP := RSP + 8\l0000055c: call #60 with noreturn\l"]
+  "\%00000489"[label="\%00000489
+000004a0: #52 := mem[RBP - 4, el]:u32\l000004a3: mem := mem with [RBP - 4, el]:u32 <- mem[RBP - 4, el]:u32 + 1\l000004a6: CF := mem[RBP - 4, el]:u32 < #52\l000004a9: OF := ~high:1[#52] & (high:1[#52] | high:1[mem[RBP - 4, el]:u32]) & ~(\lhigh:1[#52] & high:1[mem[RBP - 4, el]:u32])\l000004ac: AF := 0x10 = (0x10 & (mem[RBP - 4, el]:u32 ^ #52 ^ 1))\l000004af: PF := ~low:1[let $1 = mem[RBP - 4, el]:u32 >> 4 ^ mem[RBP - 4, el]:u32 in\llet $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]\l000004b2: SF := high:1[mem[RBP - 4, el]:u32]\l000004b5: ZF := 0 = mem[RBP - 4, el]:u32\l"]
+  "\%000004b9"[label="\%000004b9
+000004c9: #55 := mem[RBP - 4, el]:u32 - 2\l000004cc: CF := mem[RBP - 4, el]:u32 < 2\l000004cf: OF := high:1[(mem[RBP - 4, el]:u32 ^ 2) & (mem[RBP - 4, el]:u32 ^ #55)]\l000004d2: AF := 0x10 = (0x10 & (#55 ^ mem[RBP - 4, el]:u32 ^ 2))\l000004d5: PF := ~low:1[let $1 = #55 >> 4 ^ #55 in let $2 = $1 >> 2 ^ $1 in\l$2 >> 1 ^ $2]\l000004d8: SF := high:1[#55]\l000004db: ZF := 0 = #55\l"]
+  "\%000004df"[label="\%000004df
+000004f6: #57 := mem[RBP - 4, el]:u32\l000004f9: mem := mem with [RBP - 4, el]:u32 <- mem[RBP - 4, el]:u32 + 1\l000004fc: CF := mem[RBP - 4, el]:u32 < #57\l000004ff: OF := ~high:1[#57] & (high:1[#57] | high:1[mem[RBP - 4, el]:u32]) & ~(\lhigh:1[#57] & high:1[mem[RBP - 4, el]:u32])\l00000502: AF := 0x10 = (0x10 & (mem[RBP - 4, el]:u32 ^ #57 ^ 1))\l00000505: PF := ~low:1[let $1 = mem[RBP - 4, el]:u32 >> 4 ^ mem[RBP - 4, el]:u32 in\llet $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]\l00000508: SF := high:1[mem[RBP - 4, el]:u32]\l0000050b: ZF := 0 = mem[RBP - 4, el]:u32\l"]
+  "\%00000413" -> "\%00000463"
+  "\%00000463" -> "\%00000489"[label="ZF | (SF | OF) & ~(SF & OF)"]
+  "\%00000463" -> "\%0000050d"[label="~(ZF | (SF | OF) & ~(SF & OF))"]
+  "\%0000050d" -> "\%00000538"
+  "\%00000489" -> "\%000004b9"
+  "\%000004b9" -> "\%000004df"[label="ZF | (SF | OF) & ~(SF & OF)"]
+  "\%000004b9" -> "\%00000463"[label="~(ZF | (SF | OF) & ~(SF & OF))"]
+  "\%000004df" -> "\%000004b9"
+}
+}
