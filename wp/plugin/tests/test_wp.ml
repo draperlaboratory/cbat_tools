@@ -219,6 +219,8 @@ let suite = [
   "Test without pointer flag"      >: test_plugin "pointer_flag" sat ~script:"run_wp_sat.sh";
   "Test with pointer flag"         >: test_plugin "pointer_flag" unsat ~script:"run_wp_unsat.sh";
 
+  "Loop unrolling comparative" >: test_plugin "loop/loop_depth_one" unsat ~script:"run_wp_compare.sh";
+
   (* Test single elf *)
 
   "Function call"                  >: test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh"
@@ -240,7 +242,14 @@ let suite = [
   "Linked list: no mem check"      >: test_plugin "linked_list" unsat;
   "Linked list: with mem check"    >: test_plugin "linked_list" sat ~script:"run_wp_null_deref.sh";
 
-  "Loop"                           >: test_plugin "loop" sat;
+  "Loop"                           >: test_plugin "loop/loop_with_assert" sat ~script:"run_wp.sh";
+
+  "Loop full unroll"               >: test_plugin "loop/loop_depth_one" sat ~script:"run_wp_single.sh"
+    ~expected_regs:[ [("RDI", "0x0000000000000005")]; ];
+
+  "Loop incomplete unroll"         >:: test_skip fail_msg
+    (test_plugin "loop/loop_depth_one" sat ~script:"run_wp_less_loop.sh"
+       ~expected_regs:[ [("RDI", "0x0000000000000005")]; ] );
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
   "Nested function calls: inline regex" >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh"
@@ -283,5 +292,6 @@ let suite = [
 
   "Hash function"                  >: test_plugin "hash_function" sat
     ~expected_regs:[[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")]];
+
 
 ]
