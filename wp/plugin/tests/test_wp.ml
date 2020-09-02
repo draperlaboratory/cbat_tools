@@ -242,7 +242,7 @@ let suite = [
   "Linked list: no mem check"      >: test_plugin "linked_list" unsat;
   "Linked list: with mem check"    >: test_plugin "linked_list" sat ~script:"run_wp_null_deref.sh";
 
-  "Loop"                           >: test_plugin "loop/loop_with_assert" sat ~script:"run_wp.sh";
+  "Loop with assert"               >: test_plugin "loop/loop_with_assert" sat ~script:"run_wp.sh";
 
   "Loop full unroll"               >: test_plugin "loop/loop_depth_one" sat ~script:"run_wp_single.sh"
     ~expected_regs:[ [("RDI", "0x0000000000000005")]; ];
@@ -250,6 +250,9 @@ let suite = [
   "Loop incomplete unroll"         >:: test_skip fail_msg
     (test_plugin "loop/loop_depth_one" sat ~script:"run_wp_less_loop.sh"
        ~expected_regs:[ [("RDI", "0x0000000000000005")]; ] );
+
+  "Loop incomplete unroll"         >:: test_skip fail_msg
+    (test_plugin "loop/loop_depth_one" sat);
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
   "Nested function calls: inline regex" >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh"
