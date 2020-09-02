@@ -37,8 +37,10 @@
 <p>Before installing, make sure you have the appropriate dependencies installed. First, there is OCaml:
 
 <ul>
-    <li>ocaml 4.07.0</li>
+    <li>ocaml &ge; 4.07.0 &amp; &lt; 4.10.0</li>
 </ul>
+
+<p>The recommended way to install Ocaml is with OPAM. Instructions on downloading OPAM, and using OPAM to download Ocaml can be found <a href="https://ocaml.org/docs/install.html#OPAM">here</a>.
 
 <p>Then, there are the following OCaml packages:
 
@@ -53,7 +55,7 @@
 <p>All of these can be installed with:
 
 <pre>
-  opam install package_name
+  opam depext --install core_kernel bap ounit z3 re
 </pre>
 
 <h3>Installing CBAT</h3>
