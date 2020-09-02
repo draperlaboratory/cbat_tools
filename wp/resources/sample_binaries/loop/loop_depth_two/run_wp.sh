@@ -5,7 +5,8 @@
 
 # Should return UNSAT
 
-run() {
+# this is SAT but should be unsat since RAX should be 3
+run_sat() {
   bap wp \
     --func=foo \
     --num-unroll=18 \
@@ -14,7 +15,8 @@ run() {
     -- main_1
 }
 
-run_should_be_sat_but_is_not() {
+# this is UNSAT but should be sat since RAX should be 3 at the end of execution
+run_unsat() {
   bap wp \
     --func=foo \
     --num-unroll=18 \
@@ -23,4 +25,4 @@ run_should_be_sat_but_is_not() {
     -- main_1
 }
 
-run
+run_unsat
