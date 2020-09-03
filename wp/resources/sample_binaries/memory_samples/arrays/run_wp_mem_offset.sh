@@ -8,8 +8,6 @@
 
 # Should return SAT
 
-set -x
-
 run () {
   bap wp \
     --func=foo_get \

@@ -3,8 +3,6 @@
 
 # Should return UNSAT
 
-set -x
-
 run () {
   bap wp \
     --compare-post-reg-values=RAX \

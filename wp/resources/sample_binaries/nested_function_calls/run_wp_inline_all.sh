@@ -5,8 +5,6 @@
 
 # Should return SAT
 
-set -x
-
 run () {
   bap wp \
     --func=main \

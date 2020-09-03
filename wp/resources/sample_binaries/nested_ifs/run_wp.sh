@@ -9,8 +9,6 @@
 
 # Should return UNSAT
 
-set -x
-
 run () {
   bap wp \
     --func=nestedIfExample \

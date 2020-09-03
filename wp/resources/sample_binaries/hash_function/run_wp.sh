@@ -3,8 +3,6 @@
 
 # Should return SAT
 
-set -x
-
 run() {
   bap wp \
     --func=perform_hash \
