@@ -1,23 +1,21 @@
 PROJECT := bap_wp
-SHELL=/bin/bash
+SHELL := /bin/bash
 
-.PHONY: test all install
+.PHONY: test test.unit test.performance all install uninstall clean build
 
-ifeq ($(shell opam pin list | grep "bap_wp" | grep -oE "file://.*" | cut -c 8-), $(shell pwd))
-IS_INSTALLED := true
+ifeq ($PROJECT, $(shell dune installed-libraries | grep "bap_wp"))
+IS_INSTALLED := 1
 else
-IS_INSTALLED := false
+IS_INSTALLED := 0
 endif
 
 BUILD := _build/build_unique_id
 
-SRC_FILES = $(wildcard src/*.ml) $(wildcard src/*.mli)
+SRC_FILES := $(wildcard **/*.ml) $(wildcard **/*.mli)
 
 all: install
 
 clean: uninstall clean.local
-	rm -f build install
-	rm -f $(BUILD)
 
 clean.local:
 	dune clean
@@ -39,23 +37,14 @@ test.performance:
 doc:
 	dune build @doc
 
-check.installed.findlib:
-	ocamlfind query $(PROJECT)
-
-check.installed.opam:
-	opam show $(PROJECT)
-
 install: $(BUILD)
 	dune install
-# only needs to be added if does not already exist
-ifeq ($(IS_INSTALLED),false)
-	opam pin add -y .
-endif
 
-reinstall: clean install
+reinstall: clean uninstall install
 
 uninstall:
-ifeq ($(IS_INSTALLED),true)
-	opam pin remove -y .
+	@printf "uninstalling..."
+ifeq ($(IS_INSTALLED),1)
+	@printf "more uninstallation"
 	dune uninstall
 endif

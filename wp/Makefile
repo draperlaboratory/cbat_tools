@@ -1,14 +1,17 @@
-SHELL=/bin/bash
+SHELL := /bin/bash
 LIB := lib/bap_wp
 PLUGIN := plugin
 SAMPLE_BINS := resources/sample_binaries
 FMT_STR := "\u001b[31m%s\u001b[0m\n"
 
-.PHONY: test.lib test.plugin test all clean
+.PHONY: all uninstall.lib uninstall.plugin uninstall build build.lib build.plugin doc test test.lib test.plugin clean reinstall install install.plugin install.lib
+
+
+# test.lib test.plugin test all clean uninstall uninstall.lib uninstall.plugin reinstall
 
 all: install
 
-install: uninstall.plugin install.lib build.plugin install.plugin
+install: uninstall.plugin install.plugin
 
 uninstall.lib:
 	@printf $(FMT_STR) "UNINSTALLING LIB"
@@ -18,6 +21,7 @@ uninstall.plugin:
 	@printf $(FMT_STR) "UNINSTALLING PLUGIN"
 	$(MAKE) -C $(PLUGIN) uninstall
 
+uninstall: uninstall.lib uninstall.plugin
 
 build: build.lib build.plugin
 
@@ -25,7 +29,7 @@ build.lib:
 	@printf $(FMT_STR) "BUILDING LIB"
 	$(MAKE) -C $(LIB) $*
 
-build.plugin: install.lib
+build.plugin: build.lib install.lib
 	@printf $(FMT_STR) "BUILDING PLUGIN"
 	$(MAKE) -C $(PLUGIN) build
 
@@ -48,9 +52,10 @@ clean:
 	@printf $(FMT_STR) "CLEANING PLUGIN"
 	$(MAKE) -C $(PLUGIN) clean
 
-reinstall: clean install
 
-install.plugin:
+reinstall: uninstall install
+
+install.plugin: install.lib
 	@printf $(FMT_STR) "INSTALLING PLUGIN"
 	$(MAKE) -C $(PLUGIN) $*
 
@@ -58,6 +63,3 @@ install.plugin:
 install.lib:
 	@printf $(FMT_STR) "INSTALLING LIB"
 	$(MAKE) -C $(LIB) install
-
-reinstall.lib:
-	$(MAKE) -C $(LIB) $*
