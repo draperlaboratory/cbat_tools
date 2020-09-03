@@ -3,13 +3,13 @@ SHELL := /bin/bash
 
 .PHONY: test test.unit test.performance all install uninstall clean build
 
-ifeq ($PROJECT, $(shell dune installed-libraries | grep "bap_wp"))
+ifeq (1, $(shell dune installed-libraries | grep "bap_wp" | wc -l))
 IS_INSTALLED := 1
 else
 IS_INSTALLED := 0
 endif
 
-BUILD := _build/build_unique_id
+BUILD := _build/install/default/lib/bap_wp/bap_wp.cmxa
 
 SRC_FILES := $(wildcard **/*.ml) $(wildcard **/*.mli)
 
@@ -43,8 +43,7 @@ install: $(BUILD)
 reinstall: clean uninstall install
 
 uninstall:
-	@printf "uninstalling..."
+# eq is needed otherwise errors if not installed
 ifeq ($(IS_INSTALLED),1)
-	@printf "more uninstallation"
 	dune uninstall
 endif
