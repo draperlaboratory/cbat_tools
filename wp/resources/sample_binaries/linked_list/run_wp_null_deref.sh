@@ -7,8 +7,6 @@
 
 # Should return SAT
 
-set -x
-
 run () {
   bap wp \
     --func=create_linked_list \

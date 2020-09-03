@@ -9,9 +9,6 @@
 
 # Should return UNSAT.
 
-set -x
-
-
 run () {
   bap wp \
     --func=same_signs \

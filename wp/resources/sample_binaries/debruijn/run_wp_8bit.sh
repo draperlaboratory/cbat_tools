@@ -5,8 +5,6 @@
 
 # Should return UNSAT
 
-set -x
-
 run () {
   bap wp \
     --func=rightmost_index_8 \

@@ -6,8 +6,6 @@
 
 # Should return UNSAT
 
-set -x
-
 run () {
   bap wp \
     --func=create_linked_list \
