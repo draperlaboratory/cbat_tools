@@ -16,6 +16,7 @@ open OUnit2
 open OUnitTest
 
 module StringMap = Map.Make(String);;
+module StringSet = Set.Make(String);;
 
 
 (* To run these tests: `make test` in wp directory *)
@@ -132,11 +133,11 @@ let try_reg (line : string) (reg : string) : (string * string) option =
   else None
 
 (* find the the relevant model *)
-let get_reg_from_line (line : string) (regs_list : string list) :
+let get_reg_from_line (line : string) (regs_list : StringSet.t) :
   (* reg by model*)
   (string * string) option
   =
-  List.fold regs_list ~init:(None)
+  StringSet.fold regs_list ~init:(None)
     ~f:(fun result reg ->
         match result with
         | Some _ -> result
@@ -146,7 +147,7 @@ let get_reg_from_line (line : string) (regs_list : string list) :
 (* Look for a line containing SAT!, UNSAT!, or UNKNOWN! in
    plugin output and compare with expected *)
 let check_result_alt (stream : char Stream.t) (expected_result : string)
-    (regs_list : string list) (* list of registers to look for values of *)
+    (regs_list : StringSet.t) (* set of registers to look for values of *)
     (checker_wrapped: ((string StringMap.t) -> bool) option) (* results -> "is this valid?" *)
     (ctxt : test_ctxt) : unit =
   let buff = Buffer.create 16 in
@@ -209,7 +210,7 @@ let check_list (expected_reg_models : ((string * string) list) list ) : (string 
 let test_plugin
     ?length:(length = Custom_length 20.0)
     ?script:(script = "run_wp.sh")
-    ?reg_list:(reg_list = [])
+    ?reg_list:(reg_list = StringSet.empty)
     ?checker:(checker = None)
     (elf_dir : string)
     (expected_result : string)
@@ -228,136 +229,196 @@ let test_plugin
 let test_skip (msg : string) (_ : test) (_ : test_ctxt) : unit =
   skip_if true msg
 
+let lift_out_regs (reg_value : ((string * string) list) list) : StringSet.t =
+  List.fold reg_value ~init:(StringSet.empty) ~f:(fun acc model ->
+      List.fold model ~init:(StringSet.empty) ~f:(fun acc (reg, _) ->
+          StringSet.add acc reg
+        )
+      |> StringSet.union acc
+
+    )
+(* StringSet.empty *)
+
 let suite = [
-  (* "Multicompiler: csmith"          >: test_plugin "cbat-multicompiler-samples/csmith" unsat;
-   * "Multicompiler: csmith inline"   >:: test_skip timeout_msg (test_plugin "cbat-multicompiler-samples/csmith" unsat
-   *                                                               ~script:"run_wp_inline.sh");
-   * "Multicompiler: equiv argc"      >: test_plugin "cbat-multicompiler-samples/equiv_argc" unsat;
-   * "Multicompiler: switch cases"    >: test_plugin "cbat-multicompiler-samples/switch_case_assignments" unsat;
-   *
-   * "Diff pointer val"               >: test_plugin "diff_pointer_val" sat;
-   * "Diff ret val"                   >: test_plugin "diff_ret_val" sat;
-   *
-   * "Double dereference"             >: test_plugin "double_dereference" unsat;
-   *
-   * "Precondition: force 2"          >: test_plugin "equiv_argc" sat ~script:"run_wp_force.sh"
-   *   ~expected_regs:[ [("RDI", "0x0000000000000002")]; ];
-   * "Precondition: disallow 2"       >: test_plugin "equiv_argc" unsat ~script:"run_wp_disallow.sh";
-   *
-   * "Equiv null check"               >: test_plugin "equiv_null_check" sat;
-   *
-   * "Init var compare: UNSAT"        >: test_plugin "init_var_compare" unsat;
-   * "Init var compare: SAT"          >: test_plugin "init_var_compare" sat ~script:"run_wp_sat.sh";
-   *
-   * "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat;
-   * "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat ~script:"run_wp_mem_offset.sh";
-   * "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat ~script:"run_wp_pre.sh";
-   * "Arrays in data section"         >: test_plugin "memory_samples/arrays" unsat ~script:"run_wp_pre_mem_offset.sh";
-   *
-   * "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" sat;
-   * "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" unsat
-   *   ~script:"run_wp_mem_offset.sh";
-   *
-   * "Diff data section"              >:: test_skip fail_msg (test_plugin "memory_samples/diff_data" sat);
-   *
-   * "Same data, diff location"       >: test_plugin "memory_samples/diff_data_location" sat;
-   * "Same data, diff location"       >: test_plugin "memory_samples/diff_data_location" unsat
-   *   ~script:"run_wp_mem_offset.sh";
-   *
-   * "Diff stack values"              >: test_plugin "memory_samples/diff_stack" sat;
-   *
-   * "Name matching"                  >: test_plugin "memory_samples/name_matching" unsat;
-   *
-   * "No position independent"        >: test_plugin "no_position_independent" sat;
-   *
-   * "No stack protection"            >: test_plugin "no_stack_protection" sat ~length:Short;
-   *
-   * "Null dereference: no check"     >: test_plugin "non_null_check" unsat;
-   * "Null dereference: with check"   >: test_plugin "non_null_check" sat ~script:"run_wp_null_deref.sh";
-   *
-   * "Pointer input"                  >: test_plugin "pointer_input" unsat;
-   *
-   * "Position independent"           >: test_plugin "position_independent" sat;
-   *
-   * "Retrowrite stub: pop RSP"       >: test_plugin "retrowrite_stub" unsat;
-   * "Retrowrite stub: inline AFL"    >: test_plugin "retrowrite_stub" unsat ~script:"run_wp_inline_afl.sh";
-   * "Retrowrite stub: inline all"    >: test_plugin "retrowrite_stub" unsat ~script:"run_wp_inline_all.sh";
-   * "Retrowrite stub no ret in call" >: test_plugin "retrowrite_stub_no_ret" unsat;
-   *
-   * "ROP example"                    >:: test_skip fail_msg (test_plugin "rop_example" unsat);
-   *
-   * "Same signs: post registers"     >: test_plugin "same_signs" unsat;
-   * "Same signs: postcondition"      >: test_plugin "same_signs" unsat ~script:"run_wp_postcond.sh";
-   *
-   * "Switch case assignments"        >: test_plugin "switch_case_assignments" sat
-   *   ~expected_regs:[ [("RDI", "0x0000000000000000")]; ];
-   * "Switch Cases"                   >: test_plugin "switch_cases" sat
-   *   ~expected_regs:[ [("RDI", "0x0000000000000003")]; ];
-   *
-   * "Switch Cases: Diff Ret Val"     >: test_plugin "switch_cases_diff_ret" sat
-   *   ~expected_regs:[ [("RDI", "0x0000000000000003")]; ];
-   *
-   * "Indirect call with return"      >: test_plugin "indirect_call_return" unsat;
-   * "Indirect call with no return"   >: test_plugin "indirect_call_no_return" unsat;
-   *
-   * (\* Test single elf *\)
-   *
-   * "Function call"                  >: test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh"
-   *   ~expected_regs:[ [("RDI", "0x0000000000000005")]; ];
-   * "Function call: inline all"      >: test_plugin "function_call" sat ~script:"run_wp_inline_all.sh"
-   *   ~expected_regs:[ [("RDI", "0x0000000000000005")]; ];
-   *
-   * "Function spec: no inlining"     >: test_plugin "function_spec" sat;
-   * "Function spec: inline foo"      >: test_plugin "function_spec" unsat ~script:"run_wp_inline_foo.sh";
-   * "Function spec: inline all "     >: test_plugin "function_spec" unsat ~script:"run_wp_inline_all.sh";
-   * "Function spec: inline garbage"  >: test_plugin "function_spec" sat ~script:"run_wp_inline_garbage.sh";
-   *
-   * "Goto string"                    >: test_plugin "goto_string" sat;
-   * "Goto string: inline all"        >: test_plugin "goto_string" sat ~script:"run_wp_inline.sh";
-   *
-   * "Init var value in post: UNSAT:" >: test_plugin "init_var" unsat;
-   * "Init var value in post: SAT"    >: test_plugin "init_var" sat ~script:"run_wp_sat.sh";
-   *
-   * "Linked list: no mem check"      >: test_plugin "linked_list" unsat;
-   * "Linked list: with mem check"    >: test_plugin "linked_list" sat ~script:"run_wp_null_deref.sh";
-   *
-   * "Loop"                           >: test_plugin "loop" sat;
-   *
-   * "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
-   * "Nested function calls: inline regex" >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh"
-   *   ~expected_regs:[ [("RDI", "0x0000000000000004")]; ];
-   * "Nested function calls: inline all"   >: test_plugin "nested_function_calls" sat ~script:"run_wp_inline_all.sh"
-   *   ~expected_regs:[ [("RDI", "0x0000000000000004")]; ];
-   *
-   * "Nested ifs"                     >: test_plugin "nested_ifs" unsat;
-   * "Nested ifs: goto"               >: test_plugin "nested_ifs" unsat ~script:"run_wp_goto.sh";
-   * "Nested ifs: inline"             >: test_plugin "nested_ifs" unsat ~script:"run_wp_inline.sh";
-   *
-   * "Null dereference: no check"     >: test_plugin "null_deref" unsat;
-   * "Null dereference: with check"   >: test_plugin "null_deref" sat ~script:"run_wp_null_deref.sh";
-   *
-   * "User defined postcondition"     >: test_plugin "return_argc" sat;
-   *
-   * "Simple WP"                      >: test_plugin "simple_wp" sat
-   *   ~expected_regs:[ [("RDI", "0x0000000000000003")]; ];
-   * "Simple WP: precondition"        >: test_plugin "simple_wp" unsat ~script:"run_wp_pre.sh";
-   *
-   * "Verifier assume SAT"            >: test_plugin "verifier_calls" sat ~script:"run_wp_assume_sat.sh";
-   * "Verifier assume UNSAT"          >: test_plugin "verifier_calls" unsat ~script:"run_wp_assume_unsat.sh";
-   * "Verifier nondent"               >: test_plugin "verifier_calls" sat ~script:"run_wp_nondet.sh";
-   *
-   * (\* Test performance *\)
-   *
-   * "Debruijn: 8 bit"                >: test_plugin "debruijn" unsat ~script:"run_wp_8bit.sh";
-   * "Debruijn: 16 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_16bit.sh";
-   * "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_32bit.sh";
-   *
-   * "NQueens solver 4x4"             >: test_plugin "nqueens" sat
-   *   ~expected_regs:[[("RDI", "0x0000000000002814")]; [("RDI", "0x0000000000004182")]];
-   *
-   * "Sudoku solver"                  >: test_plugin "sudoku" sat
-   *   ~expected_regs:[[("RDI", "0x00000000d82d7287")]];
-   *
-   * "Hash function"                  >: test_plugin "hash_function" sat
-   *   ~expected_regs:[[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")]]; *)
+  "Equiv argc"                     >: (
+    let models = [ [("RDI", "0x0000000000000002")]; ] in
+    test_plugin "equiv_argc" sat ~reg_list:(lift_out_regs models) ~checker:(check_list models |> Some)
+  );
+
+  (* Test elf comparison *)
+
+  "Multicompiler: csmith"          >: test_plugin "cbat-multicompiler-samples/csmith" unsat;
+  "Multicompiler: csmith inline"   >:: test_skip timeout_msg (test_plugin "cbat-multicompiler-samples/csmith" unsat
+                                                                ~script:"run_wp_inline.sh");
+  "Multicompiler: equiv argc"      >: test_plugin "cbat-multicompiler-samples/equiv_argc" unsat;
+  "Multicompiler: switch cases"    >: test_plugin "cbat-multicompiler-samples/switch_case_assignments" unsat;
+
+  "Diff pointer val"               >: test_plugin "diff_pointer_val" sat;
+  "Diff ret val"                   >: test_plugin "diff_ret_val" sat;
+
+  "Double dereference"             >: test_plugin "double_dereference" unsat;
+
+  "Precondition: force 2"          >: (
+    let models = [ [("RDI", "0x0000000000000002")]; ] in
+    test_plugin "equiv_argc" sat ~script:"run_wp_force.sh"
+      ~reg_list:(lift_out_regs models) ~checker:(check_list models |> Some));
+
+  "Precondition: disallow 2"       >: test_plugin "equiv_argc" unsat ~script:"run_wp_disallow.sh";
+
+  "Equiv null check"               >: test_plugin "equiv_null_check" sat;
+
+  "Init var compare: UNSAT"        >: test_plugin "init_var_compare" unsat;
+  "Init var compare: SAT"          >: test_plugin "init_var_compare" sat ~script:"run_wp_sat.sh";
+
+  "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat;
+  "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat ~script:"run_wp_mem_offset.sh";
+  "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat ~script:"run_wp_pre.sh";
+  "Arrays in data section"         >: test_plugin "memory_samples/arrays" unsat ~script:"run_wp_pre_mem_offset.sh";
+
+  "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" sat;
+  "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" unsat
+    ~script:"run_wp_mem_offset.sh";
+
+  "Diff data section"              >:: test_skip fail_msg (test_plugin "memory_samples/diff_data" sat);
+
+  "Same data, diff location"       >: test_plugin "memory_samples/diff_data_location" sat;
+  "Same data, diff location"       >: test_plugin "memory_samples/diff_data_location" unsat
+    ~script:"run_wp_mem_offset.sh";
+
+  "Diff stack values"              >: test_plugin "memory_samples/diff_stack" sat;
+
+  "Name matching"                  >: test_plugin "memory_samples/name_matching" unsat;
+
+  "No position independent"        >: test_plugin "no_position_independent" sat;
+
+  "No stack protection"            >: test_plugin "no_stack_protection" sat ~length:Short;
+
+  "Null dereference: no check"     >: test_plugin "non_null_check" unsat;
+  "Null dereference: with check"   >: test_plugin "non_null_check" sat ~script:"run_wp_null_deref.sh";
+
+  "Pointer input"                  >: test_plugin "pointer_input" unsat;
+
+  "Position independent"           >: test_plugin "position_independent" sat;
+
+  "Retrowrite stub: pop RSP"       >: test_plugin "retrowrite_stub" unsat;
+  "Retrowrite stub: inline AFL"    >: test_plugin "retrowrite_stub" unsat ~script:"run_wp_inline_afl.sh";
+  "Retrowrite stub: inline all"    >: test_plugin "retrowrite_stub" unsat ~script:"run_wp_inline_all.sh";
+  "Retrowrite stub no ret in call" >: test_plugin "retrowrite_stub_no_ret" unsat;
+
+  "ROP example"                    >:: test_skip fail_msg (test_plugin "rop_example" unsat);
+
+  "Same signs: post registers"     >: test_plugin "same_signs" unsat;
+  "Same signs: postcondition"      >: test_plugin "same_signs" unsat ~script:"run_wp_postcond.sh";
+
+  "Switch case assignments"        >: (
+    let models = [ [("RDI", "0x0000000000000000")]; ] in
+    test_plugin "switch_case_assignments" sat ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some));
+
+  "Switch Cases"                   >: (
+    let models = [ [("RDI", "0x0000000000000003")]; ] in
+    test_plugin "switch_cases" sat ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some));
+
+  "Switch Cases: Diff Ret Val"     >: (
+    let models = [ [("RDI", "0x0000000000000003")]; ] in
+    test_plugin "switch_cases_diff_ret" sat ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some));
+
+  "Indirect call with return"      >: test_plugin "indirect_call_return" unsat;
+  "Indirect call with no return"   >: test_plugin "indirect_call_no_return" unsat;
+
+  (* Test single elf *)
+
+  "Function call"                  >: (
+    let models = [ [("RDI", "0x0000000000000005")]; ] in
+    test_plugin "function_call" sat ~script:"run_wp_inline_foo.sh" ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some)
+  );
+  "Function call: inline all"      >: (
+    let models = [ [("RDI", "0x0000000000000005")]; ] in
+    test_plugin "function_call" sat ~script:"run_wp_inline_all.sh" ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some)
+  );
+
+
+  "Function spec: no inlining"     >: test_plugin "function_spec" sat;
+  "Function spec: inline foo"      >: test_plugin "function_spec" unsat ~script:"run_wp_inline_foo.sh";
+  "Function spec: inline all "     >: test_plugin "function_spec" unsat ~script:"run_wp_inline_all.sh";
+  "Function spec: inline garbage"  >: test_plugin "function_spec" sat ~script:"run_wp_inline_garbage.sh";
+
+  "Goto string"                    >: test_plugin "goto_string" sat;
+  "Goto string: inline all"        >: test_plugin "goto_string" sat ~script:"run_wp_inline.sh";
+
+  "Init var value in post: UNSAT:" >: test_plugin "init_var" unsat;
+  "Init var value in post: SAT"    >: test_plugin "init_var" sat ~script:"run_wp_sat.sh";
+
+  "Linked list: no mem check"      >: test_plugin "linked_list" unsat;
+  "Linked list: with mem check"    >: test_plugin "linked_list" sat ~script:"run_wp_null_deref.sh";
+
+  "Loop"                           >: test_plugin "loop" sat;
+
+  "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
+  "Nested function calls: inline regex" >: (
+    let models = [ [("RDI", "0x0000000000000004")]; ] in
+    test_plugin "nested_function_calls" sat ~script:"run_wp_inline_regex.sh" ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some)
+  );
+
+  "Nested function calls: inline all"   >: (
+    let models = [ [("RDI", "0x0000000000000004")]; ] in
+    test_plugin "nested_function_calls" sat ~script:"run_wp_inline_all.sh" ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some)
+  );
+
+
+  "Nested ifs"                     >: test_plugin "nested_ifs" unsat;
+  "Nested ifs: goto"               >: test_plugin "nested_ifs" unsat ~script:"run_wp_goto.sh";
+  "Nested ifs: inline"             >: test_plugin "nested_ifs" unsat ~script:"run_wp_inline.sh";
+
+  "Null dereference: no check"     >: test_plugin "null_deref" unsat;
+  "Null dereference: with check"   >: test_plugin "null_deref" sat ~script:"run_wp_null_deref.sh";
+
+  "User defined postcondition"     >: test_plugin "return_argc" sat;
+
+  "Simple WP"                      >: (
+    let models = [ [("RDI", "0x0000000000000003")]; ] in
+    test_plugin "simple_wp" sat ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some)
+  );
+
+  "Simple WP: precondition"        >: test_plugin "simple_wp" unsat ~script:"run_wp_pre.sh";
+
+  "Verifier assume SAT"            >: test_plugin "verifier_calls" sat ~script:"run_wp_assume_sat.sh";
+  "Verifier assume UNSAT"          >: test_plugin "verifier_calls" unsat ~script:"run_wp_assume_unsat.sh";
+  "Verifier nondent"               >: test_plugin "verifier_calls" sat ~script:"run_wp_nondet.sh";
+
+  (* Test performance *)
+
+  "Debruijn: 8 bit"                >: test_plugin "debruijn" unsat ~script:"run_wp_8bit.sh";
+  "Debruijn: 16 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_16bit.sh";
+  "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_32bit.sh";
+
+  "NQueens solver 4x4"             >: (
+    let models = [[("RDI", "0x0000000000002814")]; [("RDI", "0x0000000000004182")];] in
+    test_plugin "nqueens" sat ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some)
+  );
+
+
+  "Sudoku solver"                  >: (
+    let models = [[("RDI", "0x00000000d82d7387")]] in
+    test_plugin "sudoku" sat ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some)
+  );
+
+
+  "Hash function"                  >: (
+    let models = [[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")]] in
+    test_plugin "hash_function" sat
+      ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some)
+  );
+
+
 ]
