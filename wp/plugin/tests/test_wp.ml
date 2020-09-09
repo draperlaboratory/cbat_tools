@@ -43,80 +43,6 @@ let check_z3_result (line : string) (expected : string) (ctxt : test_ctxt) : uni
   else
     ()
 
-(* Given a line of input, a register, and its expected
- * value, checks if that register contains the expected value on that line.
- * Returns an error message if the line contains the register but not
- * expected value. Else returns None. *)
-let check_for_match (line : string) (reg : string) (expected : string)
-  : string option =
-  (* Our model is printed in the form "reg |-> value".
-   *  This regex will break if this changes. *)
-  let pattern = Format.sprintf "^\t+%s +|-> +#[a-z0-9]$" reg in
-  let re = Re.Posix.compile_pat pattern in
-  if Re.execp re line then
-    begin
-      let re = Re.Posix.compile_pat " +" in
-      let tokens = Re.split re line in
-      (* Value is stored in the last index. *)
-      let actual = List.last_exn tokens in
-      if String.equal actual expected then
-        None
-      else (
-        Printf.sprintf "\t%s: expected %s, got: %s\n"
-          reg expected actual |> Some
-      )
-    end
-  else None
-
-(* Checks to see if a line of output contains a register from one of
- * the provided countermodels. If the register is in the countermodel, check
- * that the value matches what is expected for that countermodel. If matches,
- * do nothing; if does not match, append to the model's error message. *)
-let check_models (line : string) (models : (string * string) list list)
-    (err_msgs : (string option) list) : (string option) list =
-  List.foldi models ~init:(err_msgs)
-    ~f:(fun model_index err_msgs_list reg_list ->
-        let result = List.fold reg_list ~init:(None)
-            ~f:(fun acc (reg, expected) ->
-                match acc with
-                | None -> check_for_match line reg expected
-                | _ -> acc ) in
-        let cur_msg = List.nth_exn err_msgs_list model_index in
-        let updated_err_msg =
-          Option.merge ~f:(fun a b -> Printf.sprintf "%s %s" a b) cur_msg result in
-        List.mapi err_msgs_list
-          ~f:(fun index ele -> if index = model_index then updated_err_msg else ele))
-
-(* Look for a line containing SAT!, UNSAT!, or UNKNOWN! in
-   plugin output and compare with expected *)
-let check_result (stream : char Stream.t) (expected : string)
-    (expected_regs : (string * string) list list) (ctxt : test_ctxt) : unit =
-  let buff = Buffer.create 16 in
-  let err_msgs = List.map expected_regs ~f:( fun _ -> None) in
-  (* TODO change this to a list *)
-  let acc = ref err_msgs in
-  Stream.iter (fun c ->
-      match c with
-      |'\n' ->
-        let line = Buffer.contents buff in
-        check_z3_result line expected ctxt;
-        let new_err_msgs = check_models line expected_regs !acc in
-        acc := new_err_msgs;
-        Buffer.clear buff
-      | chr ->
-        Buffer.add_char buff chr)
-    stream
-(* let matches_a_model = List.exists !acc
- *     ~f:(fun ele -> ele = None) || (List.length expected_regs = 0)
- * in
- * if not matches_a_model then
- *   List.foldi !acc ~init:("") ~f:(fun index a ele ->
- *       match ele with
- *       | Some msg -> Printf.sprintf "%s \n Model %d: \n %s" a index msg
- *       | _ -> "" )
- *   |> assert_failure *)
-
-
 let try_reg (line : string) (reg : string) : (string * string) option =
   (* Our model is printed in the form "reg |-> value".
    *  This regex will break if this changes. *)
@@ -146,7 +72,7 @@ let get_reg_from_line (line : string) (regs_list : StringSet.t) :
 
 (* Look for a line containing SAT!, UNSAT!, or UNKNOWN! in
    plugin output and compare with expected *)
-let check_result_alt (stream : char Stream.t) (expected_result : string)
+let check_result (stream : char Stream.t) (expected_result : string)
     (regs_list : StringSet.t) (* set of registers to look for values of *)
     (checker_wrapped: ((string StringMap.t) -> bool) option) (* results -> "is this valid?" *)
     (ctxt : test_ctxt) : unit =
@@ -183,21 +109,75 @@ let check_result_alt (stream : char Stream.t) (expected_result : string)
  *  what is observed *)
 (* TODO get better error messages for this *)
 
-let check_list (expected_reg_models : ((string * string) list) list ) : (string StringMap.t -> bool)
-  =
-  (fun observed_mapping ->
-     List.fold expected_reg_models ~init:(false) ~f:(fun seen_match model ->
-         if not seen_match then
-           List.fold model ~init:(true) ~f:(fun acc (reg, value) ->
-               if acc then
-                 match StringMap.find observed_mapping reg with
-                 | None -> false
-                 | Some observed_value -> observed_value = value
-               else acc
-             )
-         else seen_match
-       )
-  )
+let check_list (expected_reg_models : ((string * string) list) list )
+  : (string StringMap.t -> bool) =
+  fun observed_mapping ->
+  List.fold expected_reg_models ~init:(false) ~f:(fun seen_match model ->
+      if not seen_match then
+        List.fold model ~init:(true) ~f:(fun acc (reg, value) ->
+            if acc then
+              match StringMap.find observed_mapping reg with
+              | None -> false
+              | Some observed_value -> observed_value = value
+            else acc
+          )
+      else seen_match
+    )
+
+(* let string_to_64bit_uint (s: string) : int = *)
+
+let gather_register_values (register_names : string list) (mapping: string StringMap.t)
+  : int list =
+  register_names |> List.map ~f:(fun name ->
+      (* we want an exception if the register name is not found *)
+      StringMap.find_exn mapping name |> int_of_string
+    )
+
+let check_n_queens (n: int) : (string StringMap.t -> bool) =
+  fun var_mapping ->
+  (* each register is assumed to be 64 bits wide; not that this means we
+     already lose compatability with other architectures. Maybe we should
+     generalize, but I'm not sure how, without some knowledge or interface
+     built over the calling convention*)
+
+  (* TODO at bare minimum pull these out to a get_calling_regs_x8664 n  *)
+  let board_args = ["RDI"; "RSI"; "RDX"; "RCX"] in
+  let num_bits = n * n in
+  let num_registers = num_bits / 64 in
+  (* make sure we can feasibly handle the input *)
+  if num_registers > 4 then assert_failure
+      "N QUEENS example run on too large of an n";
+  if n <= 3 then assert_failure "N QUEENS example run on too small of an n";
+  let filtered_board_args = board_args |> List.filteri ~f:(fun i _ -> i >= num_registers)
+  in
+  let board_pieces = gather_register_values filtered_board_args var_mapping
+  (* TODO finish the rest of this *)
+
+  in true
+
+
+let check_two_by_two_sudoku (var_mapping : string StringMap.t) : bool =
+  true
+
+let bad_hash_function c cur_hash =  c + (cur_hash lsr 6) + (cur_hash lsr 16) - cur_hash
+
+let check_bad_hash_function (registers : string list) : ((string StringMap.t) -> bool) =
+  fun var_mapping ->
+  let special_index = 15 in
+  let result = gather_register_values registers var_mapping
+               |> List.fold ~init:(0) ~f:(fun acc v -> bad_hash_function v acc) in
+  assert_failure (result |> string_of_int)
+    result = special_index
+
+
+
+
+
+
+
+
+
+
 
 
 (* The length of a test_case is in seconds.
@@ -219,7 +199,7 @@ let test_plugin
   let script = Format.sprintf "./%s" script in
   let test ctxt =
     assert_command script []
-      ~foutput:(fun res -> check_result_alt res expected_result reg_list checker ctxt)
+      ~foutput:(fun res -> check_result res expected_result reg_list checker ctxt)
       ~backtrace:true
       ~chdir:target
       ~ctxt:ctxt
@@ -240,6 +220,7 @@ let lift_out_regs (reg_value : ((string * string) list) list) : StringSet.t =
 (* StringSet.empty *)
 
 let suite = [
+
   "Equiv argc"                     >: (
     let models = [ [("RDI", "0x0000000000000002")]; ] in
     test_plugin "equiv_argc" sat ~reg_list:(lift_out_regs models) ~checker:(check_list models |> Some)
@@ -400,24 +381,27 @@ let suite = [
   "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_32bit.sh";
 
   "NQueens solver 4x4"             >: (
-    let models = [[("RDI", "0x0000000000002814")]; [("RDI", "0x0000000000004182")];] in
-    test_plugin "nqueens" sat ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some)
+    (* let models = [[("RDI", "0x0000000000002814")]; [("RDI", "0x0000000000004182")];] in
+     * test_plugin "nqueens" sat ~reg_list:(lift_out_regs models)
+     *   ~checker:(check_list models |> Some) *)
+    test_plugin "nqueens" sat ~reg_list:(["RDI"; "RSI"; "RDX"; "RCX"] |> StringSet.of_list)
+      ~checker:(check_n_queens 4 |> Some)
   );
 
 
   "Sudoku solver"                  >: (
-    let models = [[("RDI", "0x00000000d82d7387")]] in
-    test_plugin "sudoku" sat ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some)
+    (* let models = [[("RDI", "0x00000000d82d7287")]] in *)
+    test_plugin "sudoku" sat ~reg_list:(["RDI"] |> StringSet.of_list)
+      ~checker:(check_two_by_two_sudoku |> Some)
   );
 
 
   "Hash function"                  >: (
-    let models = [[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")]] in
+    (* let models = [[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")]] in *)
+    let registers =  ["RDI"; "RSI"; "RDX"; "RCX"; "R8"] in
     test_plugin "hash_function" sat
-      ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some)
+      ~reg_list:(registers |> StringSet.of_list)
+      ~checker:(check_bad_hash_function registers |> Some)
   );
 
 
