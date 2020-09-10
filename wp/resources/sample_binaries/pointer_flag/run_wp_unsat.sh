@@ -11,16 +11,14 @@ set -x
 
 run_unsat () {
   bap wp \
-          --func=deref \
-          --num-unroll=0 \
-          --no-byteweight \
-          --mem-offset \
-          --show=bir,refuted-goals,paths \
-          --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
-          --pointer-reg-list=RDI \
-          -- main_1 main_2
-
-  
-  }
+    --func=deref \
+    --num-unroll=0 \
+    --no-byteweight \
+    --mem-offset \
+    --show=bir,refuted-goals,paths \
+    --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
+    --pointer-reg-list=RDI \
+    -- main_1 main_2
+}
 
 run_unsat

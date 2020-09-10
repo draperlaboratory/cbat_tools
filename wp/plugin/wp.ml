@@ -82,8 +82,12 @@ let compare_post_reg_values = Cmd.parameter Typ.(list string) "compare-post-reg-
            output in RAX, and ARM architectures place their output in R0.|}
 
 let pointer_reg_list = Cmd.parameter Typ.(list string) "pointer-reg-list"
-    ~doc:"flag that contains a list of input registers to be treated as \
-          pointers at the start of program execution."
+    ~doc:"{|This flag specifies a comma delimited list of input registers to be
+          treated as pointers at the start of program execution. This means
+          that these registers are restricted in value to point to memory
+          known to be initialized at the start of the function. For example,
+          `RSI,RDI` would specify that `RSI` and `RDI`'s values should be
+          restricted to initialized memory at the start of execution.|}"
 
 (* Options. *)
 

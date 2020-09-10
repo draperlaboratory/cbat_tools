@@ -1,11 +1,11 @@
 BASE=main
-PROG1=$(BASE)_1
-PROG2=$(BASE)_2
+PROG_1=$(BASE)_1
+PROG_2=$(BASE)_2
 
-all: $(PROG1) $(PROG1).bpj $(PROG2) $(PROG2).bpj
+all: $(PROG1) $(PROG_2)
 
 %: %.c
 	$(CC) -Wall -g -o $@ $<
 
 clean:
-	rm -f $(PROG1) $(PROG1).bpj $(PROG2) $(PROG2).bpj
+	rm -f $(PROG1)
