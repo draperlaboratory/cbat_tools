@@ -40,6 +40,8 @@ These options apply in most circumstances to adjust CBAT's behavior or output.
 
 <li><code>--inline=&lt;posix-regexp&gt;</code> &mdash; Functions specified by the provided POSIX regular expression will inlined. When functions are not inlined, heuristic function summaries are used at function call sites. For example, if you want to inline the functions <code>foo</code> and <code>bar</code>, you can write <code>--inline=foo|bar</code>. To inline everything, use <code>--inline=.*</code> (not generally recommended).</li>
 
+<li><code>--pointer-reg-list=&lt;reg-list&gt;</code> &mdash; This flag specifies a comma delimited list of input registers to be treated as pointers at the start of program execution. This means that these registers are restricted in value to point to memory known to be initialized at the start of the function. For example, <code>RSI,RDI</code> would specify that <code>RSI</code> and <code>RDI</code>'s values should be restricted to initialized memory at the start of execution. </li>
+
 <li><code>--num-unroll=&lt;num&gt;</code> &mdash; Specifies the number of times to unroll each loop. WP will unroll each loop 5 times by default.</code></li>
 
 <li><code>--gdb-output=&lt;filename.gdb&gt;</code> &mdash; When WP results in SAT, outputs a <code>gdb</code> script to file <code>filename.gdb</code>. From within <code>gdb</code>, run <code>source filename.gdb</code> to set a breakpoint at the function given by <code>--func</code> and fill the appropriate registers with the values found in the countermodel. In the case WP returns UNSAT or UNKNOWN, no script will be outputted.</li>
