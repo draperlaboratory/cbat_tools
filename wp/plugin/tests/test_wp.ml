@@ -12,11 +12,13 @@
 (***************************************************************************)
 
 open !Core_kernel
+open Bap.Std
 open OUnit2
 open OUnitTest
 
 module StringMap = Map.Make(String);;
 module StringSet = Set.Make(String);;
+module IntSet = Set.Make(Int);;
 
 
 (* To run these tests: `make test` in wp directory *)
@@ -124,14 +126,62 @@ let check_list (expected_reg_models : ((string * string) list) list )
       else seen_match
     )
 
-(* let string_to_64bit_uint (s: string) : int = *)
+(* you can go directly, but the width needs to be 64 *)
+let bv_of_string ?bits:(bits=64) (s : string) : Bitvector.t =
+  s |> int_of_string |> Bitvector.of_int ~width:bits
+
 
 let gather_register_values (register_names : string list) (mapping: string StringMap.t)
-  : int list =
+  : Bitvector.t list =
   register_names |> List.map ~f:(fun name ->
       (* we want an exception if the register name is not found *)
-      StringMap.find_exn mapping name |> int_of_string
+      StringMap.find_exn mapping name |> bv_of_string
     )
+
+
+let get_element_n_queens (n : int) (index : int) (board_list: Bitvector.t list) : int =
+  let mask = "0x1" |> bv_of_string ~bits:64 in
+  let shift_distance_int = index / 64 in
+  let board = List.nth_exn board_list shift_distance_int in
+  let shift_distance =  index mod 64  |> Bitvector.of_int ~width:64 in
+  let shifted_mask = Bitvector.lshift mask shift_distance in
+  let masked_board = Bitvector.logand shifted_mask board in
+  Bitvector.rshift masked_board shift_distance |> Bitvector.to_int_exn
+
+let check_diags (n : int) (board: Bitvector.t list) : bool =
+  let diags = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 n in
+  let has_at_most_one_queen = List.fold diags ~init:(true)
+      ~f:(fun acc i ->
+          let eles = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 (n-i) in
+          let (r_0, r_1, l_0, l_1) = List.fold eles ~init:((0, 0, 0, 0))
+              ~f:(fun (acc_r_0, acc_r_1, acc_l_0, acc_l_1) j ->
+                  let diag_r_0 = get_element_n_queens n (i + (n + 1) * j) board in
+                  let diag_r_1 = get_element_n_queens n (n * i + (n + 1) * j) board in
+                  let diag_l_0 = get_element_n_queens n (n * i + (n - 1) * (j + 1)) board in
+                  let diag_l_1 = get_element_n_queens n ((n - 1) + j * (n - 1) - i) board in
+                  (acc_r_0 + diag_r_0, acc_r_1 + diag_r_1, acc_l_0 + diag_l_0, acc_l_1 + diag_l_1)
+                ) in
+          r_0 < 1 && r_1 <= 1 && l_0 <= 1 && l_1 <= 1 && acc
+        ) in
+  has_at_most_one_queen
+
+let check_columns (n : int) (board: Bitvector.t list) : bool =
+  let rows = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 n in
+  let has_exactly_one_queen = List.fold rows ~init:(true) ~f:(fun acc ith_row ->
+      List.fold rows ~init:(0) ~f:(fun per_row_acc col_index ->
+          let index = col_index + ith_row * n in
+          per_row_acc + (get_element_n_queens n index board)) = 1 && acc
+    ) in
+  has_exactly_one_queen
+
+let check_rows (n : int) (board: Bitvector.t list) : bool =
+  let rows = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 n in
+  let has_exactly_one_queen = List.fold rows ~init:(true) ~f:(fun acc ith_col ->
+      List.fold rows ~init:(0) ~f:(fun acc row_index ->
+          let index = row_index * n + ith_col in
+          acc + (get_element_n_queens n index board)) = 1 && acc
+    ) in
+  has_exactly_one_queen
 
 let check_n_queens (n: int) : (string StringMap.t -> bool) =
   fun var_mapping ->
@@ -150,35 +200,48 @@ let check_n_queens (n: int) : (string StringMap.t -> bool) =
   if n <= 3 then assert_failure "N QUEENS example run on too small of an n";
   let filtered_board_args = board_args |> List.filteri ~f:(fun i _ -> i >= num_registers)
   in
-  let board_pieces = gather_register_values filtered_board_args var_mapping
+  let board_pieces = gather_register_values filtered_board_args var_mapping in
   (* TODO finish the rest of this *)
+  (check_rows n board_pieces) && (check_columns n board_pieces)
 
-  in true
 
+let get_element_sudoku (index : int) (board : Bitvector.t) : int =
+  let mask = "0x3" |> bv_of_string ~bits:64 in
+  let shift_distance = (index * 2) |> Bitvector.of_int ~width:64 in
+  let shifted_mask = Bitvector.lshift mask shift_distance in
+  let masked_board = Bitvector.logand shifted_mask board in
+  Bitvector.rshift masked_board shift_distance |> Bitvector.to_int_exn
+
+let check_for_all (indices : int list) (board : Bitvector.t) =
+  let expected_values = IntSet.of_list [0; 1; 2; 3] in
+  let actual_values = List.map indices ~f:(fun x -> get_element_sudoku x board) |> IntSet.of_list in
+  (IntSet.inter expected_values actual_values |> IntSet.length) = (IntSet.length expected_values)
 
 let check_two_by_two_sudoku (var_mapping : string StringMap.t) : bool =
+  let sudoku_board = gather_register_values ["RDI";] var_mapping |> List.hd_exn in
+  let snippets =
+    [[0; 1; 2; 3]; [4; 5; 6; 7]; [8; 9; 10; 11]; [12; 13; 14; 15];
+     [0; 4; 8; 12]; [1; 5; 9; 13]; [2; 6; 10; 14]; [3; 7; 11; 15];
+     [0; 1; 4; 5]; [2; 3; 6; 7;]; [8; 9; 12; 13]; [10; 11; 14; 15];] in
+  let is_correct = List.fold snippets ~init:(true) ~f:(fun acc l -> acc && (check_for_all l sudoku_board)) in
+  if not is_correct then assert_failure "failure!";
   true
 
-let bad_hash_function c cur_hash =  c + (cur_hash lsr 6) + (cur_hash lsr 16) - cur_hash
+let bad_hash_function (c : Bitvector.t) (cur_hash : Bitvector.t) =
+  let t_1 = Bitvector.lshift cur_hash ("0x6" |> bv_of_string ~bits:32) in
+  let t_2 = Bitvector.lshift cur_hash ("0x10" |> bv_of_string ~bits:32) in
+  let t_3 = Bitvector.add c t_1 |> Bitvector.add t_2 in
+  let result = Bitvector.sub t_3 cur_hash in
+  Bitvector.modulo result ("0x20" |> bv_of_string ~bits:32)
 
+(* TODO better errors  *)
 let check_bad_hash_function (registers : string list) : ((string StringMap.t) -> bool) =
   fun var_mapping ->
-  let special_index = 15 in
+  (* index of the special character *)
+  let result_index = "0xf" |> bv_of_string ~bits:32 in
   let result = gather_register_values registers var_mapping
-               |> List.fold ~init:(0) ~f:(fun acc v -> bad_hash_function v acc) in
-  assert_failure (result |> string_of_int)
-    result = special_index
-
-
-
-
-
-
-
-
-
-
-
+               |> List.fold ~init:("0x0" |> bv_of_string ~bits:32) ~f:(fun acc v -> bad_hash_function v acc) in
+  result = result_index
 
 (* The length of a test_case is in seconds.
    OUnit has predefined test lengths of:
