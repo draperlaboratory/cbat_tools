@@ -161,7 +161,7 @@ let check_diags (n : int) (board: Bitvector.t list) : bool =
                   let diag_l_1 = get_element_n_queens n ((n - 1) + j * (n - 1) - i) board in
                   (acc_r_0 + diag_r_0, acc_r_1 + diag_r_1, acc_l_0 + diag_l_0, acc_l_1 + diag_l_1)
                 ) in
-          r_0 < 1 && r_1 <= 1 && l_0 <= 1 && l_1 <= 1 && acc
+          r_0 <= 1 && r_1 <= 1 && l_0 <= 1 && l_1 <= 1 && acc
         ) in
   has_at_most_one_queen
 
@@ -183,15 +183,12 @@ let check_rows (n : int) (board: Bitvector.t list) : bool =
     ) in
   has_exactly_one_queen
 
+let get_register_args (n : int) : string list =
+  List.slice ["RDI"; "RSI"; "RDX"; "RCX"; "R8"; "R9"] 0 n
+
 let check_n_queens (n: int) : (string StringMap.t -> bool) =
   fun var_mapping ->
-  (* each register is assumed to be 64 bits wide; not that this means we
-     already lose compatability with other architectures. Maybe we should
-     generalize, but I'm not sure how, without some knowledge or interface
-     built over the calling convention*)
-
-  (* TODO at bare minimum pull these out to a get_calling_regs_x8664 n  *)
-  let board_args = ["RDI"; "RSI"; "RDX"; "RCX"] in
+  let board_args = get_register_args 4 in
   let num_bits = n * n in
   let num_registers = num_bits / 64 in
   (* make sure we can feasibly handle the input *)
@@ -202,8 +199,7 @@ let check_n_queens (n: int) : (string StringMap.t -> bool) =
   in
   let board_pieces = gather_register_values filtered_board_args var_mapping in
   (* TODO finish the rest of this *)
-  (check_rows n board_pieces) && (check_columns n board_pieces)
-
+  (check_rows n board_pieces) && (check_columns n board_pieces) && (check_diags n board_pieces)
 
 let get_element_sudoku (index : int) (board : Bitvector.t) : int =
   let mask = "0x3" |> bv_of_string ~bits:64 in
