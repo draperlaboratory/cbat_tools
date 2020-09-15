@@ -104,15 +104,10 @@ val compare_subs_empty_post : comparator * comparator
     creation time. *)
 val compare_subs_sp : comparator * comparator
 
-(** Compare two subs by composition for custom preconditions and postconditions.
-
-    Give two subroutines and environments, return a postcondition
-    and hypothesis that, when passed to [compare_subs], will generate a
-    precondition which is provable only if (modulo soundness bugs) the VCs generated
-    by the hooks provided by the environment are satisfied, given that the.
-    The hypothesis comparator generates hypotheses that are the input
-    [pre_conds] argument. The post condition comparator generates postconditions
-    that are the input [post_conds] argument. *)
+(** Given a constraint to use as the hypothesis (precondition) and a constraint
+    to use as the postcondition, returns a tuple of comparators. The first
+    comparator returns the input postcondition constraint when called. The
+    second comparator returns the input precondition constraint when called. *)
 val compare_subs_constraints
   :  pre_conds:Constr.t
   -> post_conds:Constr.t
