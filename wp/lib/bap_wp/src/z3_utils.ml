@@ -112,25 +112,27 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   mk_smtlib2 ctx smt_post decl_syms
 
 let construct_pointer_constraint (l: string list) (env1 : Env.t)
-    (env2: Env.t option): Constr.t =
+    (env2: Env.t option) : Constr.t =
   let stack_end = Env.get_stack_end env1 in
   let ctx = Env.get_context env1 in
   let arch = match Env.get_arch env1 |> Bap.Std.Arch.addr_size with
     | `r32 -> 32
     | `r64 -> 64 in
-  let rsp = Env.get_rsp_name env1 in
+  let rsp = Env.get_sp_name env1 in
+  let function_name = "construct_pointer_constraint" in
   let err_msg_input = "invalid register name in pointer register list" in
   let err_msg_rsp = "stack pointer not found" in
   let sb_bv = Z3.BitVector.mk_numeral ctx (stack_end |> Int.to_string) arch in
   let gen_constr = match env2 with
+    (* comparative case *)
     | Some env2 ->
       let init_var_map_orig = Env.get_init_var_map env1 in
       let init_var_map_mod = Env.get_init_var_map env2 in
       (* we do want exceptions here if the register names are invalid
        *  or RSP doesn't exist *)
-      let rsp_orig = Option.value_exn ~message:("original " ^ err_msg_rsp)
+      let rsp_orig = Option.value_exn ~message:(function_name ^ ": original " ^ err_msg_rsp)
           (get_z3_name init_var_map_orig rsp Var.name) in
-      let rsp_mod = Option.value_exn ~message:("modified " ^ err_msg_rsp)
+      let rsp_mod = Option.value_exn ~message:(function_name ^ ": modified " ^ err_msg_rsp)
           (get_z3_name init_var_map_mod rsp Var.name) in
       (* Encode constraint that each register is not within stack*)
       (fun acc reg ->
@@ -138,20 +140,25 @@ let construct_pointer_constraint (l: string list) (env1 : Env.t)
              (get_z3_name init_var_map_orig reg Var.name) in
          let reg_name_mod = Option.value_exn ~message:err_msg_input
              (get_z3_name init_var_map_mod reg Var.name) in
-         (* the pointer register must be above RSP
-          *  NOTE: we are assuming stack grows down *)
+         (* NOTE: we are assuming stack grows down.*)
+         (* R_orig >= RSP_orig *)
          let uge_1 = Z3.BitVector.mk_uge ctx reg_name_orig rsp_orig in
+         (* R_mod >= RSP_mod *)
          let uge_2 = Z3.BitVector.mk_uge ctx reg_name_mod rsp_mod in
-         (* the pointer must be below the end of the stack *)
+         (*  R_orig <= stack_bottom *)
          let ule_1 =  Z3.BitVector.mk_ule ctx reg_name_orig sb_bv in
+         (* R_mod <= stack_bottom *)
          let ule_2 =  Z3.BitVector.mk_ule ctx reg_name_mod sb_bv in
-         (* encode that the pointer is either above RSP or below the stack
-          *  end and thereby outside the uninitialized stack region *)
+         (* R_orig >= RSP \/ R_orig <= stack_bottom *)
          let or_c_1 = Z3.Boolean.mk_or ctx [uge_1; ule_1] in
+         (* R_mod >= RSP \/ R_mod <= stack_bottom *)
          let or_c_2 = Z3.Boolean.mk_or ctx [uge_2; ule_2] in
+         (* (R_orig >= RSP \/ R_orig <= stack_bottom) /\
+            (R_mod >= RSP \/ R_mod <= stack_bottom)     *)
          let and_c = Z3.Boolean.mk_and ctx [or_c_1; or_c_2;] in
          Z3.Boolean.mk_and ctx [and_c; acc]
       )
+    (* single binary case *)
     | None ->
       let init_var_map = Env.get_init_var_map env1 in
       let stack_pointer = Option.value_exn ~message:err_msg_rsp
