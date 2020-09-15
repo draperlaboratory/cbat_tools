@@ -76,7 +76,7 @@ let get_reg_from_line (line : string) (regs_list : StringSet.t) :
    plugin output and compare with expected *)
 let check_result (stream : char Stream.t) (expected_result : string)
     (regs_list : StringSet.t) (* set of registers to look for values of *)
-    (checker_wrapped: ((string StringMap.t) -> bool) option) (* results -> "is this valid?" *)
+    (checker_wrapped: ((string StringMap.t) -> string option) option) (* results -> "is this valid?" *)
     (ctxt : test_ctxt) : unit =
   let buff = Buffer.create 16 in
   let results = StringMap.empty in
@@ -100,33 +100,48 @@ let check_result (stream : char Stream.t) (expected_result : string)
       | chr ->
         Buffer.add_char buff chr)
     stream;
-  (* TODO get better error messages for this  *)
   match checker_wrapped with
-  | Some checker -> if not (checker !acc) then assert_failure "WEE WOO FAILURE"
+  | Some checker ->
+    begin match checker !acc with
+      | None -> ()
+      | Some err -> assert_failure err
+    end
   | None -> ()
 
 
 (* this, given expected register models, returns a function that determines
  *  whether or not the expected register (model) exactly matches
  *  what is observed *)
-(* TODO get better error messages for this *)
-
 let check_list (expected_reg_models : ((string * string) list) list )
-  : (string StringMap.t -> bool) =
+  : (string StringMap.t -> string option) =
   fun observed_mapping ->
-  List.fold expected_reg_models ~init:(false) ~f:(fun seen_match model ->
-      if not seen_match then
-        List.fold model ~init:(true) ~f:(fun acc (reg, value) ->
-            if acc then
-              match StringMap.find observed_mapping reg with
-              | None -> false
-              | Some observed_value -> observed_value = value
-            else acc
-          )
-      else seen_match
+  List.foldi expected_reg_models ~init:(Some "") ~f:(fun i seen_match model ->
+      match seen_match with
+      | Some err ->
+        let result = List.fold model ~init:(None) ~f:(fun acc (reg, value) ->
+            let err =
+              begin match StringMap.find observed_mapping reg with
+                (* if register not observed, then fail *)
+                | None ->
+                  Some (Printf.sprintf "\n\tRegister %s not found in returned model.\n" reg)
+                | Some observed_value ->
+                  if observed_value = value then None
+                  else
+                    Some (Printf.sprintf "\tRegister mismatch: %s expected to be %s but was %s\n" reg value observed_value )
+              end in
+            Option.merge ~f:(^) acc err
+          ) in
+        begin match result with
+          | None -> None
+          | Some cur_err ->
+            let model_msg = (Printf.sprintf "\nModel %d:\n" i) in
+            err ^ model_msg ^ cur_err |> Some
+        end
+      | None -> seen_match
     )
 
 (* you can go directly, but the width needs to be 64 *)
+(* TODO change this to use native method. *)
 let bv_of_string ?bits:(bits=64) (s : string) : Bitvector.t =
   s |> int_of_string |> Bitvector.of_int ~width:bits
 
@@ -138,55 +153,53 @@ let gather_register_values (register_names : string list) (mapping: string Strin
       StringMap.find_exn mapping name |> bv_of_string
     )
 
-
-let get_element_n_queens (n : int) (index : int) (board_list: Bitvector.t list) : int =
-  let mask = "0x1" |> bv_of_string ~bits:64 in
-  let shift_distance_int = index / 64 in
+let get_element (board_list : Bitvector.t list) (mask_width : int) (index : int): int =
+  let mask = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 mask_width |> List.fold ~init:(0) ~f:(fun acc i -> acc + (1 lsl i)) |> Bitvector.of_int ~width:64 in
+  let bits_to_shift = index * mask_width in
+  let shift_distance_int = (bits_to_shift) / 64 in
   let board = List.nth_exn board_list shift_distance_int in
-  let shift_distance =  index mod 64  |> Bitvector.of_int ~width:64 in
+  let shift_distance =  bits_to_shift mod 64 |> Bitvector.of_int ~width:64 in
   let shifted_mask = Bitvector.lshift mask shift_distance in
   let masked_board = Bitvector.logand shifted_mask board in
   Bitvector.rshift masked_board shift_distance |> Bitvector.to_int_exn
 
-let check_diags (n : int) (board: Bitvector.t list) : bool =
-  let diags = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 n in
-  let has_at_most_one_queen = List.fold diags ~init:(true)
-      ~f:(fun acc i ->
-          let eles = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 (n-i) in
-          let (r_0, r_1, l_0, l_1) = List.fold eles ~init:((0, 0, 0, 0))
-              ~f:(fun (acc_r_0, acc_r_1, acc_l_0, acc_l_1) j ->
-                  let diag_r_0 = get_element_n_queens n (i + (n + 1) * j) board in
-                  let diag_r_1 = get_element_n_queens n (n * i + (n + 1) * j) board in
-                  let diag_l_0 = get_element_n_queens n (n * i + (n - 1) * (j + 1)) board in
-                  let diag_l_1 = get_element_n_queens n ((n - 1) + j * (n - 1) - i) board in
-                  (acc_r_0 + diag_r_0, acc_r_1 + diag_r_1, acc_l_0 + diag_l_0, acc_l_1 + diag_l_1)
-                ) in
-          r_0 <= 1 && r_1 <= 1 && l_0 <= 1 && l_1 <= 1 && acc
-        ) in
-  has_at_most_one_queen
-
-let check_columns (n : int) (board: Bitvector.t list) : bool =
-  let rows = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 n in
-  let has_exactly_one_queen = List.fold rows ~init:(true) ~f:(fun acc ith_row ->
-      List.fold rows ~init:(0) ~f:(fun per_row_acc col_index ->
-          let index = col_index + ith_row * n in
-          per_row_acc + (get_element_n_queens n index board)) = 1 && acc
-    ) in
-  has_exactly_one_queen
-
-let check_rows (n : int) (board: Bitvector.t list) : bool =
-  let rows = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 n in
-  let has_exactly_one_queen = List.fold rows ~init:(true) ~f:(fun acc ith_col ->
-      List.fold rows ~init:(0) ~f:(fun acc row_index ->
-          let index = row_index * n + ith_col in
-          acc + (get_element_n_queens n index board)) = 1 && acc
+let check_n_queen_diag_col_row (n : int) (board: Bitvector.t list) : string option =
+  let ge = get_element board 1 in
+  let indxs = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 n in
+  let has_exactly_one_queen = List.fold indxs ~init:(None) ~f:(fun acc i ->
+      let l = List.fold indxs ~init:([0;0;0;0;0;0])
+          ~f:(fun acc_inner j ->
+              let first = [
+                j + i * n |> ge;
+                j * n + i |> ge;
+              ] in
+              let second =
+                if j < n - i then
+                  [
+                    i + (n + 1) * j |> ge;
+                    n * i + (n + 1) * j |> ge;
+                    n * i + (n - 1) * (j + 1) |> ge;
+                    (n - 1) + j * (n - 1) - i |> ge;
+                  ]
+                else [0;0;0;0]
+              in
+              let result = List.append first second in
+              List.zip_exn acc_inner result |> List.map ~f:(fun (l, r) -> l + r)) in
+      let gen_err = fun i v t ->
+        if (v = 1 && i < 2) || (v <= 1 && 2 <= i) then None else Printf.sprintf "\n%s %d incorrect\n" t i |> Some in
+      let err_types = ["row"; "col"; "right diagonal lower";
+                       "right diagonal upper"; "left diagonal lower";
+                       "left diagonal upper"] in
+      List.zip_exn l err_types |> List.mapi ~f:(fun i (v, t) -> gen_err i v t)
+      |> List.fold ~init:(None) ~f:(fun acc_inner v -> Option.merge acc_inner v ~f:(^))
+      |>  Option.merge acc ~f:(^)
     ) in
   has_exactly_one_queen
 
 let get_register_args (n : int) : string list =
   List.slice ["RDI"; "RSI"; "RDX"; "RCX"; "R8"; "R9"] 0 n
 
-let check_n_queens (n: int) : (string StringMap.t -> bool) =
+let check_n_queens (n: int) : (string StringMap.t -> string option) =
   fun var_mapping ->
   let board_args = get_register_args 4 in
   let num_bits = n * n in
@@ -194,34 +207,31 @@ let check_n_queens (n: int) : (string StringMap.t -> bool) =
   (* make sure we can feasibly handle the input *)
   if num_registers > 4 then assert_failure
       "N QUEENS example run on too large of an n";
-  if n <= 3 then assert_failure "N QUEENS example run on too small of an n";
+  if n <= 3 then assert_failure "Nqueens example run on too small of an n";
   let filtered_board_args = board_args |> List.filteri ~f:(fun i _ -> i >= num_registers)
   in
   let board_pieces = gather_register_values filtered_board_args var_mapping in
-  (* TODO finish the rest of this *)
-  (check_rows n board_pieces) && (check_columns n board_pieces) && (check_diags n board_pieces)
+  (* TODO merge into one *)
+  check_n_queen_diag_col_row n board_pieces
 
-let get_element_sudoku (index : int) (board : Bitvector.t) : int =
-  let mask = "0x3" |> bv_of_string ~bits:64 in
-  let shift_distance = (index * 2) |> Bitvector.of_int ~width:64 in
-  let shifted_mask = Bitvector.lshift mask shift_distance in
-  let masked_board = Bitvector.logand shifted_mask board in
-  Bitvector.rshift masked_board shift_distance |> Bitvector.to_int_exn
 
-let check_for_all (indices : int list) (board : Bitvector.t) =
+let check_for_all (indices : int list) (board : Bitvector.t) : string option =
   let expected_values = IntSet.of_list [0; 1; 2; 3] in
-  let actual_values = List.map indices ~f:(fun x -> get_element_sudoku x board) |> IntSet.of_list in
-  (IntSet.inter expected_values actual_values |> IntSet.length) = (IntSet.length expected_values)
+  let actual_values = List.map indices ~f:(fun x -> get_element [board] 2 x) |> IntSet.of_list in
+  if (IntSet.inter expected_values actual_values |> IntSet.length) = (IntSet.length expected_values)
+  then None else
+    let indx_str = List.fold indices ~init:("") ~f:(fun acc x -> acc ^ "," ^ (string_of_int x)) in
+    Printf.sprintf "\n indices %s did not match what was expected" indx_str |> Some
 
-let check_two_by_two_sudoku (var_mapping : string StringMap.t) : bool =
+
+
+let check_two_by_two_sudoku (var_mapping : string StringMap.t) : string option =
   let sudoku_board = gather_register_values ["RDI";] var_mapping |> List.hd_exn in
   let snippets =
     [[0; 1; 2; 3]; [4; 5; 6; 7]; [8; 9; 10; 11]; [12; 13; 14; 15];
      [0; 4; 8; 12]; [1; 5; 9; 13]; [2; 6; 10; 14]; [3; 7; 11; 15];
      [0; 1; 4; 5]; [2; 3; 6; 7;]; [8; 9; 12; 13]; [10; 11; 14; 15];] in
-  let is_correct = List.fold snippets ~init:(true) ~f:(fun acc l -> acc && (check_for_all l sudoku_board)) in
-  if not is_correct then assert_failure "failure!";
-  true
+  List.fold snippets ~init:(None) ~f:(fun acc l -> Option.merge acc (check_for_all l sudoku_board) ~f:(^))
 
 let bad_hash_function (c : Bitvector.t) (cur_hash : Bitvector.t) =
   let t_1 = Bitvector.lshift cur_hash ("0x6" |> bv_of_string ~bits:32) in
@@ -230,14 +240,17 @@ let bad_hash_function (c : Bitvector.t) (cur_hash : Bitvector.t) =
   let result = Bitvector.sub t_3 cur_hash in
   Bitvector.modulo result ("0x20" |> bv_of_string ~bits:32)
 
-(* TODO better errors  *)
-let check_bad_hash_function (registers : string list) : ((string StringMap.t) -> bool) =
+let check_bad_hash_function (registers : string list) : ((string StringMap.t) -> string option) =
   fun var_mapping ->
   (* index of the special character *)
   let result_index = "0xf" |> bv_of_string ~bits:32 in
   let result = gather_register_values registers var_mapping
                |> List.fold ~init:("0x0" |> bv_of_string ~bits:32) ~f:(fun acc v -> bad_hash_function v acc) in
-  result = result_index
+  if result = result_index then
+    None
+  else
+    Printf.sprintf "\n Expected the hash %s but got hash %s" (Bitvector.to_string result) (Bitvector.to_string result_index)
+    |> Some
 
 (* The length of a test_case is in seconds.
    OUnit has predefined test lengths of:
@@ -422,7 +435,7 @@ let suite = [
   "User defined postcondition"     >: test_plugin "return_argc" sat;
 
   "Simple WP"                      >: (
-    let models = [ [("RDI", "0x0000000000000003")]; ] in
+    let models = [[("RDI", "0x0000000000000003")]] in
     test_plugin "simple_wp" sat ~reg_list:(lift_out_regs models)
       ~checker:(check_list models |> Some)
   );
@@ -440,24 +453,19 @@ let suite = [
   "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat ~script:"run_wp_32bit.sh";
 
   "NQueens solver 4x4"             >: (
-    (* let models = [[("RDI", "0x0000000000002814")]; [("RDI", "0x0000000000004182")];] in
-     * test_plugin "nqueens" sat ~reg_list:(lift_out_regs models)
-     *   ~checker:(check_list models |> Some) *)
     test_plugin "nqueens" sat ~reg_list:(["RDI"; "RSI"; "RDX"; "RCX"] |> StringSet.of_list)
       ~checker:(check_n_queens 4 |> Some)
   );
 
 
   "Sudoku solver"                  >: (
-    (* let models = [[("RDI", "0x00000000d82d7287")]] in *)
     test_plugin "sudoku" sat ~reg_list:(["RDI"] |> StringSet.of_list)
       ~checker:(check_two_by_two_sudoku |> Some)
   );
 
 
   "Hash function"                  >: (
-    (* let models = [[("RSI", "0x0000000000000010"); ("RCX", "0x0000000000000007")]] in *)
-    let registers =  ["RDI"; "RSI"; "RDX"; "RCX"; "R8"] in
+    let registers =  get_register_args 5 in
     test_plugin "hash_function" sat
       ~reg_list:(registers |> StringSet.of_list)
       ~checker:(check_bad_hash_function registers |> Some)
