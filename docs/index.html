@@ -8,16 +8,20 @@
 <img src="cbat_logo.png" alt="CBAT Logo" class="centerImage" width="360">
 
 <p>CBAT is a collection of tools for analyzing the behavior of binary programs.
-It is built on Carnegie
+Its primary purpose is to <i>compare</i> the behavior of programs.  For
+example, CBAT can be used to verify that a patch has not introduced any new
+bugs, or that an optimization has not changed the behavior of a function.  It
+also has features for single-program analysis.
+
+<P>CBAT is built on Carnegie
 Mellon's <a href="https://github.com/BinaryAnalysisPlatform/bap">Binary Analysis
-Platform</a> (BAP), and has support for analyzing single programs or comparing
-the behavior of programs.
+Platform</a> (BAP).
 
 <ul>
-<li><a href="installation.html">Installation</a></li>
-<li><a href="reference.html">Command line interface reference</a></li>
 <li><a href="tutorial.html">Tutorial</a></li>
 <li><a href="exercises.html">Exercises</a></li>
+<li><a href="installation.html">Installation</a></li>
+<li><a href="reference.html">Command line interface reference</a></li>
 <li><a href="doc/html/bap_wp/index.html">Developer API</a></li>
 </ul>
 
