@@ -1,9 +1,8 @@
-# This is a test that tests that the wp-pointer-reg-list flag works as expected.
-# Specifically, the function foo tries to use differing
-# return addresses that are pushed onto the stack to cause a different return
-# value between functions. The abscence of the flag should allow the pointer
-# argument in RDI to be used to point to this return address, as it lives
-# on the uninitialized portion of the stack at the start of the function.
+# This tests that the absence wp-pointer-reg-list flag works as expected.
+# Specifically, differing return value should be found between programs because
+# in main_1, num_1 cannot be greater than 12. In main_2, num1 can point to local
+# and become 42, which is greater than 12. This results in main_1 returning 
+# 0 and main_2 returning -1.
 
 # Should return SAT
 
@@ -17,6 +16,7 @@ run_sat () {
     --mem-offset \
     --show=bir,refuted-goals,paths \
     --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
+    --precond="(assert (= mem_orig mem_mod))" \
     -- main_1 main_2
 }
 

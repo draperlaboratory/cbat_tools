@@ -1,15 +1,7 @@
-int f(){
-    return 1;
-}
-
-int g() {
-    return 10;
-}
-
-// Type your code here, or load an example.
-int deref(int *num1) {
-    int num2 = f();
-    if(*num1 >= num2){
+int deref(int *num_1) {
+    int num_2 = 12;
+    int local = 42;
+    if(*num_1 > num_2){
         return -1;
     }
     return 0;

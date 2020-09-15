@@ -404,7 +404,7 @@ let get_consts (env : t) : ExprSet.t =
 let get_arch (env : t) : Arch.t =
   env.arch
 
-let get_rsp_name (env : t) : string =
+let get_sp_name (env : t) : string =
   let module Target = (val target_of_arch (get_arch env)) in
   Var.name Target.CPU.sp
 
