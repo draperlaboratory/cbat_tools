@@ -138,17 +138,56 @@ let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
            memory for the x86_64 architecture.\n%!";
     None
 
+(* Helper to look up the variable name in the initial variable map. *)
+let get_init_z3_expr (reg : string) (env: Env.t) : Constr.z3_expr option =
+  let result = Z3_utils.get_z3_name (Env.get_init_var_map env) reg Var.name in
+  begin
+    match result with
+    | None ->
+      warning
+        "get_init_z3_expr: Could not find variable %s in initial var map" reg
+    | _ -> ()
+  end ;
+  result
+
+(* Helper to add variable to environment. *)
+let add_variable_to_env (env : Env.t) (reg : string) : (Var.t * Env.t) option =
+  match get_init_z3_expr reg env with
+  (* nothing need be done if already exists *)
+  | Some _ -> None
+  | None ->
+    let reg_var = Var.create reg reg64_t in
+    Some (reg_var, Env.get_var env reg_var |> snd)
+
+(* Add list of variables to environment. *)
+let add_list_to_env (l : string list) (env : Env.t) : Var.Set.t  * Env.t =
+  List.fold l ~init:(Var.Set.empty, env)
+    ~f:(fun (s, cur_env) var_name ->
+        match add_variable_to_env cur_env var_name with
+        | Some (var, env) -> Var.Set.add s var, env
+        | None -> s, cur_env)
 
 (* Returns a set of comparators that provide the constraint that
    the pointer registers are treated as pointers. *)
 let gen_pointer_flag_comparators
-    (l: string list) (env1: Env.t) (env2: Env.t option)
+    (l: string list) (env1: Env.t) (env2: Env.t)
   : (Comp.comparator * Comp.comparator) option =
   if List.length l = 0 then None
   else
-    let pre_conds = Z3_utils.construct_pointer_constraint l env1 env2 in
+    (* let pre_conds = Z3_utils.construct_pointer_constraint l env1 env2 in *)
+    (* let list_vars = List.map l ~f:(fun x -> ) *)
+    let regs_orig, regs_mod = List.filter_map l ~f:(fun reg ->
+        match get_init_z3_expr reg env1, get_init_z3_expr reg env2 with
+        | Some var_expr_orig, Some var_expr_mod -> Some (var_expr_orig, var_expr_mod)
+        (* TODO warnings in the form of errors *)
+        | _, _ -> None
+      ) |> List.unzip
+    in
+    let pre_conds = Z3_utils.construct_pointer_constraint regs_orig env1
+        (Some regs_mod) (Some env2) in
     let post_conds = Env.trivial_constr env1 in
     Comp.compare_subs_constraints ~pre_conds ~post_conds |> Some
+
 
 
 (* Returns a list of postconditions and a list of hypotheses based on the
@@ -165,7 +204,7 @@ let comparators_of_flags
       ~orig:(sub1, env1) ~modif:(sub2, env2);
     smtlib ~precond:p.precond ~postcond:p.postcond;
     sp arch;
-    gen_pointer_flag_comparators p.pointer_reg_list env1 (Some env2);
+    gen_pointer_flag_comparators p.pointer_reg_list env1 env2;
   ] |> List.filter_opt
   in
   let comps =
@@ -191,10 +230,18 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
   let hyps, env = Pre.init_vars (Pre.get_vars env main_sub) env in
-  let hyps = (Pre.set_sp_range env) :: hyps in
+
+  let vars, env = add_list_to_env p.pointer_reg_list env in
+
+  let more_hyps, env = Pre.init_vars vars env in
+  let hyps = (Pre.set_sp_range env) :: hyps |> List.append more_hyps in
   let hyps =
+    (* short circuit to avoid extraneous "&& true" constraint *)
     if List.length p.pointer_reg_list > 0
-    then (Z3_utils.construct_pointer_constraint p.pointer_reg_list env None) :: hyps
+    then
+      let z3_exprs = List.filter_map p.pointer_reg_list
+          ~f:(fun reg_name -> get_init_z3_expr reg_name env) in
+      (Z3_utils.construct_pointer_constraint z3_exprs env None None) :: hyps
     else hyps in
   let post =
     if String.is_empty p.postcond then
@@ -236,6 +283,8 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     in
     let env2 = Env.set_freshen env2 true in
     let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
+    let additional_vars, env2 = add_list_to_env p.pointer_reg_list env2 in
+    let _, env2 = Pre.init_vars additional_vars env2 in
     env2
   in
   let env1 =
@@ -251,6 +300,8 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~stack_range
     in
     let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
+    let additional_vars, env1 = add_list_to_env p.pointer_reg_list env1 in
+    let _, env1 = Pre.init_vars additional_vars env1 in
     env1
   in
   let posts, hyps =
@@ -303,6 +354,6 @@ let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
   | _ ->
     let err =
       Printf.sprintf "WP can only analyze one binary for a single analysis or \
-                     two binaries for a comparative analysis. Number of \
-                     binaries provided: %d.%!" (List.length files) in
+                      two binaries for a comparative analysis. Number of \
+                      binaries provided: %d.%!" (List.length files) in
     Error (Unsupported_file_count err)
