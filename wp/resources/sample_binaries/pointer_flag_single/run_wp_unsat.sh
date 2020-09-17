@@ -10,7 +10,7 @@ run () {
   bap wp \
     --func=foo \
     --postcond="(assert (not (= RAX #x00000000deadbeef)))" \
-    --pointer-reg-list=RDI  \
+    --pointer-reg-list=FOO,FOOBAR,RDI  \
     -- main
 
 }

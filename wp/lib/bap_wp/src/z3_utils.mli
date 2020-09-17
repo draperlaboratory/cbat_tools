@@ -53,8 +53,8 @@ val mk_smtlib2_single : Env.t -> string -> Constr.t
 val mk_smtlib2 : Z3.context -> string -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)  -> Constr.t
 
 (** [construct_pointer_constraint] generates a constraint that
-    the register names provided in [l] are treated as pointers. That is,
-    all registers in [l] cannot point to the uninitalized stack region.
+    the registers (passed in as z3 expressions) are treated as pointers. That is,
+    all specified registers cannot point to the uninitalized stack region.
     They must be either below the bottom of the stack or above the initial
     stack pointer. *)
-val construct_pointer_constraint : string list -> Env.t -> Env.t option -> Constr.t
+val construct_pointer_constraint : Constr.z3_expr list -> Env.t -> (Constr.z3_expr list) option -> Env.t option -> Constr.t
