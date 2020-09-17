@@ -174,12 +174,9 @@ let gen_pointer_flag_comparators
   : (Comp.comparator * Comp.comparator) option =
   if List.length l = 0 then None
   else
-    (* let pre_conds = Z3_utils.construct_pointer_constraint l env1 env2 in *)
-    (* let list_vars = List.map l ~f:(fun x -> ) *)
     let regs_orig, regs_mod = List.filter_map l ~f:(fun reg ->
         match get_init_z3_expr reg env1, get_init_z3_expr reg env2 with
         | Some var_expr_orig, Some var_expr_mod -> Some (var_expr_orig, var_expr_mod)
-        (* TODO warnings in the form of errors *)
         | _, _ -> None
       ) |> List.unzip
     in
@@ -230,9 +227,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
   let hyps, env = Pre.init_vars (Pre.get_vars env main_sub) env in
-
   let vars, env = add_list_to_env p.pointer_reg_list env in
-
   let more_hyps, env = Pre.init_vars vars env in
   let hyps = (Pre.set_sp_range env) :: hyps |> List.append more_hyps in
   let hyps =
