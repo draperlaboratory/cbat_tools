@@ -7,7 +7,7 @@
 run () {
   bap wp \
     --func=example \
-    --inline=init \
+    --inline="init|sub_*" \
     --compare-post-reg-values=RAX \
     -- main_1.so main_2.so
 }
