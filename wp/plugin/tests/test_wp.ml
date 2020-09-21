@@ -329,12 +329,6 @@ let lift_out_regs (reg_value : ((string * string) list) list) : StringSet.t =
 
 let suite = [
 
-  "Equiv argc"                     >: (
-    let models = [ [("RDI", "0x0000000000000002")]; ] in
-    test_plugin "equiv_argc" sat
-      ~reg_list:(lift_out_regs models) ~checker:(check_list models |> Some)
-  );
-
   (* Test elf comparison *)
 
   "Multicompiler: csmith"          >: test_plugin "cbat-multicompiler-samples/csmith" unsat;
@@ -347,6 +341,12 @@ let suite = [
   "Diff ret val"                   >: test_plugin "diff_ret_val" sat;
 
   "Double dereference"             >: test_plugin "double_dereference" unsat;
+
+  "Equiv argc"                     >: (
+    let models = [ [("RDI", "0x0000000000000002")]; ] in
+    test_plugin "equiv_argc" sat
+      ~reg_list:(lift_out_regs models) ~checker:(check_list models |> Some)
+  );
 
   "Precondition: force 2"          >: (
     let models = [ [("RDI", "0x0000000000000002")]; ] in
@@ -428,6 +428,11 @@ let suite = [
   "Indirect call with return"      >: test_plugin "indirect_call_return" unsat;
   "Indirect call with no return"   >: test_plugin "indirect_call_no_return" unsat;
 
+  "Test without pointer flag"      >: test_plugin "pointer_flag" sat ~script:"run_wp_sat.sh";
+  "Test with pointer flag"         >: test_plugin "pointer_flag" unsat ~script:"run_wp_unsat.sh";
+
+  "Loop unrolling comparative" >: test_plugin "loop/loop_depth_one" unsat ~script:"run_wp_compare.sh";
+
   (* Test single elf *)
 
   "Function call"                  >: (
@@ -464,9 +469,28 @@ let suite = [
   "Linked list: with mem check"    >: test_plugin "linked_list" sat
     ~script:"run_wp_null_deref.sh";
 
-  "Loop"                           >: test_plugin "loop" sat;
+  "Loop with assert"               >: test_plugin "loop/loop_with_assert" sat ~script:"run_wp.sh";
+
+  "Loop full unroll"               >: (
+    let models = [ [("RDI", "0x0000000000000005")]; ] in
+    test_plugin "loop/loop_depth_one" sat ~script:"run_wp_single.sh"
+      ~reg_list:(lift_out_regs models)
+      ~checker:(check_list models |> Some);
+  );
+
+  "Loop incomplete unroll"         >:: test_skip fail_msg
+    (
+      let models = [ [("RDI", "0x0000000000000005")]; ] in
+      test_plugin "loop/loop_depth_one" sat ~script:"run_wp_less_loop.sh"
+        ~reg_list:(lift_out_regs models)
+        ~checker:(check_list models |> Some)
+    );
+
+  "Loop incomplete unroll"         >:: test_skip fail_msg
+    (test_plugin "loop/loop_depth_one" sat);
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
+
   "Nested function calls: inline regex" >: (
     let models = [ [("RDI", "0x0000000000000004")]; ] in
     test_plugin "nested_function_calls" sat
@@ -502,6 +526,9 @@ let suite = [
 
   "Simple WP: precondition"        >: test_plugin "simple_wp" unsat
     ~script:"run_wp_pre.sh";
+
+  "Single test without pointer flag" >: test_plugin "pointer_flag_single" sat ~script:"run_wp_sat.sh";
+  "Single test with pointer flag"    >: test_plugin "pointer_flag_single" unsat ~script:"run_wp_unsat.sh";
 
   "Verifier assume SAT"            >: test_plugin "verifier_calls" sat
     ~script:"run_wp_assume_sat.sh";
