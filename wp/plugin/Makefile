@@ -76,8 +76,14 @@ test.clean:
 	$(MAKE) -C $(SAMPLE_BIN_DIR) clean
 
 .PHONY: test
-test: install test.build
+test: test.unit test.performance
+
+.PHONY: test.unit
+test.unit: install test.build
 	ocamlbuild -r -use-ocamlfind \
 		-pkgs $(TEST_PKGS) \
 		-tag $(TEST_TAG) -Is $(TEST_Is) test.native
-	./test.native
+	OUNIT_CI=true ./test.native
+
+.PHONY: test.performance
+test.performance:
