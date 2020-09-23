@@ -14,6 +14,7 @@
 open !Core_kernel
 open Bap_main
 open Bap.Std
+open Regular.Std
 open Bap_wp
 
 include Self()
@@ -59,22 +60,20 @@ let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
   let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
   let knowledge_digest = Cache.Digests.knowledge mk_digest in
   let () = Cache.Knowledge.load knowledge_digest in
-  let prog = match Cache.Program.load filepath with
-    | Some prog ->
-      info "Program (%s) found in cache.\n%!" filepath;
-      prog
-    | None ->
-      (* The program_t is not in the cache. Disassemble the binary. *)
-      let project_digest = Cache.Digests.project mk_digest in
-      let state = Cache.Project.load project_digest in
-      let project = create_proj state loader filepath in
-      let prog = project |> Project.program |> clear_mapper#run in
-      let () = Cache.Project.save project_digest (Project.state project) in
-      let () = Cache.Program.save filepath prog in
-      prog
-  in
-  let () = Cache.Knowledge.save knowledge_digest in
-  prog
+  match Cache.Program.load filepath with
+  | Some prog ->
+    info "Program %s (%a) found in cache.%!"
+      filepath Data.Cache.Digest.pp knowledge_digest;
+    prog
+  | None ->
+    (* The program_t is not in the cache. Disassemble the binary. *)
+    info "Saving program %s (%a) to cache.%!"
+      filepath Data.Cache.Digest.pp knowledge_digest;
+    let project = create_proj None loader filepath in
+    let prog = project |> Project.program |> clear_mapper#run in
+    let () = Cache.Program.save filepath prog in
+    let () = Cache.Knowledge.save knowledge_digest in
+    prog
 
 (* Finds a function in the binary. *)
 let find_func_err (subs : Sub.t Seq.t) (func : string) : Sub.t =
