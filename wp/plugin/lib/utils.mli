@@ -29,9 +29,10 @@ module Env = Environment
 (** The loader WP uses for lifting a binary, defaulting to LLVM. *)
 val loader : string
 
-(** Obtains the program representation of the binary at the given filepath using
-    the BAP context and loader for lifting the binary. *)
-val read_program : ctxt -> loader:string -> filepath:string -> Program.t
+(** Obtains the program representation and the architecture of the binary at the
+    given filepath using the BAP context and loader for lifting the binary. *)
+val read_program :
+  ctxt -> loader:string -> filepath:string -> Program.t * Arch.t
 
 (** [find_func_err subs name] obtains a function named [name] from a
     sequence of subroutines [subs]. Fails if the function can't be found. *)

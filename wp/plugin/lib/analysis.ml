@@ -179,8 +179,8 @@ let comparators_of_flags
 (* Runs a single binary analysis. *)
 let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file : string) : combined_pre =
-  let prog = Utils.read_program bap_ctx ~loader:Utils.loader ~filepath:file in
-  let arch = Option.value_exn (Cache.Arch.load file) in
+  let prog, arch = Utils.read_program bap_ctx
+      ~loader:Utils.loader ~filepath:file in
   let subs = Term.enum sub_t prog in
   let main_sub = Utils.find_func_err subs p.func in
   let to_inline = Utils.match_inline p.inline subs in
@@ -213,10 +213,10 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
 (* Runs a comparative analysis. *)
 let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file1 : string) (file2 : string) : combined_pre =
-  let prog1 = Utils.read_program bap_ctx ~loader:Utils.loader ~filepath:file1 in
-  let prog2 = Utils.read_program bap_ctx ~loader:Utils.loader ~filepath:file2 in
-  let arch1 = Option.value_exn (Cache.Arch.load file1) in
-  let arch2 = Option.value_exn (Cache.Arch.load file2) in
+  let prog1, arch1 = Utils.read_program bap_ctx
+      ~loader:Utils.loader ~filepath:file1 in
+  let prog2, arch2 = Utils.read_program bap_ctx
+      ~loader:Utils.loader ~filepath:file2 in
   let subs1 = Term.enum sub_t prog1 in
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = Utils.find_func_err subs1 p.func in

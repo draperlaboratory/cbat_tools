@@ -54,9 +54,9 @@ let clear_mapper : Term.mapper = object
     super#map_term cls t'
 end
 
-(* Reads in the program_t from a file. *)
+(* Reads in the program_t and its architecture from a file. *)
 let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
-    : Program.t =
+    : Program.t * Arch.t =
   let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
   let knowledge_digest = Cache.Digests.knowledge mk_digest in
   let () = Cache.Knowledge.load knowledge_digest in
@@ -64,16 +64,19 @@ let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
   | Some prog ->
     info "Program %s (%a) found in cache.%!"
       filepath Data.Cache.Digest.pp knowledge_digest;
-    prog
+    prog, Option.value_exn (Cache.Arch.load filepath)
   | None ->
     (* The program_t is not in the cache. Disassemble the binary. *)
     info "Saving program %s (%a) to cache.%!"
       filepath Data.Cache.Digest.pp knowledge_digest;
     let project = create_proj None loader filepath in
     let prog = project |> Project.program |> clear_mapper#run in
+    let arch = Project.arch project in
+    let () = Toplevel.reset () in
     let () = Cache.Program.save filepath prog in
+    let () = Cache.Arch.save filepath arch in
     let () = Cache.Knowledge.save knowledge_digest in
-    prog
+    prog, arch
 
 (* Finds a function in the binary. *)
 let find_func_err (subs : Sub.t Seq.t) (func : string) : Sub.t =
