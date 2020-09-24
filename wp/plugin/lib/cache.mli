@@ -76,8 +76,8 @@ module Program : sig
       from the knowledge base. *)
   val load : string -> Program.t option
 
-  (** [save filename] saves the program representation of [filename] to the
-      knowledge base. *)
+  (** [save filename program] saves the program representation of [filename] to
+      the knowledge base. *)
   val save : string -> Program.t -> unit
 
 end
@@ -90,4 +90,7 @@ module Arch : sig
       not need to be stored manually. *)
   val load : string -> Arch.t option
 
+  (** [save filename arch] saves [filename]'s architecture to the knowledge
+      base. *)
+  val save : string -> Arch.t -> unit
 end

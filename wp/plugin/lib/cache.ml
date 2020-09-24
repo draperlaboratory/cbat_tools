@@ -16,6 +16,7 @@ open Bap_main
 open Bap_core_theory
 open Bap.Std
 open Regular.Std
+open KB.Let_syntax
 
 module Digests = struct
 
@@ -87,8 +88,6 @@ end
 
 module Program = struct
 
-  open KB.Let_syntax
-
   let package = "program"
 
   (* Gives a unique name to a KB object from the filename of the program. *)
@@ -150,6 +149,21 @@ module Arch = struct
       |> Option.bind ~f:Arch.of_string
     | Error c ->
       let msg = Format.asprintf "Unable to collect arch: %a%!"
+          KB.Conflict.pp c in
+      failwith msg
+
+  (* Adds the program's architecture to the KB. *)
+  let save file arch : unit =
+    let obj =
+      Theory.Unit.for_file file >>= fun label ->
+      let arch = Arch.to_string arch in
+      KB.provide Theory.Unit.Target.arch label (Some arch) >>| fun () ->
+      label in
+    let state = Toplevel.current () in
+    match KB.run Theory.Unit.cls obj state with
+    | Ok (_, state) -> Toplevel.set state
+    | Error c ->
+      let msg = Format.asprintf "Unable to provide architecture: %a%!"
           KB.Conflict.pp c in
       failwith msg
 
