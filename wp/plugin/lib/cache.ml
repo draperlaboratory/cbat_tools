@@ -23,7 +23,8 @@ module Digests = struct
   module Conf = Extension.Configuration
 
   (* Returns a function that makes digests. *)
-  let get_generator ctx ~filepath ~loader =
+  let get_generator (ctx : ctxt) ~(filepath : string) ~(loader : string)
+    : namespace:string -> digest =
     let inputs = [Conf.digest ctx; Caml.Digest.file filepath; loader] in
     let subject = String.concat inputs in
     fun ~namespace ->
@@ -31,30 +32,32 @@ module Digests = struct
       Data.Cache.Digest.add d "%s" subject
 
   (* Creates a digest for the knowledge cache. *)
-  let knowledge mk_digest = mk_digest ~namespace:"knowledge"
+  let knowledge (mk_digest : namespace:string -> digest) : digest =
+    mk_digest ~namespace:"knowledge"
 
   (* Creates a digest for the project state cache. *)
-  let project mk_digest = mk_digest ~namespace:"project"
+  let project (mk_digest : namespace:string -> digest) : digest =
+    mk_digest ~namespace:"project"
 
 end
 
 module Knowledge = struct
 
   (* Creates the knowledge cache. *)
-  let knowledge_cache () =
+  let knowledge_cache () : KB.state Data.Cache.t =
     let reader = Data.Read.create ~of_bigstring:KB.of_bigstring () in
     let writer = Data.Write.create ~to_bigstring:KB.to_bigstring () in
     Data.Cache.Service.request reader writer
 
   (* Loads knowledge (if any) from the knowledge cache. *)
-  let load digest : unit =
+  let load (digest : digest) : unit =
     let cache = knowledge_cache () in
     match Data.Cache.load cache digest with
     | None -> ()
     | Some state -> Toplevel.set state
 
   (* Saves knowledge in the knowledge cache. *)
-  let save digest : unit =
+  let save (digest : digest) : unit =
     let cache = knowledge_cache () in
     Toplevel.current ()
     |> Data.Cache.save cache digest
@@ -64,7 +67,7 @@ end
 module Project = struct
 
   (* Creates a project state cache. *)
-  let project_cache () =
+  let project_cache () : Project.state Data.Cache.t =
     let module State = struct
       type t = Project.state [@@deriving bin_io]
     end in
@@ -75,12 +78,12 @@ module Project = struct
     Data.Cache.Service.request reader writer
 
   (* Loads project state (if any) from the cache. *)
-  let load digest : Project.state option =
+  let load (digest : digest) : Project.state option =
     let cache = project_cache () in
     Data.Cache.load cache digest
 
   (* Saves project state in the cache. *)
-  let save digest state : unit =
+  let save (digest : digest) (state : Project.state) : unit =
     let cache = project_cache () in
     Data.Cache.save cache digest state
 
@@ -91,15 +94,16 @@ module Program = struct
   let package = "program"
 
   (* Gives a unique name to a KB object from the filename of the program. *)
-  let for_program filename =
+  let for_program (filename : string) : Theory.Unit.cls KB.obj KB.t =
     KB.Symbol.intern filename Theory.Unit.cls ~package ~public:true
 
   (* Creates an optional domain for programs. *)
-  let program_t = KB.Domain.optional "program_t" ~equal:Program.equal
+  let program_t : Program.t option KB.domain =
+    KB.Domain.optional "program_t" ~equal:Program.equal
 
   (* Creates a persistent program slot for the KB that is preserved between
      program runs. *)
-  let program =
+  let program : (Theory.Unit.cls, Program.t option) KB.slot =
     let module Program = struct
       type t = Program.t option [@@deriving bin_io]
     end in
@@ -110,7 +114,7 @@ module Program = struct
       ~persistent:(KB.Persistent.of_binable (module Program))
 
   (* Obtains the program from the KB. *)
-  let load file : Program.t option =
+  let load (file : string) : Program.t option =
     let obj = for_program file in
     let state = Toplevel.current () in
     match KB.run Theory.Unit.cls obj state with
@@ -121,7 +125,7 @@ module Program = struct
       failwith msg
 
   (* Adds the program_t to the KB. *)
-  let save file prog : unit =
+  let save (file : string) (prog : Program.t) : unit =
     let obj =
       for_program file >>= fun label ->
       KB.provide program label (Some prog) >>| fun () ->
@@ -139,7 +143,7 @@ end
 module Arch = struct
 
   (* Obtains the program's architecture from the KB. *)
-  let load file : Arch.t option =
+  let load (file : string) : Arch.t option =
     let obj = Theory.Unit.for_file file in
     let state = Toplevel.current () in
     match KB.run Theory.Unit.cls obj state with
@@ -153,7 +157,7 @@ module Arch = struct
       failwith msg
 
   (* Adds the program's architecture to the KB. *)
-  let save file arch : unit =
+  let save (file : string) (arch : Arch.t) : unit =
     let obj =
       Theory.Unit.for_file file >>= fun label ->
       let arch = Arch.to_string arch in
