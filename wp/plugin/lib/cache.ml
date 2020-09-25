@@ -16,7 +16,6 @@ open Bap_main
 open Bap_core_theory
 open Bap.Std
 open Regular.Std
-open KB.Let_syntax
 
 module Digests = struct
 
@@ -38,6 +37,10 @@ module Digests = struct
   (* Creates a digest for the project state cache. *)
   let project (mk_digest : namespace:string -> digest) : digest =
     mk_digest ~namespace:"project"
+
+  (* Creates a digest for the program state cache. *)
+  let program (mk_digest : namespace:string -> digest) : digest =
+    mk_digest ~namespace:"program"
 
 end
 
@@ -91,85 +94,25 @@ end
 
 module Program = struct
 
-  let package = "program"
-
-  (* Gives a unique name to a KB object from the filename of the program. *)
-  let for_program (filename : string) : Theory.Unit.cls KB.obj KB.t =
-    KB.Symbol.intern filename Theory.Unit.cls ~package ~public:true
-
-  (* Creates an optional domain for programs. *)
-  let program_t : Program.t option KB.domain =
-    KB.Domain.optional "program_t" ~equal:Program.equal
-
-  (* Creates a persistent program slot for the KB that is preserved between
-     program runs. *)
-  let program : (Theory.Unit.cls, Program.t option) KB.slot =
-    let module Program = struct
-      type t = Program.t option [@@deriving bin_io]
+  (* Creates a program cache. *)
+  let program_cache () : (Program.t * Arch.t) Data.Cache.t =
+    let module Prog = struct
+      type t = Program.t * Arch.t [@@deriving bin_io]
     end in
-    KB.Class.property Theory.Unit.cls "program" program_t
-      ~package
-      ~public:true
-      ~desc:"The program term under analysis."
-      ~persistent:(KB.Persistent.of_binable (module Program))
+    let of_bigstring = Binable.of_bigstring (module Prog) in
+    let to_bigstring = Binable.to_bigstring (module Prog) in
+    let reader = Data.Read.create ~of_bigstring () in
+    let writer = Data.Write.create ~to_bigstring () in
+    Data.Cache.Service.request reader writer
 
-  (* Obtains the program from the KB. *)
-  let load (file : string) : Program.t option =
-    let obj = for_program file in
-    let state = Toplevel.current () in
-    match KB.run Theory.Unit.cls obj state with
-    | Ok (value, _) -> KB.Value.get program value
-    | Error c ->
-      let msg = Format.asprintf "Unable to collect program_t: %a%!"
-          KB.Conflict.pp c in
-      failwith msg
+  (* Loads a program and its architecture (if any) from the cache. *)
+  let load (digest : digest) : (Program.t * Arch.t) option =
+    let cache = program_cache () in
+    Data.Cache.load cache digest
 
-  (* Adds the program_t to the KB. *)
-  let save (file : string) (prog : Program.t) : unit =
-    let obj =
-      for_program file >>= fun label ->
-      KB.provide program label (Some prog) >>| fun () ->
-      label in
-    let state = Toplevel.current () in
-    match KB.run Theory.Unit.cls obj state with
-    | Ok (_, state) -> Toplevel.set state
-    | Error c ->
-      let msg = Format.asprintf "Unable to provide program_t: %a%!"
-          KB.Conflict.pp c in
-      failwith msg
+  (* Saves a program and its architecture in the cache. *)
+  let save (digest : digest) (program : Program.t) (arch : Arch.t) : unit =
+    let cache = program_cache () in
+    Data.Cache.save cache digest (program, arch)
 
 end
-
-module Arch = struct
-
-  (* Obtains the program's architecture from the KB. *)
-  let load (file : string) : Arch.t option =
-    let obj = Theory.Unit.for_file file in
-    let state = Toplevel.current () in
-    match KB.run Theory.Unit.cls obj state with
-    | Ok (value, _) ->
-      value
-      |> KB.Value.get Theory.Unit.Target.arch
-      |> Option.bind ~f:Arch.of_string
-    | Error c ->
-      let msg = Format.asprintf "Unable to collect arch: %a%!"
-          KB.Conflict.pp c in
-      failwith msg
-
-  (* Adds the program's architecture to the KB. *)
-  let save (file : string) (arch : Arch.t) : unit =
-    let obj =
-      Theory.Unit.for_file file >>= fun label ->
-      let arch = Arch.to_string arch in
-      KB.provide Theory.Unit.Target.arch label (Some arch) >>| fun () ->
-      label in
-    let state = Toplevel.current () in
-    match KB.run Theory.Unit.cls obj state with
-    | Ok (_, state) -> Toplevel.set state
-    | Error c ->
-      let msg = Format.asprintf "Unable to provide architecture: %a%!"
-          KB.Conflict.pp c in
-      failwith msg
-
-end
-

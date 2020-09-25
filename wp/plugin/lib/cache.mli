@@ -40,6 +40,9 @@ module Digests : sig
   (** Creates a digest for the project state cache. *)
   val project : (namespace:string -> digest) -> digest
 
+  (** Creates a digest for the program cache. *)
+  val program : (namespace:string -> digest) -> digest
+
 end
 
 (** A cache containing persistent information stored in the Knowledge Base. *)
@@ -65,32 +68,14 @@ module Project : sig
 
 end
 
-(** This module contains functions for interacting with a binary's {!Program.t},
-    which is BAP's representation of the program in BIR after disassembly. This
-    program is stored in the knowledge base cache, and will persist through
-    different runs of WP on the same unchanged binary given the same flags are
-    used for disassembly. *)
+(** A cache containing a binary's {!Program.t}, which is BAP's representation of
+    the program in BIR after disassembly, and the architecture of the binary. *)
 module Program : sig
 
-  (** [load filename] obtains the program representation of [filename] (if any)
-      from the knowledge base. *)
-  val load : string -> Program.t option
+  (** Loads a program and its architecture (if any) from the cache. *)
+  val load : digest -> (Program.t * Arch.t) option
 
-  (** [save filename program] saves the program representation of [filename] to
-      the knowledge base. *)
-  val save : string -> Program.t -> unit
+  (** Saves a program and its architecture in the cache. *)
+  val save : digest -> Program.t -> Arch.t -> unit
 
-end
-
-(** This module is used for interacting with the architecture for a binary. *)
-module Arch : sig
-
-  (** [load filename] obtains [filename]'s architecture from the knowledge base.
-      This information is populated when BAP disassembles a binary, and does
-      not need to be stored manually. *)
-  val load : string -> Arch.t option
-
-  (** [save filename arch] saves [filename]'s architecture to the knowledge
-      base. *)
-  val save : string -> Arch.t -> unit
 end
