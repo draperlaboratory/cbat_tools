@@ -1,5 +1,4 @@
 (library
    (name bap_wp)
    (public_name bap_wp)
-   (libraries bap bap-x86-cpu z3 oUnit landmarks)
-   (preprocess (pps landmarks.ppx --auto)))
+   (libraries bap bap-x86-cpu z3 oUnit))

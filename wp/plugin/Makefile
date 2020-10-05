@@ -12,7 +12,10 @@ Is := 'lib'
 
 TEST_PKGS := 'bap,z3,bap_wp,oUnit,re'
 TEST_TAG := 'warn(A-48-44),debug,thread'
-TEST_Is := 'lib,tests'
+TEST_Is := 'lib,tests/test_libs'
+
+TEST_Is_UNIT := $(TEST_Is)',tests/unit'
+TEST_Is_INTEGRATION := $(TEST_Is)',tests/integration'
 
 BUILD := $(PASS_NAME).plugin
 SRC_FILES := $(wildcard **/*.ml) $(wildcard **/*.mli)
@@ -76,14 +79,19 @@ test.clean:
 	$(MAKE) -C $(SAMPLE_BIN_DIR) clean
 
 .PHONY: test
-test: test.unit test.performance
+test: test.unit
 
 .PHONY: test.unit
 test.unit: install test.build
 	ocamlbuild -r -use-ocamlfind \
 		-pkgs $(TEST_PKGS) \
-		-tag $(TEST_TAG) -Is $(TEST_Is) test.native
+		-tag $(TEST_TAG) -Is $(TEST_Is_UNIT) test.native
 	OUNIT_CI=true ./test.native
 
-.PHONY: test.performance
-test.performance:
+.PHONY: test.integration
+test.integration: install test.build
+	ocamlbuild -r -use-ocamlfind \
+		-pkgs $(TEST_PKGS) \
+		-tag $(TEST_TAG) \
+		-tag $(TEST_TAG) -Is $(TEST_Is_INTEGRATION) test.native
+	OUNIT_CI=true ./test.native
