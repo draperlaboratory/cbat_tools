@@ -3,13 +3,32 @@
 
 # Should return SAT
 
-run () {
+run_split () {
   bap wp \
-    --func=encode_nqueens \
+    --func=encode_nqueens_split \
     --trip-asserts \
-    --show=precond-smtlib \
     --num-unroll=0 \
-    -- main
+    --debug=constraint-stats,eval-constraint-stats,z3-solver-stats \
+    -- bin/main_$1
 }
 
-run
+run_split_2 () {
+  bap wp \
+    --func=encode_nqueens_2_split \
+    --trip-asserts \
+    --num-unroll=0 \
+    --debug=constraint-stats,eval-constraint-stats,z3-solver-stats \
+    -- bin/main_$1
+}
+
+run_net () {
+  bap wp \
+    --func=encode_nqueens_net \
+    --trip-asserts \
+    --num-unroll=0 \
+    --inline="sub*" \
+    -- bin/main_$1
+}
+
+run_net $1
+
