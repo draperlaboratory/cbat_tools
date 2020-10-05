@@ -14,10 +14,8 @@
 open OUnit2
 
 let suite =
-  "Full suite" >::: [
-    "WP"         >::: Test_wp.suite;
-    "Utils"      >::: Test_utils.suite;
-    "Parameters" >::: Test_parameters.suite
+  "Integration suite" >::: [
+    "WP.Integration"  >::: Test_wp.integration_tests;
   ]
 
 let _ = run_test_tt_main suite

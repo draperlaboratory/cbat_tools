@@ -9,12 +9,13 @@
 #define WIDTH 0x9
 #define REG_SIZE 64
 
-
-
 #define GET_ELEMENT(boards, index)                                             \
-  ((boards[(index * MASK_SIZE) / REG_SIZE] >> ((index * MASK_SIZE) - (((index * MASK_SIZE) / REG_SIZE) * REG_SIZE))) & MASK)
+  ((boards[(index * MASK_SIZE) / REG_SIZE] >>                                  \
+    ((index * MASK_SIZE) - (((index * MASK_SIZE) / REG_SIZE) * REG_SIZE))) &   \
+   MASK)
 
-void print_board(int64_t board_0, int64_t board_1, int64_t board_2, int64_t board_3, int64_t board_4, int64_t board_5) {
+void print_board(int64_t board_0, int64_t board_1, int64_t board_2,
+                 int64_t board_3, int64_t board_4, int64_t board_5) {
   int64_t board[6] = {board_0, board_1, board_2, board_3, board_4, board_5};
   for (int row = 0; row < WIDTH; row++) {
     for (int col = 0; col < WIDTH; col++) {
@@ -86,11 +87,20 @@ void sudoku_solver(int64_t w_0, int64_t w_1, int64_t w_2, int64_t w_3,
   bool init_c_36 = GET_ELEMENT(board, 78) == 4;
   bool init_c_37 = GET_ELEMENT(board, 80) == 3;
 
-
-  bool init_total = init_c_0 && init_c_1 && init_c_2 && init_c_3 && init_c_4 && init_c_5 && init_c_6 && init_c_7 && init_c_8 && init_c_9 && init_c_10 && init_c_11 && init_c_12 && init_c_13 && init_c_14 && init_c_15 && init_c_16 && init_c_17 && init_c_18 && init_c_19 && init_c_20 && init_c_21 && init_c_22 && init_c_23 && init_c_24 && init_c_25 && init_c_26 && init_c_27 && init_c_28 && init_c_29 && init_c_30 && init_c_31 && init_c_32 && init_c_33 && init_c_34 && init_c_35 && init_c_36 && init_c_37;
+  bool init_total = init_c_0 && init_c_1 && init_c_2 && init_c_3 && init_c_4 &&
+                    init_c_5 && init_c_6 && init_c_7 && init_c_8 && init_c_9 &&
+                    init_c_10 && init_c_11 && init_c_12 && init_c_13 &&
+                    init_c_14 && init_c_15 && init_c_16 && init_c_17 &&
+                    init_c_18 && init_c_19 && init_c_20 && init_c_21 &&
+                    init_c_22 && init_c_23 && init_c_24 && init_c_25 &&
+                    init_c_26 && init_c_27 && init_c_28 && init_c_29 &&
+                    init_c_30 && init_c_31 && init_c_32 && init_c_33 &&
+                    init_c_34 && init_c_35 && init_c_36 && init_c_37;
 
   bool row_constr = true, col_constr = true, sq_constr = true;
-  // iterate through all possible values
+
+  // iterate through all possible values and assert that each row/col must
+  // contain exactly one of each number
 #pragma clang loop unroll(full)
   for (int64_t k = 0; k < WIDTH; k++) {
 #pragma clang loop unroll(full)
@@ -110,7 +120,7 @@ void sudoku_solver(int64_t w_0, int64_t w_1, int64_t w_2, int64_t w_3,
   for (int64_t k = 0; k < WIDTH; k++) {
 #pragma clang loop unroll(full)
     for (int64_t sq_idx = 0; sq_idx < WIDTH; sq_idx++) {
-    // for each k, construct constraint saying "only contains one of k"
+      // for each k, construct constraint saying "only contains one of k"
       bool single_sq_constr = false;
 #pragma clang loop unroll(full)
       for (int64_t cell_idx = 0; cell_idx < WIDTH; cell_idx++) {
@@ -401,12 +411,14 @@ void sudoku_solver(int64_t w_0, int64_t w_1, int64_t w_2, int64_t w_3,
   }
 
   if (init_total && sq_constr && row_constr && col_constr) {
-          assert(0);
+    assert(0);
   }
 }
 
 int main(int argc, char **argv) {
-  print_board(0x3867501865103742, 0x1285070152436824, 0x4765867402134376, 0x4620435187012358, 0x7408162515827603, 0x3);
-  sudoku_solver(0x3867501865103742, 0x1285070152436824, 0x4765867402134376, 0x4620435187012358, 0x7408162515827603, 0x3);
+  print_board(0x3867501865103742, 0x1285070152436824, 0x4765867402134376,
+              0x4620435187012358, 0x7408162515827603, 0x3);
+  sudoku_solver(0x3867501865103742, 0x1285070152436824, 0x4765867402134376,
+                0x4620435187012358, 0x7408162515827603, 0x3);
   return 0;
 }

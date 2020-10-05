@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# solves a 4 by 4 sudoku puzzle encoded into a 32 bit integer. If the correct
-# solution is provided as input to sudoku_solver, a null dereference is
-# performed
+# solves a 9 by 9 sudoku puzzle encoded into a a series of 64 bit integers. If
+# the correct solution is provided as input to sudoku_solver, an assert is
+# tripped is performed
 
 # Should return SAT
 

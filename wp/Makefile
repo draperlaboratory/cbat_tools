@@ -90,7 +90,11 @@ test.lib:
 .PHONY: test.plugin
 test.plugin:
 	@printf $(FMT_STR) "TESTING PLUGIN"
-	$(MAKE) -C $(PLUGIN) test
+	$(MAKE) -C $(PLUGIN) test.unit
+
+.PHONY: test.plugin.integration
+test.plugin.integration: install
+	$(MAKE) -C $(PLUGIN) test.integration
 
 #####################################################
 # DOCS
