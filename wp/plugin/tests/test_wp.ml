@@ -156,7 +156,7 @@ let gather_register_values (register_names : string list) (mapping: string Strin
   : Bitvector.t list =
   register_names |> List.map ~f:(fun name ->
       (* we want an exception if the register name is not found *)
-      StringMap.find_exn mapping name |> int_of_string |> Bitvector.of_int ~width:64
+      (StringMap.find_exn mapping name) ^ ":64u" |> Bitvector.of_string
     )
 
 (* given a list of bitvectors representing a game board, [board_list],
@@ -164,25 +164,62 @@ let gather_register_values (register_names : string list) (mapping: string Strin
  *  returns the element seen at index [index] in the board. *)
 let get_element (board_list : Bitvector.t list) (mask_width : int) (index : int): int =
   let width = 64 in
-  let mask = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 mask_width
+  let mask = List.range 0 mask_width
              |> List.fold ~init:(0) ~f:(fun acc i -> acc + (1 lsl i))
              |> Bitvector.of_int ~width:width in
   let bits_to_shift = index * mask_width in
-  let shift_distance_int = (bits_to_shift) / width in
+  let shift_distance_int = bits_to_shift / width in
   let board = List.nth_exn board_list shift_distance_int in
-  let shift_distance =  bits_to_shift mod width |> Bitvector.of_int ~width:width in
+  let shift_distance =  bits_to_shift - (shift_distance_int * width) |> Bitvector.of_int ~width:width in
   let shifted_mask = Bitvector.lshift mask shift_distance in
   let masked_board = Bitvector.logand shifted_mask board in
   Bitvector.rshift masked_board shift_distance |> Bitvector.to_int_exn
 
+
+let print_n_queen_diag_col_row (n : int) (board_list: Bitvector.t list): string option =
+  let width = 1 in
+  let ge = get_element board_list width in
+  let indxs = List.range 0 n in
+  let l = List.fold indxs ~init:(None)  ~f:(fun acc i ->
+      let _, errs =
+        List.fold indxs ~init:([0;0;0;0;0;0], None) ~f:(fun acc_inner j ->
+            let first = [
+              (* row *)
+              j + i * n |> ge;
+              (* column *)
+              j * n + i |> ge;
+            ] in
+            let second =
+              if j < n - i then
+                (* diags *)
+                [
+                  i + (n + 1) * j |> ge;
+                  n * i + (n + 1) * j |> ge;
+                  n * i + (n - 1) * (j + 1) |> ge;
+                  (n - 1) + j * (n - 1) - i |> ge;
+                ]
+              else List.init 4 ~f:(fun _ -> 0)
+            in
+            let result = List.append first second in
+            let p_1 = List.zip_exn (acc_inner |> fst) result |> List.map ~f:(fun (a, b) -> a + b) in
+            let p_2 = List.fold p_1 ~init:(Printf.sprintf "\ni: %d, j: %d, \t" i j) ~f:(fun ac x -> Printf.sprintf "%s|%d" ac x)  |> Some |> Option.merge (acc_inner |> snd) ~f:(^)
+            in
+            p_1, p_2
+          ) in errs
+               |> Option.merge acc ~f:(^))
+  in l
+
+
 (* given an [n] by [n] board represented as a list of bitvectors,
  *  checks if board satisfies nqueen constraints on
  *  columns, rows, and diagonals. *)
-let check_n_queen_diag_col_row (n : int) (board: Bitvector.t list): string option =
-  let ge = get_element board 1 in
-  let indxs = List.range ~stride:1 ~start:`inclusive ~stop:`exclusive 0 n in
+let check_n_queen_diag_col_row (n : int) (board_list: Bitvector.t list): string option =
+  let width = 1 in
+  let ge = get_element board_list width in
+  let num_constraints = 6 in
+  let indxs = List.range 0 n in
   let has_exactly_one_queen = List.fold indxs ~init:(None) ~f:(fun acc i ->
-      let l = List.fold indxs ~init:(List.init 6 ~f:(fun _ -> 0))
+      let l = List.fold indxs ~init:(List.init num_constraints ~f:(fun _ -> 0))
           ~f:(fun acc_inner j ->
               let first = [
                 (* row *)
@@ -202,17 +239,19 @@ let check_n_queen_diag_col_row (n : int) (board: Bitvector.t list): string optio
                 else List.init 4 ~f:(fun _ -> 0)
               in
               let result = List.append first second in
-              List.zip_exn acc_inner result |> List.map ~f:(fun (l, r) -> l + r)) in
-      let gen_err = fun i v t ->
+              List.zip_exn acc_inner result |> List.map ~f:(fun (a, b) -> a + b)) in
+      let gen_err = fun err_idx v err_type ->
         (* first condition is on requiring exactly one queen in a column or row *)
         (* second condition is requiring at most one queen in a diagonal  *)
-        if (v = 1 && i < 2) || (v <= 1 && 2 <= i) then None
-        else Printf.sprintf "\n%s %d incorrect\n" t i |> Some in
+        if (v = 1 && err_idx < 2) || (v <= 1 && 2 <= err_idx) then None
+        else Printf.sprintf "\n%s %d incorrect. Got %d\n" err_type err_idx v |> Some in
       let err_types = ["row"; "col"; "right diagonal lower";
                        "right diagonal upper"; "left diagonal lower";
                        "left diagonal upper"] in
-      List.zip_exn l err_types |> List.mapi ~f:(fun i (v, t) -> gen_err i v t)
-      |> List.fold ~init:(None) ~f:(fun acc_inner v -> Option.merge acc_inner v ~f:(^))
+      List.zip_exn l err_types |> List.mapi ~f:(fun err_idx (v, err_type) -> gen_err err_idx v err_type)
+      (* |> List.fold ~init:(Printf.sprintf "\n I IS %d \n" i |> Some) *)
+      |> List.fold ~init:(None)
+        ~f:(fun acc_inner v -> Option.merge acc_inner v ~f:(^))
       |>  Option.merge acc ~f:(^)
     ) in
   has_exactly_one_queen
@@ -226,18 +265,16 @@ let get_register_args (n : int) (arch : Arch.t): string list =
 let check_n_queens (n: int) (arch : Arch.t) : (string StringMap.t -> string option) =
   fun var_mapping ->
   let width = 64 in
-  let board_args = get_register_args 4 arch in
+  let board_args = get_register_args 6 arch in
   let num_bits = n * n in
   let num_registers = num_bits / width in
-  (* make sure we can feasibly handle the input.
-      Chokes at 16 x 16 which fits in 4 64 bit registers *)
-  if num_registers > 4 then assert_failure
-      "N QUEENS example run on too large of an n";
   (* n <= 3 has no solutions *)
   if n <= 3 then assert_failure "Nqueens example run on too small of an n";
-  let filtered_board_args = board_args |> List.filteri ~f:(fun i _ -> i >= num_registers)
+  let filtered_board_args = board_args |> List.filteri ~f:(fun i _ -> i <= num_registers)
   in
   let board_pieces = gather_register_values filtered_board_args var_mapping in
+  (* print_n_queen_diag_col_row n board_pieces
+   * |> Option.merge (check_n_queen_diag_col_row n board_pieces) ~f:(^) *)
   check_n_queen_diag_col_row n board_pieces
 
 (* given a sudoku board and list of indices,
@@ -300,6 +337,7 @@ let check_bad_hash_function (registers : string list) : ((string StringMap.t) ->
 let test_plugin
     ?length:(length = Custom_length 20.0)
     ?script:(script = "run_wp.sh")
+    ?args:(args = [])
     ?reg_list:(reg_list = StringSet.empty)
     ?checker:(checker = None)
     (elf_dir : string)
@@ -308,7 +346,7 @@ let test_plugin
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let script = Format.sprintf "./%s" script in
   let test ctxt =
-    assert_command script []
+    assert_command script args
       ~foutput:(fun res -> check_result res expected_result reg_list checker ctxt)
       ~backtrace:true
       ~chdir:target
@@ -327,7 +365,7 @@ let lift_out_regs (reg_value : ((string * string) list) list) : StringSet.t =
       List.fold model ~init:(StringSet.empty) ~f:(fun acc (reg, _) ->
           StringSet.add acc reg) |> StringSet.union acc)
 
-let suite = [
+let unit_tests = [
 
   (* Test elf comparison *)
 
@@ -536,35 +574,37 @@ let suite = [
     ~script:"run_wp_assume_unsat.sh";
   "Verifier nondent"               >: test_plugin "verifier_calls" sat
     ~script:"run_wp_nondet.sh";
-
-  (* Test performance *)
-
-  "Debruijn: 8 bit"                >: test_plugin "debruijn" unsat
-    ~script:"run_wp_8bit.sh";
-  "Debruijn: 16 bit"               >: test_plugin "debruijn" unsat
-    ~script:"run_wp_16bit.sh";
-  "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat
-    ~script:"run_wp_32bit.sh";
-
-  "NQueens solver 4x4"             >: (
-    test_plugin "nqueens" sat
-      ~reg_list:(["RDI"; "RSI"; "RDX"; "RCX"] |> StringSet.of_list)
-      ~checker:(check_n_queens 4 `x86_64 |> Some)
-  );
-
-
-  "Sudoku solver"                  >: (
-    test_plugin "sudoku" sat ~reg_list:(["RDI"] |> StringSet.of_list)
-      ~checker:(check_two_by_two_sudoku |> Some)
-  );
-
-
-  "Hash function"                  >: (
-    let registers =  get_register_args 5 `x86_64 in
-    test_plugin "hash_function" sat
-      ~reg_list:(registers |> StringSet.of_list)
-      ~checker:(check_bad_hash_function registers |> Some)
-  );
-
-
 ]
+
+let nqueens_tests = List.range 4 19 |> List.map ~f:(fun i ->
+    let description = Printf.sprintf "NQueens solver %dx%d" i i in
+    (* let script = Printf.sprintf "run_wp.sh %d" i in *)
+    let script = Printf.sprintf "run_wp.sh" in
+    (description >: test_plugin "nqueens" sat ~reg_list:(get_register_args 6 `x86_64 |> StringSet.of_list)
+       ~checker:(check_n_queens i `x86_64 |> Some) ~script:script ~args:[string_of_int i])
+  )
+
+let performance_tests = List.append [
+
+    (* Test performance *)
+
+    "Debruijn: 8 bit"                >: test_plugin "debruijn" unsat
+      ~script:"run_wp_8bit.sh";
+    "Debruijn: 16 bit"               >: test_plugin "debruijn" unsat
+      ~script:"run_wp_16bit.sh";
+    "Debruijn: 32 bit"               >: test_plugin "debruijn" unsat
+      ~script:"run_wp_32bit.sh";
+
+    "Sudoku solver"                  >: (
+      test_plugin "sudoku" sat ~reg_list:(["RDI"] |> StringSet.of_list)
+        ~checker:(check_two_by_two_sudoku |> Some)
+    );
+
+
+    "Hash function"                  >: (
+      let registers =  get_register_args 5 `x86_64 in
+      test_plugin "hash_function" sat
+        ~reg_list:(registers |> StringSet.of_list)
+        ~checker:(check_bad_hash_function registers |> Some)
+    );
+  ] nqueens_tests
