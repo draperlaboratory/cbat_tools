@@ -404,9 +404,9 @@ let get_consts (env : t) : ExprSet.t =
 let get_arch (env : t) : Arch.t =
   env.arch
 
-let get_sp_name (env : t) : string =
+let get_sp (env : t) : Var.t =
   let module Target = (val target_of_arch (get_arch env)) in
-  Var.name Target.CPU.sp
+  Target.CPU.sp
 
 let fold_fun_tids (env : t) ~init:(init : 'a)
     ~f:(f : key:string -> data:Tid.t -> 'a -> 'a) : 'a =

@@ -118,7 +118,7 @@ let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
   let arch = match Env.get_arch env1 |> Bap.Std.Arch.addr_size with
     | `r32 -> 32
     | `r64 -> 64 in
-  let rsp = Env.get_sp_name env1 in
+  let rsp = Env.get_sp env1 |> Var.name in
   let function_name = "construct_pointer_constraint: " in
   let err_msg_rsp = "stack pointer not found" in
   let sb_bv = Z3.BitVector.mk_numeral ctx (stack_end |> Int.to_string) arch in

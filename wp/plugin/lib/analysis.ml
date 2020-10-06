@@ -138,48 +138,33 @@ let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
            memory for the x86_64 architecture.\n%!";
     None
 
-(* Helper to look up the variable name in the initial variable map. *)
-let get_init_z3_expr (reg : string) (env: Env.t) : Constr.z3_expr option =
-  let result = Z3_utils.get_z3_name (Env.get_init_var_map env) reg Var.name in
-  begin
-    match result with
-    | None ->
+(* Create list of variables from string names. *)
+let create_vars (l : string list) : Bap.Std.Var.Set.t =
+  List.map l ~f:(fun var -> Var.create var reg64_t) |> Bap.Std.Var.Set.of_list
+
+let gen_ptr_flag_warnings
+    (vars_sub : Bap.Std.Var.Set.t)
+    (vars_pointer_reg : Bap.Std.Var.Set.t)
+    (sp : Bap.Std.Var.Set.t) : unit =
+  let expected_regs = Bap.Std.Var.Set.union vars_pointer_reg sp in
+  Bap.Std.Var.Set.diff expected_regs vars_sub
+  |> Bap.Std.Var.Set.iter ~f:(fun var ->
       warning
-        "get_init_z3_expr: Could not find variable %s in initial var map" reg
-    | _ -> ()
-  end ;
-  result
-
-(* Helper to add variable to environment. *)
-let add_variable_to_env (env : Env.t) (reg : string) : (Var.t * Env.t) option =
-  match get_init_z3_expr reg env with
-  (* nothing need be done if already exists *)
-  | Some _ -> None
-  | None ->
-    let reg_var = Var.create reg reg64_t in
-    Some (reg_var, Env.get_var env reg_var |> snd)
-
-(* Add list of variables to environment. *)
-let add_list_to_env (l : string list) (env : Env.t) : Var.Set.t  * Env.t =
-  List.fold l ~init:(Var.Set.empty, env)
-    ~f:(fun (s, cur_env) var_name ->
-        match add_variable_to_env cur_env var_name with
-        | Some (var, env) -> Var.Set.add s var, env
-        | None -> s, cur_env)
+        "Variable %s included in pointer flag, but not in sub to be analyzed."
+        (Var.name var)
+    )
 
 (* Returns a set of comparators that provide the constraint that
    the pointer registers are treated as pointers. *)
 let gen_pointer_flag_comparators
-    (l: string list) (env1: Env.t) (env2: Env.t)
+    (l : string list) (env1 : Env.t)
+    (env2 : Env.t) (pointer_env1_vars : Var.t List.t)
+    (pointer_env2_vars : Var.t List.t)
   : (Comp.comparator * Comp.comparator) option =
   if List.length l = 0 then None
   else
-    let regs_orig, regs_mod = List.filter_map l ~f:(fun reg ->
-        match get_init_z3_expr reg env1, get_init_z3_expr reg env2 with
-        | Some var_expr_orig, Some var_expr_mod -> Some (var_expr_orig, var_expr_mod)
-        | _, _ -> None
-      ) |> List.unzip
-    in
+    let regs_orig = List.filter_map pointer_env1_vars ~f:(fun var -> Env.get_init_var env1 var) in
+    let regs_mod = List.filter_map pointer_env2_vars ~f:(fun var -> Env.get_init_var env2 var) in
     let pre_conds = Z3_utils.construct_pointer_constraint regs_orig env1
         (Some regs_mod) (Some env2) in
     let post_conds = Env.trivial_constr env1 in
@@ -193,6 +178,8 @@ let comparators_of_flags
     ~orig:(sub1, env1 : Sub.t * Env.t)
     ~modif:(sub2, env2 : Sub.t * Env.t)
     (p : Params.t)
+    (pointer_env1_vars : Var.t List.t)
+    (pointer_env2_vars : Var.t List.t)
   : Comp.comparator list * Comp.comparator list =
   let arch = Env.get_arch env1 in
   let comps = [
@@ -201,7 +188,8 @@ let comparators_of_flags
       ~orig:(sub1, env1) ~modif:(sub2, env2);
     smtlib ~precond:p.precond ~postcond:p.postcond;
     sp arch;
-    gen_pointer_flag_comparators p.pointer_reg_list env1 env2;
+    gen_pointer_flag_comparators p.pointer_reg_list
+      env1 env2 pointer_env1_vars pointer_env2_vars;
   ] |> List.filter_opt
   in
   let comps =
@@ -226,16 +214,19 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
-  let hyps, env = Pre.init_vars (Pre.get_vars env main_sub) env in
-  let vars, env = add_list_to_env p.pointer_reg_list env in
-  let more_hyps, env = Pre.init_vars vars env in
-  let hyps = (Pre.set_sp_range env) :: hyps |> List.append more_hyps in
+  let vars_sub = Pre.get_vars env main_sub in
+  let vars_pointer_reg = create_vars p.pointer_reg_list in
+  let sp = Env.get_sp env |> Bap.Std.Var.Set.singleton in
+  let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
+  let hyps, env = Pre.init_vars
+      (Bap.Std.Var.Set.union vars_pointer_reg vars_sub |> Bap.Std.Var.Set.union sp) env in
+  let hyps = (Pre.set_sp_range env) :: hyps in
   let hyps =
     (* short circuit to avoid extraneous "&& true" constraint *)
     if List.length p.pointer_reg_list > 0
     then
-      let z3_exprs = List.filter_map p.pointer_reg_list
-          ~f:(fun reg_name -> get_init_z3_expr reg_name env) in
+      let z3_exprs = List.filter_map (Bap.Std.Var.Set.to_list vars_pointer_reg)
+          ~f:(fun var -> Env.get_init_var env var) in
       (Z3_utils.construct_pointer_constraint z3_exprs env None None) :: hyps
     else hyps in
   let post =
@@ -264,7 +255,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let main_sub1 = Utils.find_func_err subs1 p.func in
   let main_sub2 = Utils.find_func_err subs2 p.func in
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
-  let env2 =
+  let env2, pointer_vars_2 =
     let to_inline2 = Utils.match_inline p.inline subs2 in
     let specs2 = fun_specs p to_inline2 in
     let exp_conds2 = exp_conds_mod p in
@@ -277,12 +268,15 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~stack_range
     in
     let env2 = Env.set_freshen env2 true in
-    let _, env2 = Pre.init_vars (Pre.get_vars env2 main_sub2) env2 in
-    let additional_vars, env2 = add_list_to_env p.pointer_reg_list env2 in
-    let _, env2 = Pre.init_vars additional_vars env2 in
-    env2
+    let vars_sub = Pre.get_vars env2 main_sub2 in
+    let vars_pointer_reg = create_vars p.pointer_reg_list in
+    let sp = Env.get_sp env2 |> Bap.Std.Var.Set.singleton in
+    let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
+    let _, env2 = Pre.init_vars
+        (Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env2 in
+    env2, vars_pointer_reg
   in
-  let env1 =
+  let env1, pointer_vars_1 =
     let to_inline1 = Utils.match_inline p.inline subs1 in
     let specs1 = fun_specs p to_inline1 in
     let exp_conds1 = exp_conds_orig p env2 file1 file2 in
@@ -294,13 +288,18 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~exp_conds:exp_conds1
         ~stack_range
     in
-    let _, env1 = Pre.init_vars (Pre.get_vars env1 main_sub1) env1 in
-    let additional_vars, env1 = add_list_to_env p.pointer_reg_list env1 in
-    let _, env1 = Pre.init_vars additional_vars env1 in
-    env1
+    let vars_sub = Pre.get_vars env1 main_sub1 in
+    let vars_pointer_reg = create_vars p.pointer_reg_list in
+    let sp = Env.get_sp env1 |> Bap.Std.Var.Set.singleton in
+    let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
+    let _, env1 = Pre.init_vars
+        (Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in
+    env1, vars_pointer_reg
   in
   let posts, hyps =
     comparators_of_flags ~orig:(main_sub1, env1) ~modif:(main_sub2, env2) p
+      (pointer_vars_1 |> Bap.Std.Var.Set.to_list)
+      (pointer_vars_2 |> Bap.Std.Var.Set.to_list)
   in
   let pre, env1, env2 =
     Comp.compare_subs ~postconds:posts ~hyps:hyps

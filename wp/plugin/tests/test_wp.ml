@@ -275,6 +275,8 @@ let suite = [
 
   "Single test without pointer flag" >: test_plugin "pointer_flag_single" sat ~script:"run_wp_sat.sh";
   "Single test with pointer flag"    >: test_plugin "pointer_flag_single" unsat ~script:"run_wp_unsat.sh";
+  "Single test with pointer flag and no RSP"
+  >: test_plugin "pointer_flag_rsp" unsat ~script:"run_wp.sh";
 
 
   "Verifier assume SAT"            >: test_plugin "verifier_calls" sat ~script:"run_wp_assume_sat.sh";
