@@ -158,10 +158,9 @@ let create_vars (l : string list) (env : Env.t) : Bap.Std.Var.Set.t =
   |> Bap.Std.Var.Set.of_list
 
 let gen_ptr_flag_warnings
-    (vars_sub : Bap.Std.Var.Set.t)
-    (vars_pointer_reg : Bap.Std.Var.Set.t)
-    (sp : Bap.Std.Var.Set.t) : unit =
-  let expected_regs = Bap.Std.Var.Set.union vars_pointer_reg sp in
+    (vars_sub : Var.Set.t)
+    (expected_regs : Var.Set.t)
+  : unit =
   Bap.Std.Var.Set.diff expected_regs vars_sub
   |> Bap.Std.Var.Set.iter ~f:(fun var ->
       warning
@@ -185,7 +184,10 @@ let gen_pointer_flag_comparators
     let post_conds = Env.trivial_constr env1 in
     Comp.compare_subs_constraints ~pre_conds ~post_conds |> Some
 
-
+(* Returns a set of input registers to be used in the analysis if the
+   corresponding parameter is set. *)
+let get_input_regs (flag : bool) (arch : Arch.t) : Var.Set.t =
+  if flag then Var.Set.of_list @@ Pre.input_regs arch else Var.Set.empty
 
 (* Returns a list of postconditions and a list of hypotheses based on the
    flags set from the command line. *)
@@ -231,10 +233,15 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let true_constr = Env.trivial_constr env in
   let vars_sub = Pre.get_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
-  let sp = Env.get_sp env |> Bap.Std.Var.Set.singleton in
-  let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-  let hyps, env = Pre.init_vars
-      (Bap.Std.Var.Set.union vars_pointer_reg vars_sub |> Bap.Std.Var.Set.union sp) env in
+  let vars = Var.Set.union_list [
+    vars_sub;
+    vars_pointer_reg;
+    get_input_regs p.use_fun_input_regs arch;
+    Var.Set.singleton @@ Env.get_sp env;
+    Var.Set.singleton @@ Env.get_mem env
+  ] in
+  let () = gen_ptr_flag_warnings vars_sub vars in
+  let hyps, env = Pre.init_vars vars env in
   let hyps = (Pre.set_sp_range env) :: hyps in
   let hyps =
     (* short circuit to avoid extraneous "&& true" constraint *)
@@ -265,6 +272,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~loader:Utils.loader ~filepath:file1 in
   let prog2, arch2 = Utils.read_program bap_ctx
       ~loader:Utils.loader ~filepath:file2 in
+  (assert (Arch.equal arch1 arch2));
   let subs1 = Term.enum sub_t prog1 in
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = Utils.find_func_err subs1 p.func in
@@ -285,10 +293,15 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     let env2 = Env.set_freshen env2 true in
     let vars_sub = Pre.get_vars env2 main_sub2 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env2 in
-    let sp = Env.get_sp env2 |> Bap.Std.Var.Set.singleton in
-    let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-    let _, env2 = Pre.init_vars
-        (Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env2 in
+    let vars2 = Var.Set.union_list [
+      vars_sub;
+      vars_pointer_reg;
+      get_input_regs p.use_fun_input_regs arch2;
+      Var.Set.singleton @@ Env.get_sp env2;
+      Var.Set.singleton @@ Env.get_mem env2
+    ] in
+    let () = gen_ptr_flag_warnings vars_sub vars2 in
+    let _, env2 = Pre.init_vars vars2 env2 in
     env2, vars_pointer_reg
   in
   let env1, pointer_vars_1 =
@@ -305,10 +318,15 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     in
     let vars_sub = Pre.get_vars env1 main_sub1 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env1 in
-    let sp = Env.get_sp env1 |> Bap.Std.Var.Set.singleton in
-    let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-    let _, env1 = Pre.init_vars
-        (Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in
+    let vars1 = Var.Set.union_list [
+      vars_sub;
+      vars_pointer_reg;
+      get_input_regs p.use_fun_input_regs arch1;
+      Var.Set.singleton @@ Env.get_sp env1;
+      Var.Set.singleton @@ Env.get_mem env1
+    ] in
+    let () = gen_ptr_flag_warnings vars_sub vars1 in
+    let _, env1 = Pre.init_vars vars1 env1 in
     env1, vars_pointer_reg
   in
   let posts, hyps =

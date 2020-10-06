@@ -417,12 +417,6 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
                             implemented for non-x86_64 architectures.")
 
 let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
-  let vars =
-    if Env.use_input_regs env then
-      env |> Env.get_arch |> input_regs |> Var.Set.of_list
-    else
-      Var.Set.empty
-  in
   let visitor =
     (object inherit [Var.Set.t] Term.visitor
       method! visit_arg arg vars =
@@ -454,7 +448,7 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
         Var.Set.union vars (Jmp.free_vars jmp)
     end)
   in
-  visitor#visit_sub t vars
+  visitor#visit_sub t Var.Set.empty
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let is_verifier_error name = String.(
