@@ -232,7 +232,7 @@ val get_loop_handler :
 val get_arch : t -> Bap.Std.Arch.t
 
 (** Obtains the name of the program's stack pointer *)
-val get_sp_name : t -> string
+val get_sp: t -> Bap.Std.Var.t
 
 (** Obtains a list of all the {!Constr.z3_expr}s that represents constants that
     were generated during analysis. *)
