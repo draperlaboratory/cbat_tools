@@ -14,7 +14,7 @@ run_unsat () {
     --mem-offset \
     --show=bir,refuted-goals,paths \
     --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
-    --pointer-reg-list=ABC,RDI \
+    --pointer-reg-list=RDI \
     --precond="(assert (= mem_orig mem_mod))" \
     -- main_1 main_2
 }

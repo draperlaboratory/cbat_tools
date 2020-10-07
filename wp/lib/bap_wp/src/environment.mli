@@ -231,6 +231,9 @@ val get_loop_handler :
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t
 
+(** Obtains the general purpose registers of the architecture of the program. *)
+val get_gprs : t -> Bap.Std.Var.Set.t
+
 (** Obtains the name of the program's stack pointer *)
 val get_sp: t -> Bap.Std.Var.t
 

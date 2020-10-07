@@ -138,9 +138,24 @@ let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
            memory for the x86_64 architecture.\n%!";
     None
 
-(* Create list of variables from string names. *)
-let create_vars (l : string list) : Bap.Std.Var.Set.t =
-  List.map l ~f:(fun var -> Var.create var reg64_t) |> Bap.Std.Var.Set.of_list
+(* obtain a set of general purpose registers
+ * based on their string names and architecture. *)
+let create_vars (l : string list) (env : Env.t) : Bap.Std.Var.Set.t =
+  let gprs = Env.get_gprs env
+  in
+  List.map l
+    ~f:(fun var_name ->
+        let var = Bap.Std.Var.Set.find gprs
+            ~f:(fun var -> var_name = Var.name var) in
+        match var with
+        | Some r -> r
+        | None ->
+          Printf.sprintf
+            "Could not find %s in the set of general purpose registers"
+            var_name
+          |> failwith
+      )
+  |> Bap.Std.Var.Set.of_list
 
 let gen_ptr_flag_warnings
     (vars_sub : Bap.Std.Var.Set.t)
@@ -215,7 +230,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
   let vars_sub = Pre.get_vars env main_sub in
-  let vars_pointer_reg = create_vars p.pointer_reg_list in
+  let vars_pointer_reg = create_vars p.pointer_reg_list env in
   let sp = Env.get_sp env |> Bap.Std.Var.Set.singleton in
   let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
   let hyps, env = Pre.init_vars
@@ -269,7 +284,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     in
     let env2 = Env.set_freshen env2 true in
     let vars_sub = Pre.get_vars env2 main_sub2 in
-    let vars_pointer_reg = create_vars p.pointer_reg_list in
+    let vars_pointer_reg = create_vars p.pointer_reg_list env2 in
     let sp = Env.get_sp env2 |> Bap.Std.Var.Set.singleton in
     let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
     let _, env2 = Pre.init_vars
@@ -289,7 +304,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~stack_range
     in
     let vars_sub = Pre.get_vars env1 main_sub1 in
-    let vars_pointer_reg = create_vars p.pointer_reg_list in
+    let vars_pointer_reg = create_vars p.pointer_reg_list env1 in
     let sp = Env.get_sp env1 |> Bap.Std.Var.Set.singleton in
     let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
     let _, env1 = Pre.init_vars

@@ -404,6 +404,10 @@ let get_consts (env : t) : ExprSet.t =
 let get_arch (env : t) : Arch.t =
   env.arch
 
+let get_gprs (env : t) : Bap.Std.Var.Set.t =
+  let module Target = (val target_of_arch (get_arch env)) in
+  Target.CPU.gpr
+
 let get_sp (env : t) : Var.t =
   let module Target = (val target_of_arch (get_arch env)) in
   Target.CPU.sp
