@@ -20,6 +20,10 @@ TEST_Is_INTEGRATION := $(TEST_Is)',tests/integration'
 BUILD := $(PASS_NAME).plugin
 SRC_FILES := $(wildcard **/*.ml) $(wildcard **/*.mli)
 
+LIB_SRC_FILES := $(wildcard ../lib/bap_wp/src/*.ml) $(wildcard ../lib/bap_wp/src/*.mli)
+
+TRACK_LIB:= _build/TRACK_LIB
+
 #####################################################
 # DEFAULT
 #####################################################
@@ -36,13 +40,23 @@ all: install
 clean: uninstall test.clean
 	bapbuild -clean
 
+
+####################################################
+# REBUILD ON LIB CHANGE
+####################################################
+
+$(TRACK_LIB): $(LIB_SRC_FILES)
+	bapbuild -clean
+	mkdir _build
+	touch $(TRACK_LIB)
+
 #####################################################
 # BUILD
 #####################################################
 
 build: $(BUILD)
 
-$(BUILD): $(SRC_FILES)
+$(BUILD): $(SRC_FILES) $(TRACK_LIB)
 	bapbuild -use-ocamlfind -pkgs $(PKGS) -tag $(TAG) -I $(Is) $(PASS_NAME).plugin
 
 #####################################################
