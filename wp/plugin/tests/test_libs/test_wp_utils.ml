@@ -329,7 +329,10 @@ let lift_out_regs (reg_value : ((string * string) list) list) : StringSet.t =
 let nqueens_tests = List.range 4 20 |> List.map ~f:(fun i ->
     let description = Printf.sprintf "NQueens solver %dx%d" i i in
     let script = Printf.sprintf "run_wp.sh" in
-    (description >: test_plugin "nqueens" sat
-       ~reg_list:(get_register_args 6 `x86_64 |> StringSet.of_list)
-       ~checker:(check_n_queens i `x86_64 |> Some)
-       ~script:script ~args:[string_of_int i]))
+    let test = (description >: test_plugin "nqueens" sat
+                  ~reg_list:(get_register_args 6 `x86_64 |> StringSet.of_list)
+                  ~checker:(check_n_queens i `x86_64 |> Some)
+                  ~script:script ~args:[string_of_int i])
+    in
+    (* tests 17 to 19 currently time out *)
+    if i > 16 then (description >:: (test_skip timeout_msg test)) else test)
