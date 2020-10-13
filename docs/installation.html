@@ -72,10 +72,22 @@
   make clean
 </pre>
 
-<p>To run oUnit tests:
+<p>To run oUnit unit tests:
 
 <pre>
   make test
+</pre>
+
+<p>To run oUnit integration tests:
+
+<pre>
+  make test.plugin.integration
+</pre>
+
+<p> To run oUnit tests with colored output, before running the above test commands, run 
+
+<pre>
+  export OUNIT_CI=true
 </pre>
 
 </section>
