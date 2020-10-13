@@ -68,11 +68,11 @@ test: test.unit test.performance
 
 .PHONY: test.unit
 test.unit:
-	OUINT_CI=true dune runtest tests/unit
+	dune runtest tests/unit
 
 .PHONY: test.performance
 test.performance:
-	OUINT_CI=true dune runtest tests/performance
+	dune runtest tests/performance
 
 #####################################################
 # DOCS
