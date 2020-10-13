@@ -86,7 +86,7 @@ test.unit: install test.build
 	ocamlbuild -r -use-ocamlfind \
 		-pkgs $(TEST_PKGS) \
 		-tag $(TEST_TAG) -Is $(TEST_Is_UNIT) test.native
-	OUNIT_CI=true ./test.native
+	./test.native
 
 .PHONY: test.integration
 test.integration: install test.build
@@ -94,4 +94,4 @@ test.integration: install test.build
 		-pkgs $(TEST_PKGS) \
 		-tag $(TEST_TAG) \
 		-tag $(TEST_TAG) -Is $(TEST_Is_INTEGRATION) test.native
-	OUNIT_CI=true ./test.native
+	./test.native
