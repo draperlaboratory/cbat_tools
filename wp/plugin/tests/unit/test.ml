@@ -17,7 +17,7 @@ let suite =
   "Unit suite" >::: [
     "Utils"           >::: Test_utils.suite;
     "Parameters"      >::: Test_parameters.suite;
-    "WP.unit"         >::: Test_wp.unit_tests;
+    "WP.unit"         >::: Test_wp_unit.unit_tests;
   ]
 
 let _ = run_test_tt_main suite
