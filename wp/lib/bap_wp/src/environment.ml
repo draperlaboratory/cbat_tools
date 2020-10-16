@@ -412,6 +412,10 @@ let get_sp (env : t) : Var.t =
   let module Target = (val target_of_arch (get_arch env)) in
   Target.CPU.sp
 
+let get_mem (env : t) : Var.t =
+  let module Target = (val target_of_arch (get_arch env)) in
+  Target.CPU.mem
+
 let fold_fun_tids (env : t) ~init:(init : 'a)
     ~f:(f : key:string -> data:Tid.t -> 'a -> 'a) : 'a =
   StringMap.fold env.fun_name_tid ~init:init ~f:f

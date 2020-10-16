@@ -44,6 +44,7 @@ type t = {
   bildb_output : string option;
   use_fun_input_regs : bool;
   mem_offset : bool;
+  rewrite_addresses : bool;
   debug : string list;
   stack_base : int option;
   stack_size : int option;
@@ -56,7 +57,6 @@ let validate_func (func : string) : (unit, error) result =
                             --func=<name>%!" in
   Result.ok_if_true (not @@ String.is_empty func)
     ~error:(Missing_function err)
-
 
 (* Looks for an unsupported option among the options the user inputted. *)
 let find_unsupported_option (opts : string list) (valid : string list)
@@ -115,10 +115,26 @@ let validate_compare_post_reg_vals (regs : string list) (files : string list)
   Result.ok_if_true ((List.is_empty regs) || (List.length files = 2))
     ~error:(Incompatible_flag err)
 
+let validate_mem_flags (mem_offset : bool) (rewrite_addrs : bool)
+    (files : string list) : (unit, error) result =
+  if mem_offset && rewrite_addrs then
+    let err = "--mem-offset and --rewrite-addresses cannot be used together. \
+               Please specify only one flag." in
+    Error (Incompatible_flag err)
+  else if (mem_offset || rewrite_addrs) && (List.length files <> 2) then begin
+    let flag = if mem_offset then "mem-offset" else "rewrite-addresses" in
+    let err = Printf.sprintf "--%s is only used for a comparative analysis. \
+                              Please specify two files. Number of files \
+                              given: %d%!" flag (List.length files) in
+    Error (Incompatible_flag err)
+  end else
+    Ok ()
+
 let validate (f : t) (files : string list) : (unit, error) result =
   validate_func f.func >>= fun () ->
   validate_compare_func_calls f.compare_func_calls files >>= fun () ->
   validate_compare_post_reg_vals f.compare_post_reg_values files >>= fun () ->
+  validate_mem_flags f.mem_offset f.rewrite_addresses files >>= fun () ->
   validate_debug f.debug >>= fun () ->
   validate_show f.show >>= fun () ->
   Ok ()

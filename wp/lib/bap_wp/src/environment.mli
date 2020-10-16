@@ -237,6 +237,9 @@ val get_gprs : t -> Bap.Std.Var.Set.t
 (** Obtains the name of the program's stack pointer *)
 val get_sp: t -> Bap.Std.Var.t
 
+(** Obtains the BAP variable representing a program's memory. *)
+val get_mem : t -> Bap.Std.Var.t
+
 (** Obtains a list of all the {!Constr.z3_expr}s that represents constants that
     were generated during analysis. *)
 val get_consts : t -> ExprSet.t

@@ -129,6 +129,12 @@ let mem_offset = Cmd.flag "mem-offset"
            not present, WP assumes that memory between both binaries start at
            the same offset.|}
 
+let rewrite_addresses = Cmd.flag "rewrite-addresses"
+    ~doc:{|This flag is only used in a comparative analysis. Rewrites the
+           concrete addresses in the modified binary to the same address in the
+           original binary if they point to the same symbol. This flag should
+           not be used in conjunction with the `--mem-offset' flag.|}
+
 let debug = Cmd.parameter Typ.(list string) "debug"
     ~doc:{|A list of various debugging statistics to display. Multiple
            statistics may be specified in a comma-separated list. For example:
@@ -196,6 +202,7 @@ let grammar = Cmd.(
     $ bildb_output
     $ use_fun_input_regs
     $ mem_offset
+    $ rewrite_addresses
     $ debug
     $ show
     $ stack_base
@@ -218,6 +225,7 @@ let callback
     (bildb_output : string option)
     (use_fun_input_regs : bool)
     (mem_offset : bool)
+    (rewrite_addresses : bool)
     (debug : string list)
     (show : string list)
     (stack_base : int option)
@@ -239,6 +247,7 @@ let callback
       bildb_output = bildb_output;
       use_fun_input_regs = use_fun_input_regs;
       mem_offset = mem_offset;
+      rewrite_addresses = rewrite_addresses;
       debug = debug;
       show = show;
       stack_base = stack_base;

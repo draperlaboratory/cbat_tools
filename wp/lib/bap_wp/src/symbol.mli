@@ -36,3 +36,8 @@ val get_symbols : string -> t list
     original binary to the address of the read in the modified binary. *)
 val offset_constraint :
   orig:(t list) -> modif:(t list) -> Z3.context -> Constr.z3_expr -> Constr.z3_expr
+
+(** Rewrites the addresses in the modified subroutine to the corresponding
+    addresses in the original subroutine given they point to the same symbols. *)
+val rewrite_addresses :
+  orig:(t list) -> modif:(t list) -> Bap.Std.Sub.t -> Bap.Std.Sub.t

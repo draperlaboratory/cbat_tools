@@ -47,6 +47,7 @@ type t = {
   bildb_output : string option;
   use_fun_input_regs : bool;
   mem_offset : bool;
+  rewrite_addresses : bool;
   debug : string list;
   stack_base : int option;
   stack_size : int option;
@@ -81,3 +82,8 @@ val validate_compare_func_calls : bool -> string list -> (unit, error) result
     Returns an error otherwise. *)
 val validate_compare_post_reg_vals :
   string list -> string list -> (unit, error) result
+
+(** [validate_mem_flag mem_offset rewrite_addrs files] checks that a memory
+    comparison flag is only set when there are two files to compare, and that
+    only one flag is set at a time. Returns an error otherwise. *)
+val validate_mem_flags : bool -> bool -> string list -> (unit, error) result
