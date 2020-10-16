@@ -291,3 +291,21 @@ let compare_subs_fun : comparator * comparator =
     Constr.mk_clause [] (eqs @ modified_not_called), env1, env2
   in
   postcond, hyps
+
+let compare_subs_mem_eq : comparator * comparator =
+  let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    let post = Env.trivial_constr env1 in
+    post, env1, env2
+  in
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+    let ctx = Env.get_context env1 in
+    let mem1, env1 = Env.get_var env1 (Env.get_mem env1) in
+    let mem2, env2 = Env.get_var env2 (Env.get_mem env2) in
+    let mem_eq =
+      Bool.mk_eq ctx mem1 mem2
+      |> Constr.mk_goal "mem_orig = mem_mod"
+      |> Constr.mk_constr
+    in
+    mem_eq, env1, env2
+  in
+  postcond, hyps

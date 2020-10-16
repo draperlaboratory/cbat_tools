@@ -17,11 +17,14 @@ open Bap.Std
 module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Expr = Z3.Expr
+module Env = Environment
 module Constr = Constraint
 module Pre = Precondition
 
 exception ExecutionError of string
 exception NonzeroExit of string
+
+include Self()
 
 type t = string * Word.t
 
@@ -80,17 +83,16 @@ let retrowrite_pattern (name : string) : Re__.Core.re =
   |> Re.Posix.re
   |> Re.Posix.compile
 
-(* Finds the symbol in the modified binary that matches the retrowrite pattern on
-   its name. *)
-let find (name_orig : string) (syms : (string * Constr.z3_expr) list)
-  : (string * Constr.z3_expr) option =
-  List.find syms ~f:(fun (name_mod, _) ->
-      Re.execp (retrowrite_pattern name_orig) name_mod)
-
 let offset_constraint ~orig:(syms_orig : t list) ~modif:(syms_mod : t list)
     (ctx : Z3.context) : Constr.z3_expr -> Constr.z3_expr =
   let syms_orig = addrs_to_z3 ctx syms_orig in
   let syms_mod = addrs_to_z3 ctx syms_mod in
+  (* Finds the symbol in the modified binary that matches the retrowrite pattern
+     on its name. *)
+  let find name_orig syms =
+    List.find syms ~f:(fun (name_mod, _) ->
+        Re.execp (retrowrite_pattern name_orig) name_mod)
+  in
   fun addr ->
     let rec calc_offsets syms_orig offsets =
       match syms_orig with
@@ -109,3 +111,40 @@ let offset_constraint ~orig:(syms_orig : t list) ~modif:(syms_mod : t list)
       | [] | _ :: [] -> offsets
     in
     calc_offsets syms_orig addr
+
+let update_address ~orig:(syms_orig : t list) ~modif:(syms_mod : t list)
+  : Word.t -> Word.t =
+  (* Find the symbol in the original binary that matches that of the modified
+     binary. *)
+  let find name_mod syms =
+    List.find syms ~f:(fun (name_orig, _) ->
+        Re.execp (retrowrite_pattern name_orig) name_mod)
+  in
+  fun addr ->
+    let rec rewrite syms_mod =
+      match syms_mod with
+      | (name_mod, addr_start_mod) :: ((_, addr_end_mod) :: _ as ss) -> begin
+          match find name_mod syms_orig with
+          | None -> rewrite ss
+          | Some (name_orig, addr_orig) ->
+            if Word.(addr_start_mod <= addr && addr < addr_end_mod) then
+              let diff = Word.(addr_start_mod - addr_orig) in
+              let ptr = Word.(addr - diff) in
+              info "Rewriting pointer from %s:%s to %s:%s%!"
+                name_mod (Word.to_string addr) name_orig (Word.to_string ptr);
+              ptr
+            else
+              rewrite ss
+        end
+      | [] | _ :: [] -> addr
+    in
+    rewrite syms_mod
+
+let rewrite_addresses ~(orig : t list) ~(modif : t list) (sub : Sub.t) : Sub.t =
+  let update_exp = object
+    inherit Exp.mapper as super
+    method! map_int word =
+      let word' = update_address ~orig ~modif word in
+      super#map_int word'
+  end in
+  Term.map blk_t sub ~f:(Blk.map_exp ~f:(Exp.map update_exp))
