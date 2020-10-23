@@ -199,6 +199,22 @@ val non_null_store_vc : Env.exp_cond
 (** This spec {e assumes} each memory write to be on a non-null address. *)
 val non_null_store_assert : Env.exp_cond
 
+(** This spec enforces each memory read to be in a valid region of memory, i.e.
+    either on the stack or heap. *)
+val valid_load_vc : Env.exp_cond
+
+(** This spec {e assumes} each memory read to be in a valid region of memory,
+    i.e. either on the stack or heap. *)
+val valid_load_assert : Env.exp_cond
+
+(** This spec enforces each memory write to be in a valid region of memory, i.e.
+    either on the stack or heap. *)
+val valid_store_vc : Env.exp_cond
+
+(** This spec {e assumes} each memory write to be in a valid region of memory,
+    i.e. either on the stack or heap. *)
+val valid_store_assert : Env.exp_cond
+
 (** This spec {e assumes} that the value of a memory read at address [a] in the
     original binary is equal to the memory read of the modified binary at address
     [a + d]. *)

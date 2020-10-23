@@ -1061,6 +1061,18 @@ let non_null_store_assert : Env.exp_cond = fun env exp ->
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem store"
                                 (Bool.mk_and ctx conds))))
 
+let valid_load_vc : Env.exp_cond = fun env exp ->
+  assert false
+
+let valid_load_assert : Env.exp_cond = fun env exp ->
+  assert false
+
+let valid_store_vc : Env.exp_cond = fun env exp ->
+  assert false
+
+let valid_store_assert : Env.exp_cond = fun env exp ->
+  assert false
+
 (* At a memory read, add two assumptions of the form:
    Data(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
    Stack(x) => init_mem_orig[x] == init_mem_mod[x] *)

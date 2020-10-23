@@ -68,6 +68,12 @@ let check_null_derefs = Cmd.flag "check-null-derefs"
            analysis, checks that the modified binary has no additional paths
            with null dereferences in comparison with the original binary.|}
 
+let check_invalid_derefs = Cmd.flag "check-invalid-derefs"
+    ~doc:{|This flag is only used in a comparative analysis. Checks that the
+           modified binary has no additional paths that result in dereferences
+           to memory locations in invalid locations in comparision with the
+           original binary.|}
+
 let compare_func_calls = Cmd.flag "compare-func-calls"
     ~doc:{|This flag is only used in a comparative analysis. Checks that
            function calls do not occur in the modified binary if they have not
@@ -193,6 +199,7 @@ let grammar = Cmd.(
     $ postcond
     $ trip_asserts
     $ check_null_derefs
+    $ check_invalid_derefs
     $ compare_func_calls
     $ compare_post_reg_values
     $ pointer_reg_list
@@ -216,6 +223,7 @@ let callback
     (postcond : string)
     (trip_asserts : bool)
     (check_null_derefs : bool)
+    (check_invalid_derefs : bool)
     (compare_func_calls : bool)
     (compare_post_reg_values : string list)
     (pointer_reg_list : string list)
@@ -238,6 +246,7 @@ let callback
       postcond = postcond;
       trip_asserts = trip_asserts;
       check_null_derefs = check_null_derefs;
+      check_invalid_derefs = check_invalid_derefs;
       compare_func_calls = compare_func_calls;
       compare_post_reg_values = compare_post_reg_values;
       pointer_reg_list = pointer_reg_list;
