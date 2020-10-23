@@ -68,18 +68,29 @@ let exp_conds_orig (p : Params.t) (env_mod : Env.t) (syms_orig : Symbol.t list)
   let null_derefs =
     if p.check_null_derefs then
       [Pre.non_null_load_assert; Pre.non_null_store_assert]
-    else
-      []
+    else []
   in
-  offsets :: null_derefs
+  let invalid_derefs =
+    if p.check_invalid_derefs then
+      [Pre.valid_load_assert; Pre.valid_store_assert]
+    else []
+  in
+  offsets :: null_derefs @ invalid_derefs
 
 (* Generate the exp_conds for the modified binary based on the flags passed in
    from the CLI. *)
 let exp_conds_mod (p : Params.t) : Env.exp_cond list =
-  if p.check_null_derefs then
-    [Pre.non_null_load_vc; Pre.non_null_store_vc]
-  else
-    []
+  let null_derefs =
+    if p.check_null_derefs then
+      [Pre.non_null_load_vc; Pre.non_null_store_vc]
+    else []
+  in
+  let invalid_derefs =
+    if p.check_invalid_derefs then
+      [Pre.valid_load_vc; Pre.valid_store_vc]
+    else []
+  in
+  null_derefs @ invalid_derefs
 
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)

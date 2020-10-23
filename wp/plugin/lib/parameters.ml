@@ -35,6 +35,7 @@ type t = {
   postcond : string;
   trip_asserts : bool;
   check_null_derefs : bool;
+  check_invalid_derefs : bool;
   compare_func_calls : bool;
   compare_post_reg_values : string list;
   pointer_reg_list : string list;
@@ -97,14 +98,23 @@ let validate_show (show : string list) : (unit, error) result =
     Error (Unsupported_option err)
   | None -> Ok ()
 
+let validate_two_files (flag : bool) (name : string) (files : string list)
+  : (unit, error) result =
+  let err = Printf.sprintf "--%s is only used for a comparative analysis. \
+                            Please specify two files. Number of files given: \
+                            %d%!" name (List.length files) in
+  Result.ok_if_true ((not flag) || (List.length files = 2))
+    ~error:(Incompatible_flag err)
+
 (* Ensures the user passed in two files to compare function calls. *)
 let validate_compare_func_calls (flag : bool) (files : string list)
   : (unit, error) result =
-  let err = Printf.sprintf "--compare-func-calls is only used for a \
-                            comparative analysis. Please specify two files. \
-                            Number of files given: %d%!" (List.length files) in
-  Result.ok_if_true ((not flag) || (List.length files = 2))
-    ~error:(Incompatible_flag err)
+  validate_two_files flag "compare-func-calls" files
+
+(* Ensures the uer passed in two files to check for invalid dereferences. *)
+let validate_check_invalid_derefs (flag : bool) (files : string list)
+    : (unit, error) result =
+  validate_two_files flag "check-invalid-derefs" files
 
 (* Ensures the user passed in two files to compare post register values. *)
 let validate_compare_post_reg_vals (regs : string list) (files : string list)
@@ -133,6 +143,7 @@ let validate_mem_flags (mem_offset : bool) (rewrite_addrs : bool)
 let validate (f : t) (files : string list) : (unit, error) result =
   validate_func f.func >>= fun () ->
   validate_compare_func_calls f.compare_func_calls files >>= fun () ->
+  validate_check_invalid_derefs f.check_invalid_derefs files >>= fun () ->
   validate_compare_post_reg_vals f.compare_post_reg_values files >>= fun () ->
   validate_mem_flags f.mem_offset f.rewrite_addresses files >>= fun () ->
   validate_debug f.debug >>= fun () ->
