@@ -195,6 +195,13 @@ let gen_pointer_flag_comparators
     let post_conds = Env.trivial_constr env1 in
     Some (Comp.compare_subs_constraints ~pre_conds ~post_conds)
 
+(* If we are rewriting addresses, we can equate the two memory arrays. *)
+let mem_eq (rewrite_addrs : bool) : (Comp.comparator * Comp.comparator) option =
+  if rewrite_addrs then
+    Some Compare.compare_subs_mem_eq
+  else
+    None
+
 (* Returns a list of postconditions and a list of hypotheses based on the
    flags set from the command line. *)
 let comparators_of_flags
@@ -213,6 +220,7 @@ let comparators_of_flags
     sp arch;
     gen_pointer_flag_comparators p.pointer_reg_list
       env1 env2 pointer_env1_vars pointer_env2_vars;
+    mem_eq p.rewrite_addresses
   ] |> List.filter_opt
   in
   let comps =
