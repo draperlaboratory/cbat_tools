@@ -1,3 +1,3 @@
 open Bap.Std
 
-val cmp_overall : Sub.t -> Sub.t -> bool
+val exist_isomorphism : Sub.t -> Sub.t -> bool
