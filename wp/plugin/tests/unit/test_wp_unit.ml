@@ -43,20 +43,28 @@ let unit_tests = [
     ~script:"run_wp_pre.sh";
   "Arrays in data section"         >: test_plugin "memory_samples/arrays" unsat
     ~script:"run_wp_pre_mem_offset.sh";
+  "Arrays in data section"         >: test_plugin "memory_samples/arrays" unsat
+    ~script:"run_wp_addr_rewrite.sh";
 
   "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" sat;
   "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" unsat
     ~script:"run_wp_mem_offset.sh";
+  "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" unsat
+    ~script:"run_wp_addr_rewrite.sh";
 
   "Diff data section"              >:: test_skip fail_msg (test_plugin "memory_samples/diff_data" sat);
 
   "Same data, diff location"       >: test_plugin "memory_samples/diff_data_location" sat;
   "Same data, diff location"       >: test_plugin "memory_samples/diff_data_location" unsat
     ~script:"run_wp_mem_offset.sh";
+  "Same data, diff location"       >: test_plugin "memory_samples/diff_data_location" unsat
+    ~script:"run_wp_addr_rewrite.sh";
 
   "Diff stack values"              >: test_plugin "memory_samples/diff_stack" sat;
 
   "Name matching"                  >: test_plugin "memory_samples/name_matching" unsat;
+  "Name matching"                  >: test_plugin "memory_samples/name_matching" unsat
+    ~script:"run_wp_addr_rewrite.sh";
 
   "No position independent"        >: test_plugin "no_position_independent" sat;
 
