@@ -201,7 +201,7 @@ let gen_pointer_flag_comparators
   else
     let regs_orig = List.filter_map pointer_env1_vars ~f:(fun var -> Env.get_init_var env1 var) in
     let regs_mod = List.filter_map pointer_env2_vars ~f:(fun var -> Env.get_init_var env2 var) in
-    let pre_conds = Z3_utils.construct_pointer_constraint regs_orig env1
+    let pre_conds = Pre.construct_pointer_constraint regs_orig env1
         (Some regs_mod) (Some env2) in
     let post_conds = Env.trivial_constr env1 in
     Some (Comp.compare_subs_constraints ~pre_conds ~post_conds)
@@ -269,7 +269,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     then
       let z3_exprs = List.filter_map (Bap.Std.Var.Set.to_list vars_pointer_reg)
           ~f:(fun var -> Env.get_init_var env var) in
-      (Z3_utils.construct_pointer_constraint z3_exprs env None None) :: hyps
+      (Pre.construct_pointer_constraint z3_exprs env None None) :: hyps
     else hyps in
   let post =
     if String.is_empty p.postcond then

@@ -331,3 +331,10 @@ val exclude
 (** Hypothesis that the stack pointer is within the valid range of the stack
     according to the environment. *)
 val set_sp_range : Env.t -> Constr.t
+
+(** [construct_pointer_constraint] generates a constraint that
+    the registers (passed in as z3 expressions) are treated as pointers. That is,
+    all specified registers cannot point to the uninitalized stack region.
+    They must be either below the bottom of the stack or above the initial
+    stack pointer. *)
+val construct_pointer_constraint : Constr.z3_expr list -> Env.t -> (Constr.z3_expr list) option -> Env.t option -> Constr.t
