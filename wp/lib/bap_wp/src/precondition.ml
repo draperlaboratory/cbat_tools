@@ -1064,7 +1064,24 @@ let non_null_store_assert : Env.exp_cond = fun env exp ->
                                 (Bool.mk_and ctx conds))))
 
 let valid_mem_expr (env : Env.t) (addr : Exp.t) : Constr.z3_expr =
-  assert false
+  let ctx = Env.get_context env in
+  let width = match Type.infer_exn addr with
+    | Imm n -> n
+    | Mem _ ->
+      let err_msg = Format.sprintf "Error in valid_mem_expr: %s is a memory read \
+                                    instead of a word" (Exp.to_string addr) in
+      error "%s" err_msg;
+      failwith err_msg
+    | Unk ->
+      let err_msg = Format.sprintf "Error in valid_mem_expr: %s is of Unknown type"
+          (Exp.to_string addr) in
+      error "%s" err_msg;
+      failwith err_msg
+  in
+  (* Check to see if the address is on the stack or on the heap. *)
+  let null = BV.mk_numeral ctx "0" width in
+  let addr_val,_,_ = exp_to_z3 addr env in
+  Bool.mk_not ctx (Bool.mk_eq ctx null addr_val)
 
 let valid_load_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -1213,3 +1230,58 @@ let set_sp_range (env : Env.t) : Constr.t =
   stack_range
   |> Constr.mk_goal (Format.sprintf "SP in stack range: %s" (Expr.to_string stack_range))
   |> Constr.mk_constr
+
+let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
+    (l_mod : (Constr.z3_expr list) option) (env2: Env.t option) : Constr.t =
+  let stack_end = Env.get_stack_end env1 in
+  let ctx = Env.get_context env1 in
+  let width = env1 |> Env.get_sp |> Var.typ |> typ_size in
+  let function_name = "construct_pointer_constraint: " in
+  let err_msg_rsp = "stack pointer not found" in
+  let sb_bv = BV.mk_numeral ctx (stack_end |> Int.to_string) width in
+  let gen_constr, l = match l_mod, env2 with
+    (* comparative case *)
+    | Some l_mod, Some env2 ->
+      (* we do want exceptions here if RSP doesn't exist *)
+      let rsp_orig = Option.value_exn
+          ~message:(function_name ^ "original " ^ err_msg_rsp)
+          (Env.get_init_var env1 @@ Env.get_sp env1) in
+      let rsp_mod = Option.value_exn
+          ~message:(function_name ^ "modified " ^ err_msg_rsp)
+          (Env.get_init_var env2 @@ Env.get_sp env2) in
+      (* Encode constraint that each register is not within stack*)
+      (fun acc (reg_orig, reg_mod) ->
+         (* NOTE: we are assuming stack grows down.*)
+         (* R_orig >= RSP_orig *)
+         let uge_1 = BV.mk_uge ctx reg_orig rsp_orig in
+         (* R_mod >= RSP_mod *)
+         let uge_2 = BV.mk_uge ctx reg_mod rsp_mod in
+         (*  R_orig <= stack_bottom *)
+         let ule_1 =  BV.mk_ule ctx reg_orig sb_bv in
+         (* R_mod <= stack_bottom *)
+         let ule_2 =  BV.mk_ule ctx reg_mod sb_bv in
+         (* R_orig >= RSP \/ R_orig <= stack_bottom *)
+         let or_c_1 = Bool.mk_or ctx [uge_1; ule_1] in
+         (* R_mod >= RSP \/ R_mod <= stack_bottom *)
+         let or_c_2 = Bool.mk_or ctx [uge_2; ule_2] in
+         (* (R_orig >= RSP \/ R_orig <= stack_bottom) /\
+            (R_mod >= RSP \/ R_mod <= stack_bottom)     *)
+         let and_c = Bool.mk_and ctx [or_c_1; or_c_2;] in
+         Bool.mk_and ctx [and_c; acc]
+      ), List.zip_exn l_orig l_mod
+    (* single binary case *)
+    | _, _ ->
+      let stack_pointer = Option.value_exn ~message:err_msg_rsp
+          (Env.get_init_var env1 @@ Env.get_sp env1) in
+      (fun acc (reg, _) ->
+         (* R >= RSP_orig *)
+         let uge = BV.mk_ugt ctx reg stack_pointer in
+         (* R <= stack_bottom *)
+         let ule = BV.mk_ult ctx reg sb_bv in
+         (* R >= RSP \/ R <= stack_bottom *)
+         let or_c = Bool.mk_or ctx [uge; ule] in
+         Bool.mk_and ctx [or_c; acc]
+      ), List.zip_exn l_orig l_orig
+  in
+  let expr = List.fold l ~init:(Bool.mk_true ctx) ~f:gen_constr in
+  Constr.mk_goal "pointer_precond" expr |> Constr.mk_constr
