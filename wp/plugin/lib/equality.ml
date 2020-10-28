@@ -9,16 +9,16 @@ open Base__Option.Monad_infix
 module H = Bap.Std.Graphs.Ir
 module J = Graphlib.To_ocamlgraph (H)
 module BFS = Graph.Traverse.Bfs (J)
-module TidSet = Set.Make(Tid)
+module TidSet = Tid.Set
 
-module TidMap = Map.Make(Tid)
-module VarMap = Map.Make(Var)
-module VarSet = Set.Make(Var)
+module TidMap = Tid.Map
+module VarMap = Var.Map
+module VarSet = Var.Set
 module TidTupleMap = Map.Make(struct type t = Tid.t * Tid.t [@@deriving sexp, compare] end)
 
 type varToVarMap = Var.t VarMap.t
 
-(* replaces the real variables with indices with only their base *)
+(* Replaces the real variables with indices with only their base *)
 let rec strip_indices (e : Exp.t) : Exp.t =
   let open Bap.Std.Bil.Types in
   match e with
@@ -55,9 +55,9 @@ let map_var (vmap : varToVarMap)
   (* if found in map, return what is found *)
   | Some v_found -> (vmap, v_found) |> Some
 
-(* maps all virtual variables from e1 to their analagous variable within vmap;
- * if variable not in vmap, is added to vmap from e2
- *  returns None if cannot map variables because subs do not match in structure *)
+(* Maps all virtual variables from e1 to their analagous variable within vmap;
+   if a variable not in vmap, is added to vmap from e2
+   returns None if cannot map variables because subs do not match in structure *)
 let rec sub_exp (vmap : varToVarMap)
     (e1 : Exp.t) (e2 : Exp.t) : (varToVarMap * Exp.t) option =
   let open Bap.Std.Bil.Types in
@@ -111,12 +111,12 @@ let rec sub_exp (vmap : varToVarMap)
     fun (vmap, exp2_bin1) -> vmap, Concat (exp1_bin1, exp2_bin1)
   | _, _ -> None
 
-(* gets the block associated with a node in the graph *)
+(* Gets the block associated with a node in the graph *)
 let get_label (a: Bap.Std.Graphs.Ir.Node.t) : blk term =
   Bap.Std.Graphs.Ir.Node.label a
 
-(* compares two defs; returns the updated varmap if they match; returns None
- * if do not match*)
+(* Compares two defs; returns the updated varmap if they match; returns None
+ * if do not match. Only compares expressions and structure. *)
 let compare_def (def1 : def term) (def2 : def term) (vmap_orig : varToVarMap)
   : varToVarMap option  =
   let var1_orig, var2 =
@@ -132,7 +132,7 @@ let compare_def (def1 : def term) (def2 : def term) (vmap_orig : varToVarMap)
     Some vmap
   else None
 
-(* compares label based on only expression*)
+(* Compares label based on only expression and structure. *)
 let compare_lbl (lbl1 : label) (lbl2 : label) (map : varToVarMap) : varToVarMap option =
   match lbl1, lbl2 with
   | Direct _tid1, Direct _tid2 -> (* to be checked later on *) Some map
@@ -147,8 +147,7 @@ let compare_lbl (lbl1 : label) (lbl2 : label) (map : varToVarMap) : varToVarMap 
 
 (* Compares two things:
    - jmp1 and jmp2 match in structure
-   - jmp1 and jmp2 match in all Exp.ts contained within
-*)
+   - jmp1 and jmp2 match in all Exp.ts contained within *)
 let compare_jmp jmp1 jmp2 map =
   match Jmp.kind jmp1, Jmp.kind jmp2 with
   | Goto label1, Goto label2 -> compare_lbl label1 label2 map
@@ -172,7 +171,7 @@ let compare_phis phis1 phis2 map =
   if List.length phis1 > 0 || List.length phis2 > 0 then None
   else Some map
 
-(* Check that all defs in two lists match. *)
+(* Check that all defs in two lists match in expression and structure but not TID. *)
 let compare_defs (defs1 : (def term) list)
     (defs2 : (def term) list) (map : varToVarMap) : varToVarMap option =
   match List.zip defs1 defs2 with
@@ -184,7 +183,7 @@ let compare_defs (defs1 : (def term) list)
           | None -> None
           | Some map -> compare_def d1 d2 map)
 
-(* Check that all jmps in a list match in expression and structure. *)
+(* Check that all jmps in a list match in expression and structure but not TID. *)
 let compare_jmps jmps1 jmps2 map =
   match List.zip jmps1 jmps2 with
   | Core_kernel.List.Or_unequal_lengths.Unequal_lengths -> None
@@ -197,9 +196,12 @@ let compare_jmps jmps1 jmps2 map =
 
 (* Compares everything about a block EXCEPT tids, which will be done later. *)
 let compare_block (blk1 : blk term) (blk2 : blk term) map =
-  compare_defs (Term.enum def_t blk1 |> Sequence.to_list) (Term.enum def_t blk2 |> Sequence.to_list) map >>=
-  fun map -> compare_jmps (Term.enum jmp_t blk1 |> Sequence.to_list) (Term.enum jmp_t blk2 |> Sequence.to_list) map >>=
-  fun map -> compare_phis (Term.enum phi_t blk1 |> Sequence.to_list) (Term.enum phi_t blk2 |> Sequence.to_list) map
+  compare_defs (Term.enum def_t blk1 |> Sequence.to_list)
+    (Term.enum def_t blk2 |> Sequence.to_list) map >>=
+  fun map -> compare_jmps (Term.enum jmp_t blk1 |> Sequence.to_list)
+    (Term.enum jmp_t blk2 |> Sequence.to_list) map >>=
+  fun map -> compare_phis (Term.enum phi_t blk1 |> Sequence.to_list)
+    (Term.enum phi_t blk2 |> Sequence.to_list) map
 
 (* Iterate through all reachable nodes in each cfg
  *  and generate a map from tid to blk.*)
@@ -215,14 +217,17 @@ let get_node_maps
     BFS.fold acc TidMap.empty cfg2 in
   tid1_map, tid2_map
 
-(* compares a sub to another sub; returns a map from index into sub 1
- * to the set of sub2 indices that it is syntactically equal to
- * and a map from (indx_sub1, indx_sub2) to var maps*)
-let compare_blocks (sub1: Sub.t) (sub2 : Sub.t) : (TidSet.t TidMap.t) * (varToVarMap TidTupleMap.t) =
+(* Compares a sub to another sub; returns a map from tid into sub1
+   to the set of sub2 tids that it is syntactically equal to. Also returns
+   a map from (tid_blk_sub1, tid_blk_sub2) to the mapping between variables
+   used in those subs. *)
+let compare_blocks (sub1: Sub.t) (sub2 : Sub.t) :
+  (TidSet.t TidMap.t) * (varToVarMap TidTupleMap.t) =
+
   let cfg1, cfg2 = Sub.to_cfg sub1, Sub.to_cfg sub2 in
-  (* blk1 indx -> set{blk2 indxs} *)
+  (* blk1 tid -> set{blk2 tids} *)
   let blk_map = TidMap.empty in
-  (* blk1 indx, blk2 indx -> varmap *)
+  (* blk1 tid, blk2 tid -> varmap *)
   let blk_varmap = TidTupleMap.empty in
   let evaluator = (fun (node1 : Bap.Std.Graphs.Ir.Node.t) (blk_map, blk_varmap) ->
       let blk1 = get_label node1 in
@@ -246,8 +251,9 @@ let compare_blocks (sub1: Sub.t) (sub2 : Sub.t) : (TidSet.t TidMap.t) * (varToVa
       blk_map, blk_varmap) in
   BFS.fold evaluator (blk_map, blk_varmap) cfg1
 
-(* compare the label but only draw comparisons with tid *)
-let compare_lbl_tid_only graph lbl1 lbl2 : bool=
+(* Compare a label.t with tid comparisons only *)
+let compare_lbl_tid_only (graph Tid.t TidMap.t) (lbl1 : Label.t)
+    (lbl2 : Label.t) : bool=
   match lbl1, lbl2 with
   | Direct tid1, Direct tid2 ->
     let tid_mapped = TidMap.find_exn graph tid1 in
@@ -256,8 +262,8 @@ let compare_lbl_tid_only graph lbl1 lbl2 : bool=
   | _, _ -> false
 
 
-(* compare the jmp but with tid comparisons only *)
-let compare_jmp_tid_only graph jmp1 jmp2 =
+(* Compare a jmp with tid comparisons only *)
+let compare_jmp_tid_only (graph Tid.t TidMap.t) (jmp1 : jmp_t) (jmp2 : jmp_t) =
   match Jmp.kind jmp1, Jmp.kind jmp2 with
   | Goto label1, Goto label2 -> compare_lbl_tid_only graph label1 label2
   | Call call1, Call call2 ->
@@ -277,15 +283,17 @@ let compare_jmp_tid_only graph jmp1 jmp2 =
     Tid.equal tid_mapped tid2
   | _, _ -> false
 
-let compare_blk_tid_only graph blk1 blk2 : bool =
+(* Check that the two blocks has matching TIDs in jumps. *)
+let compare_blk_tid_only (graph : Tid.t TidMap.t)
+    (blk1 : blk term) (blk2 : blk term) bool =
   let jmps1 = Term.enum jmp_t blk1 |> Sequence.to_list in
   let jmps2 = Term.enum jmp_t blk2 |> Sequence.to_list in
   match List.zip jmps1 jmps2 with
-  | Core_kernel.List.Or_unequal_lengths.Unequal_lengths -> (* TODO exception *) false
+  | Core_kernel.List.Or_unequal_lengths.Unequal_lengths -> false
   | Core_kernel.List.Or_unequal_lengths.Ok z ->
     List.for_all z ~f:(fun (j1, j2) -> compare_jmp_tid_only graph j1 j2)
 
-(* checks that the proposed mapping is actually isomorphic *)
+(* Check that the graph from tid to tid has matching TIDs in jumps. *)
 let check_isomorphism
     (graph : Tid.t TidMap.t)
     (tid_to_blk1 : (blk term) TidMap.t)
@@ -297,6 +305,9 @@ let check_isomorphism
         let blk2 = TidMap.find_exn tid_to_blk2 tid2 in
         compare_blk_tid_only graph blk1 blk2)
 
+(* Checks that two maps from variable to variable can be merged.
+   This means that they do not have contradictory definitions
+   for the same key. *)
 let merge_maps (merged_map : varToVarMap) (new_map : varToVarMap) : varToVarMap option =
   let new_merged_map = VarMap.merge merged_map new_map
       ~f:(fun ~key:_key v ->
@@ -312,6 +323,15 @@ let merge_maps (merged_map : varToVarMap) (new_map : varToVarMap) : varToVarMap 
     false -> None
   | true -> Some new_merged_map
 
+(* Given a [candidate_map] of sub1 block tids to a set of sub2 block tids that
+   sub1 is syntactically equal to (barring TIDs in jmps), a [used_set] of already
+   mapped to sub_1 TIDS, a [node_stack] of sub1 blks that have not yet been mapped to,
+   - a partial mapping, denoted [graph], from sub1 tids to sub2 tids,
+   - a mapping, [tid_to_blk1] from sub1 tids to sub1 blks,
+   - a mapping, [tid_to_blk2] from sub1 tids to sub2 blks,
+   - a map from (tid1, tid2) to a variable mapping [var_maps] generated by that pair of blocks
+   - [merged_map], a map built out of block-wise maps corresponding
+     to the current partial mapping *)
 let rec get_isomorphism
     (candidate_map : TidSet.t TidMap.t) (used_set : TidSet.t)
     (node_stack : (blk term) list) (graph : Tid.t TidMap.t)
@@ -344,28 +364,17 @@ let rec get_isomorphism
               graph tid_to_blk1 tid_to_blk2 var_maps merged_map)
     | None -> None
 
-let get_length cfg : int =
-  let f = ( fun node acc ->
-      let lbl = get_label node in
-      let def_len = Term.enum def_t lbl |> Sequence.to_list |> List.length in
-      let jmp_len = Term.enum jmp_t lbl |> Sequence.to_list |> List.length in
-      acc + def_len + jmp_len
-    ) in
-  BFS.fold f 0 cfg
-
+(* Gets all syntactically equal blocks between the two subs,
+   Checks if it is possible to construct a mapping between
+   the two sets of blocks that matches in control flow. *)
 let exist_isomorphism (sub1: Sub.t) (sub2 : Sub.t) : bool =
   let cfg1, cfg2 = Sub.to_cfg sub1, Sub.to_cfg sub2 in
-  printf "\nLENGTH IS: %d\n" (get_length cfg1);
   let tid_to_blk1, tid_to_blk2 = get_node_maps cfg1 cfg2 in
-  (* the variable mappings on a per-block basis are not actually used *)
   let tid_map, var_maps = compare_blocks sub1 sub2 in
-  let _ = printf "PERCENTAGE_IDENTICAL_BLOCKS_IS: %.4f\n" (((List.length (TidMap.keys tid_map)) |> float_of_int) /. ((List.length (TidMap.keys tid_to_blk1)) |> float_of_int)) in
-  (* List.iter (TidMap.keys tid_map) ~f:(fun key -> printf "TID MAP: %s\n" (Tid.to_string key)) ; *)
   let used_set = TidSet.empty in
   let node_stack = TidMap.data tid_to_blk1 in
   let node2_stack = TidMap.data tid_to_blk2 in
   let graph = TidMap.empty in
-  printf "BLOCK LENGTH: %d\n" (List.length node_stack);
   (* short circuit if we already know that the length does not match *)
   if (List.length node_stack) = (List.length node2_stack) then
     match get_isomorphism tid_map used_set node_stack graph tid_to_blk1 tid_to_blk2 var_maps VarMap.empty with
