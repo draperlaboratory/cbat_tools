@@ -13,6 +13,7 @@ module TidSet = Set.Make(Tid)
 
 module TidMap = Map.Make(Tid)
 module VarMap = Map.Make(Var)
+module VarSet = Set.Make(Var)
 module TidTupleMap = Map.Make(struct type t = Tid.t * Tid.t [@@deriving sexp, compare] end)
 
 type varToVarMap = Var.t VarMap.t
@@ -296,11 +297,33 @@ let check_isomorphism
         let blk2 = TidMap.find_exn tid_to_blk2 tid2 in
         compare_blk_tid_only graph blk1 blk2)
 
-let rec get_isomorphism (candidate_map : TidSet.t TidMap.t) (used_set : TidSet.t) (node_stack : (blk term) list)
-    (graph : Tid.t TidMap.t) (tid_to_blk1 : (blk term) TidMap.t) (tid_to_blk2 : (blk term) TidMap.t): (Tid.t TidMap.t) option  =
+let merge_maps (merged_map : varToVarMap) (new_map : varToVarMap) : varToVarMap option =
+  let new_merged_map = VarMap.merge merged_map new_map
+      ~f:(fun ~key:_key v ->
+          match v with
+          | `Left v1 -> Some v1
+          | `Right v2 -> Some v2
+          | `Both (v1, v2) -> if Var.equal v1 v2 then Some v1 else None)
+  in
+  let get_keys = (fun m -> VarMap.keys m |> VarSet.of_list) in
+  let expected_len = VarSet.union (get_keys merged_map) (get_keys new_map) |> VarSet.length in
+  let actual_len = VarMap.keys new_merged_map |> List.length in
+  match actual_len = expected_len with
+    false -> None
+  | true -> Some new_merged_map
+
+let rec get_isomorphism
+    (candidate_map : TidSet.t TidMap.t) (used_set : TidSet.t)
+    (node_stack : (blk term) list) (graph : Tid.t TidMap.t)
+    (tid_to_blk1 : (blk term) TidMap.t) (tid_to_blk2 : (blk term) TidMap.t)
+    (var_maps : varToVarMap TidTupleMap.t) (merged_map : varToVarMap) :
+  (Tid.t TidMap.t) option  =
   let node = List.hd node_stack in
   match node with
-  | None -> if check_isomorphism graph tid_to_blk1 tid_to_blk2 then Some graph else None
+  | None ->
+    if check_isomorphism graph tid_to_blk1 tid_to_blk2
+    then Some graph
+    else None
   | Some node ->
     let tid = Term.tid node in
     match TidMap.find candidate_map tid with
@@ -312,58 +335,41 @@ let rec get_isomorphism (candidate_map : TidSet.t TidMap.t) (used_set : TidSet.t
             (* cannot be empty *)
             let node_stack = List.tl_exn node_stack in
             let graph = TidMap.update graph tid ~f:(fun _ -> tid_mapped_to) in
-            get_isomorphism candidate_map used_set node_stack graph tid_to_blk1 tid_to_blk2)
+            (* TODO change this to a map lookup *)
+            TidTupleMap.find var_maps (tid, tid_mapped_to) >>=
+            fun new_map ->
+            merge_maps merged_map new_map >>=
+            fun merged_map ->
+            get_isomorphism candidate_map used_set node_stack
+              graph tid_to_blk1 tid_to_blk2 var_maps merged_map)
     | None -> None
+
+let get_length cfg : int =
+  let f = ( fun node acc ->
+      let lbl = get_label node in
+      let def_len = Term.enum def_t lbl |> Sequence.to_list |> List.length in
+      let jmp_len = Term.enum jmp_t lbl |> Sequence.to_list |> List.length in
+      acc + def_len + jmp_len
+    ) in
+  BFS.fold f 0 cfg
 
 let exist_isomorphism (sub1: Sub.t) (sub2 : Sub.t) : bool =
   let cfg1, cfg2 = Sub.to_cfg sub1, Sub.to_cfg sub2 in
+  printf "\nLENGTH IS: %d\n" (get_length cfg1);
   let tid_to_blk1, tid_to_blk2 = get_node_maps cfg1 cfg2 in
   (* the variable mappings on a per-block basis are not actually used *)
-  let tid_map, _var_maps = compare_blocks sub1 sub2 in
+  let tid_map, var_maps = compare_blocks sub1 sub2 in
+  let _ = printf "PERCENTAGE_IDENTICAL_BLOCKS_IS: %.4f\n" (((List.length (TidMap.keys tid_map)) |> float_of_int) /. ((List.length (TidMap.keys tid_to_blk1)) |> float_of_int)) in
   (* List.iter (TidMap.keys tid_map) ~f:(fun key -> printf "TID MAP: %s\n" (Tid.to_string key)) ; *)
   let used_set = TidSet.empty in
   let node_stack = TidMap.data tid_to_blk1 in
   let node2_stack = TidMap.data tid_to_blk2 in
   let graph = TidMap.empty in
-  printf "BLOCK LENGTH: %d" (List.length node_stack);
+  printf "BLOCK LENGTH: %d\n" (List.length node_stack);
   (* short circuit if we already know that the length does not match *)
   if (List.length node_stack) = (List.length node2_stack) then
-    match get_isomorphism tid_map used_set node_stack graph tid_to_blk1 tid_to_blk2 with
+    match get_isomorphism tid_map used_set node_stack graph tid_to_blk1 tid_to_blk2 var_maps VarMap.empty with
     | None -> false
-    | Some _x -> true
+    | Some _x ->
+      printf "Blocks are syntactically equal! Not performing WP analysis.\nUNSAT!\n"; true
   else false
-
-(* let evaluator_overall node1 cur_res =
- *   match cur_res with
- *   | Some (seen_set, v_map, cfg2) ->
- *     let inner_evaluator =
- *       (fun (node2 : Bap.Std.Graphs.Ir.Node.t) (found_match, seen_set, v_map) ->
- *          let blk2 = get_label node2 in
- *          let tid2 = Term.tid blk2 in
- *          match found_match with
- *          | true -> true, seen_set, v_map
- *          | false ->
- *            (\* if already matched, then don't consider again *\)
- *            if TidSet.exists seen_set ~f:(fun a -> a = tid2) then false, seen_set, v_map
- *            (\* otherwise, perform comparison *\)
- *            else
- *              match compare_block (get_label node1) blk2 v_map with
- *              | Some v_map_updated ->
- *                true, TidSet.union seen_set (TidSet.singleton tid2), v_map_updated
- *              | None -> false, seen_set, v_map) in
- *     let r, s, m = BFS.fold inner_evaluator (false, seen_set, v_map) cfg2 in
- *     if r then
- *       Some (s, m, cfg2)
- *     else None
- *   | None -> None
- *
- * (\* performs the overarching comparison for exact syntactic equality between subs*\)
- * let cmp_overall (sub1 : Sub.t) (sub2 : Sub.t) : bool =
- *   let cfg1, cfg2 = Sub.to_cfg sub1, Sub.to_cfg sub2 in
- *   let seen_set = TidSet.empty in
- *   let v_map = VarMap.empty in
- *   let r = BFS.fold evaluator_overall (Some (seen_set, v_map, cfg2)) cfg1 in
- *   match r with
- *   | Some _ -> true
- *   | None -> false *)
-

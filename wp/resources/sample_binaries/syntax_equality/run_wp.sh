@@ -12,6 +12,7 @@ run_unsat () {
     --num-unroll=0 \
     --no-byteweight \
     --mem-offset \
+    --syntax-equality \
     -- main_1 main_2
 }
 

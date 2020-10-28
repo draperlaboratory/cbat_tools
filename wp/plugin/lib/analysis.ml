@@ -259,6 +259,21 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
   { pre = pre; orig = env, main_sub; modif = env, main_sub }
 
+let check_syntax_equality (bap_ctx : ctxt)
+    (p : Params.t) (file1 : string) (file2 : string) : bool =
+  (* TODO replace with param flag *)
+  if p.syntax_equality then
+    let prog1, _ = Utils.read_program bap_ctx
+        ~loader:Utils.loader ~filepath:file1 in
+    let prog2, _ = Utils.read_program bap_ctx
+        ~loader:Utils.loader ~filepath:file2 in
+    let subs1 = Term.enum sub_t prog1 in
+    let subs2 = Term.enum sub_t prog2 in
+    let main_sub1 = Utils.find_func_err subs1 p.func in
+    let main_sub2 = Utils.find_func_err subs2 p.func in
+    Eq.exist_isomorphism main_sub1 main_sub2
+  else false
+
 (* Runs a comparative analysis. *)
 let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file1 : string) (file2 : string) : combined_pre =
@@ -270,8 +285,6 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = Utils.find_func_err subs1 p.func in
   let main_sub2 = Utils.find_func_err subs2 p.func in
-  let syntactically_equal = Eq.cmp_overall main_sub1 main_sub2 in
-  Printf.printf "\nTHE SUBS ARE EQUAL: %b\n" syntactically_equal;
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
   let env2, pointer_vars_2 =
     let to_inline2 = Utils.match_inline p.inline subs2 in
@@ -361,8 +374,12 @@ let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
     single bap_ctx z3_ctx var_gen p file
     |> check_pre p z3_ctx
   | [file1; file2] ->
-    comparative bap_ctx z3_ctx var_gen p file1 file2
-    |> check_pre p z3_ctx
+    begin
+      match check_syntax_equality bap_ctx p file1 file2 with
+      | false ->
+        comparative bap_ctx z3_ctx var_gen p file1 file2 |> check_pre p z3_ctx
+      | true -> Ok ()
+    end
   | _ ->
     let err =
       Printf.sprintf "WP can only analyze one binary for a single analysis or \
