@@ -955,20 +955,22 @@ let non_null_expr (env : Env.t) (addr : Exp.t) : Constr.z3_expr =
   let addr_val,_,_ = exp_to_z3 addr env in
   Bool.mk_not ctx (Bool.mk_eq ctx null addr_val)
 
-let collect_non_null_loads (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
+let collect_cond_loads (exp : Exp.t) (cond : Exp.t -> Constr.z3_expr)
+    : Constr.z3_expr list =
   let visitor =
     object inherit [Constr.z3_expr list] Exp.visitor
       method! visit_load ~mem:_ ~addr:addr _ _ conds =
-        (non_null_expr env addr) :: conds
+        (cond addr) :: conds
     end
   in
   visitor#visit_exp exp []
 
-let collect_non_null_stores (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
+let collect_cond_stores (exp : Exp.t) (cond : Exp.t -> Constr.z3_expr)
+    : Constr.z3_expr list =
   let visitor =
     object inherit [Constr.z3_expr list] Exp.visitor
       method! visit_store ~mem:_ ~addr:addr ~exp:_ _ _ conds =
-        (non_null_expr env addr) :: conds
+        (cond addr) :: conds
     end
   in
   visitor#visit_exp exp []
@@ -1026,7 +1028,7 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
 (* This adds a non-null condition for every memory read in the term *)
 let non_null_load_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_non_null_loads env exp in
+  let conds = collect_cond_loads exp (non_null_expr env) in
   if List.is_empty conds then
     None
   else
@@ -1035,7 +1037,7 @@ let non_null_load_vc : Env.exp_cond = fun env exp ->
 
 let non_null_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_non_null_loads env exp in
+  let conds = collect_cond_loads exp (non_null_expr env) in
   if List.is_empty conds then
     None
   else
@@ -1045,7 +1047,7 @@ let non_null_load_assert : Env.exp_cond = fun env exp ->
 (* This adds a non-null condition for every memory write in the term *)
 let non_null_store_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_non_null_stores env exp in
+  let conds = collect_cond_stores exp (non_null_expr env) in
   if List.is_empty conds then
     None
   else
@@ -1054,24 +1056,51 @@ let non_null_store_vc : Env.exp_cond = fun env exp ->
 
 let non_null_store_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_non_null_stores env exp in
+  let conds = collect_cond_stores exp (non_null_expr env) in
   if List.is_empty conds then
     None
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem store"
                                 (Bool.mk_and ctx conds))))
 
-let valid_load_vc : Env.exp_cond = fun env exp ->
+let valid_mem_expr (env : Env.t) (addr : Exp.t) : Constr.z3_expr =
   assert false
+
+let valid_load_vc : Env.exp_cond = fun env exp ->
+  let ctx = Env.get_context env in
+  let conds = collect_cond_loads exp (valid_mem_expr env) in
+  if List.is_empty conds then
+    None
+  else
+    Some (Verify (BeforeExec (Constr.mk_goal "verify valid mem load"
+                                (Bool.mk_and ctx conds))))
 
 let valid_load_assert : Env.exp_cond = fun env exp ->
-  assert false
+  let ctx = Env.get_context env in
+  let conds = collect_cond_stores exp (valid_mem_expr env) in
+  if List.is_empty conds then
+    None
+  else
+    Some (Assume (BeforeExec (Constr.mk_goal "assume valid mem load"
+                                (Bool.mk_and ctx conds))))
 
 let valid_store_vc : Env.exp_cond = fun env exp ->
-  assert false
+  let ctx = Env.get_context env in
+  let conds = collect_cond_loads exp (valid_mem_expr env) in
+  if List.is_empty conds then
+    None
+  else
+    Some (Verify (BeforeExec (Constr.mk_goal "verify valid mem store"
+                                (Bool.mk_and ctx conds))))
 
 let valid_store_assert : Env.exp_cond = fun env exp ->
-  assert false
+  let ctx = Env.get_context env in
+  let conds = collect_cond_loads exp (valid_mem_expr env) in
+  if List.is_empty conds then
+    None
+  else
+    Some (Verify (BeforeExec (Constr.mk_goal "assume valid mem store"
+                                (Bool.mk_and ctx conds))))
 
 (* At a memory read, add two assumptions of the form:
    Data(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
