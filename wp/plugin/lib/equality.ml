@@ -148,7 +148,8 @@ let compare_lbl (lbl1 : label) (lbl2 : label) (map : varToVarMap) : varToVarMap 
 (* Compares two things:
    - jmp1 and jmp2 match in structure
    - jmp1 and jmp2 match in all Exp.ts contained within *)
-let compare_jmp jmp1 jmp2 map =
+let compare_jmp (jmp1 : jmp term) (jmp2 : jmp term) (map : varToVarMap) :
+  varToVarMap option =
   match Jmp.kind jmp1, Jmp.kind jmp2 with
   | Goto label1, Goto label2 -> compare_lbl label1 label2 map
   | Call call1, Call call2 ->
@@ -167,7 +168,8 @@ let compare_jmp jmp1 jmp2 map =
   | _, _ -> None
 
 (* There should be no phi terms. Fail if there are. *)
-let compare_phis phis1 phis2 map =
+let compare_phis (phis1 : (phi term) list) (phis2 : (phi term) list)
+    (map : varToVarMap) : varToVarMap option =
   if List.length phis1 > 0 || List.length phis2 > 0 then None
   else Some map
 
@@ -184,7 +186,8 @@ let compare_defs (defs1 : (def term) list)
           | Some map -> compare_def d1 d2 map)
 
 (* Check that all jmps in a list match in expression and structure but not TID. *)
-let compare_jmps jmps1 jmps2 map =
+let compare_jmps (jmps1 : (jmp term) list) (jmps2 : (jmp term) list)
+    (map : varToVarMap) : varToVarMap option =
   match List.zip jmps1 jmps2 with
   | Core_kernel.List.Or_unequal_lengths.Unequal_lengths -> None
   | Core_kernel.List.Or_unequal_lengths.Ok z ->
@@ -252,8 +255,8 @@ let compare_blocks (sub1: Sub.t) (sub2 : Sub.t) :
   BFS.fold evaluator (blk_map, blk_varmap) cfg1
 
 (* Compare a label.t with tid comparisons only *)
-let compare_lbl_tid_only (graph Tid.t TidMap.t) (lbl1 : Label.t)
-    (lbl2 : Label.t) : bool=
+let compare_lbl_tid_only (graph : Tid.t TidMap.t) (lbl1 : Label.t)
+    (lbl2 : Label.t) : bool =
   match lbl1, lbl2 with
   | Direct tid1, Direct tid2 ->
     let tid_mapped = TidMap.find_exn graph tid1 in
@@ -263,7 +266,7 @@ let compare_lbl_tid_only (graph Tid.t TidMap.t) (lbl1 : Label.t)
 
 
 (* Compare a jmp with tid comparisons only *)
-let compare_jmp_tid_only (graph Tid.t TidMap.t) (jmp1 : jmp_t) (jmp2 : jmp_t) =
+let compare_jmp_tid_only (graph : Tid.t TidMap.t) (jmp1 : jmp term) (jmp2 : jmp term) =
   match Jmp.kind jmp1, Jmp.kind jmp2 with
   | Goto label1, Goto label2 -> compare_lbl_tid_only graph label1 label2
   | Call call1, Call call2 ->
@@ -285,7 +288,7 @@ let compare_jmp_tid_only (graph Tid.t TidMap.t) (jmp1 : jmp_t) (jmp2 : jmp_t) =
 
 (* Check that the two blocks has matching TIDs in jumps. *)
 let compare_blk_tid_only (graph : Tid.t TidMap.t)
-    (blk1 : blk term) (blk2 : blk term) bool =
+    (blk1 : blk term) (blk2 : blk term) : bool =
   let jmps1 = Term.enum jmp_t blk1 |> Sequence.to_list in
   let jmps2 = Term.enum jmp_t blk2 |> Sequence.to_list in
   match List.zip jmps1 jmps2 with
