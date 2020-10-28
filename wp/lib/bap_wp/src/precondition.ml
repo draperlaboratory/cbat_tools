@@ -979,12 +979,14 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
 
 (* funcDecl_to_z3 name ctx exp1 exp2 creates an uninterpreted function called
    name, and has sorts determined by exp1 and exp2  *)
-let funcDecl_to_z3 (name : string) (ctx : Z3.context) (exp1 : Constr.z3_expr)
+let funcDecl_to_z3 (b : binop) (name : string) (ctx : Z3.context) (exp1 : Constr.z3_expr)
   (exp2 : Constr.z3_expr) : Constr.z3_expr =
+  let const1 = Expr.mk_const_s ctx "_BIR_Z3_c1" (Expr.get_sort exp1) in
+  let const2 = Expr.mk_const_s ctx "_BIR_Z3_c2" (Expr.get_sort exp2) in
   let input_sorts =  List.map [exp1;exp2] ~f:Expr.get_sort in
-  let output_sort = Expr.get_sort exp1 in
+  let output_sort = Expr.get_sort ((binop ctx b) exp1 exp2) in
   let mk_func = FuncDecl.mk_func_decl_s ctx name input_sorts output_sort in
-  FuncDecl.apply (mk_func) [exp1;exp2]
+  FuncDecl.apply (mk_func) [const1;const2]
 
 (* opaq_name b returns a name for an uninterpreted representation of b *)
 let opaq_name (b : binop) : string =
@@ -1012,8 +1014,8 @@ let opaq_name (b : binop) : string =
 let create_uninterp (flag : string list) (ctx : Z3.context)  : Env.op_spec =
   fun b x y ->
   let opaq_name = opaq_name(b) in
-  if (List.mem flag opaq_name ~equal:(fun x y -> (x = "_BIR_Z3_"^y))) then
-    Some (funcDecl_to_z3 opaq_name ctx x y)
+  if (List.mem flag opaq_name ~equal:(fun u v -> (u = "_BIR_Z3_"^v))) then
+    Some (funcDecl_to_z3 b opaq_name ctx x y)
   else None
 
 

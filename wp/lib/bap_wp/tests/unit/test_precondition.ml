@@ -681,7 +681,7 @@ let test_call_6 (test_ctx : test_ctxt) : unit =
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call1_body)) in
   let blk3 = blk3 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call2_body)) in
   let main_sub = mk_sub [start_body; blk2; blk3; blk4] in
-  let env = Pre.mk_env ctx var_gen 
+  let env = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [call1_body; call2_body; main_sub]) in
   let sub1_called = Option.value_exn (sub1_tid |> Env.get_called env) in
   let sub2_called = Option.value_exn (sub2_tid |> Env.get_called env) in

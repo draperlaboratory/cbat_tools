@@ -14,6 +14,7 @@
 open !Core_kernel
 open OUnit2
 open OUnitTest
+open Bap 
 
 (* To run these tests: `make test` in wp directory *)
 
