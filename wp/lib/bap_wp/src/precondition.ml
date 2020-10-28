@@ -682,7 +682,7 @@ let mk_env
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  Env.mk_env ~subs ~specs ~default_spec ~jmp_spec ~op_spec ~int_spec ~exp_conds ~num_loop_unroll
+  Env.mk_env ~subs ~specs ~default_spec ~indirect_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
     ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
 
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
