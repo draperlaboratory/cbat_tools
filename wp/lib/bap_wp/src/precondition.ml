@@ -955,22 +955,20 @@ let non_null_expr (env : Env.t) (addr : Exp.t) : Constr.z3_expr =
   let addr_val,_,_ = exp_to_z3 addr env in
   Bool.mk_not ctx (Bool.mk_eq ctx null addr_val)
 
-let collect_cond_loads (exp : Exp.t) (cond : Exp.t -> Constr.z3_expr)
-    : Constr.z3_expr list =
+let collect_non_null_loads (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   let visitor =
     object inherit [Constr.z3_expr list] Exp.visitor
       method! visit_load ~mem:_ ~addr:addr _ _ conds =
-        (cond addr) :: conds
+        (non_null_expr env addr) :: conds
     end
   in
   visitor#visit_exp exp []
 
-let collect_cond_stores (exp : Exp.t) (cond : Exp.t -> Constr.z3_expr)
-    : Constr.z3_expr list =
+let collect_non_null_stores (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   let visitor =
     object inherit [Constr.z3_expr list] Exp.visitor
       method! visit_store ~mem:_ ~addr:addr ~exp:_ _ _ conds =
-        (cond addr) :: conds
+        (non_null_expr env addr) :: conds
     end
   in
   visitor#visit_exp exp []
@@ -1028,7 +1026,7 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
 (* This adds a non-null condition for every memory read in the term *)
 let non_null_load_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_cond_loads exp (non_null_expr env) in
+  let conds = collect_non_null_loads env exp in
   if List.is_empty conds then
     None
   else
@@ -1037,7 +1035,7 @@ let non_null_load_vc : Env.exp_cond = fun env exp ->
 
 let non_null_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_cond_loads exp (non_null_expr env) in
+  let conds = collect_non_null_loads env exp in
   if List.is_empty conds then
     None
   else
@@ -1047,7 +1045,7 @@ let non_null_load_assert : Env.exp_cond = fun env exp ->
 (* This adds a non-null condition for every memory write in the term *)
 let non_null_store_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_cond_stores exp (non_null_expr env) in
+  let conds = collect_non_null_stores env exp in
   if List.is_empty conds then
     None
   else
@@ -1056,36 +1054,51 @@ let non_null_store_vc : Env.exp_cond = fun env exp ->
 
 let non_null_store_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_cond_stores exp (non_null_expr env) in
+  let conds = collect_non_null_stores env exp in
   if List.is_empty conds then
     None
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem store"
                                 (Bool.mk_and ctx conds))))
 
-let valid_mem_expr (env : Env.t) (addr : Exp.t) : Constr.z3_expr =
+let in_valid_mem_region (env : Env.t) (addr : Constr.z3_expr) : Constr.z3_expr =
+  (* NOTE: we are assuming stack grows down.*)
   let ctx = Env.get_context env in
-  let width = match Type.infer_exn addr with
-    | Imm n -> n
-    | Mem _ ->
-      let err_msg = Format.sprintf "Error in valid_mem_expr: %s is a memory read \
-                                    instead of a word" (Exp.to_string addr) in
-      error "%s" err_msg;
-      failwith err_msg
-    | Unk ->
-      let err_msg = Format.sprintf "Error in valid_mem_expr: %s is of Unknown type"
-          (Exp.to_string addr) in
-      error "%s" err_msg;
-      failwith err_msg
+  let stack_end = Env.get_stack_end env in
+  let width = env |> Env.get_sp |> Var.typ |> typ_size in
+  let sb_bv = BV.mk_numeral ctx (Int.to_string stack_end) width in
+  (* We do want exceptions here if RSP doesn't exist *)
+  let stack_pointer, _ = Env.get_var env (Env.get_sp env) in
+  (* addr >= RSP *)
+  let uge = BV.mk_ugt ctx addr stack_pointer in
+  (* addr <= stack_bottom *)
+  let ule = BV.mk_ult ctx addr sb_bv in
+  (* addr >= RSP \/ addr <= stack_bottom *)
+  Bool.mk_or ctx [uge; ule]
+
+let collect_valid_mem_loads (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
+  let visitor =
+    object inherit [Constr.z3_expr list] Exp.visitor
+      method! visit_load ~mem:_ ~addr:addr _ _ conds =
+        let addr_val, _, _ = exp_to_z3 addr env in
+        (in_valid_mem_region env addr_val) :: conds
+    end
   in
-  (* Check to see if the address is on the stack or on the heap. *)
-  let null = BV.mk_numeral ctx "0" width in
-  let addr_val,_,_ = exp_to_z3 addr env in
-  Bool.mk_not ctx (Bool.mk_eq ctx null addr_val)
+  visitor#visit_exp exp []
+
+let collect_valid_mem_stores (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
+  let visitor =
+    object inherit [Constr.z3_expr list] Exp.visitor
+      method! visit_store ~mem:_ ~addr:addr ~exp:_ _ _ conds =
+        let addr_val, _, _ = exp_to_z3 addr env in
+        (in_valid_mem_region env addr_val) :: conds
+    end
+  in
+  visitor#visit_exp exp []
 
 let valid_load_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_cond_loads exp (valid_mem_expr env) in
+  let conds = collect_valid_mem_loads env exp in
   if List.is_empty conds then
     None
   else
@@ -1094,7 +1107,7 @@ let valid_load_vc : Env.exp_cond = fun env exp ->
 
 let valid_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_cond_stores exp (valid_mem_expr env) in
+  let conds = collect_valid_mem_loads env exp in
   if List.is_empty conds then
     None
   else
@@ -1103,7 +1116,7 @@ let valid_load_assert : Env.exp_cond = fun env exp ->
 
 let valid_store_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_cond_loads exp (valid_mem_expr env) in
+  let conds = collect_valid_mem_stores env exp in
   if List.is_empty conds then
     None
   else
@@ -1112,11 +1125,11 @@ let valid_store_vc : Env.exp_cond = fun env exp ->
 
 let valid_store_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_cond_loads exp (valid_mem_expr env) in
+  let conds = collect_valid_mem_stores env exp in
   if List.is_empty conds then
     None
   else
-    Some (Verify (BeforeExec (Constr.mk_goal "assume valid mem store"
+    Some (Assume (BeforeExec (Constr.mk_goal "assume valid mem store"
                                 (Bool.mk_and ctx conds))))
 
 (* At a memory read, add two assumptions of the form:
@@ -1233,54 +1246,25 @@ let set_sp_range (env : Env.t) : Constr.t =
 
 let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
     (l_mod : (Constr.z3_expr list) option) (env2: Env.t option) : Constr.t =
-  let stack_end = Env.get_stack_end env1 in
   let ctx = Env.get_context env1 in
-  let width = env1 |> Env.get_sp |> Var.typ |> typ_size in
-  let function_name = "construct_pointer_constraint: " in
-  let err_msg_rsp = "stack pointer not found" in
-  let sb_bv = BV.mk_numeral ctx (stack_end |> Int.to_string) width in
   let gen_constr, l = match l_mod, env2 with
     (* comparative case *)
     | Some l_mod, Some env2 ->
-      (* we do want exceptions here if RSP doesn't exist *)
-      let rsp_orig = Option.value_exn
-          ~message:(function_name ^ "original " ^ err_msg_rsp)
-          (Env.get_init_var env1 @@ Env.get_sp env1) in
-      let rsp_mod = Option.value_exn
-          ~message:(function_name ^ "modified " ^ err_msg_rsp)
-          (Env.get_init_var env2 @@ Env.get_sp env2) in
       (* Encode constraint that each register is not within stack*)
       (fun acc (reg_orig, reg_mod) ->
-         (* NOTE: we are assuming stack grows down.*)
-         (* R_orig >= RSP_orig *)
-         let uge_1 = BV.mk_uge ctx reg_orig rsp_orig in
-         (* R_mod >= RSP_mod *)
-         let uge_2 = BV.mk_uge ctx reg_mod rsp_mod in
-         (*  R_orig <= stack_bottom *)
-         let ule_1 =  BV.mk_ule ctx reg_orig sb_bv in
-         (* R_mod <= stack_bottom *)
-         let ule_2 =  BV.mk_ule ctx reg_mod sb_bv in
-         (* R_orig >= RSP \/ R_orig <= stack_bottom *)
-         let or_c_1 = Bool.mk_or ctx [uge_1; ule_1] in
-         (* R_mod >= RSP \/ R_mod <= stack_bottom *)
-         let or_c_2 = Bool.mk_or ctx [uge_2; ule_2] in
-         (* (R_orig >= RSP \/ R_orig <= stack_bottom) /\
-            (R_mod >= RSP \/ R_mod <= stack_bottom)     *)
-         let and_c = Bool.mk_and ctx [or_c_1; or_c_2;] in
+         let is_valid_orig = in_valid_mem_region env1 reg_orig in
+         let is_valid_mod = in_valid_mem_region env2 reg_mod in
+         (* (reg_orig >= RSP \/ reg_orig <= stack_bottom) /\
+            (reg_mod >= RSP \/ reg_mod <= stack_bottom)     *)
+         let and_c = Bool.mk_and ctx [is_valid_orig; is_valid_mod] in
          Bool.mk_and ctx [and_c; acc]
       ), List.zip_exn l_orig l_mod
     (* single binary case *)
     | _, _ ->
-      let stack_pointer = Option.value_exn ~message:err_msg_rsp
-          (Env.get_init_var env1 @@ Env.get_sp env1) in
       (fun acc (reg, _) ->
-         (* R >= RSP_orig *)
-         let uge = BV.mk_ugt ctx reg stack_pointer in
-         (* R <= stack_bottom *)
-         let ule = BV.mk_ult ctx reg sb_bv in
-         (* R >= RSP \/ R <= stack_bottom *)
-         let or_c = Bool.mk_or ctx [uge; ule] in
-         Bool.mk_and ctx [or_c; acc]
+         (* reg >= RSP \/ reg <= stack_bottom *)
+         let constr = in_valid_mem_region env1 reg in
+         Bool.mk_and ctx [constr; acc]
       ), List.zip_exn l_orig l_orig
   in
   let expr = List.fold l ~init:(Bool.mk_true ctx) ~f:gen_constr in
