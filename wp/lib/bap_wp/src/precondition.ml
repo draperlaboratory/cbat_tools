@@ -1061,21 +1061,26 @@ let non_null_store_assert : Env.exp_cond = fun env exp ->
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem store"
                                 (Bool.mk_and ctx conds))))
 
+(* For a given address, generates the constraint of:
+   addr >= RSP \/ addr <= stack_bottom - 0x256 *)
 let in_valid_mem_region (env : Env.t) (addr : Constr.z3_expr) : Constr.z3_expr =
   (* NOTE: we are assuming stack grows down.*)
   let ctx = Env.get_context env in
-  let stack_end = Env.get_stack_end env in
+  (* We are hardcoding the heap to be 0x256 bytes beneath the bottom of the
+     stack. *)
+  let stack_end = (Env.get_stack_end env) - 0x256 in
   let width = env |> Env.get_sp |> Var.typ |> typ_size in
   let sb_bv = BV.mk_numeral ctx (Int.to_string stack_end) width in
-  (* We do want exceptions here if RSP doesn't exist *)
   let stack_pointer, _ = Env.get_var env (Env.get_sp env) in
   (* addr >= RSP *)
   let uge = BV.mk_ugt ctx addr stack_pointer in
-  (* addr <= stack_bottom *)
+  (* addr <= stack_bottom - 0x256 *)
   let ule = BV.mk_ult ctx addr sb_bv in
-  (* addr >= RSP \/ addr <= stack_bottom *)
+  (* addr >= RSP \/ addr <= stack_bottom - 0x256 *)
   Bool.mk_or ctx [uge; ule]
 
+(* At every memory load, add a constraint that the address is in a valid
+   location in memory. *)
 let collect_valid_mem_loads (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   let visitor =
     object inherit [Constr.z3_expr list] Exp.visitor
@@ -1086,6 +1091,8 @@ let collect_valid_mem_loads (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   in
   visitor#visit_exp exp []
 
+(* At every memory store, add a constraint that the address is in a valid
+   location in memory. *)
 let collect_valid_mem_stores (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   let visitor =
     object inherit [Constr.z3_expr list] Exp.visitor
@@ -1096,6 +1103,8 @@ let collect_valid_mem_stores (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   in
   visitor#visit_exp exp []
 
+(* Verifies that a memory load is in a valid location in memory in the modified
+   binary. *)
 let valid_load_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
   let conds = collect_valid_mem_loads env exp in
@@ -1105,6 +1114,8 @@ let valid_load_vc : Env.exp_cond = fun env exp ->
     Some (Verify (BeforeExec (Constr.mk_goal "verify valid mem load"
                                 (Bool.mk_and ctx conds))))
 
+(* Assumes that a memory load is in a valid location in memory in the original
+   binary. *)
 let valid_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
   let conds = collect_valid_mem_loads env exp in
@@ -1114,6 +1125,8 @@ let valid_load_assert : Env.exp_cond = fun env exp ->
     Some (Assume (BeforeExec (Constr.mk_goal "assume valid mem load"
                                 (Bool.mk_and ctx conds))))
 
+(* Verifies that a memory store is in a valid location in memory in the modified
+   binary. *)
 let valid_store_vc : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
   let conds = collect_valid_mem_stores env exp in
@@ -1123,6 +1136,8 @@ let valid_store_vc : Env.exp_cond = fun env exp ->
     Some (Verify (BeforeExec (Constr.mk_goal "verify valid mem store"
                                 (Bool.mk_and ctx conds))))
 
+(* Assumes that a memory store is in a valid location in memory in the original
+   binary. *)
 let valid_store_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
   let conds = collect_valid_mem_stores env exp in

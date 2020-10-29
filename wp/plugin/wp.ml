@@ -71,8 +71,8 @@ let check_null_derefs = Cmd.flag "check-null-derefs"
 let check_invalid_derefs = Cmd.flag "check-invalid-derefs"
     ~doc:{|This flag is only used in a comparative analysis. Checks that the
            modified binary has no additional paths that result in dereferences
-           to memory locations in invalid locations in comparision with the
-           original binary.|}
+           to invalid memory locations. That is, all memory dereferences are
+           either on the stack or heap.|}
 
 let compare_func_calls = Cmd.flag "compare-func-calls"
     ~doc:{|This flag is only used in a comparative analysis. Checks that

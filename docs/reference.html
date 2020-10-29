@@ -120,6 +120,8 @@ The following options select or adjust the property that will be checked for the
 <ul>
 <li><code>--check-null-derefs</code> &mdash; Checks that the modified binary has no additional paths with null dereferences in comparison with the original binary.</li>
 
+<li><code>--check-invalid-derefs</code> &mdash; Checks that the modified binary has no additional paths that result in dereferences to invalid memory locations. That is, all memory dereferences are either on the stack or heap.</li>
+
 <li><code>--compare-func-calls</code> &mdash; Checks that function calls do not occur in the modified binary if they have not occurred in the original binary.</li>
 
 <li><code>--compare-post-reg-values=&lt;reg-list&gt;</code> &mdash; Compares the values stored in the registers specified in <code>reg-list</code> at the end of the function's execution. For example, <code>RAX,RDI</code> compares the values of RAX and RDI at the end of execution. If unsure about which registers to compare, check the architecture's ABI. x86_64 architectures place their output in RAX and ARM architectures place their output in R0.</li>
