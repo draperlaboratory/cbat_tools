@@ -261,7 +261,6 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
 
 let check_syntax_equality (bap_ctx : ctxt)
     (p : Params.t) (file1 : string) (file2 : string) : bool =
-  (* TODO replace with param flag *)
   if p.syntax_equality then
     let prog1, _ = Utils.read_program bap_ctx
         ~loader:Utils.loader ~filepath:file1 in
@@ -271,7 +270,9 @@ let check_syntax_equality (bap_ctx : ctxt)
     let subs2 = Term.enum sub_t prog2 in
     let main_sub1 = Utils.find_func_err subs1 p.func in
     let main_sub2 = Utils.find_func_err subs2 p.func in
-    Eq.exist_isomorphism main_sub1 main_sub2
+    match Eq.exist_isomorphism main_sub1 main_sub2 with
+    | Some _iso -> true
+    | None -> false
   else false
 
 (* Runs a comparative analysis. *)
