@@ -1073,9 +1073,9 @@ let in_valid_mem_region (env : Env.t) (addr : Constr.z3_expr) : Constr.z3_expr =
   let sb_bv = BV.mk_numeral ctx (Int.to_string stack_end) width in
   let stack_pointer, _ = Env.get_var env (Env.get_sp env) in
   (* addr >= RSP *)
-  let uge = BV.mk_ugt ctx addr stack_pointer in
+  let uge = BV.mk_uge ctx addr stack_pointer in
   (* addr <= stack_bottom - 0x256 *)
-  let ule = BV.mk_ult ctx addr sb_bv in
+  let ule = BV.mk_ule ctx addr sb_bv in
   (* addr >= RSP \/ addr <= stack_bottom - 0x256 *)
   Bool.mk_or ctx [uge; ule]
 
@@ -1119,6 +1119,11 @@ let valid_load_vc : Env.exp_cond = fun env exp ->
 let valid_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
   let conds = collect_valid_mem_loads env exp in
+  List.iter conds ~f:(fun c ->
+      if Bool.is_false c then
+        warning "The assumption %s is false! This may result in a false UNSAT.%!"
+          (Expr.to_string c)
+      else ());
   if List.is_empty conds then
     None
   else
@@ -1141,6 +1146,11 @@ let valid_store_vc : Env.exp_cond = fun env exp ->
 let valid_store_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
   let conds = collect_valid_mem_stores env exp in
+  List.iter conds ~f:(fun c ->
+      if Bool.is_false c then
+        warning "The assumption %s is false! This may result in a false UNSAT.%!"
+          (Expr.to_string c)
+      else ());
   if List.is_empty conds then
     None
   else
