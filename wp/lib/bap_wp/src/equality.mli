@@ -1,6 +1,6 @@
 open Bap.Std
 
-(* This function checks for exact syntactic equality between Sub.ts.
+(* Checks for exact syntactic equality between the provided Sub.t arguments.
     It returns the map (if it exists) from the block level tids in the first
     sub to the second sub.
    This means that there must exist an block-level mapping
@@ -27,7 +27,7 @@ open Bap.Std
      constructed block mapping must match the corresponding TIDS
      in the same respective jmp_t in sub2.
 *)
-val exist_isomorphism : Sub.t -> Sub.t -> (Tid.t Tid.Map.t) option
+val subs_to_isomorphism : Sub.t -> Sub.t -> (Tid.t Tid.Map.t) option
 
 (* Compares a sub to another sub; returns a map from tid into sub1
    to the set of sub2 tids that are syntactically equal to in structure,

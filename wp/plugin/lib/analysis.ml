@@ -270,7 +270,7 @@ let check_syntax_equality (bap_ctx : ctxt)
     let subs2 = Term.enum sub_t prog2 in
     let main_sub1 = Utils.find_func_err subs1 p.func in
     let main_sub2 = Utils.find_func_err subs2 p.func in
-    match Eq.exist_isomorphism main_sub1 main_sub2 with
+    match Eq.subs_to_isomorphism main_sub1 main_sub2 with
     | Some _iso -> true
     | None -> false
   else false
