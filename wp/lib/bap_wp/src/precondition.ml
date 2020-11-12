@@ -462,6 +462,71 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub t vars
 
+(* let new_function (user_input_name : string)
+                    (user_input_postcondition : string)
+                    (sub : Sub.t)
+                    (inputs) : Env.fun_spec option =
+   if String.equal user_input_name (Sub.name sub) then
+   create function that parses the user_input_postcondition is and use Z3 to make precondition
+*)
+
+(* func_spec_type : t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option *)
+
+let sub_name_EXAMPLE = "foo"
+
+(* let summary_EXAMPLE = "(assert (and (= #x0000000000000000 (bvand RDI_mod #xFFFFFFFF00000000)) (not (= RDI_mod #x0000000000000002))))" *)
+
+(* let summary_EXAMPLE_TOK = "(assert (and (= #x0000000000000000 (bvand RDI022 #xFFFFFFFF00000000)) (not (= RDI022 #x0000000000000002))))" *)
+
+let summary_EXAMPLE = "(assert (and (= #x0000000000000000 (bvand RAX_mod #xFFFFFFFF00000000)) (not (= RAX_mod #x0000000000000007))))"
+
+let summary_EXAMPLE_TOK = "(assert (and (= #x0000000000000000 (bvand RAX021 #xFFFFFFFF00000000)) (not (= RAX021 #x0000000000000007))))"
+
+
+let smtlib_tokenize (env1 : Env.t) (env2 : Env.t) : string =
+  let var_map1 = Env.get_var_map env1 in
+  let var_map2 = Env.get_var_map env2 in
+  let init_var_map1 = Env.get_init_var_map env1 in
+  let init_var_map2 = Env.get_init_var_map env2 in
+  let var_fmt1 = fun v -> Format.sprintf "%s_orig" (Var.name v) in
+  let var_fmt2 = fun v -> Format.sprintf "%s_mod" (Var.name v) in
+  let init_fmt1 = fun v -> Format.sprintf "init_%s_orig" (Var.name v) in
+  let init_fmt2 = fun v -> Format.sprintf "init_%s_mod" (Var.name v) in
+  let maps = [var_map1; var_map2; init_var_map1; init_var_map2] in
+  let fmts = [var_fmt1; var_fmt2; init_fmt1; init_fmt2] in
+  let names = List.zip_exn maps fmts in
+  let to_z3_name token =
+    List.find_map names ~f:(fun (map, fmt) -> Z3_utils.get_z3_name map token fmt)
+    |> Base.Option.map ~f:Expr.to_string |> Option.value ~default:token
+  in
+  let smtlib_str =
+    summary_EXAMPLE
+    |> Z3_utils.tokenize
+    |> List.map ~f:to_z3_name
+    |> Z3_utils.build_str
+  in
+    Format.printf "\n smtlib in precondition.ml : %s \n %!" smtlib_str;
+    smtlib_str
+
+let user_spec (sub : Sub.t) (_ : Arch.t)
+    (* (user_input_name : string) (user_smtlib_str : string) *)
+  : Env.fun_spec option =
+  if String.equal sub_name_EXAMPLE (Sub.name sub) then
+    (Format.printf "Entered user_spec \n %!";
+    (* create function that parses the user_smtlib_str and use Z3 to make precondition*)
+    Some {
+      spec_name = sub_name_EXAMPLE ;
+      spec = Summary (fun env _ _ ->
+        let smtlib_str = smtlib_tokenize env env in
+        Format.printf "Entered Summary \n %!";
+        (* let smtlib_str = summary_EXAMPLE_TOK in *)
+        let constr : Constr.t = Z3_utils.mk_smtlib2_single env smtlib_str in
+        (Constr.pp_constr (Format.std_formatter) constr;
+         constr, env))
+    })
+  else None
+
+
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let is_verifier_error name = String.(
       name = "__VERIFIER_error" ||
@@ -913,7 +978,7 @@ let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   let sub_name = (Sub.to_string sub) in
   debug "Visiting sub:\n%s%!" sub_name;
   let pre, env' =
-    if (Seq.is_empty @@ Term.enum blk_t sub) 
+    if (Seq.is_empty @@ Term.enum blk_t sub)
     then
       (
         warning "encountered empty subroutine %s%!" sub_name;

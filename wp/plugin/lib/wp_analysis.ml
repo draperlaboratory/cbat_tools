@@ -127,6 +127,7 @@ let exp_conds_mod (p : Params.t) : Env.exp_cond list =
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Arch.t -> Env.fun_spec option) list =
   let default = [
+    Pre.user_spec; 
     Pre.spec_verifier_assume;
     Pre.spec_verifier_nondet;
     Pre.spec_afl_maybe_log;

@@ -19,8 +19,15 @@ bug-reports: "https://github.com/draperlaboratory/cbat_tools"
 dev-repo: "git+https://github.com/draperlaboratory/cbat_tools"
 depends: [
   "bap" {>= "2.1.0"}
+<<<<<<< HEAD
   "core_kernel" {>= "v0.14.0"}
   "z3" {>= "4.8.9"}
   "ounit2" {>= "2.2.3"}
   "re" {>= "1.9.0"}
+=======
+  "core" {>= "0.12.4"}
+  "z3" {>= "4.8.6"}
+  "ounit"
+  "re"
+>>>>>>> Add new test cases for for the user-smtlib speficier and add Precondition.user_specto interpret the user-specs
 ]

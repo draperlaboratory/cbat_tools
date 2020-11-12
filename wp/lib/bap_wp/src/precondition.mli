@@ -122,6 +122,9 @@ val caller_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 (** Obtains the callee-saved registers for a given architecture. *)
 val callee_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 
+(** FILL ME IN **)
+val user_spec : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+
 (** This spec is used for the functions [__assert_fail] or [__VERIFIER_error]. It
     returns the precondition [false]. *)
 val spec_verifier_error : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
