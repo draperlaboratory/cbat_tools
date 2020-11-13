@@ -483,7 +483,7 @@ let summary_EXAMPLE = "(assert (and (= #x0000000000000000 (bvand RAX_mod #xFFFFF
 let summary_EXAMPLE_TOK = "(assert (and (= #x0000000000000000 (bvand RAX021 #xFFFFFFFF00000000)) (not (= RAX021 #x0000000000000007))))"
 
 
-let smtlib_tokenize (env1 : Env.t) (env2 : Env.t) : string =
+let smtlib_tokenize (env1 : Env.t) (env2 : Env.t) (user_smtlib_str : string) : string =
   let var_map1 = Env.get_var_map env1 in
   let var_map2 = Env.get_var_map env2 in
   let init_var_map1 = Env.get_init_var_map env1 in
@@ -500,7 +500,7 @@ let smtlib_tokenize (env1 : Env.t) (env2 : Env.t) : string =
     |> Base.Option.map ~f:Expr.to_string |> Option.value ~default:token
   in
   let smtlib_str =
-    summary_EXAMPLE
+    user_smtlib_str
     |> Z3_utils.tokenize
     |> List.map ~f:to_z3_name
     |> Z3_utils.build_str
@@ -508,19 +508,18 @@ let smtlib_tokenize (env1 : Env.t) (env2 : Env.t) : string =
     Format.printf "\n smtlib in precondition.ml : %s \n %!" smtlib_str;
     smtlib_str
 
-let user_spec (sub : Sub.t) (_ : Arch.t)
-    (* (user_input_name : string) (user_smtlib_str : string) *)
-  : Env.fun_spec option =
-  if String.equal sub_name_EXAMPLE (Sub.name sub) then
+let user_func_spec (user_input_name : string) (user_smtlib_str : string)
+    (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+  if String.equal user_input_name (Sub.name sub) then
     (Format.printf "Entered user_spec \n %!";
     (* create function that parses the user_smtlib_str and use Z3 to make precondition*)
     Some {
       spec_name = sub_name_EXAMPLE ;
       spec = Summary (fun env _ _ ->
-        let smtlib_str = smtlib_tokenize env env in
+        let tok_smtlib_str = smtlib_tokenize env env user_smtlib_str in
         Format.printf "Entered Summary \n %!";
-        (* let smtlib_str = summary_EXAMPLE_TOK in *)
-        let constr : Constr.t = Z3_utils.mk_smtlib2_single env smtlib_str in
+        (* let tok_smtlib_str = summary_EXAMPLE_TOK in *)
+        let constr : Constr.t = Z3_utils.mk_smtlib2_single env tok_smtlib_str in
         (Constr.pp_constr (Format.std_formatter) constr;
          constr, env))
     })

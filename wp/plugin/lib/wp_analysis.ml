@@ -123,11 +123,18 @@ let exp_conds_mod (p : Params.t) : Env.exp_cond list =
   in
   null_derefs @ invalid_derefs
 
+(* Determine if the user added a user_func_spec. If so, parse the string and
+   apply the components to make a func_spec *)
+let parse_user_func_spec (p : Params.t) : (Sub.t -> Arch.t -> Env.fun_spec option) =
+  match p.user_func_spec with
+      Some (name,pre,post) -> Pre.user_func_spec name post
+     | _ -> Pre.user_func_spec "" ""
+
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Arch.t -> Env.fun_spec option) list =
   let default = [
-    Pre.user_spec; 
+    parse_user_func_spec p;
     Pre.spec_verifier_assume;
     Pre.spec_verifier_nondet;
     Pre.spec_afl_maybe_log;
