@@ -127,8 +127,8 @@ let exp_conds_mod (p : Params.t) : Env.exp_cond list =
    apply the components to make a func_spec *)
 let parse_user_func_spec (p : Params.t) : (Sub.t -> Arch.t -> Env.fun_spec option) =
   match p.user_func_spec with
-      Some (name,pre,post) -> Pre.user_func_spec name post
-     | _ -> Pre.user_func_spec "" ""
+      Some (name,pre,post) -> Pre.user_func_spec name pre post
+     | _ -> Pre.user_func_spec "" "" ""
 
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)

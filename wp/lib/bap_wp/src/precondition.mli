@@ -123,7 +123,7 @@ val caller_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 val callee_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 
 (** FILL ME IN **)
-val user_func_spec : string -> string ->  Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val user_func_spec : string -> string -> string -> Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
 
 (** This spec is used for the functions [__assert_fail] or [__VERIFIER_error]. It
     returns the precondition [false]. *)

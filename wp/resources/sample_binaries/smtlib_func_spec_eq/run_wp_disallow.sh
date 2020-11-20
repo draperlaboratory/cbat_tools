@@ -7,12 +7,25 @@
 
 # Should return UNSAT
 
+# More ideal test case
+# run () {
+#   bap wp \
+#     --func=main \
+#     --compare-post-reg-values=RAX \
+#     --precond="(assert (and (= #x0000000000000000 (bvand RAX_mod #xFFFFFFFF00000000)) (not (= RAX_mod #x0000000000000007))))" \
+#     --user-func-spec="foo,(assert (and (= #x0000000000000000 (bvand RDI_orig #xFFFFFFFF00000000)) (not (= RDI_orig #x0000000000000007)))),(assert (and (= #x0000000000000000 (bvand RAX_mod #xFFFFFFFF00000000)) (not (= RAX_mod #x0000000000000007))))" \
+#     -- main_1 main_2
+# }
+#
+# run
+
+# Current easier test case 
 run () {
   bap wp \
     --func=main \
     --compare-post-reg-values=RAX \
     --precond="(assert (and (= #x0000000000000000 (bvand RAX_mod #xFFFFFFFF00000000)) (not (= RAX_mod #x0000000000000007))))" \
-    --user-func-spec="foo,,(assert (and (= #x0000000000000000 (bvand RAX_mod #xFFFFFFFF00000000)) (not (= RAX_mod #x0000000000000007))))" \
+    --user-func-spec="foo,(assert (= RDI_orig RDI_orig)),(assert (= foo_RAX_mod RAX_mod))" \
     -- main_1 main_2
 }
 
