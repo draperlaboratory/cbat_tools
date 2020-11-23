@@ -130,8 +130,11 @@ let post_reg_values
   if List.is_empty reg_names then
     None
   else begin
-    let all_regs = Var.Set.union
-        (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
+    let all_regs = Var.Set.union_list
+        [ Pre.get_vars env1 sub1;
+          Pre.get_vars env2 sub2;
+          Var.Set.singleton @@ Env.get_sp env1 ]
+    in
     let post_regs = Var.Set.union
         (Pre.set_of_reg_names env1 sub1 reg_names)
         (Pre.set_of_reg_names env2 sub2 reg_names) in
