@@ -16,6 +16,8 @@ open Bap.Std
 open Bap_wp
 open OUnit2
 
+module Solver = Z3.Solver
+
 module Pre = Precondition
 module Constr = Constraint
 module Env = Environment
@@ -74,12 +76,19 @@ let mk_z3_expr (env : Env.t) (e : Exp.t) : Constr.z3_expr =
 let mk_z3_var (env : Env.t) (v : Var.t) : Constr.z3_expr =
   fst (Env.get_var env v)
 
+let no_model (s1 : Solver.status) (s2 : Solver.status) : bool =
+  match s1, s2 with
+  | Solver.SATISFIABLE, Solver.SATISFIABLE
+  | Solver.UNKNOWN, Solver.UNKNOWN
+  | Solver.UNSATISFIABLE, _ -> true
+  | _, _ -> false
+
 let print_z3_model
     ~orig:(env1 : Env.t) ~modif:(env2 : Env.t)
-    (solver : Z3.Solver.solver) (exp : Z3.Solver.status)
-    (real : Z3.Solver.status) (goals : Constr.t) : unit =
+    (solver : Solver.solver) (exp : Solver.status)
+    (real : Solver.status) (goals : Constr.t) : unit =
   let empty_sub = mk_sub [] in
-  if real = exp || real = Z3.Solver.UNSATISFIABLE then () else
+  if no_model real exp then () else
     Output.print_result solver real goals ~show:[]
       ~orig:(env1, empty_sub) ~modif:(env2, empty_sub)
 

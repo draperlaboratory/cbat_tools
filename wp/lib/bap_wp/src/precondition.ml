@@ -90,7 +90,10 @@ let load_z3_mem (ctx : Z3.context) ~word_size:word_size ~mem:(mem : Constr.z3_ex
     ~addr:(addr : Constr.z3_expr) (endian : Bap.Std.endian) : Constr.z3_expr =
   assert (Z3Array.is_array mem && mem |> Expr.get_sort
                                   |> Z3Array.get_range
-                                  |> Z3.Sort.get_sort_kind |> (fun s -> s = Z3enums.BV_SORT));
+                                  |> Z3.Sort.get_sort_kind
+                                  |> (function
+                                      | Z3enums.BV_SORT -> true
+                                      |_ -> false));
   let m_size = mem |> Expr.get_sort |> Z3Array.get_range |> BV.get_size in
   let addr_size = addr |> Expr.get_sort |> BV.get_size in
   let nums_to_read = word_size / m_size in
@@ -116,7 +119,10 @@ let store_z3_mem (ctx : Z3.context) ~word_size:word_size
     (endian : Bap.Std.endian) : Constr.z3_expr =
   assert (Z3Array.is_array mem && mem |> Expr.get_sort
                                   |> Z3Array.get_range
-                                  |> Z3.Sort.get_sort_kind |> (fun s -> s = Z3enums.BV_SORT));
+                                  |> Z3.Sort.get_sort_kind
+                                  |> (function
+                                      | Z3enums.BV_SORT -> true
+                                      | _ -> false));
   let m_size = mem |> Expr.get_sort |> Z3Array.get_range |> BV.get_size in
   let addr_size = addr |> Expr.get_sort |> BV.get_size in
   let nums_to_write = word_size / m_size in
@@ -918,7 +924,7 @@ let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
 let _  = inline_func :=
     fun post env tid ->
       let subs = Env.get_subs env in
-      let target_sub = Seq.find_exn subs ~f:(fun s -> (Term.tid s) = tid) in
+      let target_sub = Seq.find_exn subs ~f:(fun s -> Tid.equal (Term.tid s) tid) in
       let post = set_fun_called post env tid in
       visit_sub env post target_sub
 

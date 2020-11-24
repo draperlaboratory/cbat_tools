@@ -23,6 +23,7 @@ module Constr = Constraint
 module Bool = Z3.Boolean
 module Expr = Z3.Expr
 module BV = Z3.BitVector
+module Solver = Z3.Solver
 
 (* To run these tests: `make test.performance` in bap_wp directory *)
 
@@ -36,29 +37,36 @@ let z3_overtime_msg (threshold : float) (actual : float) : string =
   Format.sprintf "Running Z3 took longer than expected:\n \
                   Expected: %fs\nActual:   %fs" threshold actual
 
-let print_z3_model (ff : Format.formatter) (solver : Z3.Solver.solver)
+let no_model (s1 : Solver.status) (s2 : Solver.status) : bool =
+  match s1, s2 with
+  | Solver.SATISFIABLE, Solver.SATISFIABLE
+  | Solver.UNKNOWN, Solver.UNKNOWN
+  | Solver.UNSATISFIABLE, _ -> true
+  | _, _ -> false
+
+let print_z3_model (ff : Format.formatter) (solver : Solver.solver)
     (exp : 'a) (real : 'a) : unit =
-  if real = exp || real = Z3.Solver.UNSATISFIABLE then () else
-    match Z3.Solver.get_model solver with
+  if no_model real exp then () else
+    match Solver.get_model solver with
     | None -> ()
     | Some model -> Format.fprintf ff "\n\nCountermodel:\n%s\n%!" (Z3.Model.to_string model)
 
 let time_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : Sub.t)
-    (post : Constr.t) (pre : Constr.t) (expected : Z3.Solver.status) (threshold : float)
+    (post : Constr.t) (pre : Constr.t) (expected : Solver.status) (threshold : float)
   : float =
-  let solver = Z3.Solver.mk_simple_solver z3_ctx in
+  let solver = Solver.mk_simple_solver z3_ctx in
   let start_time = Sys.time () in
   let result = Pre.check solver z3_ctx pre in
   let end_time = Sys.time () in
   assert_equal ~ctxt:test_ctx
-    ~printer:Z3.Solver.string_of_status
+    ~printer:Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nPost:\n%a\n\nAnalyzing:\n%sPre:\n%a\n\n%!"
           Constr.pp_constr post (Sub.to_string body) Constr.pp_constr pre;
         print_z3_model ff solver exp real)
     expected result;
   let time = end_time -. start_time in
-  assert_bool (z3_overtime_msg threshold time) (time <=. threshold);
+  assert_bool (z3_overtime_msg threshold time) Float.(time <=. threshold);
   time
 
 let i32 n = Bil.int (Word.of_int ~width:32 n)
@@ -112,7 +120,7 @@ let test_nested_ifs (threshold : float) (test_ctx : test_ctxt) : unit =
                                |> Constr.mk_goal "false"
                                |> Constr.mk_constr
             in
-            if t = tid then begin
+            if Tid.equal t tid then begin
               (* The first branch in the seq is the innermost in the nest. *)
               if i = 0 then
                 Some (Constr.mk_ite jmp (cond_to_z3 cond env) false_constr true_constr, env)
@@ -128,7 +136,7 @@ let test_nested_ifs (threshold : float) (test_ctx : test_ctxt) : unit =
                 |> Constr.mk_constr
     in
     let pre, _ = Pre.visit_sub env post sub in
-    time_z3_result test_ctx ctx sub post pre Z3.Solver.SATISFIABLE threshold
+    time_z3_result test_ctx ctx sub post pre Solver.SATISFIABLE threshold
   in
 
   let time_without_hooks =
@@ -143,10 +151,10 @@ let test_nested_ifs (threshold : float) (test_ctx : test_ctxt) : unit =
                 |> Constr.mk_constr
     in
     let pre, _ = Pre.visit_sub env post sub in
-    time_z3_result test_ctx ctx sub post pre Z3.Solver.SATISFIABLE threshold
+    time_z3_result test_ctx ctx sub post pre Solver.SATISFIABLE threshold
   in
   assert_bool (hook_slowdown_msg time_with_hooks time_without_hooks)
-    (time_with_hooks <. time_without_hooks)
+    Float.(time_with_hooks <. time_without_hooks)
 
 let suite = [
   "Test branches" >: TestCase (Long, test_nested_ifs 10.0);
