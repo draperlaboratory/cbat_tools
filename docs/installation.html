@@ -37,7 +37,7 @@
 <p>Before installing, make sure you have the appropriate dependencies installed. First, there is OCaml:
 
 <ul>
-    <li>ocaml &ge; 4.07.0 &amp; &lt; 4.10.0</li>
+    <li>ocaml &ge; 4.08.0 &amp; &lt; 4.11.0</li>
 </ul>
 
 <p>The recommended way to install Ocaml is with OPAM. Instructions on downloading OPAM, and using OPAM to download Ocaml can be found <a href="https://ocaml.org/docs/install.html#OPAM">here</a>.
@@ -45,10 +45,10 @@
 <p>Then, there are the following OCaml packages:
 
 <ul>
-    <li>core_kernel 0.12.4+</li>
+    <li>core_kernel 0.14.0</li>
     <li>bap 2.1.0</li>
-    <li>ounit 2.0.8</li>
-    <li>z3 4.8.8</li>
+    <li>ounit2 2.2.3</li>
+    <li>z3 4.8.9</li>
     <li>re 1.9.0</li>
 </ul>
 
@@ -84,7 +84,7 @@
   make test.plugin.integration
 </pre>
 
-<p> To run oUnit tests with colored output, before running the above test commands, run 
+<p> To run oUnit tests with colored output, before running the above test commands, run
 
 <pre>
   export OUNIT_CI=true
