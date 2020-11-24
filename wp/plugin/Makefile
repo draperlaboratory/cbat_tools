@@ -10,7 +10,7 @@ PKGS := 'z3,bap_wp,re'
 TAG := 'warn(A-48-44)'
 Is := 'lib'
 
-TEST_PKGS := 'bap,z3,bap_wp,oUnit,re'
+TEST_PKGS := 'bap,z3,bap_wp,ounit2,re'
 TEST_TAG := 'warn(A-48-44),debug,thread'
 TEST_Is := 'lib,tests/test_libs'
 

@@ -48,15 +48,19 @@ build: $(BUILD)
 .PHONY: install
 install: $(BUILD)
 	dune install
+	opam install .
 
-.PHONY:reinstall
-reinstall: uninstall install
+.PHONY: reinstall
+reinstall:
+	$(MAKE) uninstall
+	$(MAKE) install
 
 .PHONY: uninstall
 uninstall:
 # eq is needed otherwise errors if not installed
 ifeq ($(IS_INSTALLED),1)
 	dune uninstall
+	opam remove .
 endif
 
 #####################################################
