@@ -26,7 +26,7 @@ let build_command (filename : string) : string =
   Format.sprintf "objdump -t %s | sed '0,/SYMBOL TABLE:/d' | grep -E 'data|bss' | awk '{print $1, $NF}'" filename
 
 let run_command (cmd : string) : string list =
-  let inp = Unix.open_process_in cmd in
+  let inp = Caml_unix.open_process_in cmd in
   let r = In_channel.input_lines inp in
   In_channel.close inp; r
 

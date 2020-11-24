@@ -146,7 +146,7 @@ let create_vars (l : string list) (env : Env.t) : Bap.Std.Var.Set.t =
   List.map l
     ~f:(fun var_name ->
         let var = Bap.Std.Var.Set.find gprs
-            ~f:(fun var -> var_name = Var.name var) in
+            ~f:(fun var -> String.equal var_name (Var.name var)) in
         match var with
         | Some r -> r
         | None ->
@@ -183,7 +183,7 @@ let gen_pointer_flag_comparators
     let pre_conds = Z3_utils.construct_pointer_constraint regs_orig env1
         (Some regs_mod) (Some env2) in
     let post_conds = Env.trivial_constr env1 in
-    Comp.compare_subs_constraints ~pre_conds ~post_conds |> Some
+    Some (Comp.compare_subs_constraints ~pre_conds ~post_conds)
 
 
 

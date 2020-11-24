@@ -19,13 +19,13 @@ let unit_tests = [
   "Equiv argc"                     >: (
     let models = [ [("RDI", "0x0000000000000002")]; ] in
     test_plugin "equiv_argc" sat
-      ~reg_list:(lift_out_regs models) ~checker:(check_list models |> Some)
+      ~reg_list:(lift_out_regs models) ~checker:(Some (check_list models))
   );
 
   "Precondition: force 2"          >: (
     let models = [ [("RDI", "0x0000000000000002")]; ] in
     test_plugin "equiv_argc" sat ~script:"run_wp_force.sh"
-      ~reg_list:(lift_out_regs models) ~checker:(check_list models |> Some));
+      ~reg_list:(lift_out_regs models) ~checker:(Some (check_list models)));
 
   "Precondition: disallow 2"       >: test_plugin "equiv_argc" unsat
     ~script:"run_wp_disallow.sh";
@@ -87,17 +87,17 @@ let unit_tests = [
   "Switch case assignments"        >: (
     let models = [ [("RDI", "0x0000000000000000")]; ] in
     test_plugin "switch_case_assignments" sat ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some));
+      ~checker:(Some (check_list models)));
 
   "Switch Cases"                   >: (
     let models = [ [("RDI", "0x0000000000000003")]; ] in
     test_plugin "switch_cases" sat ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some));
+      ~checker:(Some (check_list models)));
 
   "Switch Cases: Diff Ret Val"     >: (
     let models = [ [("RDI", "0x0000000000000003")]; ] in
     test_plugin "switch_cases_diff_ret" sat ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some));
+      ~checker:(Some (check_list models)));
 
   "Indirect call with return"      >: test_plugin "indirect_call_return" unsat;
   "Indirect call with no return"   >: test_plugin "indirect_call_no_return" unsat;
@@ -113,13 +113,13 @@ let unit_tests = [
     let models = [ [("RDI", "0x0000000000000005")]; ] in
     test_plugin "function_call" sat
       ~script:"run_wp_inline_foo.sh" ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some)
+      ~checker:(Some (check_list models))
   );
   "Function call: inline all"      >: (
     let models = [ [("RDI", "0x0000000000000005")]; ] in
     test_plugin "function_call" sat
       ~script:"run_wp_inline_all.sh" ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some)
+      ~checker:(Some (check_list models))
   );
 
 
@@ -149,7 +149,7 @@ let unit_tests = [
     let models = [ [("RDI", "0x0000000000000005")]; ] in
     test_plugin "loop/loop_depth_one" sat ~script:"run_wp_single.sh"
       ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some);
+      ~checker:(Some (check_list models));
   );
 
   "Loop incomplete unroll"         >:: test_skip fail_msg
@@ -157,7 +157,7 @@ let unit_tests = [
       let models = [ [("RDI", "0x0000000000000005")]; ] in
       test_plugin "loop/loop_depth_one" sat ~script:"run_wp_less_loop.sh"
         ~reg_list:(lift_out_regs models)
-        ~checker:(check_list models |> Some)
+        ~checker:(Some (check_list models))
     );
 
   "Loop incomplete unroll"         >:: test_skip fail_msg
@@ -169,14 +169,14 @@ let unit_tests = [
     let models = [ [("RDI", "0x0000000000000004")]; ] in
     test_plugin "nested_function_calls" sat
       ~script:"run_wp_inline_regex.sh" ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some)
+      ~checker:(Some (check_list models))
   );
 
   "Nested function calls: inline all"   >: (
     let models = [ [("RDI", "0x0000000000000004")]; ] in
     test_plugin "nested_function_calls" sat
       ~script:"run_wp_inline_all.sh" ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some)
+      ~checker:(Some (check_list models))
   );
 
 
@@ -195,7 +195,7 @@ let unit_tests = [
   "Simple WP"                      >: (
     let models = [[("RDI", "0x0000000000000003")]] in
     test_plugin "simple_wp" sat ~reg_list:(lift_out_regs models)
-      ~checker:(check_list models |> Some)
+      ~checker:(Some (check_list models))
   );
 
   "Simple WP: precondition"        >: test_plugin "simple_wp" unsat

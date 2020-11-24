@@ -126,15 +126,14 @@ let check_list (expected_reg_models : ((string * string) list) list )
               begin match StringMap.find observed_mapping reg with
                 (* if register not observed, then fail *)
                 | None ->
-                  Printf.sprintf
-                    "\n\tRegister %s not found in returned model.\n"
-                    reg |> Some
+                  Some (Printf.sprintf
+                    "\n\tRegister %s not found in returned model.\n" reg)
                 | Some observed_value ->
-                  if observed_value = value then None
+                  if String.equal observed_value value then None
                   else
-                    Printf.sprintf
+                    Some (Printf.sprintf
                       "\tRegister mismatch: %s expected to be %s but was %s\n"
-                      reg value observed_value |> Some
+                      reg value observed_value)
               end in
             Option.merge ~f:(^) acc err
           ) in
@@ -142,7 +141,7 @@ let check_list (expected_reg_models : ((string * string) list) list )
           | None -> None
           | Some cur_err ->
             let model_msg = (Printf.sprintf "\nModel %d:\n" i) in
-            err ^ model_msg ^ cur_err |> Some
+            Some (err ^ model_msg ^ cur_err)
         end
       | None -> seen_match
     )
@@ -208,7 +207,7 @@ let check_n_queen_diag_col_row (n : int) (board_list: Bitvector.t list): string 
         (* first condition is on requiring exactly one queen in a column or row *)
         (* second condition is requiring at most one queen in a diagonal  *)
         if (v = 1 && err_idx < 2) || (v <= 1 && 2 <= err_idx) then None
-        else Printf.sprintf "\n%s %d incorrect. Got %d\n" err_type err_idx v |> Some in
+        else Some (Printf.sprintf "\n%s %d incorrect. Got %d\n" err_type err_idx v) in
       let err_types = ["row"; "col"; "right diagonal lower";
                        "right diagonal upper"; "left diagonal lower";
                        "left diagonal upper"] in
@@ -251,7 +250,7 @@ let check_sudoku_conditions (indices : int list) (board : Bitvector.t) : string 
   then None else
     let indx_str =
       List.fold indices ~init:("") ~f:(fun acc x -> acc ^ "," ^ (string_of_int x)) in
-    Printf.sprintf "\n indices %s did not match what was expected" indx_str |> Some
+    Some (Printf.sprintf "\n indices %s did not match what was expected" indx_str)
 
 (* check a 2 by 2 sudoku game *)
 let check_two_by_two_sudoku (var_mapping : string StringMap.t) : string option =
@@ -281,12 +280,11 @@ let check_bad_hash_function (registers : string list) : ((string StringMap.t) ->
     let result = gather_register_values registers var_mapping
                  |> List.fold ~init:(Bitvector.of_int 0x0 ~width:reg_size)
                    ~f:(fun acc v -> bad_hash_function v acc reg_size) in
-    if result = result_index then
+    if Bitvector.equal result result_index then
       None
     else
-      Printf.sprintf "\n Expected the hash %s but got hash %s"
-        (Bitvector.to_string result) (Bitvector.to_string result_index)
-      |> Some
+      Some (Printf.sprintf "\n Expected the hash %s but got hash %s"
+        (Bitvector.to_string result) (Bitvector.to_string result_index))
 
 (* The length of a test_case is in seconds.
    OUnit has predefined test lengths of:
@@ -331,7 +329,7 @@ let nqueens_tests = List.range 4 20 |> List.map ~f:(fun i ->
     let script = Printf.sprintf "run_wp.sh" in
     let test = (description >: test_plugin "nqueens" sat
                   ~reg_list:(get_register_args 6 `x86_64 |> StringSet.of_list)
-                  ~checker:(check_n_queens i `x86_64 |> Some)
+                  ~checker:(Some (check_n_queens i `x86_64))
                   ~script:script ~args:[string_of_int i])
     in
     (* tests 17 to 19 currently time out *)
