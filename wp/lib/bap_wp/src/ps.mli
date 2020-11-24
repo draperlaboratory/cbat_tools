@@ -11,28 +11,19 @@
 (*                                                                         *)
 (***************************************************************************)
 
-(**
+(** A utility for running shell commands. *)
 
-   This module exports utility functions for working with the objdump command.
-   It currently uses objdump to get the names of symbols in the .data and .bss
-   sections of a binary and their addresses.
+module Cmd : sig
 
-*)
+  (** Runs a command in a shell, returns the exit code, stdout, and stderr.
 
-module Constr = Constraint
+      Arguments:
+      - A string (the command to execute in the shell)
 
-exception ExecutionError of string
-exception NonzeroExit of string
+      Returns: a triple composed of:
+      - The exit code (an int)
+      - The command's stdout (a string)
+      - The command's stderr (a string) *)
+  val run : string -> int * string * string
 
-(** [symbol] is a mapping of a name to its starting address. *)
-type t
-
-(** [get_symbols filename] creates a map of the names of symbols in the
-    .data and .bss sections of a binary mapped to their addresses. *)
-val get_symbols : string -> t list
-
-(** Given a list of symbols from the original and modified binaries,
-    returns a function that maps the address of a memory read in the
-    original binary to the address of the read in the modified binary. *)
-val offset_constraint :
-  orig:(t list) -> modif:(t list) -> Z3.context -> Constr.z3_expr -> Constr.z3_expr
+end

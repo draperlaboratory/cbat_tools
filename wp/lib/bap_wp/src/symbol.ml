@@ -20,18 +20,37 @@ module Expr = Z3.Expr
 module Constr = Constraint
 module Pre = Precondition
 
+exception ExecutionError of string
+exception NonzeroExit of string
+
 type t = string * Word.t
 
 let build_command (filename : string) : string =
   Format.sprintf "objdump -t %s | sed '0,/SYMBOL TABLE:/d' | grep -E 'data|bss' | awk '{print $1, $NF}'" filename
 
-let run_command (cmd : string) : string list =
-  let inp = Caml_unix.open_process_in cmd in
-  let r = In_channel.input_lines inp in
-  In_channel.close inp; r
+let exec_err (cmd : string) (e : exn) : string =
+  Format.sprintf "Couldn't run command '%s'.\nError: %s%!" cmd (Exn.to_string e)
 
-let parse_result (output : string list) : t list =
+let cmd_err (cmd : string) (code : int) (out : string) (err : string) : string =
+  Format.sprintf "Command exited with non-zero exit code.\nCMD: '%s'\n \
+                 EXIT CODE: '%d'\nSTDOUT: %s\nSTDERR: %s%!" cmd code out err
+
+let run_command (cmd : string) : string =
+  let code, out, err = try
+      Ps.Cmd.run cmd
+    with e ->
+      let msg = exec_err cmd e in
+      raise (ExecutionError msg)
+  in
+  match code with
+  | 0 -> out
+  | n ->
+    let msg = cmd_err cmd n out err in
+    raise (NonzeroExit msg)
+
+let parse_result (output : string) : t list =
   output
+  |> String.split ~on:'\n'
   |> List.sort ~compare:String.compare
   |> List.rev
   |> List.fold ~init:[]
