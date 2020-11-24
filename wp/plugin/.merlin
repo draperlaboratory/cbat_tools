@@ -3,9 +3,10 @@ S ./tests/**
 S ./lib/**
 
 PKG bap
-PKG core
+PKG core_kernel
 PKG z3
-PKG oUnit
+PKG ounit2
 PKG bap_wp
+PKG re
 
 B _build/**
