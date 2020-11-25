@@ -212,4 +212,12 @@ let unit_tests = [
     ~script:"run_wp_assume_unsat.sh";
   "Verifier nondent"               >: test_plugin "verifier_calls" sat
     ~script:"run_wp_nondet.sh";
+
+  "Syntactic equality: unequal"
+  >: test_plugin "syntax_equality" sat ~script:"run_wp_sat.sh";
+  "Syntactic equality: equal 1"
+  >: test_plugin "syntax_equality" unsat ~script:"run_wp_unsat_1.sh";
+  "Syntactic equality: equal 2"
+  >: test_plugin "syntax_equality" unsat ~script:"run_wp_unsat_2.sh";
+
 ]

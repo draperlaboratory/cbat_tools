@@ -180,6 +180,13 @@ let stack_size = Cmd.parameter Typ.(some int) "stack-size"
     ~doc:{|Sets the size of the stack, which should be denoted in bytes. By
            default, the size of the stack is 0x800000 which is 8MB.|}
 
+let syntax_equality = Cmd.flag "syntax-equality"
+    ~doc:{| Short-circuits WP and returns UNSAT if the functions
+           are syntactically equal. Use with caution; the comparison must
+           be testing for function equality in the same sense as syntactic
+           equality. This is currently found with the mem_offset flag and
+           pointer flag enabled. Only applicable in the comparative case. |}
+
 let grammar = Cmd.(
     args
     $ func
@@ -200,6 +207,7 @@ let grammar = Cmd.(
     $ show
     $ stack_base
     $ stack_size
+    $ syntax_equality
     $ files)
 
 (* The callback run when the command is invoked from the command line. *)
@@ -222,6 +230,7 @@ let callback
     (show : string list)
     (stack_base : int option)
     (stack_size : int option)
+    (syntax_equality : bool)
     (files : string list)
     (ctxt : ctxt) =
   let params = Parameters.({
@@ -242,7 +251,8 @@ let callback
       debug = debug;
       show = show;
       stack_base = stack_base;
-      stack_size = stack_size
+      stack_size = stack_size;
+      syntax_equality = syntax_equality;
     })
   in
   Parameters.validate params files >>= fun () ->

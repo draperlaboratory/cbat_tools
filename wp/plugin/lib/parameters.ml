@@ -47,7 +47,8 @@ type t = {
   debug : string list;
   stack_base : int option;
   stack_size : int option;
-  show : string list
+  syntax_equality : bool;
+  show : string list;
 }
 
 (* Ensures the user inputted a function for analysis. *)
