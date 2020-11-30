@@ -50,7 +50,7 @@ let unit_tests = [
   "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" unsat
     ~script:"run_wp_mem_offset.sh";
   "Data/BSS sections"              >: test_plugin "memory_samples/data_bss_sections" unsat
-    ~script:"run_wp_addr_rewrite.sh";
+    ~script:"run_wp_addr_rewrite.sh" ~length:Short;
 
   "Diff data section"              >:: test_skip fail_msg (test_plugin "memory_samples/diff_data" sat);
 
