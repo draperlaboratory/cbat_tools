@@ -131,13 +131,11 @@ let validate_mem_flags (mem_offset : bool) (rewrite_addrs : bool)
     let err = "--mem-offset and --rewrite-addresses cannot be used together. \
                Please specify only one flag." in
     Error (Incompatible_flag err)
-  else if (mem_offset || rewrite_addrs) && (List.length files <> 2) then begin
-    let flag = if mem_offset then "mem-offset" else "rewrite-addresses" in
-    let err = Printf.sprintf "--%s is only used for a comparative analysis. \
-                              Please specify two files. Number of files \
-                              given: %d%!" flag (List.length files) in
-    Error (Incompatible_flag err)
-  end else
+  else if mem_offset then
+    validate_two_files mem_offset "mem-offset" files
+  else if rewrite_addrs then
+    validate_two_files rewrite_addrs "rewrite_addresses" files
+  else
     Ok ()
 
 let validate (f : t) (files : string list) : (unit, error) result =
