@@ -1103,59 +1103,51 @@ let collect_valid_mem_stores (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   in
   visitor#visit_exp exp []
 
-(* Verifies that a memory load is in a valid location in memory in the modified
-   binary. *)
-let valid_load_vc : Env.exp_cond = fun env exp ->
+(* Adds a VC for the constraints found by the [collector] tagged with a [name]. *)
+let valid_mem_vc (collector : Env.t -> Exp.t -> Constr.z3_expr list) (name : string)
+  : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
-  let conds = collect_valid_mem_loads env exp in
+  let conds = collector env exp in
   if List.is_empty conds then
     None
   else
-    Some (Verify (BeforeExec (Constr.mk_goal "verify valid mem load"
-                                (Bool.mk_and ctx conds))))
+    Some (Verify (BeforeExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
+
+(* Adds an assumption for the constraints found by the [collector] tagged with
+   a [name]. *)
+let valid_mem_assert (collector : Env.t -> Exp.t -> Constr.z3_expr list) (name : string)
+  : Env.exp_cond = fun env exp ->
+  let ctx = Env.get_context env in
+  let conds = collector env exp in
+  List.iter conds ~f:(fun c ->
+      if Bool.is_false c then
+        warning "The assumption %s is false! This may result in a false UNSAT.%!"
+          (Expr.to_string c)
+      else ());
+  if List.is_empty conds then
+    None
+  else
+    Some (Assume (BeforeExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
+
+(* Verifies that a memory load is in a valid location in memory in the modified
+   binary. *)
+let valid_load_vc : Env.exp_cond =
+  valid_mem_vc collect_valid_mem_loads "verify valid mem load"
 
 (* Assumes that a memory load is in a valid location in memory in the original
    binary. *)
-let valid_load_assert : Env.exp_cond = fun env exp ->
-  let ctx = Env.get_context env in
-  let conds = collect_valid_mem_loads env exp in
-  List.iter conds ~f:(fun c ->
-      if Bool.is_false c then
-        warning "The assumption %s is false! This may result in a false UNSAT.%!"
-          (Expr.to_string c)
-      else ());
-  if List.is_empty conds then
-    None
-  else
-    Some (Assume (BeforeExec (Constr.mk_goal "assume valid mem load"
-                                (Bool.mk_and ctx conds))))
+let valid_load_assert : Env.exp_cond =
+  valid_mem_assert collect_valid_mem_loads "assume valid mem load"
 
 (* Verifies that a memory store is in a valid location in memory in the modified
    binary. *)
-let valid_store_vc : Env.exp_cond = fun env exp ->
-  let ctx = Env.get_context env in
-  let conds = collect_valid_mem_stores env exp in
-  if List.is_empty conds then
-    None
-  else
-    Some (Verify (BeforeExec (Constr.mk_goal "verify valid mem store"
-                                (Bool.mk_and ctx conds))))
+let valid_store_vc : Env.exp_cond =
+  valid_mem_vc collect_non_null_stores "verify valid mem store"
 
 (* Assumes that a memory store is in a valid location in memory in the original
    binary. *)
-let valid_store_assert : Env.exp_cond = fun env exp ->
-  let ctx = Env.get_context env in
-  let conds = collect_valid_mem_stores env exp in
-  List.iter conds ~f:(fun c ->
-      if Bool.is_false c then
-        warning "The assumption %s is false! This may result in a false UNSAT.%!"
-          (Expr.to_string c)
-      else ());
-  if List.is_empty conds then
-    None
-  else
-    Some (Assume (BeforeExec (Constr.mk_goal "assume valid mem store"
-                                (Bool.mk_and ctx conds))))
+let valid_store_assert : Env.exp_cond =
+  valid_mem_assert collect_valid_mem_stores "assume valid mem store"
 
 (* At a memory read, add two assumptions of the form:
    Data(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
