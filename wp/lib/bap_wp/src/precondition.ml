@@ -488,20 +488,20 @@ let smtlib_tokenize (env : Env.t) (user_smtlib_str : string) (name : string) : s
     Format.printf "\n smtlib in precondition.ml : %s \n %!" smtlib_str;
     smtlib_str
 
-(* user_func_spec user_input_name pre post sub arch can create a new Env.fun_spec
+(* user_func_spec subroutine_name pre post sub arch can create a new Env.fun_spec
    based on the specific pre and post(-conditions) the user gives.
    Given some hoare-triples P{f}Q and X{g}R where f is a subroutines inside g,
    we calculate the weakest-precondition X as P /\ (F(x) = (Q(x)=>R(x)) where F
    is a function that interprets global variables. *)
-let user_func_spec (user_input_name : string) (pre : string) (post : string)
+let user_func_spec (subroutine_name : string) (pre : string) (post : string)
     (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   Format.printf "Entered user_func_spec... check! \n";
-  if String.equal user_input_name (Sub.name sub) then
+  if String.equal subroutine_name (Sub.name sub) then
     (* create function that parses the pre and use Z3 to make precondition*)
     Some {
-      spec_name = user_input_name ;
+      spec_name = subroutine_name ;
       spec = Summary (fun env outer_post _ ->
-         let string_to_constr = (fun str -> (smtlib_tokenize env str user_input_name )
+         let string_to_constr = (fun str -> (smtlib_tokenize env str subroutine_name )
                                   |> Z3_utils.mk_smtlib2_single env) in
          let module T = (val target_of_arch arch) in
          let inputs : Var.t list = Set.elements (T.CPU.gpr) in
@@ -1248,12 +1248,12 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
   in
   visitor#visit_exp exp []
 
-let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
+let init_vars ?tag:(tag="init") (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
   let ctx = Env.get_context env in
   Var.Set.fold vars ~init:([], env)
     ~f:(fun (inits, env) v ->
         let z3_v, env = Env.get_var env v in
-        let init_v, env = Env.mk_init_var env v in
+        let init_v, env = Env.mk_init_var tag env v in
         let comp =
           Bool.mk_eq ctx z3_v init_v
           |> Constr.mk_goal

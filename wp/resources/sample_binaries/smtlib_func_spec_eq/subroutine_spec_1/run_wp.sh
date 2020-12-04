@@ -23,9 +23,9 @@
 run () {
   bap wp \
     --func=main \
-    --precond="(assert (and (= #x0000000000000000 (bvand RAX #xFFFFFFFF00000000)) (not (= RAX #x0000000000000007))))" \
-    --user-func-spec="foo,(assert (= init_RDI init_RDI)),(assert (= init_RAX RAX))" \
-    -- main_2
+    --precond="(assert (= RAX #x0000000000000003))" \
+    --user-func-spec="foo,(assert (true)),(assert (= RAX #x0000000000000004))" \
+    -- main
 }
 
 run
