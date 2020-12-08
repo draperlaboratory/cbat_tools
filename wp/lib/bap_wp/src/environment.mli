@@ -290,7 +290,7 @@ val update_stack_size : mem_range -> int -> mem_range
 (** [mk_init_var env var] creates a fresh Z3 variable that represents the
     initial state of variable [var]. Adds a new binding to [env] for the bap
     variable to is generated init variable. *)
-val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
+val mk_init_var : ?tag:string -> t -> Bap.Std.Var.t -> Constr.z3_expr * t
 
 (** [get_init_var var] obtains the Z3 expression that represents the initial state
     of a bap variable [var]. *)

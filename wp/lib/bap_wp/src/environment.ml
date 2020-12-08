@@ -481,7 +481,7 @@ let mk_init_var ?tag:(tag="init") (env : t) (var : Var.t) : Constr.z3_expr * t =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
-  let name = Format.sprintf (tag ^ "_%s") (Expr.to_string z3_var) in
+  let name = tag ^ Format.sprintf ("_%s") (Expr.to_string z3_var) in
   let init_var = Expr.mk_const_s ctx name sort in
   let env = { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var } in
   init_var, env

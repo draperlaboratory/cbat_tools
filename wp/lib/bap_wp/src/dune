@@ -1,8 +1,4 @@
 (library
    (name bap_wp)
    (public_name bap_wp)
-<<<<<<< HEAD
    (libraries bap bap-x86-cpu z3 ounit2 re))
-=======
-   (libraries bap bap-x86-cpu z3 oUnit re))
->>>>>>> Add new test cases for for the user-smtlib speficier and add Precondition.user_specto interpret the user-specs
