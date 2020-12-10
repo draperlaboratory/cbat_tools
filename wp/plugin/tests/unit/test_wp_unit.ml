@@ -86,8 +86,6 @@ let unit_tests = [
     ~script:"run_wp_inline_all.sh";
   "Retrowrite stub no ret in call" >: test_plugin "retrowrite_stub_no_ret" unsat;
 
-  "ROP example"                    >:: test_skip fail_msg (test_plugin "rop_example" unsat);
-
   "Same signs: post registers"     >: test_plugin "same_signs" unsat;
   "Same signs: postcondition"      >: test_plugin "same_signs" unsat
     ~script:"run_wp_postcond.sh";
