@@ -1,4 +1,4 @@
-include ../optimization_flags.mk
+# include ../optimization_flags.mk
 
 SRC_DIR = src
 BIN_DIR = bin

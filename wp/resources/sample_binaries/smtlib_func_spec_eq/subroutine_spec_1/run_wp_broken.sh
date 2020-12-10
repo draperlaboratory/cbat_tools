@@ -5,7 +5,7 @@
 # As a result, the output of the function should be the same between both
 # binaries.
 
-# Should return UNSAT
+# Should return SAT
 
 # More ideal test case
 # run () {
@@ -20,11 +20,16 @@
 # run
 
 # Current easier test case
+
+# Current easier test case
+# Should return ____, since (RAX = 4 /\ (RAX = 4 => RAX = 3)) is
+# not always true
+
 run () {
   bap wp \
     --func=main \
-    --precond="(assert (= RAX #x0000000000000003))" \
-    --user-func-spec="foo,(assert (true)),(assert (= RAX #x0000000000000004))" \
+    --postcond="(assert (= RAX #x0000000000000004))" \
+    --user-func-spec="g,(assert true),(assert (= RAX #x0000000000000005))" \
     -- main
 }
 

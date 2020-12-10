@@ -464,7 +464,7 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
 
 
 let smtlib_tokenize (env : Env.t) (user_smtlib_str : string) (name : string) : string =
-  Format.printf "Entered smtlib_tokenize... check! \n";
+  Format.printf "DB: Entered smtlib_tokenize... check! \n";
   (* get_var_map : Env.t -> Constr.z3_expr EnvMap.t  gets the var_map containing a mapping of BIR vars to Z3 vars *)
   let var_map = Env.get_var_map env in
   (* get_init_var_map : Env.t -> Constr.z3_expr EnvMap.t  gets a var-mapping of BIR to Z3 for initial states *)
@@ -475,53 +475,73 @@ let smtlib_tokenize (env : Env.t) (user_smtlib_str : string) (name : string) : s
   let maps = [init_var_map; var_map   ; var_map  ] in
   let fmts = [init_fmt    ; proc_fmt1 ; proc_fmt2] in
   let names = List.zip_exn maps fmts in
+  Format.printf "DB: smtlib_tokenize to_z3_name \n";
   let to_z3_name token =
     List.find_map names ~f:(fun (map, fmt) -> Z3_utils.get_z3_name map token fmt)
     |> Base.Option.map ~f:Expr.to_string |> Option.value ~default:token
   in
+  Format.printf "DB: smtlib_tokenize smtlib_str \n";
   let smtlib_str =
     user_smtlib_str
     |> Z3_utils.tokenize
     |> List.map ~f:to_z3_name
     |> Z3_utils.build_str
   in
-    Format.printf "\n smtlib in precondition.ml : %s \n %!" smtlib_str;
+    Format.printf "DB: smtlib in precondition.ml : %s \n %!" smtlib_str;
     smtlib_str
 
-(* user_func_spec subroutine_name pre post sub arch can create a new Env.fun_spec
-   based on the specific pre and post(-conditions) the user gives.
-   Given some hoare-triples P{f}Q and X{g}R where f is a subroutines inside g,
-   we calculate the weakest-precondition X as P /\ (F(x) = (Q(x)=>R(x)) where F
-   is a function that interprets global variables. *)
-let user_func_spec (subroutine_name : string) (pre : string) (post : string)
+let user_func_spec (sub_name : string) (pre : string) (post : string)
     (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
-  Format.printf "Entered user_func_spec... check! \n";
-  if String.equal subroutine_name (Sub.name sub) then
+  Format.printf "DB: Entered user_func_spec... check! \n";
+  if String.equal sub_name (Sub.name sub) then
     (* create function that parses the pre and use Z3 to make precondition*)
     Some {
-      spec_name = subroutine_name ;
-      spec = Summary (fun env outer_post _ ->
-         let string_to_constr = (fun str -> (smtlib_tokenize env str subroutine_name )
-                                  |> Z3_utils.mk_smtlib2_single env) in
-         let module T = (val target_of_arch arch) in
-         let inputs : Var.t list = Set.elements (T.CPU.gpr) in
-         let post_constr : Constr.t = string_to_constr post in
-         let new_post,new_env = increment_stack_ptr post_constr env in
-         let q_imp_r : Constr.t  = (Constr.mk_clause [new_post] [outer_post]) in
-         let appl_q_imp_r : Constr.t  = subst_fun_outputs env sub q_imp_r ~inputs:inputs ~outputs:[] in
-         let pre_constr : Constr.t = string_to_constr pre in
-         let wp : Constr.t = Constr.mk_clause [pre_constr ; appl_q_imp_r] [] in
+      spec_name = sub_name ;
+      spec = Summary (fun env r _ ->
+        (* First, make a fctn that converts the string to a constraint.
+              This includes changing var names via smtlib_tokenize
+              needs a name *)
+          (* ACTUAL CODE let constr_of_string : (string -> Constr.t) = (fun str ->
+              (smtlib_tokenize env str sub_name)
+              |> Z3_utils.mk_smtlib2_single env) in *)
+          let constr_of_string : (string -> Constr.t) = (fun str ->
+              str
+              |> Z3_utils.mk_smtlib2_single env) in
+        (* The globals *)
+          let module T = (val target_of_arch arch) in
+          let globals : Var.t list = Set.elements (T.CPU.gpr) in
+        (* The hard parts: making the constraits
+            in P /\ ((...) => (Q => R)[...]), we need to make
+            q = Q
+            qr = Q => P
+            qr_fresh = [...]
+            pre_qr = (...)
+            right = pre_qp => qp_fresh
+            p = P
+            result = P /\ right
+            To do: How do we separate the inits from the non-inits??
+        *)
+          Format.printf "DB: user_func_spec q \n";
+          let q : Constr.t = constr_of_string post in
+          Format.printf "DB: user_func_spec qr \n";
+          (* let new_post,new_env = increment_stack_ptr q env in *) (*get back to this later*)
+          let qr : Constr.t  = Constr.mk_clause [q] [r] in
+          (* Format.printf "DB: user_func_spec qr_fresh \n"; *)
+          (* let qr_fresh : Constr.t  = subst_fun_outputs env sub qr ~inputs:globals ~outputs:[] in *)
+          let qr_fresh = qr in
+          Format.printf "DB: user_func_spec p \n";
+          let p : Constr.t = constr_of_string pre in
+          Format.printf "DB: user_func_spec result \n";
+          let result : Constr.t = Constr.mk_clause [] [p ; qr_fresh] in
           let debug l =
             List.iter l
               (fun (x,y)->
                  Format.printf x ; Constr.pp_constr (Format.std_formatter) y;
                  Format.printf "\n\n")
           in
-          debug [("outer_post: ", outer_post); ("post: ", post_constr);
-                 ("post w/ incremented RSP" , new_post); ("q->r: ", q_imp_r);
-                 ("forallz.qz->rz: ", appl_q_imp_r);
-                 ("pre: ", pre_constr);("pre && forallz.qz->rz: ", wp)];
-         wp , new_env)
+          debug [("R: ",r); ("Q: ",q); ("Q=>R: ",qr); ("(Q=>R)[..]: ",qr_fresh);
+                 ("P: ",p); ("pre & forallz.qz->rz: ", result)];
+          result , env)
     }
   else None
 
@@ -1248,12 +1268,12 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
   in
   visitor#visit_exp exp []
 
-let init_vars ?tag:(tag="init") (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
+let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
   let ctx = Env.get_context env in
   Var.Set.fold vars ~init:([], env)
     ~f:(fun (inits, env) v ->
         let z3_v, env = Env.get_var env v in
-        let init_v, env = Env.mk_init_var tag env v in
+        let init_v, env = Env.mk_init_var env v in
         let comp =
           Bool.mk_eq ctx z3_v init_v
           |> Constr.mk_goal
