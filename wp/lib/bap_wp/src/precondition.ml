@@ -728,51 +728,54 @@ let mk_env
   Env.mk_env ~subs ~specs ~default_spec ~indirect_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
     ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
 
+let conditional_jmp (jmp : Jmp.t) (env : Env.t) (target_pre : Constr.t)
+    (post : Constr.t) : Constr.t * Env.t =
+  let ctx = Env.get_context env in
+  let cond = Jmp.cond jmp in
+  let cond_val, hooks, env = exp_to_z3 cond env in
+  debug "\n\nJump when %s:\n%s\n%!"
+    (Expr.to_string cond_val) (hooks_to_string hooks);
+  let cond_size = BV.get_size (Expr.get_sort cond_val) in
+  let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
+  let is_unconditional =
+    match cond with
+    | Bil.Types.Int w -> Word.is_one w
+    | _ -> false
+  in
+  let ite =
+    if is_unconditional then
+      target_pre
+    else
+      Constr.mk_ite jmp (Bool.mk_not ctx false_cond) target_pre post
+  in
+  (* If we add a PC variable, we should separate the befores and afters
+     similarly to how we did in visit_def *)
+  let vcs = hooks.verify_before @ hooks.verify_after in
+  let assume = hooks.assume_before @ hooks.assume_after in
+  let post = ite :: vcs in
+  Constr.mk_clause assume post, env
+
 let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
   let jmp_spec = Env.get_jmp_handler env in
   match jmp_spec env post (Term.tid jmp) jmp with
   | Some p_env -> p_env
   | None ->
-    begin
+    let target_pre, env =
       match Jmp.kind jmp with
       | Goto l ->
         begin
           match l with
           | Direct tid ->
-            debug "Goto direct label: %s%!" (Label.to_string l);
-            let ctx = Env.get_context env in
-            let l_pre =
+            begin
+              debug "Goto direct label: %s%!" (Label.to_string l);
               match Env.get_precondition env tid with
-              | Some pre -> pre
+              | Some pre -> pre, env
               (* We always hit this point when finish a loop unrolling *)
               | None ->
                 error "Precondition for node %s not found!" (Tid.to_string tid);
                 failwith ("Error in visit_jmp: \
                            The loop handler should have added the precondition for the node");
-            in
-            let cond = Jmp.cond jmp in
-            let cond_val, hooks, env = exp_to_z3 cond env in
-            debug "\n\nJump when %s:\n%s\n%!"
-              (Expr.to_string cond_val) (hooks_to_string hooks);
-            let cond_size = BV.get_size (Expr.get_sort cond_val) in
-            let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
-            let is_unconditional =
-              match cond with
-              | Bil.Types.Int w -> Word.is_one w
-              | _ -> false
-            in
-            let ite =
-              if is_unconditional then
-                l_pre
-              else
-                Constr.mk_ite jmp (Bool.mk_not ctx false_cond) l_pre post
-            in
-            (* If we add a PC variable, we should separate the befores and afters
-               similarly to how we did in visit_def *)
-            let vcs = hooks.verify_before @ hooks.verify_after in
-            let assume = hooks.assume_before @ hooks.assume_after in
-            let post = ite :: vcs in
-            Constr.mk_clause assume post, env
+            end
           (* TODO: evaluate the indirect jump and
              enumerate the possible concrete values, relate to tids
              (probably tough...) *)
@@ -792,7 +795,8 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
                       Option.value_exn ?here:None ?error:None ?message:None in
         let handler = Env.get_int_handler env in
         handler env ret_pre i
-    end
+    in
+    conditional_jmp jmp env target_pre post
 
 let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t =
   match elt with
