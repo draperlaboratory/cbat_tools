@@ -2,16 +2,12 @@
 //  Tests that our code sees and uses g's pre and post-conditions.
 //  Should return UNSAT
 
-#include <stdlib.h>
+#include <assert.h>
 
-// pre : (true)
-int g() {
-  return 4;
+int main(int argc,char ** argv) {
+
+  if(argc == 3)
+    assert(0);
+
+  return 0;
 }
-// post : (RAX = 4)
-
-
-int main(int argc) {
-  return g();
-}
-// post : (RAX = 3)

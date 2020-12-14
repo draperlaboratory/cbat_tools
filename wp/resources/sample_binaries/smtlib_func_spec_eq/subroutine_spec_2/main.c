@@ -11,7 +11,7 @@ int g() {
 // post : (RAX = 4)
 
 
-int main(int argc) {
+int main(int argc,char ** argv) {
   argc = g();
   if (argc == 0x0000000000000067) assert(0);
   return argc;

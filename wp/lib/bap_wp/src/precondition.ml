@@ -539,7 +539,7 @@ let user_func_spec (sub_name : string) (pre : string) (post : string)
                  Format.printf x ; Constr.pp_constr (Format.std_formatter) y;
                  Format.printf "\n\n")
           in
-          debug [("R: ",r); ("Q: ",q); ("Q=>R: ",qr); ("(Q=>R)[..]: ",qr_fresh);
+          debug [("R: ", r); ("Q: ",q); ("Q=>R: ",qr); ("(Q=>R)[..]: ",qr_fresh);
                  ("P: ",p); ("pre & forallz.qz->rz: ", result)];
           result , env)
     }
