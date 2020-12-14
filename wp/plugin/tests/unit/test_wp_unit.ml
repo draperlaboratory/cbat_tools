@@ -115,6 +115,8 @@ let unit_tests = [
 
   (* Test single elf *)
 
+  "Conditional call"               >: test_plugin "conditional_call" unsat;
+
   "Function call"                  >: (
     let models = [ [("RDI", "0x0000000000000005")]; ] in
     test_plugin "function_call" sat
