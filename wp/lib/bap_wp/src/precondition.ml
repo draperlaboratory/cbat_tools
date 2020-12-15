@@ -1142,7 +1142,7 @@ let valid_load_assert : Env.exp_cond =
 (* Verifies that a memory store is in a valid location in memory in the modified
    binary. *)
 let valid_store_vc : Env.exp_cond =
-  valid_mem_vc collect_non_null_stores "verify valid mem store"
+  valid_mem_vc collect_valid_mem_stores "verify valid mem store"
 
 (* Assumes that a memory store is in a valid location in memory in the original
    binary. *)
