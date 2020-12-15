@@ -7,7 +7,7 @@ run () {
   bap wp \
     --func=main \
     --show=paths,bir \
-    --trip-assert \
+    --trip-asserts \
     -- main
 }
 

@@ -198,6 +198,8 @@ let unit_tests = [
   "Null dereference: with check"   >: test_plugin "null_deref" sat
     ~script:"run_wp_null_deref.sh";
 
+  "Unconditional call"             >: test_plugin "unconditional_call" sat;
+
   "User defined postcondition"     >: test_plugin "return_argc" sat;
 
   "Simple WP"                      >: (
