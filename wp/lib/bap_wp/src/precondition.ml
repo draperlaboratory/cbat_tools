@@ -728,6 +728,9 @@ let mk_env
   Env.mk_env ~subs ~specs ~default_spec ~indirect_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
     ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
 
+(* Determines the condition for taking a jump, and uses it to generate the jump
+   expression's precondition based off of the postcondition and the
+   precondition of the jump's target. *)
 let conditional_jmp (jmp : Jmp.t) (env : Env.t) (target_pre : Constr.t)
     (post : Constr.t) : Constr.t * Env.t =
   let ctx = Env.get_context env in
