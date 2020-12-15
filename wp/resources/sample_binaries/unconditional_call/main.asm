@@ -11,8 +11,6 @@ __assert_fail:
 .end:
 
 main:
-    mov     rdi, 0x61
-    cmp     rdi, 0x67
-    je      __assert_fail
-    ret
+    jmp     __assert_fail
+  ret
 .end:
