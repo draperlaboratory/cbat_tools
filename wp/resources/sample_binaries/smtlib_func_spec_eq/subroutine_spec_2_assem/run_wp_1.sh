@@ -25,7 +25,7 @@ run () {
   bap wp \
     --func=main \
     --show=paths \
-    --user-func-spec="g,(assert true),(assert (and (= #x0000000000000000 (bvand RAX #xFFFFFFFF00000000)) (= RAX #x0000000000000063)))" \
+    --user-func-spec="g,(assert true),(assert (= RAX #x0000000000000061))" \
     --trip-assert \
     -- main
 }

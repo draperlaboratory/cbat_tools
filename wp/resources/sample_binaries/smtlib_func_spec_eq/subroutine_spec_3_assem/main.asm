@@ -59,14 +59,10 @@ __assert_fail:
 .end:
 
 g:
-    mov     rax, 0x61
     ret
 .end:
 
 main:
     call    g
-    mov     rdi, rax
-    cmp     rdi, 0x67
-    je      __assert_fail
     ret
 .end:

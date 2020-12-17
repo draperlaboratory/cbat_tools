@@ -23,7 +23,7 @@
 
 # Current easier test case
 # Should return SAT, since (RAX = 4 /\ (RAX = 4 => RAX = 4)) is
-# not always true
+# not always true, since RAX may be other values other than 4 
 
 run () {
   bap wp \
