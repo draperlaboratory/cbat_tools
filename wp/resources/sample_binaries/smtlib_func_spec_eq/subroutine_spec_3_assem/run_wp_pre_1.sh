@@ -1,9 +1,8 @@
-# The modified version of this test adds a check to argc and returns a
-# different value if argc = 2.
-
-# This test runs the comparison with a precondition that argc RAX is not equal to 7.
-# As a result, the output of the function should be the same between both
-# binaries.
+# main:
+#     mov     rax, 9
+#     mov     rdi, 1
+#     ret
+# .end:
 
 # Should return UNSAT, since RDI=9 ensures us that the right value for RDI is picked
 # to ensure RAX = init_RDI * RDI

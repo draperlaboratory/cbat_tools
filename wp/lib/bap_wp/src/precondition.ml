@@ -499,9 +499,9 @@ let user_func_spec (sub_name : string) (pre : string) (post : string)
       spec_name = sub_name ;
       spec = Summary (fun env r _ ->
         (* First, make a fctn that converts the string to a constraint.
-              This includes changing var names via smtlib_tokenize
-              needs a name *)
-          (* ACTUAL CODE let constr_of_string : (string -> Constr.t) = (fun str ->
+              This includes changing var names via smtlib_tokenize *)
+          (* ACTUAL CODE
+             let constr_of_string : (string -> Constr.t) = (fun str ->
               (smtlib_tokenize env str sub_name)
               |> Z3_utils.mk_smtlib2_single env) in *)
           let constr_of_string : (string -> Constr.t) = (fun str ->
