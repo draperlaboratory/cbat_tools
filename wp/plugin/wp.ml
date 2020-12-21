@@ -72,7 +72,10 @@ let check_invalid_derefs = Cmd.flag "check-invalid-derefs"
     ~doc:{|This flag is only used in a comparative analysis. Checks that the
            modified binary has no additional paths that result in dereferences
            to invalid memory locations. That is, all memory dereferences are
-           either on the stack or heap.|}
+           either on the stack or heap. The stack is defined as the memory
+           region above the current stack pointer, and the heap is defined as
+           the memory region 0x256 bytes below the lowest address of the
+           stack.|}
 
 let compare_func_calls = Cmd.flag "compare-func-calls"
     ~doc:{|This flag is only used in a comparative analysis. Checks that

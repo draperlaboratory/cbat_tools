@@ -120,7 +120,7 @@ The following options select or adjust the property that will be checked for the
 <ul>
 <li><code>--check-null-derefs</code> &mdash; Checks that the modified binary has no additional paths with null dereferences in comparison with the original binary.</li>
 
-<li><code>--check-invalid-derefs</code> &mdash; Checks that the modified binary has no additional paths that result in dereferences to invalid memory locations. That is, all memory dereferences are either on the stack or heap.</li>
+<li><code>--check-invalid-derefs</code> &mdash; Checks that the modified binary has no additional paths that result in dereferences to invalid memory locations. That is, all memory dereferences are either on the stack or heap. The stack is defined as the memory region above the current stack pointer, and the heap is defined as the memory region 0x256 bytes below the lowest address of the stack.</li>
 
 <li><code>--compare-func-calls</code> &mdash; Checks that function calls do not occur in the modified binary if they have not occurred in the original binary.</li>
 
