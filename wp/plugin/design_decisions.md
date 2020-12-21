@@ -22,8 +22,8 @@
   section.
 
 - Our memory model assumes that the valid region of memory contains addresses
-  above the stack pointer and 0x256 below the lowest address of the stack. The
-  stack grows downward in this case.
+  above the stack pointer and 0x256 bytes below the lowest address of the stack.
+  The stack grows downward in this case.
 
 
 
