@@ -32,6 +32,8 @@ let unit_tests = [
 
   "Equiv null check"               >: test_plugin "equiv_null_check" sat;
 
+  "Function name mapping"          >: test_plugin "func_name_mapping" unsat;
+
   "Init var compare: UNSAT"        >: test_plugin "init_var_compare" unsat;
   "Init var compare: SAT"          >: test_plugin "init_var_compare" sat
     ~script:"run_wp_sat.sh";
