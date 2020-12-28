@@ -23,6 +23,8 @@
 
 *)
 
+open Core_kernel
+
 module EnvMap = Bap.Std.Var.Map
 
 module Constr = Constraint
@@ -121,6 +123,7 @@ val mk_env
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
   -> data_section_range:mem_range
+  -> fun_name_map:string String.Map.t
   -> Z3.context
   -> var_gen
   -> t
@@ -298,6 +301,8 @@ val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
 (** [trivial_constr] generates a trivial constraint of just [true]. *)
 val trivial_constr : t -> Constr.t
+
+val get_orig_func_name : t -> string -> string option
 
 (*-------- Z3 constant creation utilities ----------*)
 

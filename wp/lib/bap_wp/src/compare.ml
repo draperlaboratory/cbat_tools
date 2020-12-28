@@ -87,6 +87,20 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let ctx = Env.get_context env1 in
   Z3_utils.mk_smtlib2 ctx smtlib_str declsym
 
+(* key:sub_name2 data:sub_name1 *)
+let map_fun_names (subs1 : Sub.t Seq.t) (subs2 : Sub.t Seq.t)
+    : string String.Map.t =
+  Seq.fold subs2 ~init:String.Map.empty ~f:(fun map sub2 ->
+      let name2 = Sub.name sub2 in
+      let name1 =
+        subs1
+        |> Seq.find ~f:(fun sub1 -> String.equal name2 ("test_" ^ (Sub.name sub1)))
+        |> Option.map ~f:Sub.name
+      in
+      match name1 with
+      | Some name1 -> String.Map.set map ~key:name2 ~data:name1
+      | None -> map)
+
 let compare_blocks
     ~pre_regs:(pre_regs : Var.Set.t)
     ~post_regs:(post_regs : Var.Set.t)

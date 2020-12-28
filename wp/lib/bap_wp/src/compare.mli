@@ -143,3 +143,8 @@ val compare_subs_mem_eq : comparator * comparator
 (** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
     as a comparison predicate between an original and modified binary. *)
 val mk_smtlib2_compare : Env.t -> Env.t -> string -> Constr.t
+
+val map_fun_names
+  :  Bap.Std.Sub.t Bap.Std.Seq.t
+  -> Bap.Std.Sub.t Bap.Std.Seq.t
+  -> string Core_kernel.String.Map.t

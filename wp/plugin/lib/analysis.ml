@@ -300,9 +300,13 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let subs1 = Term.enum sub_t prog1 in
   let subs2 = Term.enum sub_t prog2 in
   let main_sub1 = Utils.find_func_err subs1 p.func in
-  let main_sub2 = Utils.find_func_err subs2 p.func
-                  |> rewrite_addresses p syms1 syms2 in
+  let main_sub2 =
+    "test_" ^ p.func
+    |> Utils.find_func_err subs2
+    |> rewrite_addresses p syms1 syms2
+  in
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
+  let fun_name_map = Compare.map_fun_names subs1 subs2 in
   let env2, pointer_vars_2 =
     let to_inline2 = Utils.match_inline p.inline subs2 in
     let specs2 = fun_specs p to_inline2 in
@@ -314,6 +318,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds2
         ~stack_range
+        ~fun_name_map
     in
     let env2 = Env.set_freshen env2 true in
     let vars_sub = Pre.get_vars env2 main_sub2 in
