@@ -67,7 +67,8 @@ type t = {
   stack : mem_range;
   data_section : mem_range;
   init_vars : Constr.z3_expr EnvMap.t;
-  consts : ExprSet.t
+  consts : ExprSet.t;
+  fun_name_map : string String.Map.t
 }
 
 and fun_spec_type =
@@ -138,10 +139,13 @@ let new_z3_expr ?name:(name = "fresh_") (env: t) (typ : Type.t) : Constr.z3_expr
   let var_seed = env.var_gen in
   mk_z3_expr ctx ~name:(get_fresh ~name:name var_seed) ~typ:typ
 
-let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t) : string TidMap.t =
+let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t)
+    (sub_map : string String.Map.t) : string TidMap.t =
   Seq.fold subs ~init:TidMap.empty
     ~f:(fun map sub ->
-        let is_called = get_fresh ~name:("called_" ^ (Sub.name sub)) var_gen in
+        let name = Option.value (String.Map.find sub_map (Sub.name sub))
+            ~default:(Sub.name sub) in
+        let is_called = get_fresh ~name:("called_" ^ name) var_gen in
         TidMap.set map ~key:(Term.tid sub) ~data:is_called)
 
 let init_sub_handler (subs : Sub.t Seq.t) (arch : Arch.t)
@@ -280,6 +284,7 @@ let mk_env
     ~use_fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : mem_range)
     ~data_section_range:(data_section_range : mem_range)
+    ~fun_name_map:(fun_name_map : string String.Map.t)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -291,7 +296,7 @@ let mk_env
     var_map = EnvMap.empty;
     precond_map = TidMap.empty;
     fun_name_tid = init_fun_name subs;
-    call_map = init_call_map var_gen subs;
+    call_map = init_call_map var_gen subs fun_name_map;
     sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
     indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
@@ -303,7 +308,8 @@ let mk_env
     stack = stack_range;
     data_section = data_section_range;
     init_vars = EnvMap.empty;
-    consts = ExprSet.empty
+    consts = ExprSet.empty;
+    fun_name_map = fun_name_map
   }
 
 let env_to_string (env : t) : string =
@@ -488,3 +494,6 @@ let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
 
 let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.init_vars var
+
+let get_orig_func_name (env : t) (name : string) : string option =
+  String.Map.find env.fun_name_map name
