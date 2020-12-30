@@ -49,7 +49,8 @@ type t = {
   debug : string list;
   stack_base : int option;
   stack_size : int option;
-  show : string list
+  show : string list;
+  func_name_map : (string * string) list
 }
 
 (* Ensures the user inputted a function for analysis. *)
