@@ -195,6 +195,8 @@ let stack_size = Cmd.parameter Typ.(some int) "stack-size"
     ~doc:{|Sets the size of the stack, which should be denoted in bytes. By
            default, the size of the stack is 0x800000 which is 8MB.|}
 
+let func_name_map = Cmd.parameter Typ.(list ~sep:';' (pair ~sep:',' string string)) "func-name-map"
+
 let grammar = Cmd.(
     args
     $ func
@@ -217,6 +219,7 @@ let grammar = Cmd.(
     $ show
     $ stack_base
     $ stack_size
+    $ func_name_map
     $ files)
 
 (* The callback run when the command is invoked from the command line. *)
@@ -241,6 +244,7 @@ let callback
     (show : string list)
     (stack_base : int option)
     (stack_size : int option)
+    (func_name_map : (string * string) list)
     (files : string list)
     (ctxt : ctxt) =
   let params = Parameters.({
@@ -263,7 +267,8 @@ let callback
       debug = debug;
       show = show;
       stack_base = stack_base;
-      stack_size = stack_size
+      stack_size = stack_size;
+      func_name_map = func_name_map
     })
   in
   Parameters.validate params files >>= fun () ->

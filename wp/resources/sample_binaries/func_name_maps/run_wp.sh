@@ -3,7 +3,7 @@
 # in the modified binary.
 
 # If WP is able to properly map function names, it should know that foo and
-# test_foo, and bar and test_bar are pairs of the same function.
+# test_foo represent the same function.
 
 # Should return UNSAT
 

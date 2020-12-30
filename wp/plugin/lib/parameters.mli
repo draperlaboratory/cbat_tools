@@ -52,7 +52,8 @@ type t = {
   debug : string list;
   stack_base : int option;
   stack_size : int option;
-  show : string list
+  show : string list;
+  func_name_map : (string * string) list
 }
 
 (** [validate flags files] ensures the user inputted the appropriate flags for

@@ -288,6 +288,28 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
   { pre = pre; orig = env, main_sub; modif = env, main_sub }
 
+let init_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
+    (re : (string * string) list) : string String.Map.t =
+  Seq.fold subs_orig ~init:String.Map.empty ~f:(fun map sub ->
+      let name_orig = Sub.name sub in
+      (* By default, we assume subroutines in the original and modified
+         binaries have the same names. *)
+      let map = String.Map.set map ~key:name_orig ~data:name_orig in
+      List.fold re ~init:map ~f:(fun m (orig, modif) ->
+          let regexp = Str.regexp orig in
+          (* The regex matches the original name. *)
+          if Str.string_match regexp name_orig 0 then
+            let name_mod = Str.replace_first regexp modif name_orig in
+            let exists_in_mod = Seq.exists subs_mod ~f:(fun s ->
+                String.equal (Sub.name s) name_mod) in
+            if exists_in_mod then
+              String.Map.set m ~key:name_orig ~data:name_mod
+            else m
+          else m))
+
+let get_mod_func_name (map : string String.Map.t) (name_orig : string) : string =
+  String.Map.find_exn map name_orig
+
 (* Runs a comparative analysis. *)
 let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file1 : string) (file2 : string) : combined_pre =
@@ -299,14 +321,14 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let syms2 = Symbol.get_symbols file2 in
   let subs1 = Term.enum sub_t prog1 in
   let subs2 = Term.enum sub_t prog2 in
+  let fun_name_map = init_func_name_map subs1 subs2 p.func_name_map in
   let main_sub1 = Utils.find_func_err subs1 p.func in
   let main_sub2 =
-    "test_" ^ p.func
+    get_mod_func_name fun_name_map p.func
     |> Utils.find_func_err subs2
     |> rewrite_addresses p syms1 syms2
   in
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
-  let fun_name_map = Compare.map_fun_names subs1 subs2 in
   let env2, pointer_vars_2 =
     let to_inline2 = Utils.match_inline p.inline subs2 in
     let specs2 = fun_specs p to_inline2 in
