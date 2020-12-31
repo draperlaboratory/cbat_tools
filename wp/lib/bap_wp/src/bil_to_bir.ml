@@ -137,3 +137,6 @@ let bil_to_sub (stmts : Bil.t) : sub term =
   let res_sub = Term.remove blk_t res_sub head_tid in
   let res_sub = Term.prepend blk_t res_sub hd_blk in
   res_sub
+
+let call (call_sub : sub term ) (arch : Bil.typ) : Bil.Types.stmt  =
+  Bil.(jmp (unknown (call_sub |> Term.tid |> Tid.to_string) arch))

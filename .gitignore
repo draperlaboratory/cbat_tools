@@ -14,3 +14,4 @@ myocamlbuild.ml
 *.byte
 *.bpj
 oUnit-All*
+*.DS_Store

@@ -50,3 +50,7 @@ val mk_assert_fail : unit -> Bap.Std.Sub.t * Bap.Std.Exp.t
 (** Take a BIL program (a list of statements) and turn it into a
     subroutine. *)
 val bil_to_sub : Bap.Std.Bil.t -> Bap.Std.Sub.t
+
+(** Take a sub term and a type for the term to build a BIL
+    function-call *)
+val call : Bap.Std.sub Bap.Std.term -> Bap.Std.Bil.typ -> Bap.Std.Bil.Types.stmt
