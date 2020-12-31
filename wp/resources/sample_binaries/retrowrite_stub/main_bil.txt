@@ -1,0 +1,84 @@
+
+Disassembly of section .text
+
+4000d4: <__afl_maybe_log>
+4000d4:
+4000d4: nop
+{
+  
+}
+4000d5: retq
+{
+  #1 := mem[RSP, el]:u64
+  RSP := RSP + 8
+  jmp #1
+}
+
+4000d6: <main>
+4000d6:
+4000d6: nop
+{
+  
+}
+4000d7: leaq -0x98(%rsp), %rsp
+{
+  RSP := low:64[RSP - 0x98]
+}
+4000df: movq %rdx, (%rsp)
+{
+  mem := mem with [RSP, el]:u64 <- RDX
+}
+4000e3: movq %rcx, 0x8(%rsp)
+{
+  mem := mem with [RSP + 8, el]:u64 <- RCX
+}
+4000e8: movq %rax, 0x10(%rsp)
+{
+  mem := mem with [RSP + 0x10, el]:u64 <- RAX
+}
+4000ed: movq $0x8c8a, %rcx
+{
+  RCX := 0x8C8A
+}
+4000f4: callq -0x25
+{
+  RSP := RSP - 8
+  mem := mem with [RSP, el]:u64 <- 0x4000F9
+  jmp 0x4000D4
+}
+4000f9:
+4000f9: movq 0x10(%rsp), %rax
+{
+  RAX := mem[RSP + 0x10, el]:u64
+}
+4000fe: movq 0x8(%rsp), %rcx
+{
+  RCX := mem[RSP + 8, el]:u64
+}
+400103: movq (%rsp), %rdx
+{
+  RDX := mem[RSP, el]:u64
+}
+400107: leaq 0x98(%rsp), %rsp
+{
+  RSP := low:64[RSP + 0x98]
+}
+40010f: nop
+{
+  
+}
+400110: retq
+{
+  #2 := mem[RSP, el]:u64
+  RSP := RSP + 8
+  jmp #2
+}
+
+400111: <_start>
+400111:
+400111: callq -0x40
+{
+  RSP := RSP - 8
+  mem := mem with [RSP, el]:u64 <- 0x400116
+  jmp 0x4000D6
+}

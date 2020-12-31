@@ -186,6 +186,12 @@ val get_subs : t -> Bap.Std.Sub.t Bap.Std.Seq.t
 (** Obtains the var_map containing a mapping of BIR variables to Z3 variables. *)
 val get_var_map : t -> Constr.z3_expr EnvMap.t
 
+(* FIIL ME IN *)
+val get_sub_var_map : t -> Constr.z3_expr EnvMap.t
+
+(* FIIL ME IN *)
+val get_sub_init_var_map : t -> Constr.z3_expr EnvMap.t
+
 (** Obtains the var_map containing a mapping of BIR variables to the Z3 variables
     that represent their initial states. *)
 val get_init_var_map : t -> Constr.z3_expr EnvMap.t
@@ -290,7 +296,7 @@ val update_stack_size : mem_range -> int -> mem_range
 (** [mk_init_var env var] creates a fresh Z3 variable that represents the
     initial state of variable [var]. Adds a new binding to [env] for the bap
     variable to is generated init variable. *)
-val mk_init_var : ?tag:string -> t -> Bap.Std.Var.t -> Constr.z3_expr * t
+val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
 
 (** [get_init_var var] obtains the Z3 expression that represents the initial state
     of a bap variable [var]. *)

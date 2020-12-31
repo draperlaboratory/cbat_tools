@@ -1,0 +1,40 @@
+000000b4: program
+000000b1: sub __afl_maybe_log(__afl_maybe_log_result)
+000000b5: __afl_maybe_log_result :: out u32 = RAX
+
+00000009:
+00000015: #1 := mem[RSP, el]:u64
+00000018: RSP := RSP + 8
+0000001b: call #1 with noreturn
+
+000000b2: sub _start(_start_result)
+000000b6: _start_result :: out u32 = RAX
+
+00000090:
+00000097: RSP := RSP - 8
+0000009a: mem := mem with [RSP, el]:u64 <- 0x400116
+0000009d: call @main with noreturn
+
+000000b3: sub main(main_argc, main_argv, main_result)
+000000b7: main_argc :: in u32 = RDI
+000000b8: main_argv :: in out u64 = RSI
+000000b9: main_result :: out u32 = RAX
+
+0000001f:
+00000028: RSP := low:64[RSP - 0x98]
+00000030: mem := mem with [RSP, el]:u64 <- RDX
+00000038: mem := mem with [RSP + 8, el]:u64 <- RCX
+00000040: mem := mem with [RSP + 0x10, el]:u64 <- RAX
+00000048: RCX := 0x8C8A
+00000052: RSP := RSP - 8
+00000055: mem := mem with [RSP, el]:u64 <- 0x4000F9
+00000058: call @__afl_maybe_log with return %0000005b
+
+0000005b:
+00000060: RAX := mem[RSP + 0x10, el]:u64
+00000068: RCX := mem[RSP + 8, el]:u64
+00000070: RDX := mem[RSP, el]:u64
+00000078: RSP := low:64[RSP + 0x98]
+00000086: #2 := mem[RSP, el]:u64
+00000089: RSP := RSP + 8
+0000008c: call #2 with noreturn

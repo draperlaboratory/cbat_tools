@@ -34,7 +34,7 @@
 ; Expose the following functions (include size for ELF symbol table):
 
         global __assert_fail:function (__assert_fail.end - __assert_fail)
-        global g:function (g.end - g)
+        global foo:function (foo.end - foo)
         global main:function (main.end - main)
 
 ; ---------------------------------------------------------------------------
@@ -58,11 +58,11 @@ __assert_fail:
     ret
 .end:
 
-g:
+foo:
     ret
 .end:
 
 main:
-    call    g
+    call    foo
     ret
 .end:
