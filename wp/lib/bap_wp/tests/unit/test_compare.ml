@@ -475,19 +475,19 @@ let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
   let ret_var = Var.create "RAX" reg64_t in
   let rdi = Var.create "RDI" reg64_t in
   let rsi = Var.create "RSI" reg64_t in
-  let call_sub1 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
-  let call_sub2 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
-  let call_sub1 = Sub.with_name call_sub1 "test_call" in
-  let call_sub2 = Sub.with_name call_sub2 "test_call" in
-  let main_sub1 = Bil.(
-      [ jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t)  ]
-    ) |> bil_to_sub in
-  let main_sub2 = Bil.(
-      [ jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t)  ]
-    ) |> bil_to_sub in
-  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub1])
+  let sub1 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
+  let sub2 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
+  let sub1 = Sub.with_name sub1 "test_call" in
+  let sub2 = Sub.with_name sub2 "test_call" in
+  let main_sub1 =
+    [call sub1 reg64_t]
+    |> bil_to_sub in
+  let main_sub2 =
+    [call sub2 reg64_t]
+    |> bil_to_sub in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; sub1])
       ~specs:[Pre.spec_chaos_caller_saved] in
-  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2])
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; sub2])
       ~specs:[Pre.spec_chaos_caller_saved] in
   let pre_regs = Var.Set.of_list (ret_var :: x86_64_input_regs) in
   let post_regs = Var.Set.singleton ret_var in
@@ -508,23 +508,17 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
   let ret_var = Var.create "RAX" reg64_t in
   let rdi = Var.create "RDI" reg64_t in
   let rsi = Var.create "RSI" reg64_t in
-  let call_sub1 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
-  let call_sub2 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
-  let call_sub1 = Sub.with_name call_sub1 "test_call" in
-  let call_sub2 = Sub.with_name call_sub2 "test_call" in
-  let main_sub1 = Bil.(
-      [ rdi := i64 1;
-        rsi := i64 2;
-        jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t)  ]
-    ) |> bil_to_sub in
-  let main_sub2 = Bil.(
-      [ rdi := i64 2;
-        rsi := i64 3;
-        jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t)  ]
-    ) |> bil_to_sub in
-  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; call_sub1])
+  let sub1 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
+  let sub2 = Bil.([ ret_var := var rdi + var rsi ]) |> bil_to_sub in
+  let sub1 = Sub.with_name sub1 "test_call" in
+  let sub2 = Sub.with_name sub2 "test_call" in
+  let main_sub1 =
+    Bil.([ rdi := i64 1 ; rsi := i64 2 ; call sub1 reg64_t]) |> bil_to_sub in
+  let main_sub2 =
+    Bil.([ rdi := i64 2 ; rsi := i64 3 ; call sub2 reg64_t]) |> bil_to_sub in
+  let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; sub1])
       ~specs:[Pre.spec_chaos_caller_saved] in
-  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; call_sub2])
+  let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; sub2])
       ~specs:[Pre.spec_chaos_caller_saved] in
   let pre_regs = Var.Set.of_list (ret_var :: x86_64_input_regs) in
   let post_regs = Var.Set.singleton ret_var in
@@ -546,26 +540,26 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
   let rsi = Var.create "RSI" reg64_t in
   let rdx = Var.create "RDX" reg64_t in
   let rax = Var.create "RAX" reg64_t in
-  let call_sub1 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
-  let call_sub2 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
-  let call_sub1 = Sub.with_name call_sub1 "test_call" in
-  let call_sub2 = Sub.with_name call_sub2 "test_call" in
-  let main_sub1 = Bil.(
-      [ rdi := i64 1;
-        rsi := i64 2;
-        rdx := i64 3;
-        jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t) ]
-    ) |> bil_to_sub in
-  let main_sub2 = Bil.(
-      [ rdi := i64 1;
-        rsi := i64 2;
-        rdx := i64 4;
-        jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t) ]
-    ) |> bil_to_sub in
+  let sub1 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
+  let sub2 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
+  let sub1 = Sub.with_name sub1 "test_call" in
+  let sub2 = Sub.with_name sub2 "test_call" in
+  let main_sub1 =
+    Bil.([rdi := i64 1 ;
+          rsi := i64 2 ;
+          rdx := i64 3 ;
+          call sub1 reg64_t])
+    |> bil_to_sub in
+  let main_sub2 =
+    Bil.([rdi := i64 1 ;
+          rsi := i64 2 ;
+          rdx := i64 4 ;
+          call sub2 reg64_t])
+    |> bil_to_sub in
   let env1 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
-      ~subs:(Seq.of_list [main_sub1; call_sub1]) in
+      ~subs:(Seq.of_list [main_sub1; sub1]) in
   let env2 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
-      ~subs:(Seq.of_list [main_sub2; call_sub2]) in
+      ~subs:(Seq.of_list [main_sub2; sub2]) in
   let pre_regs = Var.Set.of_list (rax :: x86_64_input_regs) in
   let post_regs = Var.Set.singleton rax in
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
@@ -586,26 +580,26 @@ let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
   let rsi = Var.create "RSI" reg64_t in
   let rdx = Var.create "RDX" reg64_t in
   let rax = Var.create "RAX" reg64_t in
-  let call_sub1 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
-  let call_sub2 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
-  let call_sub1 = Sub.with_name call_sub1 "test_call" in
-  let call_sub2 = Sub.with_name call_sub2 "test_call" in
-  let main_sub1 = Bil.(
-      [ rdi := i64 1;
-        rsi := i64 2;
-        rdx := i64 3;
-        jmp (unknown (call_sub1 |> Term.tid |> Tid.to_string) reg64_t) ]
-    ) |> bil_to_sub in
-  let main_sub2 = Bil.(
-      [ rdi := i64 1;
-        rsi := i64 2;
-        rdx := i64 4;
-        jmp (unknown (call_sub2 |> Term.tid |> Tid.to_string) reg64_t) ]
-    ) |> bil_to_sub in
+  let sub1 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
+  let sub2 = Bil.([ rax := var rdi + var rsi ]) |> bil_to_sub in
+  let sub1 = Sub.with_name sub1 "test_call" in
+  let sub2 = Sub.with_name sub2 "test_call" in
+  let main_sub1 =
+    Bil.([rdi := i64 1 ;
+          rsi := i64 2 ;
+          rdx := i64 3 ;
+          call sub1 reg64_t])
+    |> bil_to_sub in
+  let main_sub2 =
+    Bil.([rdi := i64 1 ;
+          rsi := i64 2 ;
+          rdx := i64 4 ;
+          call sub2 reg64_t])
+    |> bil_to_sub in
   let env1 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
-      ~subs:(Seq.of_list [main_sub1; call_sub1]) ~use_fun_input_regs:false in
+      ~subs:(Seq.of_list [main_sub1; sub1]) ~use_fun_input_regs:false in
   let env2 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
-      ~subs:(Seq.of_list [main_sub2; call_sub2]) ~use_fun_input_regs:false in
+      ~subs:(Seq.of_list [main_sub2; sub2]) ~use_fun_input_regs:false in
   let pre_regs = Var.Set.of_list (rax :: x86_64_input_regs) in
   let post_regs = Var.Set.singleton rax in
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in

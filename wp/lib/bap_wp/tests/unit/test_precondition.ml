@@ -681,7 +681,7 @@ let test_call_6 (test_ctx : test_ctxt) : unit =
   let blk2 = blk2 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call1_body)) in
   let blk3 = blk3 |> mk_call (Label.direct (Term.tid blk4)) (Label.direct (Term.tid call2_body)) in
   let main_sub = mk_sub [start_body; blk2; blk3; blk4] in
-  let env = Pre.mk_env ctx var_gen 
+  let env = Pre.mk_env ctx var_gen
       ~subs:(Seq.of_list [call1_body; call2_body; main_sub]) in
   let sub1_called = Option.value_exn (sub1_tid |> Env.get_called env) in
   let sub2_called = Option.value_exn (sub2_tid |> Env.get_called env) in
@@ -1341,24 +1341,24 @@ let test_get_vars_inline_1 (test_ctx : test_ctxt) : unit =
   let y = Var.create "y" reg64_t in
   let loc = Var.create "loc" reg64_t in
   let mem = Var.create "mem" (mem64_t `r64) in
-  let call_sub = Bil.(
+  let sub = Bil.(
       [
         mem := (store ~mem:(var mem) ~addr:(var loc) (var x) LittleEndian `r64)
       ]
     ) |> bil_to_sub in
-  let sub = Bil.(
+  let main_sub = Bil.(
       [
         y := i64 2;
-        jmp (unknown (call_sub |> Term.tid |> Tid.to_string) reg64_t)
+        call sub reg64_t
       ]
     ) |> bil_to_sub
   in
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
-      ~specs:[Pre.spec_inline @@ Seq.singleton call_sub]
-      ~subs:(Seq.of_list [sub; call_sub]) in
-  let vars = Pre.get_vars env sub in
+      ~specs:[Pre.spec_inline @@ Seq.singleton sub]
+      ~subs:(Seq.of_list [main_sub; sub]) in
+  let vars = Pre.get_vars env main_sub in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
     (Var.Set.of_list [x; y; loc; mem]) vars
