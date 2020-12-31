@@ -195,7 +195,18 @@ let stack_size = Cmd.parameter Typ.(some int) "stack-size"
     ~doc:{|Sets the size of the stack, which should be denoted in bytes. By
            default, the size of the stack is 0x800000 which is 8MB.|}
 
-let func_name_map = Cmd.parameter Typ.(list ~sep:';' (pair ~sep:',' string string)) "func-name-map"
+let func_name_map = Cmd.parameter Typ.(list ~sep:';' (pair ~sep:',' string string))
+    "func-name-map"
+    ~doc:{|Maps the subroutine names from the original binary to their names in
+           the modified binary based on the regex from the user. Usage:
+           --func-name-map="<regex for original name>,<regex for modified name>".
+           For example: --func-name-map="\(.*\),foo_\1" means that all
+           subroutines in the original binary have foo_ prepended in modified
+           binary. Multiple patterns can be used to map function names and are
+           delimited with ';'s (i.e.
+           "<reg1_orig>,<reg1_mod>;<reg2_orig>,<reg2_mod>"). By default, WP
+           assumes subroutines have the same names between the two binaries.|}
+
 
 let grammar = Cmd.(
     args

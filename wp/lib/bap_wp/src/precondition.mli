@@ -271,7 +271,7 @@ val mk_env
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
   -> ?data_section_range:Env.mem_range
-  -> ?fun_name_map:string String.Map.t
+  -> ?func_name_map:string String.Map.t
   -> Z3.context
   -> Env.var_gen
   -> Env.t

@@ -32,7 +32,8 @@ let unit_tests = [
 
   "Equiv null check"               >: test_plugin "equiv_null_check" sat;
 
-  "Function name mapping"          >: test_plugin "func_name_mapping" unsat;
+  "Function name map"             >: test_plugin "func_name_map" unsat;
+  "Function name map with calls"  >:: test_skip fail_msg (test_plugin "func_name_map_calls" unsat);
 
   "Init var compare: UNSAT"        >: test_plugin "init_var_compare" unsat;
   "Init var compare: SAT"          >: test_plugin "init_var_compare" sat
