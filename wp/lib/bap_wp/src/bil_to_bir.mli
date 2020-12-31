@@ -14,7 +14,7 @@
 (**
 
    This module provides utilities to translate from a BIL
-   {!Bap.Std.Bil.t} expression to a BIR subroutine, for which we can
+   {!Bil.t} expression to a BIR subroutine, for which we can
    then invoke {!Precondition.visit_sub} to get the weakest
    precondition.
 
@@ -39,18 +39,20 @@
 
 *)
 
+open Bap.Std
+
 (** Create a pair of a subroutine with name [__assert_fail] and an
     expression which represents an invocation of that subroutine.
 
     A subsequent call to {!bil_to_sub} will correctly translate that
     expression to a BIR [call] expression. *)
-val mk_assert_fail : unit -> Bap.Std.Sub.t * Bap.Std.Exp.t
+val mk_assert_fail : unit -> sub term * exp
 
 
 (** Take a BIL program (a list of statements) and turn it into a
     subroutine. *)
-val bil_to_sub : Bap.Std.Bil.t -> Bap.Std.Sub.t
+val bil_to_sub : bil -> sub term
 
-(** Take a sub term and a type for the term to build a BIL
+(** Take a [sub term] and a type for the term to build a BIL
     function-call *)
-val call : Bap.Std.sub Bap.Std.term -> Bap.Std.Bil.typ -> Bap.Std.Bil.Types.stmt
+val call : sub term -> typ -> Bil.Types.stmt
