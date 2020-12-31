@@ -68,7 +68,7 @@ type t = {
   data_section : mem_range;
   init_vars : Constr.z3_expr EnvMap.t;
   consts : ExprSet.t;
-  fun_name_map : string String.Map.t
+  func_name_map : string String.Map.t
 }
 
 and fun_spec_type =
@@ -139,13 +139,10 @@ let new_z3_expr ?name:(name = "fresh_") (env: t) (typ : Type.t) : Constr.z3_expr
   let var_seed = env.var_gen in
   mk_z3_expr ctx ~name:(get_fresh ~name:name var_seed) ~typ:typ
 
-let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t)
-    (sub_map : string String.Map.t) : string TidMap.t =
+let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t) : string TidMap.t =
   Seq.fold subs ~init:TidMap.empty
     ~f:(fun map sub ->
-        let name = Option.value (String.Map.find sub_map (Sub.name sub))
-            ~default:(Sub.name sub) in
-        let is_called = get_fresh ~name:("called_" ^ name) var_gen in
+        let is_called = get_fresh ~name:("called_" ^ (Sub.name sub)) var_gen in
         TidMap.set map ~key:(Term.tid sub) ~data:is_called)
 
 let init_sub_handler (subs : Sub.t Seq.t) (arch : Arch.t)
@@ -254,6 +251,28 @@ let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
 
 let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll Unfold_depth.empty
 
+let init_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
+    (re : (string * string) list) : string String.Map.t =
+  Seq.fold subs_orig ~init:String.Map.empty ~f:(fun map sub ->
+      let name_orig = Sub.name sub in
+      (* By default, we assume subroutines in the original and modified
+         binaries have the same names. *)
+      let map = String.Map.set map ~key:name_orig ~data:name_orig in
+      List.fold re ~init:map ~f:(fun m (orig, modif) ->
+          let regexp = Str.regexp orig in
+          (* The regex matches the original name. *)
+          if Str.string_match regexp name_orig 0 then
+            let name_mod = Str.replace_first regexp modif name_orig in
+            let exists_in_mod = Seq.exists subs_mod ~f:(fun s ->
+                String.equal (Sub.name s) name_mod) in
+            if exists_in_mod then
+              String.Map.set m ~key:name_orig ~data:name_mod
+            else m
+          else m))
+
+let get_mod_func_name (map : string String.Map.t) (name_orig : string) : string =
+  String.Map.find_exn map name_orig
+
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
    - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -284,7 +303,7 @@ let mk_env
     ~use_fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : mem_range)
     ~data_section_range:(data_section_range : mem_range)
-    ~fun_name_map:(fun_name_map : string String.Map.t)
+    ~func_name_map:(func_name_map : string String.Map.t)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -296,7 +315,7 @@ let mk_env
     var_map = EnvMap.empty;
     precond_map = TidMap.empty;
     fun_name_tid = init_fun_name subs;
-    call_map = init_call_map var_gen subs fun_name_map;
+    call_map = init_call_map var_gen subs;
     sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
     indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
@@ -309,7 +328,7 @@ let mk_env
     data_section = data_section_range;
     init_vars = EnvMap.empty;
     consts = ExprSet.empty;
-    fun_name_map = fun_name_map
+    func_name_map = func_name_map
   }
 
 let env_to_string (env : t) : string =
@@ -494,6 +513,3 @@ let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
 
 let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.init_vars var
-
-let get_orig_func_name (env : t) (name : string) : string option =
-  String.Map.find env.fun_name_map name

@@ -340,7 +340,6 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds2
         ~stack_range
-        ~fun_name_map
     in
     let env2 = Env.set_freshen env2 true in
     let vars_sub = Pre.get_vars env2 main_sub2 in

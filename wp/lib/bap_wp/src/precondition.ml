@@ -368,8 +368,6 @@ let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
     ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
   debug "Chaosing outputs for %s%!" (Sub.name sub);
   let ctx = Env.get_context env in
-  let sub_name = Option.value (Env.get_orig_func_name env (Sub.name sub))
-      ~default:(Sub.name sub) in
   let inputs = List.map inputs
       ~f:(fun i ->
           let input, _ = Env.get_var env i in
@@ -378,7 +376,7 @@ let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
   let input_sorts = List.map inputs ~f:Expr.get_sort in
   let outputs = List.map outputs
       ~f:(fun o ->
-          let name = Format.sprintf "%s_ret_%s" sub_name (Var.to_string o) in
+          let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Var.to_string o) in
           let z3_v, _ = Env.get_var env o in
           let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort z3_v) in
           let application = FuncDecl.apply func_decl inputs in
@@ -724,7 +722,7 @@ let mk_env
     ?use_fun_input_regs:(use_fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
     ?data_section_range:(data_section_range = default_data_section_range)
-    ?fun_name_map:(fun_name_map = String.Map.empty)
+    ?func_name_map:(func_name_map = String.Map.empty)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
@@ -742,7 +740,7 @@ let mk_env
     ~use_fun_input_regs
     ~stack_range
     ~data_section_range
-    ~fun_name_map
+    ~func_name_map
     ctx var_gen
 
 (* Determines the condition for taking a jump, and uses it to generate the jump
