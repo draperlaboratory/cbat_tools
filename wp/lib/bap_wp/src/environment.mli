@@ -23,8 +23,6 @@
 
 *)
 
-open Core_kernel
-
 module EnvMap = Bap.Std.Var.Map
 
 module Constr = Constraint
@@ -123,7 +121,6 @@ val mk_env
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
   -> data_section_range:mem_range
-  -> func_name_map:string String.Map.t
   -> Z3.context
   -> var_gen
   -> t

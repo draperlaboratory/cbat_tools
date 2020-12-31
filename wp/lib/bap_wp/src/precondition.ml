@@ -722,26 +722,11 @@ let mk_env
     ?use_fun_input_regs:(use_fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
     ?data_section_range:(data_section_range = default_data_section_range)
-    ?func_name_map:(func_name_map = String.Map.empty)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  Env.mk_env
-    ~subs
-    ~specs
-    ~default_spec
-    ~indirect_spec
-    ~jmp_spec
-    ~int_spec
-    ~exp_conds
-    ~num_loop_unroll
-    ~arch
-    ~freshen_vars
-    ~use_fun_input_regs
-    ~stack_range
-    ~data_section_range
-    ~func_name_map
-    ctx var_gen
+  Env.mk_env ~subs ~specs ~default_spec ~indirect_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
+    ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
 
 (* Determines the condition for taking a jump, and uses it to generate the jump
    expression's precondition based off of the postcondition and the

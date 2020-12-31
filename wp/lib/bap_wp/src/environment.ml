@@ -67,8 +67,7 @@ type t = {
   stack : mem_range;
   data_section : mem_range;
   init_vars : Constr.z3_expr EnvMap.t;
-  consts : ExprSet.t;
-  func_name_map : string String.Map.t
+  consts : ExprSet.t
 }
 
 and fun_spec_type =
@@ -251,28 +250,6 @@ let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
 
 let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll Unfold_depth.empty
 
-let init_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
-    (re : (string * string) list) : string String.Map.t =
-  Seq.fold subs_orig ~init:String.Map.empty ~f:(fun map sub ->
-      let name_orig = Sub.name sub in
-      (* By default, we assume subroutines in the original and modified
-         binaries have the same names. *)
-      let map = String.Map.set map ~key:name_orig ~data:name_orig in
-      List.fold re ~init:map ~f:(fun m (orig, modif) ->
-          let regexp = Str.regexp orig in
-          (* The regex matches the original name. *)
-          if Str.string_match regexp name_orig 0 then
-            let name_mod = Str.replace_first regexp modif name_orig in
-            let exists_in_mod = Seq.exists subs_mod ~f:(fun s ->
-                String.equal (Sub.name s) name_mod) in
-            if exists_in_mod then
-              String.Map.set m ~key:name_orig ~data:name_mod
-            else m
-          else m))
-
-let get_mod_func_name (map : string String.Map.t) (name_orig : string) : string =
-  String.Map.find_exn map name_orig
-
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
    - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -303,7 +280,6 @@ let mk_env
     ~use_fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : mem_range)
     ~data_section_range:(data_section_range : mem_range)
-    ~func_name_map:(func_name_map : string String.Map.t)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -327,8 +303,7 @@ let mk_env
     stack = stack_range;
     data_section = data_section_range;
     init_vars = EnvMap.empty;
-    consts = ExprSet.empty;
-    func_name_map = func_name_map
+    consts = ExprSet.empty
   }
 
 let env_to_string (env : t) : string =
