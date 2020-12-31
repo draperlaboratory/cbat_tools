@@ -59,6 +59,7 @@ let rewrite_addresses (p : Params.t) (syms_orig : Symbol.t list)
    based off the regex from the user. *)
 let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
     (re : (string * string) list) : string String.Map.t =
+  let re = List.rev re in
   Seq.fold subs_orig ~init:String.Map.empty ~f:(fun map sub ->
       let name_orig = Sub.name sub in
       (* By default, we assume subroutines in the original and modified
@@ -69,11 +70,12 @@ let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
           (* The regex matches the original name. *)
           if Str.string_match regexp name_orig 0 then
             let name_mod = Str.replace_first regexp modif name_orig in
-            let exists_in_mod = Seq.exists subs_mod ~f:(fun s ->
+            let not_in_mod = not @@ Seq.exists subs_mod ~f:(fun s ->
                 String.equal (Sub.name s) name_mod) in
-            if exists_in_mod then
-              String.Map.set m ~key:name_orig ~data:name_mod
-            else m
+            begin if not_in_mod then
+              warning "%s is not found in the modified binary." name_mod
+            end;
+            String.Map.set m ~key:name_orig ~data:name_mod
           else m))
 
 (* Obtain the name of the function in the modified binary based off its name in
