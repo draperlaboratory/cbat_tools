@@ -80,12 +80,6 @@ let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
             String.Map.set m ~key:name_orig ~data:name_mod
           else m))
 
-(* Obtain the name of the function in the modified binary based off its name in
-   the original binary. *)
-let get_mod_func_name (map : string String.Map.t) (name_orig : string)
-  : string =
-  String.Map.find_exn map name_orig
-
 (* Generate the exp_conds for the original binary based on the flags passed in
    from the CLI. Generating the memory offsets requires the environment of
    the modified binary. *)
@@ -343,7 +337,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let func_name_map = mk_func_name_map subs1 subs2 p.func_name_map in
   let main_sub1 = Utils.find_func_err subs1 p.func in
   let main_sub2 =
-    get_mod_func_name func_name_map p.func
+    String.Map.find_exn func_name_map p.func
     |> Utils.find_func_err subs2
     |> rewrite_addresses p syms1 syms2
   in
@@ -381,6 +375,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds1
         ~stack_range
+        ~func_name_map
     in
     let vars_sub = Pre.get_vars env1 main_sub1 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env1 in

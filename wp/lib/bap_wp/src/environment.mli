@@ -121,6 +121,7 @@ val mk_env
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
   -> data_section_range:mem_range
+  -> func_name_map:string Core_kernel.String.Map.t
   -> Z3.context
   -> var_gen
   -> t
@@ -298,6 +299,10 @@ val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
 (** [trivial_constr] generates a trivial constraint of just [true]. *)
 val trivial_constr : t -> Constr.t
+
+(** [get_mod_func_name env orig_name] obtain the name of the function in the
+     modified binary based off its name in the original binary. *)
+val get_mod_func_name : t -> string -> string
 
 (*-------- Z3 constant creation utilities ----------*)
 
