@@ -304,6 +304,8 @@ val trivial_constr : t -> Constr.t
      modified binary based off its name in the original binary. *)
 val get_mod_func_name : t -> string -> string
 
+val get_mapped_name : string -> string Core_kernel.String.Map.t -> string
+
 (*-------- Z3 constant creation utilities ----------*)
 
 (** Create a constant Z3 expression of a type that corresponds to a bap type, where

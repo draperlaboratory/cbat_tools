@@ -125,14 +125,17 @@ let get_precondition (env : t) (tid : Tid.t) : Constr.t option =
 let get_context (env : t) : Z3.context =
   env.ctx
 
+let get_mapped_name (name_orig : string) (map : string String.Map.t) : string =
+  (* If the name is not in the map, we assume it has the original name. *)
+  match String.Map.find map name_orig with
+  | Some name -> name
+  | None -> name_orig
+
 let init_fun_name (subs : Sub.t Seq.t) (name_map : string String.Map.t)
   : Tid.t StringMap.t =
   Seq.fold subs ~init:StringMap.empty
     ~f:(fun map sub ->
-        let name = match String.Map.find name_map (Sub.name sub) with
-          | Some n -> n
-          | None -> Sub.name sub
-        in
+        let name = get_mapped_name (Sub.name sub) name_map in
         StringMap.set map ~key:name ~data:(Term.tid sub))
 
 let get_fresh ?name:(n = "fresh_") (var_seed : var_gen) : string =
@@ -145,13 +148,10 @@ let new_z3_expr ?name:(name = "fresh_") (env: t) (typ : Type.t) : Constr.z3_expr
   mk_z3_expr ctx ~name:(get_fresh ~name:name var_seed) ~typ:typ
 
 let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t)
-    (names : string StringMap.t) : string TidMap.t =
+    (name_map : string StringMap.t) : string TidMap.t =
   Seq.fold subs ~init:TidMap.empty
     ~f:(fun map sub ->
-        let name = match String.Map.find names (Sub.name sub) with
-          | Some n -> n
-          | None -> Sub.name sub
-        in
+        let name = get_mapped_name (Sub.name sub) name_map in
         let is_called = get_fresh ~name:("called_" ^ name) var_gen in
         TidMap.set map ~key:(Term.tid sub) ~data:is_called)
 
@@ -503,8 +503,4 @@ let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.init_vars var
 
 let get_mod_func_name (env : t) (name_orig : string) : string =
-  (* If we don't find the name in the map, then the modified name is the same as
-     the original name. *)
-  match String.Map.find env.func_name_map name_orig with
-  | Some name -> name
-  | None -> name_orig
+  get_mapped_name name_orig env.func_name_map
