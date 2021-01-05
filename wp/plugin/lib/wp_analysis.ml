@@ -57,24 +57,6 @@ let rewrite_addresses (p : Params.t) (syms_orig : Symbol.t list)
   else
     sub
 
-(* Creates a map of original subroutine names to modified subroutine names
-   based off the regex from the user. *)
-let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
-    (re : (string * string) list) : string String.Map.t =
-  let re = List.rev re in
-  Seq.fold subs_orig ~init:String.Map.empty ~f:(fun map sub_orig ->
-      let name_orig = Sub.name sub_orig in
-      List.fold re ~init:map ~f:(fun m (orig, modif) ->
-          let regexp = Str.regexp orig in
-          let name_mod = Str.replace_first regexp modif name_orig in
-          let in_orig = Str.string_match regexp name_orig 0 in
-          let in_mod = Seq.exists subs_mod ~f:(fun s ->
-                String.equal (Sub.name s) name_mod) in
-          if in_orig && in_mod then
-            String.Map.set m ~key:name_orig ~data:name_mod
-          else
-            m))
-
 (* Generate the exp_conds for the original binary based on the flags passed in
    from the CLI. Generating the memory offsets requires the environment of
    the modified binary. *)
@@ -329,10 +311,9 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let syms2 = Symbol.get_symbols file2 in
   let subs1 = Term.enum sub_t prog1 in
   let subs2 = Term.enum sub_t prog2 in
-  let func_name_map = mk_func_name_map subs1 subs2 p.func_name_map in
   let main_sub1 = Utils.find_func_err subs1 p.func in
   let main_sub2 =
-    Env.get_mapped_name p.func func_name_map
+    Utils.get_mod_func_name p.func p.func_name_map
     |> Utils.find_func_err subs2
     |> rewrite_addresses p syms1 syms2
   in
@@ -341,6 +322,8 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     let to_inline2 = Utils.match_inline p.inline subs2 in
     let specs2 = fun_specs p to_inline2 in
     let exp_conds2 = exp_conds_mod p in
+    let func_name_map =
+      Utils.mk_func_name_map ~orig:subs1 ~modif:subs2 p.func_name_map in
     let env2 = Pre.mk_env z3_ctx var_gen
         ~subs:subs2
         ~arch:arch2
@@ -348,6 +331,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds2
         ~stack_range
+        ~func_name_map
     in
     let env2 = Env.set_freshen env2 true in
     let vars_sub = Pre.get_vars env2 main_sub2 in
@@ -370,7 +354,6 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds1
         ~stack_range
-        ~func_name_map
     in
     let vars_sub = Pre.get_vars env1 main_sub1 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env1 in

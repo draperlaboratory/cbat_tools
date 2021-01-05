@@ -20,6 +20,8 @@
 
 *)
 
+open Core_kernel
+
 open Bap_main
 open Bap.Std
 open Bap_wp
@@ -74,3 +76,17 @@ val output_to_bildb :
 (** [spec_of_name name] returns the function spec creator with the
     corresponding [name]. *)
 val spec_of_name : string -> Sub.t -> Arch.t -> Env.fun_spec option
+
+(** [mk_func_name orig modif regex] creates a map of modified subroutine names
+    to original subroutine names based off the regex list. *)
+val mk_func_name_map :
+  orig:Sub.t Seq.t
+  -> modif:Sub.t Seq.t
+  -> (string * string) list
+  -> string String.Map.t
+
+(** [get_mod_func_name orig_name regex] determines the name of the modified
+    subroutine based off of the original subroutine's name and the regex list.
+    Raises an exception if a subroutine that matches the regex can't be
+    found. *)
+val get_mod_func_name : string -> (string * string) list -> string

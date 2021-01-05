@@ -300,11 +300,11 @@ val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 (** [trivial_constr] generates a trivial constraint of just [true]. *)
 val trivial_constr : t -> Constr.t
 
-(** [get_mod_func_name env orig_name] obtain the name of the function in the
-     modified binary based off its name in the original binary. *)
-val get_mod_func_name : t -> string -> string
-
-val get_mapped_name : string -> string Core_kernel.String.Map.t -> string
+(** [map_sub_name env name_mod] obtains the name of the subroutine in the
+    original binary based off its name in the modified binary. In the case
+    there is no mapping for the subroutine, [get_sub_name] will return
+    [name_mod] (when calling this function from the original binary. *)
+val map_sub_name : t -> string -> string
 
 (*-------- Z3 constant creation utilities ----------*)
 

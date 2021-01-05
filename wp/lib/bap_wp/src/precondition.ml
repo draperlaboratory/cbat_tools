@@ -368,7 +368,7 @@ let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post 
     ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
   debug "Chaosing outputs for %s%!" (Sub.name sub);
   let ctx = Env.get_context env in
-  let sub_name = Env.get_mod_func_name env (Sub.name sub) in
+  let sub_name = Env.map_sub_name env (Sub.name sub) in
   let inputs = List.map inputs
       ~f:(fun i ->
           let input, _ = Env.get_var env i in

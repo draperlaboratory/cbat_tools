@@ -125,11 +125,12 @@ let get_precondition (env : t) (tid : Tid.t) : Constr.t option =
 let get_context (env : t) : Z3.context =
   env.ctx
 
-let get_mapped_name (name_orig : string) (map : string String.Map.t) : string =
-  (* If the name is not in the map, we assume it has the original name. *)
-  match String.Map.find map name_orig with
+let get_mapped_name (name_mod : string) (map : string String.Map.t) : string =
+  (* If the name is not in the map, we assume both binaries have the same
+     name. *)
+  match String.Map.find map name_mod with
   | Some name -> name
-  | None -> name_orig
+  | None -> name_mod
 
 let init_fun_name (subs : Sub.t Seq.t) (name_map : string String.Map.t)
   : Tid.t StringMap.t =
@@ -502,5 +503,5 @@ let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
 let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.init_vars var
 
-let get_mod_func_name (env : t) (name_orig : string) : string =
-  get_mapped_name name_orig env.func_name_map
+let map_sub_name (env : t) (name_mod : string) : string =
+  get_mapped_name name_mod env.func_name_map

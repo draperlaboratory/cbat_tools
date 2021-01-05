@@ -162,3 +162,39 @@ let spec_of_name (name : string) : Sub.t -> Arch.t -> Env.fun_spec option =
     let err = Printf.sprintf "'%s' is not a supported spec. See `bap wp \
                               --help' for available function specs.%!" name in
     failwith err
+
+(* Creates a map of modified subroutine names to original subroutine names
+   based off the regex from the user. *)
+let mk_func_name_map
+    ~orig:(subs_orig : Sub.t Seq.t)
+    ~modif:(subs_mod : Sub.t Seq.t)
+    (re : (string * string) list)
+  : string String.Map.t =
+  let re = List.rev re in
+  Seq.fold subs_orig ~init:String.Map.empty ~f:(fun map sub_orig ->
+      let name_orig = Sub.name sub_orig in
+      List.fold re ~init:map ~f:(fun m (orig, modif) ->
+          let regexp = Str.regexp orig in
+          let name_mod = Str.replace_first regexp modif name_orig in
+          let in_orig = Str.string_match regexp name_orig 0 in
+          let in_mod = Seq.exists subs_mod ~f:(fun s ->
+              String.equal (Sub.name s) name_mod) in
+          if in_orig && in_mod then
+            String.Map.set m ~key:name_mod ~data:name_orig
+          else
+            m))
+
+(* Determines the name of the modified subroutine based off of the original
+   subroutine's name and the regex from the user. We raise an exception if we
+   can't find a subroutine that matches the regex. *)
+let get_mod_func_name (name_orig : string) (re : (string * string) list)
+  : string =
+  if List.is_empty re then
+    name_orig
+  else
+    List.find_map_exn (List.rev re) ~f:(fun (orig, modif) ->
+        let regexp = Str.regexp orig in
+        if Str.string_match regexp name_orig 0 then
+          Some (Str.replace_first regexp modif name_orig)
+        else
+          None)
