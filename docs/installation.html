@@ -42,11 +42,18 @@
 
 <p>The recommended way to install Ocaml is with OPAM. Instructions on downloading OPAM, and using OPAM to download Ocaml can be found <a href="https://ocaml.org/docs/install.html#OPAM">here</a>.
 
+<p>Next, there is the alpha release of BAP:
+
+<ul>
+    <li>bap 2.2.0-alpha</li>
+</ul>
+
+<p>Instructions on downloading BAP from the testing repository can be found <a href="https://github.com/BinaryAnalysisPlatform/bap#installation">here</a>.
+
 <p>Then, there are the following OCaml packages:
 
 <ul>
     <li>core_kernel 0.14.0</li>
-    <li>bap 2.2.0-alpha</li>
     <li>ounit2 2.2.3</li>
     <li>z3 4.8.9</li>
     <li>re 1.9.0</li>
@@ -56,7 +63,7 @@
 <p>All of these can be installed with:
 
 <pre>
-  opam depext --install core_kernel bap ounit2 z3 re dune
+  opam install core_kernel ounit2 z3 re dune
 </pre>
 
 <h3>Installing CBAT</h3>
