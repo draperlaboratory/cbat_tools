@@ -89,4 +89,4 @@ val mk_func_name_map :
     subroutine based off of the original subroutine's name and the regex list.
     Raises an exception if a subroutine that matches the regex can't be
     found. *)
-val get_mod_func_name : string -> (string * string) list -> string
+val get_mod_func_name : string -> (string * string) list -> string option

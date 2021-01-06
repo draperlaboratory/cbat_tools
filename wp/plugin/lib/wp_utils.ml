@@ -188,11 +188,11 @@ let mk_func_name_map
    subroutine's name and the regex from the user. We raise an exception if we
    can't find a subroutine that matches the regex. *)
 let get_mod_func_name (name_orig : string) (re : (string * string) list)
-  : string =
+  : string option =
   if List.is_empty re then
-    name_orig
+    Some name_orig
   else
-    List.find_map_exn (List.rev re) ~f:(fun (orig, modif) ->
+    List.find_map (List.rev re) ~f:(fun (orig, modif) ->
         let regexp = Str.regexp orig in
         if Str.string_match regexp name_orig 0 then
           Some (Str.replace_first regexp modif name_orig)

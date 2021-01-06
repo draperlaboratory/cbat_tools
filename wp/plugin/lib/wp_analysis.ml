@@ -314,6 +314,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let main_sub1 = Utils.find_func_err subs1 p.func in
   let main_sub2 =
     Utils.get_mod_func_name p.func p.func_name_map
+    |> Option.value ~default:p.func
     |> Utils.find_func_err subs2
     |> rewrite_addresses p syms1 syms2
   in
