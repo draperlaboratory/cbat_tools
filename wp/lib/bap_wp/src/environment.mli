@@ -144,14 +144,14 @@ val get_fresh : ?name:string -> var_gen -> string
     create fresh variables. *)
 val set_freshen : t -> bool -> t
 
-(** Add a z3 expression representing a constant generated during the analysis to
-    the environment. *)
-val add_const : t -> Constr.z3_expr -> t
+(** Add a z3 expression representing a function call predicate generated during
+    the analysis to the environment. *)
+val add_call_pred : t -> Constr.z3_expr -> t
 
-(** Removes all z3 expressions representing constants from the environment. This is used
-    because the initial pass through a binary generates constants that are not
-    used during precondition computation. *)
-val clear_consts : t -> t
+(** Removes all z3 expressions representing function call predicates from the
+    environment. This is used because the initial pass through a binary
+    generates predicates that are not used during precondition computation. *)
+val clear_call_preds : t -> t
 
 (** A reference to {!Precondition.visit_sub} that is needed in the
     loop handler of the environment simulating "open recursion". *)
@@ -241,9 +241,9 @@ val get_sp: t -> Bap.Std.Var.t
 (** Obtains the BAP variable representing a program's memory. *)
 val get_mem : t -> Bap.Std.Var.t
 
-(** Obtains a list of all the {!Constr.z3_expr}s that represents constants that
-    were generated during analysis. *)
-val get_consts : t -> ExprSet.t
+(** Obtains a list of all the {!Constr.z3_expr}s that represents function call
+    predicates that were generated during analysis. *)
+val get_call_preds : t -> ExprSet.t
 
 (** Performs a fold on the map of of function names to tids to generate a
     {!Constr.z3_expr}. *)

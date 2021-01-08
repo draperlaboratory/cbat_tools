@@ -99,17 +99,18 @@ let print_memory (fmt : Format.formatter) (model : Model.model)
       else Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str
     )
 
-(* These are the constants that were generated during the analysis. *)
-let print_constants (fmt : Format.formatter) (model : Model.model)
-    (consts : Env.ExprSet.t) : unit =
-  let const_vals =
-    Env.ExprSet.fold consts ~init:[] ~f:(fun pairs c ->
+(* These are the constants and function call predicates that were generated
+   during the analysis. *)
+let print_call_preds (fmt : Format.formatter) (model : Model.model)
+    (preds : Env.ExprSet.t) : unit =
+  let pred_vals =
+    Env.ExprSet.fold preds ~init:[] ~f:(fun pairs c ->
         let name = Expr.to_string c in
         let value = Constr.eval_model_exn model c in
         (name, value) :: pairs)
   in
   Format.fprintf fmt "\n%!";
-  Constr.format_values fmt const_vals
+  Constr.format_values fmt pred_vals
 
 let print_fun_decls (fmt : Format.formatter) (model : Model.model) : unit =
   let fun_defs =
@@ -131,10 +132,11 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   let mem_map, reg_map =
     Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data:_ -> Target.CPU.is_mem key)
   in
-  let consts = Env.ExprSet.union (Env.get_consts env1) (Env.get_consts env2) in
+  let call_preds = Env.ExprSet.union
+      (Env.get_call_preds env1) (Env.get_call_preds env2) in
   print_registers fmt model reg_map;
   print_memory fmt model mem_map env2;
-  print_constants fmt model consts;
+  print_call_preds fmt model call_preds;
   print_fun_decls fmt model;
   Format.flush_str_formatter ()
 

@@ -364,8 +364,9 @@ let var_of_arg_t (arg : Arg.t) : Var.t =
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It substitutes the original z3_expr
    representing the output variable. *)
-let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post : Constr.t)
-    ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
+let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
+    ~outputs:(outputs : Var.t list) (env : Env.t) (sub : Sub.t) (post : Constr.t)
+  : Constr.t * Env.t =
   debug "Chaosing outputs for %s%!" (Sub.name sub);
   let ctx = Env.get_context env in
   let sub_name = Env.map_sub_name env (Sub.name sub) in
@@ -386,7 +387,9 @@ let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post 
           (z3_v, application))
   in
   let subs_from, subs_to = List.unzip outputs in
-  Constr.substitute post subs_from subs_to
+  let env = List.fold subs_to ~init:env ~f:(fun env sub_to ->
+      Env.add_call_pred env sub_to) in
+  Constr.substitute post subs_from subs_to, env
 
 let input_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -545,7 +548,7 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
              let z3_v, env = Env.get_var env v in
              let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string z3_v) in
              let fresh = Env.new_z3_expr env ~name:name (Var.typ v) in
-             Constr.substitute_one post z3_v fresh, Env.add_const env fresh)
+             Constr.substitute_one post z3_v fresh, Env.add_call_pred env fresh)
     }
   else
     None
@@ -577,7 +580,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
                      | None -> ins, outs)
              in
              let inputs = if Env.use_input_regs env then inputs else [] in
-             subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs, env)
+             subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs)
     }
   else
     None
@@ -603,7 +606,7 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let post, env = increment_stack_ptr post env in
              let inputs = if Env.use_input_regs env then input_regs arch else [] in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
-             subst_fun_outputs env sub post ~inputs ~outputs:[rax], env)
+             subst_fun_outputs env sub post ~inputs ~outputs:[rax])
     }
   else
     None
@@ -618,7 +621,7 @@ let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
              let inputs = if Env.use_input_regs env then input_regs arch else [] in
-             subst_fun_outputs env sub post ~inputs ~outputs:[X86_cpu.AMD64.rax], env)
+             subst_fun_outputs env sub post ~inputs ~outputs:[X86_cpu.AMD64.rax])
     }
   | _ -> None
 
@@ -632,7 +635,7 @@ let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option 
              let post, env = increment_stack_ptr post env in
              let inputs = if Env.use_input_regs env then input_regs arch else [] in
              let regs = caller_saved_regs arch in
-             subst_fun_outputs env sub post ~inputs ~outputs:regs, env)
+             subst_fun_outputs env sub post ~inputs ~outputs:regs)
     }
   else
     None
@@ -653,7 +656,7 @@ let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                    let open X86_cpu.AMD64 in
                    [rax; rcx; rdx]
                  in
-                 subst_fun_outputs env sub post ~inputs ~outputs, env)
+                 subst_fun_outputs env sub post ~inputs ~outputs)
         }
       | _ ->
         raise (Not_implemented "spec_afl_maybe_log: The spec for afl_maybe_log only \
@@ -1237,26 +1240,25 @@ let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
         List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
       let sub_outputs : Var.t list = sub_inputs in
       let vars = Set.add (Env.get_gprs env) (Env.get_mem env)
-                  |> Var.Set.to_list in
+                 |> Var.Set.to_list in
       let regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
       let inits = List.map vars ~f:(fun v ->
           let r  = Env.get_init_var env v in
           match r with
           | Some q -> q
           | None -> let q, _ = Env.mk_init_var env v in q) in
-      let tid_name : string = Tid.name tid in 
-      let sub_post = subst_fun_outputs ~tid_name:tid_name env sub
+      let tid_name : string = Tid.name tid in
+      let sub_post, _ = subst_fun_outputs ~tid_name:tid_name env sub
           sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
       (* replace init-vars with vars inside sub_post *)
       let sub_post = Constr.substitute sub_post inits regs in
       (*combine sub_post and post*)
-      let post : Constr.t = subst_fun_outputs ~tid_name:tid_name env sub
-          post ~inputs:sub_inputs ~outputs:sub_outputs in 
+      let post, _ = subst_fun_outputs ~tid_name:tid_name env sub
+          post ~inputs:sub_inputs ~outputs:sub_outputs in
       let sub_post_imp_post : Constr.t =
         Constr.mk_clause [sub_post] [post] in
       (* combine pre and post *)
       let result : Constr.t = Constr.mk_clause [] [sub_pre ; sub_post_imp_post] in
-      (*Format.printf "result: %s \n %!" (Constr.to_string result);*)
       result, env)
     in
     Some {

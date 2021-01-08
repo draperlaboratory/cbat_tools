@@ -67,7 +67,7 @@ type t = {
   stack : mem_range;
   data_section : mem_range;
   init_vars : Constr.z3_expr EnvMap.t;
-  consts : ExprSet.t;
+  call_preds : ExprSet.t;
   func_name_map : string StringMap.t
 }
 
@@ -316,7 +316,7 @@ let mk_env
     stack = stack_range;
     data_section = data_section_range;
     init_vars = EnvMap.empty;
-    consts = ExprSet.empty;
+    call_preds = ExprSet.empty;
     func_name_map = func_name_map
   }
 
@@ -338,11 +338,11 @@ let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }
 let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
 
-let add_const (env : t) (c : Constr.z3_expr) : t =
-  { env with consts = ExprSet.add env.consts c }
+let add_call_pred (env : t) (c : Constr.z3_expr) : t =
+  { env with call_preds = ExprSet.add env.call_preds c }
 
-let clear_consts (env : t) : t =
-  { env with consts = ExprSet.empty }
+let clear_call_preds (env : t) : t =
+  { env with call_preds = ExprSet.empty }
 
 let remove_var (env : t) (v : Var.t) : t =
   { env with var_map = EnvMap.remove env.var_map v }
@@ -412,8 +412,8 @@ let get_loop_handler (env : t) :
   t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
   env.loop_handler.handle
 
-let get_consts (env : t) : ExprSet.t =
-  env.consts
+let get_call_preds (env : t) : ExprSet.t =
+  env.call_preds
 
 let get_arch (env : t) : Arch.t =
   env.arch
