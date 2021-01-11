@@ -500,7 +500,7 @@ let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let env = { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var } in
   init_var, env
 
-let mk_sub_var (subname : string) (env : t) (var : Var.t) : Constr.z3_expr * t =
+(* let mk_sub_var (subname : string) (env : t) (var : Var.t) : Constr.z3_expr * t =
   let init_var, env = mk_new_var subname env var in
   let env = { env with sub_vars = EnvMap.set env.sub_vars ~key:var ~data:init_var } in
   init_var, env
@@ -509,13 +509,13 @@ let mk_sub_var (subname : string) (env : t) (var : Var.t) : Constr.z3_expr * t =
 let mk_sub_init_var (subname : string) (env : t) (var : Var.t) : Constr.z3_expr * t =
   let init_var, env = mk_new_var (subname ^ "_init") env var in
   let env = { env with sub_init_vars = EnvMap.set env.sub_init_vars ~key:var ~data:init_var } in
-  init_var, env
+  init_var, env *)
 
 let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.init_vars var
 
-let get_mk_sub_var (env : t) (var : Var.t) : Constr.z3_expr option =
+(* let get_mk_sub_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.sub_vars var
 
 let get_mk_sub_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
-  EnvMap.find env.sub_init_vars var
+  EnvMap.find env.sub_init_vars var *)

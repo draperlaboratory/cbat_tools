@@ -462,166 +462,46 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub t vars
 
-let prefix_vars (prefix : string) (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
-  let ctx = Env.get_context env in
-  Var.Set.fold vars ~init:([], env)
-    ~f:(fun (inits, env) v ->
-        let z3_v, env = Env.get_var env v in
-        let init_v, env = Env.mk_init_var env v in
-        let comp =
-          Bool.mk_eq ctx z3_v init_v
-          |> Constr.mk_goal
-            (Format.sprintf "%s = %s" (Expr.to_string z3_v) (Expr.to_string init_v))
-          |> Constr.mk_constr
-        in
-        debug "Initializing var: %s\n%!" (Constr.to_string comp);
-        comp :: inits, env)
-
-let smtlib_tokenize (user_smtlib_str : string)
-    (sub_name : string) (env : Env.t)  : string * Env.t =
-  Format.printf "DB: Entered smtlib_tokenize... check! \n";
-  (* get_var_map : Env.t -> Constr.z3_expr EnvMap.t
-     gets the var_map containing a mapping of BIR vars to Z3 vars *)
-  let var_map = Env.get_var_map env in
-  (* get_init_var_map : Env.t -> Constr.z3_expr EnvMap.t
-     gets a var-mapping of BIR to Z3 for initial states *)
-  let init_var_map = Env.get_init_var_map env in
-  let init_fmt = fun v -> Format.sprintf "init_%s" (Var.name v) in
-  let sub_fmt = fun v -> (Format.sprintf "%s_%s" sub_name (Var.name v)) in
-  let sub_init_fmt =
-    fun v -> (Format.sprintf "%s_init_%s" sub_name (Var.name v)) in
-  let maps = [init_var_map; var_map   ; var_map   ] in
-  let fmts = [init_fmt    ; sub_fmt  ; sub_init_fmt] in
-  let names = List.zip_exn maps fmts in
-  Format.printf "DB: smtlib_tokenize to_z3_name \n";
-  let to_z3_name (token : string) : string =
-    List.find_map names ~f:(fun (map, fmt) -> Z3_utils.get_z3_name map token fmt)
-    |> Base.Option.map ~f:Expr.to_string |> Option.value ~default:token
-  in
-  Format.printf "DB: smtlib_tokenize smtlib_str \n";
-  let smtlib_str =
-    user_smtlib_str
-    |> Z3_utils.tokenize
-    |> List.map ~f:to_z3_name
-    |> Z3_utils.build_str
-  in
-    Format.printf "DB: smtlib_tokenize smtlib before : %s \n %!" user_smtlib_str;
-    Format.printf "DB: smtlib_tokenize smtlib after : %s \n %!" smtlib_str;
-    smtlib_str, env
-
-
-let get_var_name (map : Constr.z3_expr Var.Map.t) (name : string)
-    (fmt : Var.t -> string) : Bap.Std.Var.t option =
-  Format.printf "    Entering get_var_name \n";
-  map
-  |> Var.Map.to_alist
-  |> List.find_map
-    ~f:(fun (var, z3_var) ->
-        Format.printf "  var: %s \n %!" (Var.name var);
-        if String.equal name (fmt var) then
-          Some var
-        else
-          None)
-
-let collect_sub_init_regs (env : Env.t) (smtlib : string)
-    (name : string) : Var.Set.t * Env.t =
-  Format.printf "  DB: Entering collect_sub_init_regs \n" ;
-  Format.printf "    name: %s , smtlib: %s %! \n" name smtlib;
-  let sub_init_var_map : Env.Constr.z3_expr Env.EnvMap.t = Env.get_init_var_map env in
-  let regs : Var.Set.t =
-    smtlib
-    |> Z3_utils.tokenize
-    |> List.fold ~init:(Var.Set.empty) ~f:(fun regs token ->
-        Format.printf "  token: %s \n %!" token ;
-        match get_var_name sub_init_var_map token
-                (fun v -> name ^ "_init_" ^ Var.name v) with
-        | Some n -> Set.add regs n
-        | None -> regs) in
-  Format.printf "  regs: \n";
-  Set.iter regs ~f:(fun v -> Format.printf "    %s \n %!" (Var.name v));
-  regs, env
-
-let collect_sub_init_regs2 (env : Env.t) (smtlib : string)
-    (name : string) : Var.Set.t * Env.t =
-  Format.printf "  DB: Entering collect_sub_init_regs \n" ;
-  Format.printf "    name: %s , smtlib: %s %! \n" name smtlib;
-  let module T = (val target_of_arch arch) in
-  let globals : Var.Set.t = (T.CPU.gpr) in
-  let sub_init_var_map : Env.Constr.z3_expr Env.EnvMap.t = Env.get_init_var_map env in
-  let regs : Var.Set.t =
-    smtlib
-    |> Z3_utils.tokenize
-    |> List.fold ~init:(Var.Set.empty) ~f:(fun regs token ->
-        Format.printf "  token: %s \n %!" token ;
-        match get_var_name sub_init_var_map token
-                (fun v -> name ^ "_init_" ^ Var.name v) with
-        | Some n -> Set.add regs n
-        | None -> regs) in
-  Format.printf "  regs: \n";
-  Set.iter regs ~f:(fun v -> Format.printf "    %s \n %!" (Var.name v));
-  regs, env
-
-(* The hard parts: making the constraits
-    in P /\ ((...) => (Q => R)[...]), we need to make
-    q = Q
-    qr = Q => P
-    qr_fresh = [...]
-    pre_qr = (...)
-    right = pre_qp => qp_fresh
-    p = P
-    pqr = P /\ right
-    var_equals_prefix_var = (init_g_v = v /\ ...)
-    result = var_equals_prefix_var => pqr
-    To do: How do we separate the inits from the non-inits??
+(* TO DO :
+   -fix sub_outputs (currently is just the same as sub_inputs)
+   -remove inits from init-variables in sub_post, ex. init_RAX0 becomes RAX0
+   -add changes to mk_smtlib2_single so as to have tid name included 
 *)
-let user_func_spec (sub_name : string) (pre : string) (post : string)
-    (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
-  Format.printf "DB: Entered user_func_spec... check! \n";
-  if String.equal sub_name (Sub.name sub) then
-    (* create function that parses the pre and use Z3 to make precondition*)
-    Some {
-      spec_name = sub_name ;
-      spec = Summary (fun env r _ ->
-        (* First, make a fctn that converts the string to a constraint.
-              This includes changing var names via smtlib_tokenize *)
-          (* ACTUAL CODE
-             let constr_of_string : (string -> Constr.t) = (fun str ->
-              (smtlib_tokenize env str sub_name)
-              |> Z3_utils.mk_smtlib2_single env) in *)
-          let constr_of_string : (string -> Constr.t) = (fun str ->
-              str |> Z3_utils.mk_smtlib2_single env) in
-        (* The globals *)
-          (* let module T = (val target_of_arch arch) in
-          let globals : Var.Set.t = (T.CPU.gpr) in *)
-          Format.printf "DB: user_func_spec q \n";
-          let q, env = smtlib_tokenize post sub_name env in
-          let q : Constr.t = constr_of_string q in
-          Format.printf "DB: user_func_spec qr \n";
-          let q, env = increment_stack_ptr q env in
-          let qr : Constr.t  = Constr.mk_clause [q] [r] in
-          (* Format.printf "DB: user_func_spec qr_fresh \n"; *)
-          (* let qr_fresh : Constr.t  = subst_fun_outputs env sub qr ~inputs:globals ~outputs:[] in *)
-          let qr_fresh = qr in
-          Format.printf "DB: user_func_spec p \n";
-          let p : Constr.t = constr_of_string pre in
-          Format.printf "DB: user_func_spec result \n";
-          let pqr : Constr.t = Constr.mk_clause [] [p ; qr_fresh] in
-          let sub_init_regs, env = collect_sub_init_regs env post sub_name in (* should range over p,q and r*)
-          let init_eqs, env = prefix_vars sub_name sub_init_regs env in
-          let result : Constr.t = Constr.mk_clause init_eqs [pqr] in
-          let debug l =
-            List.iter l
-              (fun (x,y)->
-                 Format.printf x ; Constr.pp_constr (Format.std_formatter) y;
-                 Format.printf "\n\n")
-          in
-          debug [("R: ", r); ("Q: ",q); ("Q=>R: ",qr); ("(Q=>R)[..]: ",qr_fresh);
-                 ("inits: ",Constr.mk_clause init_eqs []);
-                 ("P: ",p); ("(v1=init_g_v1) -> pre & forallz.qz->rz: ", result)];
-          result , env)
-    }
-  else None
-
+  let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
+      (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+    Format.printf "DB: Entered user_func_spec... check! \n";
+    if String.equal sub_name (Sub.name sub) then
+      (* create function that parses the pre and use Z3 to make precondition*)
+      Some {
+        spec_name = sub_name ;
+        spec = Summary (fun env post _ ->
+            (* turn strings into proper smtlib2 statements; incr stack_ptr *)
+            let sub_pre : Constr.t = Z3_utils.mk_smtlib2_single env sub_pre in
+            let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
+            let sub_post, env = increment_stack_ptr sub_post env in
+            (* collect inputs/outputs of sub; substitute in sub_post=>post *)
+            let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
+            let sub_inputs : Var.t list =
+              List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
+            let sub_outputs : Var.t list = sub_inputs in
+            let sub_post_imp_post : Constr.t =
+              Constr.mk_clause [sub_post] [post] in
+            let sub_post_imp_post = subst_fun_outputs env sub sub_post_imp_post
+                ~inputs:sub_inputs ~outputs:sub_outputs in
+            (* combine pre and post *)
+            let result : Constr.t = Constr.mk_clause [sub_pre] [sub_post_imp_post] in
+            let debug l =
+              List.iter l
+                ~f:(fun (x,y)->
+                   Format.printf x ; Constr.pp_constr (Format.std_formatter) y;
+                   Format.printf "\n\n")
+            in
+            debug [("P: ", sub_pre); ("Q: ", sub_post);
+                   ("R: ", post); ("forallz.qz->rz: ",sub_post_imp_post);
+                  ("pre & forallz.qz->rz: ", result)];
+            result, env)
+      }
+    else None
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let is_verifier_error name = String.(
@@ -1345,7 +1225,8 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
   in
   visitor#visit_exp exp []
 
-let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
+let init_vars (vars : Var.Set.t) (env : Env.t)
+  : Constr.t list * Env.t =
   let ctx = Env.get_context env in
   Var.Set.fold vars ~init:([], env)
     ~f:(fun (inits, env) v ->

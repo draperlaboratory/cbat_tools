@@ -1453,8 +1453,49 @@ let test_init_vars_2 (test_ctx : test_ctxt) : unit =
   let goal = Constr.mk_clause [hyp] [pre] in
   assert_z3_result test_ctx env (Sub.to_string sub) post goal Z3.Solver.SATISFIABLE
 
+let test_user_func_spec (test_ctx : test_ctxt) : unit =
+  let x = Var.create "x" reg64_t in
+  let y = Var.create "y" reg64_t in
+  let var_gen = Env.mk_var_gen () in
+  let loc = Var.create "loc" reg64_t in
+  let mem = Var.create "mem" (mem64_t `r64) in
+  let sub = Bil.(
+      [
+        mem := (store ~mem:(var mem) ~addr:(var loc) (var x) LittleEndian `r64)
+      ]
+    ) |> bil_to_sub in
+  let main_sub = Bil.(
+      [
+        y := i64 2;
+        call sub reg64_t;
+      ]
+    ) |> bil_to_sub
+  in
+  let ctx = Env.mk_ctx () in
+  let sub_pre : string =  "(assert true)" in
+  let sub_post : string = "(assert true)" in
+  let sub_name : string = "foo" in
+  let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
+      ~specs:[Pre.user_func_spec sub_name sub_pre sub_post]
+      ~subs:(Seq.of_list [main_sub; sub]) in
+  let z3_x, env = Env.get_var env x in
+  let init_x, env = Env.mk_init_var env x in
+  let post =
+    Bool.mk_eq ctx z3_x (BV.mk_add ctx init_x (BV.mk_numeral ctx "2" 64))
+    |> Constr.mk_goal "x == init_x + 2"
+    |> Constr.mk_constr
+  in
+  let pre, _ = Pre.visit_sub env post sub in
+  let hyp =
+    Bool.mk_eq ctx z3_x init_x
+        |> Constr.mk_goal "x == init_x"
+        |> Constr.mk_constr
+  in
+  let goal = Constr.mk_clause [hyp] [pre] in
+  assert_z3_result test_ctx env (Sub.to_string sub) post goal Z3.Solver.SATISFIABLE
 
 let suite = [
+  "Test user specified subroutine specs" >:: test_user_func_spec;
   "Empty Block" >:: test_empty_block;
   "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
   "Assign SSA block: y = x+1; Post: y == x" >:: test_assign_2;
