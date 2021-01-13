@@ -364,7 +364,7 @@ let var_of_arg_t (arg : Arg.t) : Var.t =
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It substitutes the original z3_expr
    representing the output variable. *)
-let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
+let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post : Constr.t)
     ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
   debug "Chaosing outputs for %s%!" (Sub.name sub);
   let ctx = Env.get_context env in
@@ -376,7 +376,8 @@ let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
   let input_sorts = List.map inputs ~f:Expr.get_sort in
   let outputs = List.map outputs
       ~f:(fun o ->
-          let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Var.to_string o) in
+          let tid_name = if (String.equal tid_name "") then "" else ("_"^tid_name) in
+          let name = Format.sprintf "%s%s_ret_%s" (Sub.name sub) (tid_name) (Var.to_string o) in
           let z3_v, _ = Env.get_var env o in
           let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort z3_v) in
           let application = FuncDecl.apply func_decl inputs in
@@ -1210,25 +1211,26 @@ let init_vars (vars : Var.Set.t) (env : Env.t)
 *)
 let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
     (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
-  Format.printf "DB: Entered user_func_spec... check! \n";
   if String.equal sub_name (Sub.name sub) then
     (* create function that parses the pre and use Z3 to make precondition*)
     Some {
       spec_name = sub_name ;
-      spec = Summary (fun env post _ ->
+      spec = Summary (fun env post tid ->
           (* turn strings into proper smtlib2 statements; incr stack_ptr *)
           let sub_pre : Constr.t = Z3_utils.mk_smtlib2_single env sub_pre in
           let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
           let sub_post, env = increment_stack_ptr sub_post env in
           (* collect inputs/outputs of sub; substitute in sub_post=>post *)
           let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
-          (* we want to remove virtual vars, like #53 *)
+          (* we want to remove virtual vars*)
           let sub_inputs : Var.t list =
             List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
           let sub_outputs : Var.t list = sub_inputs in
           let sub_post_imp_post : Constr.t =
             Constr.mk_clause [sub_post] [post] in
-          let sub_post_imp_post = subst_fun_outputs env sub sub_post_imp_post
+          let tid_name : string = Tid.name tid in
+          let sub_post_imp_post =
+            subst_fun_outputs ~tid_name:tid_name env sub sub_post_imp_post
               ~inputs:sub_inputs ~outputs:sub_outputs in
           (* replace init-vars with vars*)
           let module T = (val target_of_arch (Env.get_arch env)) in
