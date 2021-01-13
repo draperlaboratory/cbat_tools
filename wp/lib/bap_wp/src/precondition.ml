@@ -462,47 +462,6 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub t vars
 
-(* TO DO :
-   -fix sub_outputs (currently is just the same as sub_inputs)
-   -remove inits from init-variables in sub_post, ex. init_RAX0 becomes RAX0
-   -add changes to mk_smtlib2_single so as to have tid name included 
-*)
-  let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
-      (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
-    Format.printf "DB: Entered user_func_spec... check! \n";
-    if String.equal sub_name (Sub.name sub) then
-      (* create function that parses the pre and use Z3 to make precondition*)
-      Some {
-        spec_name = sub_name ;
-        spec = Summary (fun env post _ ->
-            (* turn strings into proper smtlib2 statements; incr stack_ptr *)
-            let sub_pre : Constr.t = Z3_utils.mk_smtlib2_single env sub_pre in
-            let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
-            let sub_post, env = increment_stack_ptr sub_post env in
-            (* collect inputs/outputs of sub; substitute in sub_post=>post *)
-            let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
-            let sub_inputs : Var.t list =
-              List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
-            let sub_outputs : Var.t list = sub_inputs in
-            let sub_post_imp_post : Constr.t =
-              Constr.mk_clause [sub_post] [post] in
-            let sub_post_imp_post = subst_fun_outputs env sub sub_post_imp_post
-                ~inputs:sub_inputs ~outputs:sub_outputs in
-            (* combine pre and post *)
-            let result : Constr.t = Constr.mk_clause [sub_pre] [sub_post_imp_post] in
-            let debug l =
-              List.iter l
-                ~f:(fun (x,y)->
-                   Format.printf x ; Constr.pp_constr (Format.std_formatter) y;
-                   Format.printf "\n\n")
-            in
-            debug [("P: ", sub_pre); ("Q: ", sub_post);
-                   ("R: ", post); ("forallz.qz->rz: ",sub_post_imp_post);
-                  ("pre & forallz.qz->rz: ", result)];
-            result, env)
-      }
-    else None
-
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let is_verifier_error name = String.(
       name = "__VERIFIER_error" ||
@@ -1240,6 +1199,57 @@ let init_vars (vars : Var.Set.t) (env : Env.t)
         in
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
+
+(* TO DO :
+   -note: sub_outputs are currently is just the same as sub_inputs
+   -note: we remove inits from init-variables in sub_post, ex. init_RAX0
+    - becomes RAX0, and we do this for all registers
+    - add a test that would only pass if the init replacement is working
+   -add changes to mk_smtlib2_single so as to have tid name included
+   -add proper debugging
+*)
+let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
+    (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+  Format.printf "DB: Entered user_func_spec... check! \n";
+  if String.equal sub_name (Sub.name sub) then
+    (* create function that parses the pre and use Z3 to make precondition*)
+    Some {
+      spec_name = sub_name ;
+      spec = Summary (fun env post _ ->
+          (* turn strings into proper smtlib2 statements; incr stack_ptr *)
+          let sub_pre : Constr.t = Z3_utils.mk_smtlib2_single env sub_pre in
+          let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
+          let sub_post, env = increment_stack_ptr sub_post env in
+          (* collect inputs/outputs of sub; substitute in sub_post=>post *)
+          let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
+          (* we want to remove virtual vars, like #53 *)
+          let sub_inputs : Var.t list =
+            List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
+          let sub_outputs : Var.t list = sub_inputs in
+          let sub_post_imp_post : Constr.t =
+            Constr.mk_clause [sub_post] [post] in
+          let sub_post_imp_post = subst_fun_outputs env sub sub_post_imp_post
+              ~inputs:sub_inputs ~outputs:sub_outputs in
+          (* replace init-vars with vars*)
+          let module T = (val target_of_arch (Env.get_arch env)) in
+          let vars : Var.Set.t = (T.CPU.gpr) in
+          let init_preamble, env = init_vars vars env in
+          let sub_post_imp_post =
+            Constr.mk_clause init_preamble [sub_post_imp_post] in
+          (* combine pre and post *)
+          let result : Constr.t = Constr.mk_clause [sub_pre] [sub_post_imp_post] in
+          let debug l =
+            List.iter l
+              ~f:(fun (x,y)->
+                 Format.printf x ; Constr.pp_constr (Format.std_formatter) y;
+                 Format.printf "\n\n")
+          in
+          debug [("P: ", sub_pre); ("Q: ", sub_post);
+                 ("R: ", post); ("forallz.qz->rz: ",sub_post_imp_post);
+                 ("pre & forallz.qz->rz: ", result)];
+          result, env)
+    }
+  else None
 
 (* The exp_cond to add to the environment in order to invoke the hooks regarding
    memory read offsets. *)

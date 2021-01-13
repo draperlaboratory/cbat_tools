@@ -8,7 +8,6 @@ run () {
     --show=paths \
     --precond="(assert (= RDI #x0000000000000007))"\
     --postcond="(assert (= RAX (bvmul RDI RDI)))" \
-    --user-func-spec="foo,(assert true),(assert (= RAX (bvmul RDI RDI)))" \
     -- main
 }
 

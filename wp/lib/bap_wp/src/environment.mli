@@ -186,12 +186,6 @@ val get_subs : t -> Bap.Std.Sub.t Bap.Std.Seq.t
 (** Obtains the var_map containing a mapping of BIR variables to Z3 variables. *)
 val get_var_map : t -> Constr.z3_expr EnvMap.t
 
-(* FIIL ME IN *)
-val get_sub_var_map : t -> Constr.z3_expr EnvMap.t
-
-(* FIIL ME IN *)
-val get_sub_init_var_map : t -> Constr.z3_expr EnvMap.t
-
 (** Obtains the var_map containing a mapping of BIR variables to the Z3 variables
     that represent their initial states. *)
 val get_init_var_map : t -> Constr.z3_expr EnvMap.t
