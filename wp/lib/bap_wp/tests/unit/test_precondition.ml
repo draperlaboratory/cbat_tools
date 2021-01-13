@@ -1349,7 +1349,7 @@ let test_get_vars_inline_1 (test_ctx : test_ctxt) : unit =
   let main_sub = Bil.(
       [
         y := i64 2;
-        call sub reg64_t
+        Bil_to_bir.call sub reg64_t
       ]
     ) |> bil_to_sub
   in

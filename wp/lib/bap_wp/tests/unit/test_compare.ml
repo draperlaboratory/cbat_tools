@@ -513,9 +513,13 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
   let sub1 = Sub.with_name sub1 "test_call" in
   let sub2 = Sub.with_name sub2 "test_call" in
   let main_sub1 =
-    Bil.([ rdi := i64 1 ; rsi := i64 2 ; call sub1 reg64_t]) |> bil_to_sub in
+    Bil.([ rdi := i64 1 ;
+           rsi := i64 2 ; 
+           Bil_to_bir.call sub1 reg64_t]) |> bil_to_sub in
   let main_sub2 =
-    Bil.([ rdi := i64 2 ; rsi := i64 3 ; call sub2 reg64_t]) |> bil_to_sub in
+    Bil.([ rdi := i64 2 ;
+           rsi := i64 3 ;
+           Bil_to_bir.call sub2 reg64_t]) |> bil_to_sub in
   let env1 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub1; sub1])
       ~specs:[Pre.spec_chaos_caller_saved] in
   let env2 = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [main_sub2; sub2])
@@ -548,13 +552,13 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
     Bil.([rdi := i64 1 ;
           rsi := i64 2 ;
           rdx := i64 3 ;
-          call sub1 reg64_t])
+          Bil_to_bir.call sub1 reg64_t])
     |> bil_to_sub in
   let main_sub2 =
     Bil.([rdi := i64 1 ;
           rsi := i64 2 ;
           rdx := i64 4 ;
-          call sub2 reg64_t])
+          Bil_to_bir.call sub2 reg64_t])
     |> bil_to_sub in
   let env1 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
       ~subs:(Seq.of_list [main_sub1; sub1]) in
@@ -588,13 +592,13 @@ let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
     Bil.([rdi := i64 1 ;
           rsi := i64 2 ;
           rdx := i64 3 ;
-          call sub1 reg64_t])
+          Bil_to_bir.call sub1 reg64_t])
     |> bil_to_sub in
   let main_sub2 =
     Bil.([rdi := i64 1 ;
           rsi := i64 2 ;
           rdx := i64 4 ;
-          call sub2 reg64_t])
+          Bil_to_bir.call sub2 reg64_t])
     |> bil_to_sub in
   let env1 = Pre.mk_env ctx var_gen ~specs:[Pre.spec_chaos_caller_saved]
       ~subs:(Seq.of_list [main_sub1; sub1]) ~use_fun_input_regs:false in
