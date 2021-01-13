@@ -1206,11 +1206,11 @@ let init_vars (vars : Var.Set.t) (env : Env.t)
    -note: we remove inits from init-variables in sub_post, ex. init_RAX0
     - becomes RAX0, and we do this for all registers
     - add a test that would only pass if the init replacement is working
-   -add changes to mk_smtlib2_single so as to have tid name included
-   -add proper debugging
 *)
 let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
     (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+  debug "Making user-defined subroutine spec with subroutine-name: %s, pre:
+%s, post: %s \n%!" sub_pre sub_post;
   if String.equal sub_name (Sub.name sub) then
     (* create function that parses the pre and use Z3 to make precondition*)
     Some {

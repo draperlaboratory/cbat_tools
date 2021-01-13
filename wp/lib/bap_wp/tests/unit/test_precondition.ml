@@ -1467,13 +1467,13 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
   let main_sub = Bil.(
       [
         y := i64 2;
-        call sub reg64_t;
+        Bil_to_bir.call sub reg64_t;
       ]
     ) |> bil_to_sub
   in
   let ctx = Env.mk_ctx () in
-  let sub_pre : string =  "(assert true)" in
-  let sub_post : string = "(assert true)" in
+  let sub_pre : string =  "(assert (= x y))" in
+  let sub_post : string = "(assert (= init_x init_y))" in
   let sub_name : string = "foo" in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
       ~specs:[Pre.user_func_spec sub_name sub_pre sub_post]

@@ -80,8 +80,6 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
     |> List.map ~f:to_z3_name
     |> Z3_utils.build_str
   in
-  Format.printf "\n smtlib in compare.ml : %s \n %!" smtlib_str;
-  info "New smtlib string: %s \n" smtlib_str;
   let declsym1 = Z3_utils.get_decls_and_symbols env1 in
   let declsym2 = Z3_utils.get_decls_and_symbols env2 in
   let declsym = declsym1 @ declsym2 in
