@@ -41,7 +41,7 @@ let assert_z3_result (test_ctx : test_ctxt) (env : Env.t) (body : string)
         print_z3_model solver exp real pre ~orig:env ~modif:env)
     expected result
 
-
+(*
 let test_empty_block (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
@@ -1451,17 +1451,17 @@ let test_init_vars_2 (test_ctx : test_ctxt) : unit =
     |> Constr.mk_constr
   in
   let goal = Constr.mk_clause [hyp] [pre] in
-  assert_z3_result test_ctx env (Sub.to_string sub) post goal Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string sub) post goal Z3.Solver.SATISFIABLE *)
 
 let test_user_func_spec (test_ctx : test_ctxt) : unit =
   let x = Var.create "x" reg64_t in
   let y = Var.create "y" reg64_t in
   let var_gen = Env.mk_var_gen () in
-  let loc = Var.create "loc" reg64_t in
-  let mem = Var.create "mem" (mem64_t `r64) in
+  (* let loc = Var.create "loc" reg64_t in *)
+  (* let mem = Var.create "mem" (mem64_t `r64) in *)
   let sub = Bil.(
       [
-        mem := (store ~mem:(var mem) ~addr:(var loc) (var x) LittleEndian `r64)
+        x := var x
       ]
     ) |> bil_to_sub in
   let main_sub = Bil.(
@@ -1472,9 +1472,9 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
   let ctx = Env.mk_ctx () in
-  let sub_pre : string =  "(assert (= x y))" in
-  let sub_post : string = "(assert (= init_x init_y))" in
-  let sub_name : string = "foo" in
+  let sub_pre : string =  "(assert false)" in
+  let sub_post : string = "(assert true)" in
+  let sub_name : string = Sub.name sub in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
       ~specs:[Pre.user_func_spec sub_name sub_pre sub_post]
       ~subs:(Seq.of_list [main_sub; sub]) in
@@ -1485,16 +1485,18 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
     |> Constr.mk_goal "x == init_x + 2"
     |> Constr.mk_constr
   in
-  let pre, _ = Pre.visit_sub env post sub in
+  let pre, _ = Pre.visit_sub env post main_sub in
   let hyp =
     Bool.mk_eq ctx z3_x init_x
-        |> Constr.mk_goal "x == init_x"
-        |> Constr.mk_constr
+    |> Constr.mk_goal "x == init_x"
+    |> Constr.mk_constr
   in
   let goal = Constr.mk_clause [hyp] [pre] in
-  assert_z3_result test_ctx env (Sub.to_string sub) post goal Z3.Solver.SATISFIABLE
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post goal Z3.Solver.UNSATISFIABLE
 
-let suite = [
+let suite = [ "Test user specified subroutine specs" >:: test_user_func_spec ]
+
+(* let suite = [
   "Test user specified subroutine specs" >:: test_user_func_spec;
   "Empty Block" >:: test_empty_block;
   "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
@@ -1617,4 +1619,4 @@ let suite = [
 
   "Compare init and current vals of var: UNSAT" >:: test_init_vars_1;
   "Compare init and current vals of var: SAT" >:: test_init_vars_2;
-]
+] *)

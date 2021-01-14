@@ -1210,7 +1210,7 @@ let init_vars (vars : Var.Set.t) (env : Env.t)
 let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
     (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   debug "Making user-defined subroutine spec with subroutine-name: %s, pre:
-%s, post: %s \n%!" sub_pre sub_post;
+%s, post: %s \n%!" sub_name sub_pre sub_post;
   if String.equal sub_name (Sub.name sub) then
     (* create function that parses the pre and use Z3 to make precondition*)
     Some {
