@@ -55,7 +55,7 @@ val update_stack : base:int option -> size:int option -> Env.mem_range
 (** Checks if the user provided a filename to output a gdb script to, and if
     provided, outputs the script. *)
 val output_to_gdb :
-     filename:string option
+  filename:string option
   -> func:string
   -> Z3.Solver.solver
   -> Z3.Solver.status
@@ -65,8 +65,12 @@ val output_to_gdb :
 (** Checks if the user provided a filename to input a bildb init file to, and if
     provided, outputs the script. *)
 val output_to_bildb :
-     filename:string option
+  filename:string option
   -> Z3.Solver.solver
   -> Z3.Solver.status
   -> Env.t
   -> unit
+
+(** [spec_of_name name] returns the function spec creator with the
+    corresponding [name]. *)
+val spec_of_name : string -> Sub.t -> Arch.t -> Env.fun_spec option

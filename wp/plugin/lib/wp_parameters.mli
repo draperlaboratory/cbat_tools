@@ -26,9 +26,9 @@ open Monads.Std
     error is returned when a user passes in an invalid parameter. *)
 module Err : Monad.Result.S with
   type 'a t := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).t and
-  type 'a m := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).m and
-  type 'a e := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).e and
-  type err := Extension.Error.t
+type 'a m := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).m and
+type 'a e := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).e and
+type err := Extension.Error.t
 
 (** The available options to be set. Each flag corresponds to a parameter in
     the set with the BAP custom command line. *)
@@ -54,8 +54,9 @@ type t = {
   stack_size : int option;
   show : string list;
   func_name_map : (string * string) list;
-  user_func_spec : (string * string * string) option 
-  }
+  user_func_spec : (string * string * string) option;
+  fun_specs : string list
+}
 
 (** [validate flags files] ensures the user inputted the appropriate flags for
     the inputted [files]. In the case the user has invalid flags, an error is

@@ -133,21 +133,11 @@ let parse_user_func_spec (p : Params.t) : (Sub.t -> Arch.t -> Env.fun_spec optio
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Arch.t -> Env.fun_spec option) list =
-  let default = [
-    parse_user_func_spec p;
-    Pre.spec_verifier_assume;
-    Pre.spec_verifier_nondet;
-    Pre.spec_afl_maybe_log;
-    Pre.spec_inline to_inline;
-    Pre.spec_empty;
-    Pre.spec_arg_terms;
-    Pre.spec_chaos_caller_saved;
-    Pre.spec_rax_out
-  ] in
-  if p.trip_asserts then
-    Pre.spec_verifier_error :: default
-  else
-    default
+  let user_func_spec = [parse_user_func_spec p] in
+  let trip_asserts = if p.trip_asserts then [Pre.spec_verifier_error] else [] in
+  let inline = [Pre.spec_inline to_inline] in
+  let specs = List.map p.fun_specs ~f:Utils.spec_of_name in
+  user_func_spec @ trip_asserts @ inline @ specs
 
 (* If the compare_func_calls flag is set, add the property for comparative
    analysis. *)
