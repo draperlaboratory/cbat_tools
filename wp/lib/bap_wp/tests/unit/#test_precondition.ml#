@@ -1472,8 +1472,8 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
   let ctx = Env.mk_ctx () in
-  let sub_pre : string =  "(assert false)" in
-  let sub_post : string = "(assert true)" in
+  let sub_pre : string =  "(assert true)" in
+  let sub_post : string = "(assert false)" in
   let sub_name : string = Sub.name sub in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
       ~specs:[Pre.user_func_spec sub_name sub_pre sub_post]
@@ -1488,7 +1488,7 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
   let pre, _ = Pre.visit_sub env post main_sub in
   let hyp =
     Bool.mk_eq ctx z3_x init_x
-    |> Constr.mk_goal "x == init_x"
+    |> Constr.mk_goal ""
     |> Constr.mk_constr
   in
   let goal = Constr.mk_clause [hyp] [pre] in

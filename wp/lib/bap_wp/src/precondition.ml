@@ -1214,9 +1214,11 @@ let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
   if String.equal sub_name (Sub.name sub) then
     (* create function that parses the pre and use Z3 to make precondition*)
     Some {
-      spec_name = sub_name ;
+      spec_name = "user_func_spec";
       spec = Summary (fun env post tid ->
           (* turn strings into proper smtlib2 statements; incr stack_ptr *)
+                 Printf.printf "\n\n Entered user_func_spec! \n\n %!";
+                 Printf.printf "\n\n %s \n %s \n %s \n\n %!" sub_name sub_pre sub_post; 
           let sub_pre : Constr.t = Z3_utils.mk_smtlib2_single env sub_pre in
           let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
           let sub_post, env = increment_stack_ptr sub_post env in
@@ -1231,22 +1233,26 @@ let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
           let tid_name : string = Tid.name tid in
           let sub_post_imp_post =
             subst_fun_outputs ~tid_name:tid_name env sub sub_post_imp_post
-              ~inputs:sub_inputs ~outputs:sub_outputs in
+              ~inputs:sub_inputs ~outputs:sub_outputs in 
           (* replace init-vars with vars*)
           let module T = (val target_of_arch (Env.get_arch env)) in
           let vars : Var.Set.t = (T.CPU.gpr) in
-          let init_preamble, env = init_vars vars env in
+          let init_antecedent, env = init_vars vars env in
+          Format.printf "init_antecedent length: %d \n %!" (List.length init_antecedent); 
+          List.iter init_antecedent ~f:(fun i ->
+              Format.printf "\n init_antecedent: %!";
+              Constr.pp_constr (Format.std_formatter) i);
           let sub_post_imp_post =
-            Constr.mk_clause init_preamble [sub_post_imp_post] in
+            Constr.mk_clause init_antecedent [sub_post_imp_post] in
           (* combine pre and post *)
-          let result : Constr.t = Constr.mk_clause [sub_pre] [sub_post_imp_post] in
-          let debug l =
+          let result : Constr.t = Constr.mk_clause [] [sub_pre ; sub_post_imp_post] in
+          let print_spec l =
             List.iter l
               ~f:(fun (x,y)->
                  Format.printf x ; Constr.pp_constr (Format.std_formatter) y;
                  Format.printf "\n\n")
           in
-          debug [("P: ", sub_pre); ("Q: ", sub_post);
+          print_spec [("P: ", sub_pre); ("Q: ", sub_post);
                  ("R: ", post); ("forallz.qz->rz: ",sub_post_imp_post);
                  ("pre & forallz.qz->rz: ", result)];
           result, env)

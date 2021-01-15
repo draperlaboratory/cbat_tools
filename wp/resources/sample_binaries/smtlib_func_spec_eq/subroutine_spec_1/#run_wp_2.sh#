@@ -4,7 +4,7 @@ run () {
   bap wp \
     --func=main \
     --postcond="(assert false)" \
-    --user-func-spec="g,(assert true),(assert true)" \
+    --user-func-spec="g,(assert true),(assert false)" \
     -- main
 }
 

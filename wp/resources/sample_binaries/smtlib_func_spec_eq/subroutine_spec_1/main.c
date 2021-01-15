@@ -11,7 +11,7 @@ int g() {
 // post : (RAX = 4)
 
 
-int main(int argc) {
+int main(int argc, char ** argv) {
   return g();
 }
 // post : (RAX = 3)
