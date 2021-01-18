@@ -50,6 +50,11 @@ module Make (Conf : Configuration) (Machine : Primus.Machine.S) = struct
     let output = List.map locs ~f:(fun location ->
       let a = Data.word_of_loc_address location in
       let w = Data.word_of_loc_value location in
+      let* is_mapped = Mem.is_mapped a in
+      let* _ = if is_mapped
+        then Machine.return ()
+        else Mem.allocate a 1
+        in
       Mem.store a w)
       in
     Machine.sequence output

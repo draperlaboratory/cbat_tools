@@ -181,27 +181,15 @@ module Make (Machine : Primus.Machine.S) = struct
         | Some value' ->
           begin
 
-              (* Is the address we're going to write to unmapped?
-                 If not, we can write to it. *)
-              let* addrs = unmapped addr' ~addr_size ~num_words:1 in
-              match addrs with
-              | [] ->
-                begin      
-                  let* _ = Mem.store addr' value' in
-                  show_locs addr ~prompt ~handler ~num_words:"1"
-                end
-
-              (* If the address isn't mapped, alert the user. 
-                 Trying to write to it would result in a page fault,
-                 and cause Primus to exit. *)
-              | _ ->
-                begin
-                  let msg = Printf.sprintf 
-                    "The address is unmapped and can't be written to: %s" 
-                    (Utils.string_of addr') in
-                  let text = [Ui.mk_output ~color:Tty.Red msg] in
-                  Machine.return (Event.screen () ~text ~prompt ~handler)
-                end
+              (* Allocate the memory at the specified address (if needed),
+                 then store the provided value there. *)
+              let* is_mapped = Mem.is_mapped addr' in
+              let* _ = if is_mapped
+                then Machine.return ()
+                else Mem.allocate addr' 1
+                in
+              let* _ = Mem.store addr' value' in
+              show_locs addr ~prompt ~handler ~num_words:"1"
 
           end
 
