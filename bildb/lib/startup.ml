@@ -19,16 +19,17 @@ module Make (Conf : Configuration) (Machine : Primus.Machine.S) = struct
   module Architecture = Architecture.Make (Machine)
   module Init = Initialization.Make (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   (* Finds a variable by name (if any) in the environment. *)
   let find_var (name : string) : Var.t option Machine.t =
-    let%bind vars = Env.all in
+    let* vars = Env.all in
     let var = Seq.find vars ~f:(fun r -> String.equal (Var.name r) name) in
     Machine.return (var)
 
   (* A helper to set a variable in a machine. *)
   let set_variable (v : Var.t) (w : Word.t) : unit Machine.t =
-    let%bind value = Value.of_word w in
+    let* value = Value.of_word w in
     Env.set v value
 
   (* Set the variables specified in [state] to the provided values. *)
@@ -36,7 +37,7 @@ module Make (Conf : Configuration) (Machine : Primus.Machine.S) = struct
     let vars = Data.variables state in
     let output = List.map vars ~f:(fun variable ->
       let w = Data.word_of_var_value variable in
-      let%bind var = find_var (Data.string_of_var_key variable) in
+      let* var = find_var (Data.string_of_var_key variable) in
       match var with
       | None -> Machine.return ()
       | Some v -> set_variable v w)
@@ -61,18 +62,18 @@ module Make (Conf : Configuration) (Machine : Primus.Machine.S) = struct
 
     (* Get info about the machine architecture, and generate a screen
        to display that info. *)
-    let%bind screen = Architecture.about () in
-    let%bind _ = UI.render screen in
+    let* screen = Architecture.about () in
+    let* _ = UI.render screen in
 
     (* If any initial state has been specified, initialize the machine
        accordingly, and generate a screen to display what was initialized. *)
     match Conf.initial_state with
     | Some state ->
       begin
-        let%bind _ = initialize_variables state in
-        let%bind _ = initialize_locations state in
-        let%bind screen = Init.show state in
-        let%bind _ = UI.render screen in
+        let* _ = initialize_variables state in
+        let* _ = initialize_locations state in
+        let* screen = Init.show state in
+        let* _ = UI.render screen in
         Machine.return ()
       end
 

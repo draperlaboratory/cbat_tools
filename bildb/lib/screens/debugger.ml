@@ -13,6 +13,7 @@ module Make (Machine : Primus.Machine.S) = struct
   module Variable = Variables.Make (Machine)
   module Location = Locations.Make (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   type event = Event.t
 
@@ -24,7 +25,7 @@ module Make (Machine : Primus.Machine.S) = struct
     let prompt = Utils.prompt in
     let handler = Some main_loop in
     let input = Ui.string_of_input s in
-    let%bind _ =
+    let* _ =
       if String.is_empty input then Machine.return ()
       else Cursor.set_last_cmd (Some s) in
     match Utils.words_of input with
@@ -38,32 +39,32 @@ module Make (Machine : Primus.Machine.S) = struct
     (* The user wants to step to the next term (BIL instruction). *)
     | ["s"] ->
       begin
-        let%bind _ = Cursor.set_step_mode () in
+        let* _ = Cursor.set_step_mode () in
         Machine.return (Event.finished ())
       end
 
     (* The user wants to step to the previous term (BIL instruction). *)
     | ["-s"] ->
       begin
-        let%bind _ = Cursor.set_step_mode () in
-        let%bind _ = Cursor.set_backward () in
-        let%bind _ = Cursor.backstep () in
+        let* _ = Cursor.set_step_mode () in
+        let* _ = Cursor.set_backward () in
+        let* _ = Cursor.backstep () in
         Machine.return (Event.finished ())
       end
 
     (* The user wants to skip to the next block/breakpoint. *)
     | ["n"] ->
       begin
-        let%bind _ = Cursor.set_next_mode () in
+        let* _ = Cursor.set_next_mode () in
         Machine.return (Event.finished ())
       end
 
     (* The user wants to skip to the previous block/breakpoint. *)
     | ["-n"] ->
       begin
-        let%bind _ = Cursor.set_next_mode () in
-        let%bind _ = Cursor.set_backward () in
-        let%bind _ = Cursor.backstep () in
+        let* _ = Cursor.set_next_mode () in
+        let* _ = Cursor.set_backward () in
+        let* _ = Cursor.backstep () in
         Printf.printf "----- Done with one backstep\n%!";
         Machine.return (Event.finished ())
       end
@@ -151,7 +152,7 @@ module Make (Machine : Primus.Machine.S) = struct
     (* If there's no input, the user hit the [enter] key *)
     | [] ->
       begin
-        let%bind last_cmd = Cursor.get_last_cmd () in
+        let* last_cmd = Cursor.get_last_cmd () in
         match last_cmd with
         | Some cmd -> main_loop cmd
         | None ->

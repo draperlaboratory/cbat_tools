@@ -8,6 +8,7 @@ module Make (Machine : Primus.Machine.S) = struct
   module Event = Ui.Event (Machine)
   module Mem = Primus.Memory.Make (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   type event = Event.t
 
@@ -31,8 +32,8 @@ module Make (Machine : Primus.Machine.S) = struct
     let acc = Machine.return [] in
     let addresses = addresses_from addr ~addr_size ~num_words in
     List.fold addresses ~init:acc ~f:(fun acc addr ->
-      let%bind words = acc in
-      let%bind w = Mem.load addr in
+      let* words = acc in
+      let* w = Mem.load addr in
       let acc' = List.append words [(addr, w)] in
       Machine.return acc')
 
@@ -43,8 +44,8 @@ module Make (Machine : Primus.Machine.S) = struct
     let acc = Machine.return [] in
     let addresses = addresses_from addr ~addr_size ~num_words in
     List.fold addresses ~init:acc ~f:(fun acc addr' ->
-      let%bind words = acc in
-      let%bind is_allocated = Mem.is_mapped addr' in
+      let* words = acc in
+      let* is_allocated = Mem.is_mapped addr' in
       let acc' = match is_allocated with
         | true -> words
         | false -> List.append words [addr'] in
@@ -85,7 +86,7 @@ module Make (Machine : Primus.Machine.S) = struct
 
         (* Otherwise, we can proceed. *)
         else
-          let%bind arch = Machine.arch in
+          let* arch = Machine.arch in
           let addr_size = Utils.int_of_size (Arch.addr_size arch) in
 
           (* If we can't convert the provided address into a binary word,
@@ -104,11 +105,11 @@ module Make (Machine : Primus.Machine.S) = struct
 
               (* Are any addresses we're going to road unmapped?
                  If not, we can read them and display them. *)
-              let%bind addrs = unmapped addr' ~addr_size ~num_words in
+              let* addrs = unmapped addr' ~addr_size ~num_words in
               match addrs with
               | [] ->
                 begin      
-                  let%bind words = read_loc addr' ~addr_size ~num_words in
+                  let* words = read_loc addr' ~addr_size ~num_words in
                   let words_pretty =
                     List.map words ~f:(fun w -> pretty (fst w) (snd w)) in
                   let lines = Utils.tabulate words_pretty Ui.screen_width in
@@ -148,7 +149,7 @@ module Make (Machine : Primus.Machine.S) = struct
      displaying which addresses are not mapped. *) 
   let set_loc ?prompt:(prompt=None) ?handler:(handler=None)
       (addr : string) (value : string) : event Machine.t =
-    let%bind arch = Machine.arch in
+    let* arch = Machine.arch in
     let addr_size = Utils.int_of_size (Arch.addr_size arch) in
     let word_size = 8 in
 
@@ -182,11 +183,11 @@ module Make (Machine : Primus.Machine.S) = struct
 
               (* Is the address we're going to write to unmapped?
                  If not, we can write to it. *)
-              let%bind addrs = unmapped addr' ~addr_size ~num_words:1 in
+              let* addrs = unmapped addr' ~addr_size ~num_words:1 in
               match addrs with
               | [] ->
                 begin      
-                  let%bind _ = Mem.store addr' value' in
+                  let* _ = Mem.store addr' value' in
                   show_locs addr ~prompt ~handler ~num_words:"1"
                 end
 

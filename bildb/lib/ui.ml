@@ -42,6 +42,7 @@ end
 module Make (Machine : Primus.Machine.S) = struct
   module Event = Event (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   type event = Event.t
 
@@ -72,7 +73,7 @@ module Make (Machine : Primus.Machine.S) = struct
             | None -> Machine.return Event.Finished
             | Some f ->
               begin
-                let%bind result = f user_input in
+                let* result = f user_input in
                 render result
               end
           end

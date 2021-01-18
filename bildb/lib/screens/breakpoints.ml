@@ -8,6 +8,7 @@ module Make (Machine : Primus.Machine.S) = struct
   module Event = Ui.Event (Machine)
   module Cursor = Cursor.Make (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   type event = Event.t
 
@@ -18,7 +19,7 @@ module Make (Machine : Primus.Machine.S) = struct
 
   (* Checks if the provided TID actualy exists in the program. *)
   let is_real (tid : Tid.t) : bool Machine.t =
-    let%bind prog = Machine.gets Project.program in
+    let* prog = Machine.gets Project.program in
     match Program.lookup def_t prog tid with
     | Some t -> Machine.return true
     | None -> match Program.lookup jmp_t prog tid with
@@ -40,7 +41,7 @@ module Make (Machine : Primus.Machine.S) = struct
 
     (* The TID the user typed in must begin with "%". If not,
        return an error screen. *)
-    if String.prefix tid 1 <> "%" then
+    if not (String.is_prefix tid ~prefix:"%") then
       let text = [Ui.mk_output ~color:Tty.Red (mk_msg tid)] in
       Machine.return (Event.screen () ~text ~prompt ~handler)
 
@@ -61,11 +62,11 @@ module Make (Machine : Primus.Machine.S) = struct
 
           (* If the {Tid.t} is a real TID in the program, set a breakpoint
              on it, and return a screen saying that this happened. *)
-          let%bind is_real = is_real tid' in
+          let* is_real = is_real tid' in
           match is_real with
           | true ->
             begin
-              let%bind () = Cursor.add_break tid' in
+              let* () = Cursor.add_break tid' in
               let msg = Printf.sprintf "Breakpoint set at %s" tid in
               let text = [Ui.mk_output ~color:Tty.Green msg] in
               Machine.return (Event.screen () ~text ~prompt ~handler)
@@ -95,7 +96,7 @@ module Make (Machine : Primus.Machine.S) = struct
 
     (* The TID the user typed in must begin with "%". If it doesn't,
        return an error screen instead. *)
-    if String.prefix tid 1 <> "%" then
+    if not (String.is_prefix tid ~prefix:"%") then
       let text = [Ui.mk_output ~color:Tty.Red (mk_msg tid)] in
       Machine.return (Event.screen () ~text ~prompt ~handler)
     else
@@ -115,11 +116,11 @@ module Make (Machine : Primus.Machine.S) = struct
 
           (* If this {Tid.t} has a breakpoint set on it, then clear it,
              and return a screen that says this was done. *)
-          let%bind is_break = Cursor.is_break tid' in
+          let* is_break = Cursor.is_break tid' in
           match is_break with
           | true ->
             begin
-              let%bind () = Cursor.remove_break tid' in
+              let* () = Cursor.remove_break tid' in
               let msg = Printf.sprintf "Breakpoint cleared at %s" tid in
               let text = [Ui.mk_output ~color:Tty.Green msg] in
               Machine.return (Event.screen () ~text ~prompt ~handler)
@@ -141,7 +142,7 @@ module Make (Machine : Primus.Machine.S) = struct
       : event Machine.t =
 
     (* Get all the breakpoints that have been set. *)
-    let%bind breaks = Cursor.get_breaks () in
+    let* breaks = Cursor.get_breaks () in
 
     (* If there are some breakpoints, return a screen that prints them. *)
     match (List.length breaks) > 0 with

@@ -6,6 +6,7 @@ module Make (Machine : Primus.Machine.S) = struct
   module Event = Ui.Event (Machine)
   module Cursor = Cursor.Make (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   type event = Event.t
 
@@ -15,11 +16,11 @@ module Make (Machine : Primus.Machine.S) = struct
      returns an empty "finished" UI event. *) 
   let start ?prompt:(prompt=None) ?handler:(handler=None) ()
       : event Machine.t =
-    let%bind just_reached_start = Cursor.just_reached_start () in
+    let* just_reached_start = Cursor.just_reached_start () in
     match just_reached_start with
       | true ->
         begin
-          let%bind _ = Cursor.mark_didnt_just_reach_start () in
+          let* _ = Cursor.mark_didnt_just_reach_start () in
           let text = [Ui.mk_output ~color:Tty.Red "At program start"] in
           Machine.return (Event.screen () ~text ~prompt ~handler)
         end

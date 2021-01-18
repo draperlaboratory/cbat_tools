@@ -124,7 +124,7 @@ module Parser = struct
      If it's successful, it returns the [Word.t].
      If not, it returns a [word_error]. *)
   let word_of ?bits:(bits=64) ?sign:(sign="u") (s : string) : word_result =
-    if String.prefix s 2 <> "0x" then Error (Invalid_hex s)
+    if not (String.is_prefix s ~prefix:"0x") then Error (Invalid_hex s)
     else 
       try
         let subject = Printf.sprintf "%s:%d%s" s bits sign in

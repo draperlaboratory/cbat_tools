@@ -8,6 +8,7 @@ module Make (Machine : Primus.Machine.S) = struct
   module Event = Ui.Event (Machine)
   module Cursor = Cursor.Make (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   type event = Event.t
 
@@ -54,7 +55,7 @@ module Make (Machine : Primus.Machine.S) = struct
   (* Generates a screen that displays the TID of the block the debugger
      is about to enter. *)
   let enter () : event Machine.t =
-    let%bind tid = Cursor.get_tid_exn () in
+    let* tid = Cursor.get_tid_exn () in
     let msg = Printf.sprintf "Entering block %s" (Tid.to_string tid) in
     let text = [Ui.mk_output ~style:Tty.Bold msg] in
     Machine.return (Event.screen () ~text)
@@ -81,7 +82,7 @@ module Make (Machine : Primus.Machine.S) = struct
        is examining, but it is a breakpoint, we want to add a little "b"
        next to it, to indicate that there's a breakpoint there. *)
     else
-      let%bind is_breakpoint = Cursor.is_break term.tid in
+      let* is_breakpoint = Cursor.is_break term.tid in
       let prefix = match (is_multiline, is_breakpoint) with
         | (true, true) -> " b "
         | (true, false) -> "   "
@@ -97,17 +98,17 @@ module Make (Machine : Primus.Machine.S) = struct
 
     (* Select the relevant terms (BIL instructions) the debugger's
        cursor is pointing at. *)
-    let%bind tid = Cursor.get_tid_exn () in
-    let%bind b = Cursor.get_blk_exn () in
+    let* tid = Cursor.get_tid_exn () in
+    let* b = Cursor.get_blk_exn () in
     let terms = term_in tid b ~with_nearest:n in
 
     (* Construct pretty/formatted versions of the selected terms 
        for display. *)
     let is_multiline = (List.length terms) > 1 in
     let acc = Machine.return([]) in
-    let%bind text = List.fold terms ~init:acc ~f:(fun acc t ->
-      let%bind acc' = acc in
-      let%bind output = build_output t tid is_multiline in
+    let* text = List.fold terms ~init:acc ~f:(fun acc t ->
+      let* acc' = acc in
+      let* output = build_output t tid is_multiline in
       Machine.return (List.append acc' [output])) in
 
     (* Put it all together into a screen. *)
@@ -128,7 +129,7 @@ module Make (Machine : Primus.Machine.S) = struct
     match nearest with
     | None ->
       begin
-        let%bind n = Cursor.get_show_nearest () in
+        let* n = Cursor.get_show_nearest () in
         show_n n ~prompt ~handler
       end
 
@@ -194,7 +195,7 @@ module Make (Machine : Primus.Machine.S) = struct
            need to tell the cursor the number it should always show,
            then we can show that amount. *)
         else
-          let%bind _ = Cursor.set_show_nearest n in
+          let* _ = Cursor.set_show_nearest n in
           show_n n ~prompt ~handler
 
       end
