@@ -13,6 +13,7 @@ run () {
   bap wp \
     --func=gotoExample \
     --trip-asserts \
+    --fun-specs=verifier-nondet \
     -- ./bin/main
 }
 

@@ -11,6 +11,7 @@ run () {
       --func=main \
       --inline=NONEXISTENTGARBAGE \
       --trip-asserts \
+      --fun-specs=chaos-caller-saved \
       -- ./bin/main
 }
 

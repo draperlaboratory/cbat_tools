@@ -12,7 +12,8 @@
 run () {
   bap wp \
     --func=main \
-    --inline=.* \
+    --inline=my_string_alloc \
+    --fun-specs=verifier-nondet \
     --trip-asserts \
     -- ./bin/main
 }
