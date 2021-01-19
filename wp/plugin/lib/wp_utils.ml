@@ -152,7 +152,7 @@ let spec_of_name (name : string) : Sub.t -> Arch.t -> Env.fun_spec option =
   | "verifier-nondet" -> Pre.spec_verifier_nondet
   | "afl-maybe-log" -> Pre.spec_afl_maybe_log
   | "arg-terms" -> Pre.spec_arg_terms
-  | "chaos-called-saved" -> Pre.spec_chaos_caller_saved
+  | "chaos-caller-saved" -> Pre.spec_chaos_caller_saved
   | "chaos-rax" -> Pre.spec_chaos_rax
   | "rax-out" -> Pre.spec_rax_out
   | name ->

@@ -147,10 +147,29 @@ let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t) : string TidMap.t =
 let init_sub_handler (subs : Sub.t Seq.t) (arch : Arch.t)
     ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
     ~default_spec:(default_spec : Sub.t -> Arch.t -> fun_spec) : fun_spec TidMap.t =
+  (* If the list of applicable specs for a given subroutine has both inline
+     and other function summaries. *)
+  let check_compatibility sub specs =
+    let is_inline s = match s.spec with
+      | Inline -> true
+      | Summary _ -> false
+    in
+    let inline = List.find specs ~f:is_inline in
+    let summary = List.find specs ~f:(fun s -> not @@ is_inline s) in
+    match inline, summary with
+    | Some inline, Some summary ->
+      let err = Format.sprintf "Spec error for %s: %s and %s are not compatible"
+          (Sub.name sub) (inline.spec_name) (summary.spec_name) in
+      failwith err
+    | _, _ -> ()
+  in
   Seq.fold subs ~init:TidMap.empty
     ~f:(fun map sub ->
-        let spec = List.find_map specs ~f:(fun creator -> creator sub arch)
-                   |> Option.value ~default:(default_spec sub arch) in
+        let specs = List.filter_map specs ~f:(fun creator -> creator sub arch) in
+        let specs = if List.is_empty specs then [default_spec sub arch] else specs in
+        check_compatibility sub specs;
+        (* There should be at least one spec in the list. *)
+        let spec = List.hd_exn specs in
         debug "%s: %s%!" (Sub.name sub) spec.spec_name;
         TidMap.set map ~key:(Term.tid sub) ~data:spec)
 
