@@ -1241,7 +1241,19 @@ let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
           Format.printf "init_antecedent length: %d \n %!" (List.length init_antecedent); 
           List.iter init_antecedent ~f:(fun i ->
               Format.printf "\n init_antecedent: %!";
-              Constr.pp_constr (Format.std_formatter) i);
+              Constr.pp_constr (Format.std_formatter) i;
+              let pre_conj = Constr.mk_clause [] [i] in
+                  let pre_conj_eval = Constr.eval pre_conj (Env.get_context env) in
+                  Format.printf "\n   is-true? : %b \n %!" (Bool.is_true pre_conj_eval);
+                  Format.printf "\n   is-false?: %b \n %!" (Bool.is_false pre_conj_eval));
+          let preamble = Constr.mk_clause [] init_antecedent in
+          let z3_preamble = Constr.eval preamble (Env.get_context env) in
+          let z3_preamble = Expr.simplify z3_preamble None in
+          Format.printf "\n\n z3_preamble : %s \n\n %!" (Expr.to_string z3_preamble); 
+          Format.printf "\n\n Is false: %b \n\n %!" (Bool.is_false z3_preamble);
+          let solver = Solver.mk_solver (Env.get_context env) None in
+          let check_eval = Solver.check solver [z3_preamble] in 
+          Format.printf "\n Eval z3_pramb: %s \n %!" (Solver.string_of_status check_eval); 
           let sub_post_imp_post =
             Constr.mk_clause init_antecedent [sub_post_imp_post] in
           (* combine pre and post *)
