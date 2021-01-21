@@ -13,6 +13,7 @@ module Make (Machine : Primus.Machine.S) = struct
   module Block = Blocks.Make (Machine)
   module Halts = Halts.Make (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   let prompt = Utils.prompt
   let handler = Some Debug.main_loop
@@ -21,17 +22,17 @@ module Make (Machine : Primus.Machine.S) = struct
      Here we render a screen to display info about the subroutine. *)
   let enter_sub (s : Sub.t) : unit Machine.t =
     let tid = Term.tid s in
-    let%bind _ = Cursor.update tid in
-    let%bind screen = Subroutine.enter s in
-    let%bind _ = UI.render screen in
+    let* _ = Cursor.update tid in
+    let* screen = Subroutine.enter s in
+    let* _ = UI.render screen in
     Machine.return ()
 
   (* This function is triggered when Primus enters an argument term,
      i.e., an argument to a subroutine. Here we render a screen that
      displays info about the argument. *)
   let enter_arg (a : Arg.t) : unit Machine.t =
-    let%bind screen = Subroutine.arg a in
-    let%bind _ = UI.render screen in
+    let* screen = Subroutine.arg a in
+    let* _ = UI.render screen in
     Machine.return ()
 
   (* This function is triggered when Primus enteres a basic block.
@@ -43,10 +44,10 @@ module Make (Machine : Primus.Machine.S) = struct
      screen that displays info about the basic block. *)
   let enter_blk (b : Blk.t) : unit Machine.t =
     let tid = Term.tid b in
-    let%bind _ = Cursor.set_step_mode () in
-    let%bind _ = Cursor.update tid in
-    let%bind screen = Block.enter () in
-    let%bind _ = UI.render screen in
+    let* _ = Cursor.set_step_mode () in
+    let* _ = Cursor.update tid in
+    let* screen = Block.enter () in
+    let* _ = UI.render screen in
     Machine.return ()
 
   (* This function is triggered when Primus enters a jump. If the cursor
@@ -60,19 +61,19 @@ module Make (Machine : Primus.Machine.S) = struct
        and it will move forward/backward to the next term, depending on
        whether it's in forward/backward mode. *)
     let tid = Term.tid j in
-    let%bind _ = Cursor.run_from tid in
+    let* _ = Cursor.run_from tid in
 
     (* If we're at the start of the program, render a screen saying so. *)
-    let%bind screen = Whole_program.start () ~prompt:None ~handler:None in
-    let%bind _ = UI.render screen in
+    let* screen = Whole_program.start () ~prompt:None ~handler:None in
+    let* _ = UI.render screen in
 
     (* If the cursor has actually stopped here, so the user can step
        through this term, then display the screen for that. *)
-    let%bind is_step = Cursor.is_step_mode () in
-    let%bind is_stop = Cursor.is_stopping_point tid in
+    let* is_step = Cursor.is_step_mode () in
+    let* is_stop = Cursor.is_stopping_point tid in
     if is_step || is_stop then
-      let%bind screen = Block.show () ~prompt ~handler in
-      let%bind _ = UI.render screen in
+      let* screen = Block.show () ~prompt ~handler in
+      let* _ = UI.render screen in
       Machine.return ()
     else
       Machine.return ()  
@@ -88,19 +89,19 @@ module Make (Machine : Primus.Machine.S) = struct
        and it will move forward/backward to the next term, depending on
        whether it's in forward/backward mode. *)
     let tid = Term.tid d in
-    let%bind _ = Cursor.run_from tid in
+    let* _ = Cursor.run_from tid in
 
     (* If we're at the start of the program, render a screen saying so. *)
-    let%bind screen = Whole_program.start () ~prompt:None ~handler:None in
-    let%bind _ = UI.render screen in
+    let* screen = Whole_program.start () ~prompt:None ~handler:None in
+    let* _ = UI.render screen in
 
     (* If the cursor has actually stopped here, so the user can step
        through this instruction, then display the screen for that. *)
-    let%bind is_step = Cursor.is_step_mode () in
-    let%bind is_stop = Cursor.is_stopping_point tid in
+    let* is_step = Cursor.is_step_mode () in
+    let* is_stop = Cursor.is_stopping_point tid in
     if is_step || is_stop then
-      let%bind screen = Block.show () ~prompt ~handler in
-      let%bind _ = UI.render screen in
+      let* screen = Block.show () ~prompt ~handler in
+      let* _ = UI.render screen in
       Machine.return ()
     else
       Machine.return ()  
@@ -108,40 +109,40 @@ module Make (Machine : Primus.Machine.S) = struct
   (* This function is triggered when a Primus machine halts.
      Here we display a screen saying this. *)
   let halting () =
-    let%bind cid = Machine.current () in
-    let%bind screen = Halts.halt cid ~prompt ~handler in
-    let%bind _ = UI.render screen in
+    let* cid = Machine.current () in
+    let* screen = Halts.halt cid ~prompt ~handler in
+    let* _ = UI.render screen in
     Machine.return ()
 
   (* This function is triggered when an interrupt is signaled.
      Here we display a screen saying as much. *)
   let interrupt n =
-    let%bind cid = Machine.current () in
-    let%bind screen = Halts.interrupt cid n ~prompt ~handler in
-    let%bind _ = UI.render screen in
+    let* cid = Machine.current () in
+    let* screen = Halts.interrupt cid n ~prompt ~handler in
+    let* _ = UI.render screen in
     Machine.return ()
 
   (* This function is triggered when a div-by-zero trap is signaled.
      Here we display a screen saying as much. *)
   let division_by_zero () =
-    let%bind cid = Machine.current () in
-    let%bind screen = Halts.div_by_zero () ~prompt ~handler in
-    let%bind _ = UI.render screen in
+    let* cid = Machine.current () in
+    let* screen = Halts.div_by_zero () ~prompt ~handler in
+    let* _ = UI.render screen in
     Machine.return ()
 
   (* This function is triggered when an exception is raised in a machine.
      Here we display a screen saying this, displaying the exception. *)
   let exn_raised e =
-    let%bind cid = Machine.current () in
-    let%bind screen = Halts.exn_raised cid e in
-    let%bind _ = UI.render screen in
+    let* cid = Machine.current () in
+    let* screen = Halts.exn_raised cid e in
+    let* _ = UI.render screen in
     Machine.return ()
 
   (* This function is triggered when Primus finishes.
      Here we display a screen saying as much. *)
   let finished () =
-    let%bind screen = Halts.fini () ~prompt ~handler in
-    let%bind _ = UI.render screen in
+    let* screen = Halts.fini () ~prompt ~handler in
+    let* _ = UI.render screen in
     Machine.return ()
 
   (* Subscribes to the appropriate Primus events. *)

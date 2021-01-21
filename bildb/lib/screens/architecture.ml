@@ -7,6 +7,7 @@ open Bap_primus.Std
 module Make (Machine : Primus.Machine.S) = struct
   module Event = Ui.Event (Machine)
   open Machine.Let_syntax
+  let (let*) = (>>=)
 
   type event = Event.t
 
@@ -14,7 +15,7 @@ module Make (Machine : Primus.Machine.S) = struct
   let about () : event Machine.t =
 
     (* Get architecture info. *)
-    let%bind arch = Machine.arch in
+    let* arch = Machine.arch in
     let arch_str = Arch.to_string arch in
     let addr_size = Utils.int_of_size (Arch.addr_size arch) in
 

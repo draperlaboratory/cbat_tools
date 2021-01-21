@@ -47,8 +47,7 @@ let is_assignment (s : string) : bool =
 
 (* Checks if a string starts with "0x". If so, we assume it's meant
    to be a hex value. *)
-let is_hex (s : string) : bool =
-  String.prefix s 2 = "0x"
+let is_hex (s : string) : bool = String.is_prefix s ~prefix:"0x"
 
 (* Convert a {Bap.Std.addr_size} value into an integer (32 or 64). *)
 let int_of_size (s : addr_size) : int =
@@ -59,7 +58,7 @@ let int_of_size (s : addr_size) : int =
 (* Convert a string (should be in hex format, like ["0xabc"]) into a
    binary word, if any. *)
 let word_of ?bits:(bits=64) (s : string) : Word.t option =
-  if String.prefix s 2 <> "0x" then None
+  if not (String.is_prefix s ~prefix:"0x") then None
   else
     try
       let subject = Printf.sprintf "%s:%du" s bits in

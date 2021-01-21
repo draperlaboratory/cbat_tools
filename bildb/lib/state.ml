@@ -62,8 +62,10 @@ module Data = struct
   let is_empty t = List.is_empty t.variables && List.is_empty t.locations
 
   (* Finds a variable by name, or a location by address, in [t]. *)
-  let find_var t k = List.find t.variables ~f:(fun v -> var_key v = k)
-  let find_loc t a = List.find t.locations ~f:(fun l -> loc_address l = a) 
+  let find_var t k =
+    List.find t.variables ~f:(fun v -> String.equal (var_key v) k)
+  let find_loc t a =
+    List.find t.locations ~f:(fun l -> Word.equal (loc_address l) a) 
 
   (* Getting words. *)
   let word_of_var_value (v : variable) : Word.t = v.value
