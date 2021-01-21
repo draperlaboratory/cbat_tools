@@ -2,7 +2,11 @@
 
 ![CBAT Logo](docs/cbat_logo.png)
 
-This repository contains tools built on top of [BAP](https://github.com/BinaryAnalysisPlatform/bap). For details and instructions on how to get started with any of these tools, follow the the links below and see their respective READMEs.
+This repository contains tools built on top of [BAP](https://github.com/BinaryAnalysisPlatform/bap).  To get started, see the [CBAT documentation](https://draperlaboratory.github.io/cbat_tools/).
+
+## Repository layout
+
+To get started, see the documentation link above.  If you're digging into the code, this repository contains three tools in different directories as follows:
 
 * [weakest-precondition](./wp) - A tool to automatically check the relative correctness of two programs, based on a weakest-precondition computation (WP), and a program comparison algorithm based on it. The WP calculation verifies intra-procedural properties specified using first-order logic, and resolved using the Z3 theorem prover.  To compare programs, we combine them into a single program and use the weakest-precondition computation to find differences in the behavior of the two parts. 
 
