@@ -9,6 +9,7 @@ run_net () {
     --trip-asserts \
     --num-unroll=0 \
     --inline="sub*" \
+    --fun-specs=chaos-caller-saved \
     -- bin/main_$1
 }
 

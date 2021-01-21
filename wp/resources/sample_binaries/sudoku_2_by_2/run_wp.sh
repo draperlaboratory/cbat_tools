@@ -10,6 +10,7 @@ run () {
   bap wp \
     --func=sudoku_solver \
     --check-null-derefs \
+    --fun-specs=chaos-caller-saved \
     --no-byteweight \
     -- ./bin/main
 }

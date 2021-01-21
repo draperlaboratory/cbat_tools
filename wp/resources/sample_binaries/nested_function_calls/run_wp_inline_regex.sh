@@ -10,6 +10,7 @@ run () {
     --func=main \
     --inline="foo|bar" \
     --trip-asserts \
+    --fun-specs=chaos-caller-saved \
     -- ./bin/main
 }
 

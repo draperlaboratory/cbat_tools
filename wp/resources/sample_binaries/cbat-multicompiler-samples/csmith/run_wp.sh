@@ -7,6 +7,7 @@ run () {
     --func=main \
     --compare-post-reg-values=RAX \
     --use-fun-input-regs \
+    --fun-specs=chaos-caller-saved \
     -- ./bin/csmith-10684 ./bin/csmith-16812
 }
 

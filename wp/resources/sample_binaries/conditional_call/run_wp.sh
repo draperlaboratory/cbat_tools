@@ -8,6 +8,7 @@ run () {
     --func=main \
     --show=paths,bir \
     --trip-asserts \
+    --fun-specs=chaos-caller-saved \
     -- ./bin/main
 }
 

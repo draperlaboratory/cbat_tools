@@ -11,6 +11,7 @@ run () {
     --func=sudoku_solver \
     --check-null-derefs \
     --no-byteweight \
+    --fun-specs=chaos-caller-saved \
     --inline="sub*" \
     -- ./bin/main
 }

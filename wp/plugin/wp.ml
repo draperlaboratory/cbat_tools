@@ -221,9 +221,8 @@ let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
            site in order of precedence. A target function will be mapped to a
            function spec if it fulfills the spec's requirements. All function
            specs set the target function as called and update the stack
-           pointer. On x86, the default spec will chaos all caller-saved
-           registers. On other architectures, the default spec will just set
-           the function as called. Available built-in specs:
+           pointer. The default spec will set the function as called and update
+           the stack pointer. Available built-in specs:
 
            `verifier-error': Trips calls to __assert_fail.
 

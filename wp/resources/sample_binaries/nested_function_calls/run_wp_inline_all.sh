@@ -8,7 +8,7 @@
 run () {
   bap wp \
     --func=main \
-    --inline="[^(__assert_fail)].*" \
+    --inline=.* \
     --trip-asserts \
     -- ./bin/main
 }
