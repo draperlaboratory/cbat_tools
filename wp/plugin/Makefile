@@ -37,7 +37,7 @@ all: install
 # CLEAN
 #####################################################
 
-clean: uninstall test.clean
+clean: uninstall
 	bapbuild -clean
 
 
@@ -96,14 +96,14 @@ test.clean:
 test: test.unit
 
 .PHONY: test.unit
-test.unit: install test.build
+test.unit: install
 	ocamlbuild -r -use-ocamlfind \
 		-pkgs $(TEST_PKGS) \
 		-tag $(TEST_TAG) -Is $(TEST_Is_UNIT) test.native
 	./test.native
 
 .PHONY: test.integration
-test.integration: install test.build
+test.integration: install
 	ocamlbuild -r -use-ocamlfind \
 		-pkgs $(TEST_PKGS) \
 		-tag $(TEST_TAG) \
