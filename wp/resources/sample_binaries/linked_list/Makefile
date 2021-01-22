@@ -1,13 +1,13 @@
-include ../optimization_flags.mk
+SRC_DIR = src
+BIN_DIR = bin
 
-BASE=main
+all: $(BIN_DIR)/main
 
-all: x86-64
+$(BIN_DIR):
+	mkdir -p $@
 
-x86-64: $(BASE)
-
-$(BASE): $(BASE).c
-	$(CC) -Wall -o $@ $<
+$(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
+	gcc -Wall -g -o $@ $<
 
 clean:
-	rm -f $(BASE)
+	rm -rf $(BIN_DIR)

@@ -1,13 +1,15 @@
-prog = main
-entry = main
+SRC_DIR = src
+BIN_DIR = bin
 
-all: clean build
+all: $(BIN_DIR)/main
+
+$(BIN_DIR):
+	mkdir -p $@
+
+$(BIN_DIR)/%: $(SRC_DIR)/%.asm $(BIN_DIR)
+	nasm -f elf64 -o $@.o $<
+	gcc -Wall -g -o $@ $@.o
+	rm -rf $@.o
 
 clean:
-	rm -rf $(prog).o
-	rm -rf $(prog)
-
-build:
-	nasm -f elf64 -o $(prog).o $(prog).asm
-	gcc -o $(prog) $(prog).o
-	rm -rf $(prog).o
+	rm -rf $(BIN_DIR)

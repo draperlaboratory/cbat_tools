@@ -7,7 +7,7 @@ run () {
   bap wp \
     --compare-post-reg-values=RAX \
     --func=process_status \
-    -- switch_case_assignments-23908 switch_case_assignments-26471
+    -- ./bin/switch_case_assignments-23908 ./bin/switch_case_assignments-26471
 }
 
 run

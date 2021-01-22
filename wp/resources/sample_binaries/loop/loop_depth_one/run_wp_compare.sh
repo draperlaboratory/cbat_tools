@@ -1,6 +1,6 @@
 # test that an unrolled loop does not effect results in the comparative case
 
-# Should return UNSAT 
+# Should return UNSAT
 
 run() {
   bap wp \
@@ -8,7 +8,7 @@ run() {
     --num-unroll=3 \
     --postcond="(assert (= RAX_orig RAX_mod))" \
     --no-byteweight \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

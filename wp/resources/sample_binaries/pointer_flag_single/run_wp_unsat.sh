@@ -11,8 +11,7 @@ run () {
     --func=foo \
     --postcond="(assert (not (= RAX #x00000000deadbeef)))" \
     --pointer-reg-list=RDI  \
-    -- main
-
+    -- ./bin/main
 }
 
 run

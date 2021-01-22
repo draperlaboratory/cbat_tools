@@ -13,7 +13,7 @@ run () {
     --compare-post-reg-values=RAX \
     --postcond="(assert (= RAX_mod (bvadd init_RDI_orig #x0000000000000002)))" \
     --no-glibc-runtime \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

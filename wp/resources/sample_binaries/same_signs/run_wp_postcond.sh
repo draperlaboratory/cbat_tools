@@ -13,7 +13,7 @@ run () {
   bap wp \
     --func=same_signs \
     --postcond="(assert (= RAX_orig RAX_mod))" \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

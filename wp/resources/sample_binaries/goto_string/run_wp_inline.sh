@@ -14,7 +14,7 @@ run () {
     --func=main \
     --inline=.* \
     --trip-asserts \
-    -- main
+    -- ./bin/main
 }
 
 run

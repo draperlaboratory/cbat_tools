@@ -10,7 +10,7 @@ run () {
     --func=rightmost_index_32 \
     --compare-post-reg-values=RAX \
     --no-byteweight \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

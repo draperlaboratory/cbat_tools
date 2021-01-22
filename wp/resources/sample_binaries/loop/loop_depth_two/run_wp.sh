@@ -12,7 +12,7 @@ run_sat() {
     --num-unroll=18 \
     --postcond="(assert (not (= RAX #x0000000000000002)))" \
     --no-byteweight \
-    -- main_1
+    -- ./bin/main
 }
 
 # this is UNSAT but should be sat since RAX should be 3 at the end of execution
@@ -22,7 +22,7 @@ run_unsat() {
     --num-unroll=18 \
     --postcond="(assert (not (= RAX #x0000000000000003)))" \
     --no-byteweight \
-    -- main_1
+    -- ./bin/main
 }
 
 run_unsat

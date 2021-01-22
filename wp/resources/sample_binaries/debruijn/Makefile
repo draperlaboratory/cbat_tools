@@ -1,12 +1,15 @@
+SRC_DIR = src
+BIN_DIR = bin
 
-BASE=main
-PROG1=$(BASE)_1
-PROG2=$(BASE)_2
+FLAGS = -O1 -funroll-loops -fno-stack-protector
 
-all: $(PROG1) $(PROG2)
+all: $(BIN_DIR)/main_1 $(BIN_DIR)/main_2
 
-%: %.c
-	gcc -O1 -funroll-loops -Wall -fno-stack-protector -o $@ $<
+$(BIN_DIR):
+	mkdir -p $@
+
+$(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
+	gcc $(FLAGS) -Wall -g -o $@ $<
 
 clean:
-	rm -f $(PROG1) $(PROG2)
+	rm -rf $(BIN_DIR)

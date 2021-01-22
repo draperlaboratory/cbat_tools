@@ -13,7 +13,7 @@ run () {
     --func-name-map="\(.*\),test_\1" \
     --compare-post-reg-values=RAX,R12,R13,R14,R15,RBX,RSP,RBP \
     --show=bir,paths \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

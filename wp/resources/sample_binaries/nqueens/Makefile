@@ -1,24 +1,24 @@
-BINARIES=bin/
+SRC_DIR = src
+BIN_DIR = bin
 
-BASE := main
+BASE = main
 
-LARGEST_BOARD_SIZE := 19
-SMALLEST_BOARD_SIZE := 4
+LARGEST_BOARD_SIZE = 19
+SMALLEST_BOARD_SIZE = 4
 
+NUM_RANGE = $(shell seq $(SMALLEST_BOARD_SIZE) $(LARGEST_BOARD_SIZE))
+TARGETS = $(foreach N,$(NUM_RANGE),$(BIN_DIR)/$(BASE)_$N)
 
-NUM_RANGE := $(shell seq $(SMALLEST_BOARD_SIZE) $(LARGEST_BOARD_SIZE))
-TARGETS += $(foreach N,$(NUM_RANGE),$(BINARIES)$(BASE)_$N )
+FLAGS = -O3 -D BOARD_SIZE=$(subst $(BIN_DIR)/$(BASE)_,,$@)
 
-.PHONY: all
 all: $(TARGETS)
 
-.PHONY: dir
-dir:
-	mkdir -p $(BINARIES)
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
 
 
-$(TARGETS): $(BASE).c dir
-	clang -O3 -Wall -D BOARD_SIZE=$(subst $(BINARIES)$(BASE)_,,$@) -o $@ $<
+$(TARGETS): $(SRC_DIR)/$(BASE).c $(BIN_DIR)
+	clang $(FLAGS) -Wall -g -o $@ $<
 
 clean:
-	rm -drf $(BINARIES)
+	rm -rf $(BIN_DIR)

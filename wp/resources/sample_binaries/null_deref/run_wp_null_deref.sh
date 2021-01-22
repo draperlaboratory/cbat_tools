@@ -11,7 +11,7 @@ run () {
   bap wp \
     --func=main \
     --check-null-derefs \
-    -- main
+    -- ./bin/main
 }
 
 run

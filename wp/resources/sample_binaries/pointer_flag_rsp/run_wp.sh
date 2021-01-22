@@ -8,7 +8,7 @@ run () {
   bap wp \
     --func=main \
     --pointer-reg-list=RDI,RSI \
-    -- main
+    -- ./bin/main
 }
 
 run

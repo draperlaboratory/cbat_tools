@@ -13,7 +13,7 @@ run () {
     --func=foo_get \
     --mem-offset \
     --compare-post-reg-values=RAX,RBX,RSP,RBP,R12,R13,R14,R15  \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

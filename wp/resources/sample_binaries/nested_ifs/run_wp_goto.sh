@@ -13,7 +13,7 @@ run () {
   bap wp \
     --func=gotoExample \
     --trip-asserts \
-    -- main
+    -- ./bin/main
 }
 
 run

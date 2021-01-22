@@ -9,7 +9,7 @@
 run () {
   bap wp \
     --func=main \
-    -- main
+    -- ./bin/main
 }
 
 run

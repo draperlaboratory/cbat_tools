@@ -11,7 +11,7 @@ run () {
   bap wp \
     --func=process_message \
     --compare-func-calls \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

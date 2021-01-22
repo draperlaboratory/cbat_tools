@@ -13,7 +13,7 @@ run () {
     --compare-post-reg-values=RAX,RBX,RSP,RBP,R12,R13,R14,R15  \
     --mem-offset \
     --precond="(assert (bvult RDI_orig #x000000000000000a))" \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

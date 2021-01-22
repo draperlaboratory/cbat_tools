@@ -7,7 +7,7 @@ run () {
     --func=main \
     --compare-post-reg-values=RAX \
     --no-byteweight \
-    -- equiv_argc-6404 equiv_argc-6487
+    -- ./bin/equiv_argc-6404 ./bin/equiv_argc-6487
 }
 
 run
