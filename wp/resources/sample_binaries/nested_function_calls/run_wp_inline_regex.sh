@@ -10,7 +10,7 @@ run () {
     --func=main \
     --inline="foo|bar" \
     --trip-asserts \
-    -- main
+    -- ./bin/main
 }
 
 run

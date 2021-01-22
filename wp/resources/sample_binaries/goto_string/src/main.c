@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
-#include "../../../plugin/api/c/cbat.h"
+#include "../../../../plugin/api/c/cbat.h"
 
 #define STRING_MAX 10
 

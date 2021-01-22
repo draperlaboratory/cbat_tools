@@ -8,7 +8,7 @@ run() {
     --func=perform_hash \
     --inline=bad_hash \
     --trip-asserts \
-    -- main
+    -- ./bin/main
 }
 
 run

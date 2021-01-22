@@ -12,7 +12,7 @@ run () {
     --check-null-derefs \
     --no-byteweight \
     --inline="sub*" \
-    -- main
+    -- ./bin/main
 }
 
 run

@@ -1,13 +1,15 @@
-include ../optimization_flags.mk
+SRC_DIR = src
+BIN_DIR = bin
 
-BASE=main
+FLAGS = -fno-stack-protector -z execstack
 
-all: x86-64
+all: $(BIN_DIR)/main
 
-x86-64: $(BASE)
+$(BIN_DIR):
+	mkdir -p $@
 
-$(BASE): $(BASE).c
-	$(CC) $(FLAGS) -g -Wall -Wpedantic -fno-stack-protector -z execstack -o $@ $<
+$(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
+	gcc $(FLAGS) -Wall -g -o $@ $<
 
 clean:
-	rm -f $(BASE)
+	rm -rf $(BIN_DIR)

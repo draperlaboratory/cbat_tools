@@ -1,4 +1,4 @@
-#include "../../../plugin/api/c/cbat.h"
+#include "../../../../plugin/api/c/cbat.h"
 
 void
 main(void)

@@ -1,11 +1,15 @@
-BASE=main
-PROG1=$(BASE)_1
-PROG2=$(BASE)_2
+SRC_DIR = src
+BIN_DIR = bin
 
-all: $(PROG1) $(PROG2)
+FLAGS = -nostdlib
 
-%: %.S
-	$(CC) -Wall -g -nostdlib -o $@ $<
+all: $(BIN_DIR)/main_1 $(BIN_DIR)/main_2
+
+$(BIN_DIR):
+	mkdir -p $@
+
+$(BIN_DIR)/%: $(SRC_DIR)/%.S $(BIN_DIR)
+	gcc $(FLAGS) -Wall -g -o $@ $<
 
 clean:
-	rm -f $(PROG1) $(PROG2)
+	rm -rf $(BIN_DIR)

@@ -7,7 +7,7 @@ run () {
     --func=main \
     --show=paths,bir \
     --trip-asserts \
-    -- main
+    -- ./bin/main
 }
 
 run

@@ -9,7 +9,7 @@ run () {
   bap wp \
     --func=main \
     --trip-asserts \
-    -- main
+    -- ./bin/main
 }
 
 run

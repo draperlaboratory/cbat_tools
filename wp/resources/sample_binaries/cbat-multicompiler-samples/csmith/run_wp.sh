@@ -7,7 +7,7 @@ run () {
     --func=main \
     --compare-post-reg-values=RAX \
     --use-fun-input-regs \
-    -- csmith-10684 csmith-16812
+    -- ./bin/csmith-10684 ./bin/csmith-16812
 }
 
 run

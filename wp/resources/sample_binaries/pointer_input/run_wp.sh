@@ -8,7 +8,7 @@ run () {
     --func=main \
     --compare-post-reg-values=RAX \
     --mem-offset \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

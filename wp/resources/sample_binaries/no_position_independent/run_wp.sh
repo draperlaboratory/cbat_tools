@@ -9,7 +9,7 @@ run () {
     --func=example \
     --inline=init \
     --compare-post-reg-values=RAX \
-    -- main_1.so main_2.so
+    -- ./bin/main_1.so ./bin/main_2.so
 }
 
 run

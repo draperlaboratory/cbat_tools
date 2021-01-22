@@ -11,7 +11,7 @@ run () {
     --func=sudoku_solver \
     --check-null-derefs \
     --no-byteweight \
-    -- main
+    -- ./bin/main
 }
 
 run

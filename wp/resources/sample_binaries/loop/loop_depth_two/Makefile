@@ -1,10 +1,15 @@
-BASE=main
-PROG1=$(BASE)_1
+SRC_DIR = src
+BIN_DIR = bin
 
-all: $(PROG1)
+FLAGS = -O0
 
-%: %.c
-	$(CC) -O0 -Wall $(FLAGS) -g -o $@ $<
+all: $(BIN_DIR)/main
+
+$(BIN_DIR):
+	mkdir -p $@
+
+$(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
+	gcc $(FLAGS) -Wall -g -o $@ $<
 
 clean:
-	rm -f $(PROG1)
+	rm -rf $(BIN_DIR)

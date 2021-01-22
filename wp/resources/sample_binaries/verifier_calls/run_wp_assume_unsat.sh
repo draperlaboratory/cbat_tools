@@ -7,7 +7,7 @@ run () {
   bap wp \
     --func=main \
     --trip-asserts \
-    -- verifier_assume_unsat
+    -- ./bin/verifier_assume_unsat
 }
 
 run

@@ -9,7 +9,7 @@
 run () {
   bap wp \
     --func=create_linked_list \
-    -- main
+    -- ./bin/main
 }
 
 run

@@ -9,7 +9,7 @@ run () {
   bap wp \
     --func=main \
     --postcond="(assert (= RAX #x0000000000000000))" \
-    -- main
+    -- ./bin/main
 }
 
 run

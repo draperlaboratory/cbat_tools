@@ -1,15 +1,16 @@
-BASE=main
+SRC_DIR = src
+BIN_DIR = bin
 
-PROG1=$(BASE)_1
-PROG2=$(BASE)_2
+all: $(BIN_DIR)/main_1 $(BIN_DIR)/main_2
 
-all: $(PROG1) $(PROG2)
+$(BIN_DIR):
+	mkdir -p $@
 
-$(PROG1): $(PROG1).c
-	$(CC) -Wall -fstack-protector -g -o $@ $<
+$(BIN_DIR)/main_1: $(SRC_DIR)/main_1.c $(BIN_DIR)
+	gcc -fstack-protector -Wall -g -o $@ $<
 
-$(PROG2): $(PROG2).c
-	$(CC) -Wall -fno-stack-protector -g -o $@ $<
+$(BIN_DIR)/main_2: $(SRC_DIR)/main_2.c $(BIN_DIR)
+	gcc -fno-stack-protector -Wall -g -o $@ $<
 
 clean:
-	rm -f $(PROG1) $(PROG2)
+	rm -rf $(BIN_DIR)

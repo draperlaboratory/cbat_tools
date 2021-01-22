@@ -11,7 +11,7 @@ run () {
   bap wp \
     --func=process_status \
     --compare-post-reg-values=RAX \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

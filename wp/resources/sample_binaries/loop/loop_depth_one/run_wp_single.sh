@@ -8,7 +8,7 @@ run() {
     --num-unroll=3 \
     --postcond="(assert (not (= RAX #x0000000000000005)))" \
     --no-byteweight \
-    -- main_1
+    -- ./bin/main_1
 }
 
 run

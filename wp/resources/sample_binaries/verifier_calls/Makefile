@@ -1,15 +1,15 @@
 include ../optimization_flags.mk
 
-BASE=verifier
+SRC_DIR = src
+BIN_DIR = bin
 
-PROG1=$(BASE)_assume_unsat
-PROG2=$(BASE)_assume_sat
-PROG3=$(BASE)_nondet
+all: $(BIN_DIR)/verifier_assume_unsat $(BIN_DIR)/verifier_assume_sat $(BIN_DIR)/verifier_nondet
 
-all: $(PROG1) $(PROG2) $(PROG3)
+$(BIN_DIR):
+	mkdir -p $@
 
-%: %.c
-	$(CC) $(FLAGS) -g -o $@ $<
+$(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
+	gcc $(FLAGS) -Wall -g -o $@ $<
 
 clean:
-	rm -f $(PROG1) $(PROG2) $(PROG3)
+	rm -rf $(BIN_DIR)

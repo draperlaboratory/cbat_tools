@@ -11,7 +11,7 @@ run () {
     --func=main \
     --compare-post-reg-values=RAX \
     --precond="(assert (= RDI_mod #x0000000000000002)) (assert (= RDI_orig #x0000000000000002))" \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

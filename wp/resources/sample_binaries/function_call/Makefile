@@ -1,11 +1,13 @@
-BASE=main
+SRC_DIR = src
+BIN_DIR = bin
 
-all: x86-64
+all: $(BIN_DIR)/main
 
-x86-64: $(BASE)
+$(BIN_DIR):
+	mkdir -p $@
 
-$(BASE): $(BASE).c
-	$(CC) -g -Wall -o $@ $<
+$(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
+	gcc -Wall -g -o $@ -c $<
 
 clean:
-	rm -f $(BASE)
+	rm -rf $(BIN_DIR)

@@ -1,11 +1,15 @@
-BASE=main
+SRC_DIR = src
+BIN_DIR = bin
 
-FLAGS=-nostdlib
+FLAGS = -nostdlib
 
-all: $(BASE)
+all: $(BIN_DIR)/main
 
-%: %.S
-	$(CC) $(FLAGS) -o $@ $<
+$(BIN_DIR):
+	mkdir -p $@
+
+$(BIN_DIR)/%: $(SRC_DIR)/%.S $(BIN_DIR)
+	gcc $(FLAGS) -Wall -g -o $@ $<
 
 clean:
-	rm -f $(BASE)
+	rm -rf $(BIN_DIR)

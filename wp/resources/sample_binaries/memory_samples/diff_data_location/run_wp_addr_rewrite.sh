@@ -12,7 +12,7 @@ run () {
     --compare-post-reg-values=RAX \
     --rewrite-addresses \
     --no-glibc-runtime \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

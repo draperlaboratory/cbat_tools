@@ -1,11 +1,15 @@
-BASE=main
-PROG1=$(BASE)_1
-PROG2=$(BASE)_2
+SRC_DIR = src
+BIN_DIR = bin
 
-all: $(PROG1).so $(PROG2).so
+FLAGS = -fPIC -fno-stack-protector -shared
 
-%.so: %.c
-	$(CC) -fPIC -fno-stack-protector -shared -Wall -o $@ $<
+all: $(BIN_DIR)/main_1.so $(BIN_DIR)/main_2.so
+
+$(BIN_DIR):
+	mkdir -p $@
+
+$(BIN_DIR)/%.so: $(SRC_DIR)/%.c $(BIN_DIR)
+	gcc $(FLAGS) -Wall -g -o $@ $<
 
 clean:
-	rm -f $(PROG1).so $(PROG2).so
+	rm -rf $(BIN_DIR)

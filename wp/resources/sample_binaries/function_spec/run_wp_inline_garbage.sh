@@ -11,7 +11,7 @@ run () {
       --func=main \
       --inline=NONEXISTENTGARBAGE \
       --trip-asserts \
-      -- main
+      -- ./bin/main
 }
 
 run

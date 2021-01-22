@@ -11,7 +11,7 @@ run () {
   bap wp \
     --func=create_linked_list \
     --check-null-derefs \
-    -- main
+    -- ./bin/main
 }
 
 run

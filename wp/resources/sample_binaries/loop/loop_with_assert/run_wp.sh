@@ -12,7 +12,7 @@ run() {
     --func=main \
     --num-unroll=2 \
     --trip-asserts \
-    -- main
+    -- ./bin/main
 }
 
 run

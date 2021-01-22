@@ -17,7 +17,7 @@ run_sat () {
     --show=bir,refuted-goals,paths \
     --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
     --precond="(assert (= mem_orig mem_mod))" \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run_sat

@@ -8,7 +8,7 @@ run () {
   bap wp \
     --func=main \
     --trip-asserts \
-    -- verifier_nondet
+    -- ./bin/verifier_nondet
 }
 
 run

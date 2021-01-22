@@ -13,7 +13,7 @@ run () {
   bap wp \
     --func=nestedIfExample \
     --trip-asserts \
-    -- main
+    -- ./bin/main
 }
 
 run

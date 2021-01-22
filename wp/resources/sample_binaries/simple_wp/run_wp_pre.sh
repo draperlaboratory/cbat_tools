@@ -9,7 +9,7 @@ run () {
   bap wp \
     --func=main \
     --precond="(assert (= RDI #x0000000000000000))" \
-    -- main
+    -- ./bin/main
 }
 
 run
