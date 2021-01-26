@@ -234,11 +234,8 @@ let grammar = Cmd.(
     $ show
     $ stack_base
     $ stack_size
-<<<<<<< HEAD
     $ func_name_map
-=======
     $ user_func_spec
->>>>>>> Make user-fun-spec into a flag
     $ files)
 
 (* The callback run when the command is invoked from the command line. *)
@@ -263,11 +260,8 @@ let callback
     (show : string list)
     (stack_base : int option)
     (stack_size : int option)
-<<<<<<< HEAD
     (func_name_map : (string * string) list)
-=======
     (user_func_spec : (string*string*string) option)
->>>>>>> Make user-fun-spec into a flag
     (files : string list)
     (ctxt : ctxt) =
   let open Parameters.Err.Syntax in
@@ -292,11 +286,8 @@ let callback
       show = show;
       stack_base = stack_base;
       stack_size = stack_size;
-<<<<<<< HEAD
-      func_name_map = func_name_map
-=======
+      func_name_map = func_name_map;
       user_func_spec = user_func_spec;
->>>>>>> Make user-fun-spec into a flag
     })
   in
   Parameters.validate params files >>= fun () ->
