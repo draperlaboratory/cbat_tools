@@ -5,6 +5,10 @@ open Bap.Std
 open Bap_primus.Std
 include Self ()
 
+module Init = Bildb_init
+module Startup = Bildb_startup
+module Position = Bildb_position
+
 module Param = struct
   open Config
 
