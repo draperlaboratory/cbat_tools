@@ -16,7 +16,7 @@ open OUnitTest
 open !Core_kernel
 open Bap_main
 
-module Params = Parameters
+module Params = Wp_parameters
 
 (* To run these tests: `make test` in wp directory *)
 

@@ -15,7 +15,6 @@ open !Core_kernel
 open Bap_main
 open Bap.Std
 open Bap_wp
-open Parameters
 
 include Self()
 
@@ -23,7 +22,10 @@ module Comp = Compare
 module Pre = Precondition
 module Env = Environment
 module Constr = Constraint
-module Params = Parameters
+module Params = Wp_parameters
+module Utils = Wp_utils
+
+open Params
 
 (* Error for when the user specifies 0 or more than 2 files to analyze. *)
 type Extension.Error.t += Unsupported_file_count of string
