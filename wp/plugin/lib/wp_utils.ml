@@ -21,6 +21,7 @@ include Self()
 
 module Env = Environment
 module Pre = Precondition
+module Cache = Wp_cache
 
 let loader = "llvm"
 

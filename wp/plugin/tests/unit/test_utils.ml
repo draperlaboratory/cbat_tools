@@ -16,6 +16,7 @@ open OUnit2
 open OUnitTest
 
 module Pre = Bap_wp.Precondition
+module Utils = Wp_utils
 
 (* To run these tests: `make test` in wp directory *)
 

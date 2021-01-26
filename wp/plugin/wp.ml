@@ -12,8 +12,9 @@
 (***************************************************************************)
 
 open Bap_main
-open Parameters.Err.Syntax
 
+module Parameters = Wp_parameters
+module Analysis = Wp_analysis
 module Cmd = Extension.Command
 module Typ = Extension.Type
 
@@ -258,6 +259,7 @@ let callback
     (func_name_map : (string * string) list)
     (files : string list)
     (ctxt : ctxt) =
+  let open Parameters.Err.Syntax in
   let params = Parameters.({
       func = func;
       precond = precond;

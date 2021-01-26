@@ -20,8 +20,10 @@
 
 open Bap_main
 
+module Params = Wp_parameters
+
 (** [run params files ctxt] is the main entrypoint for WP. Based on the length
     of [files], it will run either a single or comparative analysis. If 0 or
     more than 2 files are given, an error is returned. [params] sets the
     properties WP will check and update default options. *)
-val run : Parameters.t -> string list -> ctxt -> (unit, error) result
+val run : Params.t -> string list -> ctxt -> (unit, error) result
