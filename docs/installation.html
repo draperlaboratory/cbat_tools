@@ -23,7 +23,19 @@
 <a name="docker"></a>
 <h2>Docker Installation</h2>
 
-<p>Coming soon.
+<p>The Dockerfile for CBAT can be found in <a href="https://github.com/draperlaboratory/cbat_tools/tree/master">this directory</a>.
+
+<p>To build the image:
+
+<pre>
+  docker build --tag cbat .
+</pre>
+
+<p>To run the container:
+
+<pre>
+  docker run -it cbat bash
+</pre>
 
 </section>
 
@@ -37,7 +49,7 @@
 <p>Before installing, make sure you have the appropriate dependencies installed. First, there is OCaml:
 
 <ul>
-    <li>ocaml &ge; 4.08.0 &amp; &lt; 4.11.0</li>
+  <li>ocaml &ge; 4.08.0 &amp; &lt; 4.11.0</li>
 </ul>
 
 <p>The recommended way to install Ocaml is with OPAM. Instructions on downloading OPAM, and using OPAM to download Ocaml can be found <a href="https://ocaml.org/docs/install.html#OPAM">here</a>.
@@ -45,7 +57,7 @@
 <p>Next, there is the alpha release of BAP:
 
 <ul>
-    <li>bap 2.2.0-alpha</li>
+  <li>bap 2.2.0-alpha</li>
 </ul>
 
 <p>Instructions on downloading BAP from the testing repository can be found <a href="https://github.com/BinaryAnalysisPlatform/bap#installation">here</a>.
@@ -53,11 +65,11 @@
 <p>Then, there are the following OCaml packages:
 
 <ul>
-    <li>core_kernel 0.14.0</li>
-    <li>ounit2 2.2.3</li>
-    <li>z3 4.8.9</li>
-    <li>re 1.9.0</li>
-    <li>dune 2.7.1</li>
+  <li>core_kernel 0.14.0</li>
+  <li>ounit2 2.2.3</li>
+  <li>z3 4.8.9</li>
+  <li>re 1.9.0</li>
+  <li>dune 2.7.1</li>
 </ul>
 
 <p>All of these can be installed with:
@@ -92,7 +104,7 @@
   make test.plugin.integration
 </pre>
 
-<p> To run oUnit tests with colored output, before running the above test commands, run
+<p>To run oUnit tests with colored output, before running the above test commands, run
 
 <pre>
   export OUNIT_CI=true
