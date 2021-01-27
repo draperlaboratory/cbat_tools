@@ -111,11 +111,11 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   let ctx = Env.get_context env in
   mk_smtlib2 ctx smt_post decl_syms
 
-let collect_regs (env : Env.t) (smt_post : string) : Constr.z3_expr list =
+(*let collect_regs (env : Env.t) (smt_post : string) : Constr.z3_expr list =
   let init_var_map = Env.get_init_var_map env in
     smt_post
     |> tokenize
     |> List.fold ~init:[] ~f:(fun inits token ->
            match get_z3_name init_var_map token (fun v -> "init_" ^ Var.name v) with
            | Some n -> n :: inits
-           | None -> inits)
+           | None -> inits) *)

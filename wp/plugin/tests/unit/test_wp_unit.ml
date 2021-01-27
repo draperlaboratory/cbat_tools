@@ -227,4 +227,6 @@ let unit_tests = [
     ~script:"run_wp_assume_unsat.sh";
   "Verifier nondent"               >: test_plugin "verifier_calls" sat
     ~script:"run_wp_nondet.sh";
-]
+
+  "User defined subroutine specs" >: test_plugin "smtlib_func_spec_eq/subroutine_spec_1" unsat ~script:"run_wp_1.sh";
+  ]

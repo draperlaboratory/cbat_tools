@@ -1201,79 +1201,43 @@ let init_vars (vars : Var.Set.t) (env : Env.t)
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
 
-(* TO DO :
-   -note: sub_outputs are currently is just the same as sub_inputs
-   -note: we remove inits from init-variables in sub_post, ex. init_RAX0
-    - becomes RAX0, and we do this for all registers
-    - add a test that would only pass if the init replacement is working
-*)
 let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
     (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   debug "Making user-defined subroutine spec with subroutine-name: %s, pre:
 %s, post: %s \n%!" sub_name sub_pre sub_post;
   if String.equal sub_name (Sub.name sub) then
-    (* create function that parses the pre and use Z3 to make precondition*)
     Some {
       spec_name = "user_func_spec";
       spec = Summary (fun env post tid ->
           (* turn strings into proper smtlib2 statements; incr stack_ptr *)
-                 Printf.printf "\n\n Entered user_func_spec! \n\n %!";
-                 Printf.printf "\n\n %s \n %s \n %s \n\n %!" sub_name sub_pre sub_post; 
           let sub_pre : Constr.t = Z3_utils.mk_smtlib2_single env sub_pre in
           let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
           let sub_post, env = increment_stack_ptr sub_post env in
-          (* collect inputs/outputs of sub; substitute in sub_post=>post *)
+          (* collect (physical) inputs/outputs of sub *)
           let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
-          (* we want to remove virtual vars*)
           let sub_inputs : Var.t list =
             List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
           let sub_outputs : Var.t list = sub_inputs in
-          (* replace init_vars with vars *) 
-          let module T = (val target_of_arch (Env.get_arch env)) in
-          let vars  = (T.CPU.gpr) |> Var.Set.to_list in
-          let all_regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
-          let all_inits = List.map vars ~f:(fun v ->
-                              Format.printf "var = %s \n %!" (Var.to_string v) ;  
-                              let r  = Env.get_init_var env v in
-                              match r with
-                              | Some q -> q
-                              | None -> let q, env = Env.mk_init_var env v in q) in
-          (*let init_antecedent, env = init_vars vars env in*)  
+          (* replace init_vars with vars inside sub_post *) 
+          let vars  = Set.add (Env.get_gprs env) (Env.get_mem env)
+                      |> Var.Set.to_list in
+          let regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
+          let inits = List.map vars ~f:(fun v ->
+                          let r  = Env.get_init_var env v in
+                          match r with
+                          | Some q -> q
+                          | None -> let q, _ = Env.mk_init_var env v in q) in
           let tid_name : string = Tid.name tid in 
-          let sub_post_1_25 : Constr.t = subst_fun_outputs ~tid_name:tid_name env sub sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
-          (* let sub_post_1_25 : Constr.t = Constr.mk_clause init_antecedent [sub_post_1_25] in *) 
-          let sub_post_1_25 : Constr.t = Constr.substitute sub_post_1_25 all_inits all_regs in   
-          let post_1_25 : Constr.t = subst_fun_outputs ~tid_name:tid_name env sub post ~inputs:sub_inputs ~outputs:sub_outputs in 
+          let sub_post = subst_fun_outputs ~tid_name:tid_name env sub
+                           sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
+          let sub_post = Constr.substitute sub_post inits regs in
+          (*combine sub_post and post*)
+          let post : Constr.t = subst_fun_outputs ~tid_name:tid_name env sub
+                                  post ~inputs:sub_inputs ~outputs:sub_outputs in 
           let sub_post_imp_post : Constr.t =
-            Constr.mk_clause [sub_post_1_25] [post_1_25] in
-          (*Format.printf "init_antecedent length: %d \n %!" (List.length init_antecedent); 
-          List.iter init_antecedent ~f:(fun i ->
-              Format.printf "\n init_antecedent: %!";
-              Constr.pp_constr (Format.std_formatter) i;
-              let pre_conj = Constr.mk_clause [] [i] in
-                  let pre_conj_eval = Constr.eval pre_conj (Env.get_context env) in
-                  Format.printf "\n   is-true? : %b \n %!" (Bool.is_true pre_conj_eval);
-                  Format.printf "\n   is-false?: %b \n %!" (Bool.is_false pre_conj_eval));
-          let preamble = Constr.mk_clause [] init_antecedent in*)
-          (*let z3_preamble = Constr.eval test_1_22 (Env.get_context env) in
-          let z3_preamble = Expr.simplify z3_preamble None in
-          Format.printf "\n\n z3_preamble : %s \n\n %!" (Expr.to_string z3_preamble);
-          let solver = Solver.mk_solver (Env.get_context env) None in
-          let check_eval = Solver.check solver [z3_preamble] in 
-          Format.printf "\n Eval z3_pramb: %s \n %!" (Solver.string_of_status check_eval); 
-          let sub_post_imp_post =
-            Constr.mk_clause [test_1_22] [sub_post_imp_post] in*)
+            Constr.mk_clause [sub_post] [post] in
           (* combine pre and post *)
           let result : Constr.t = Constr.mk_clause [] [sub_pre ; sub_post_imp_post] in
-          let print_spec l =
-            List.iter l
-              ~f:(fun (x,y)->
-                 Format.printf x ; Constr.pp_constr (Format.std_formatter) y;
-                 Format.printf "\n\n")
-          in
-          print_spec [("P: ", sub_pre); ("Q: ", sub_post_1_25);
-                 ("R: ", post); ("forallz.qz->rz: ",sub_post_imp_post);
-                 ("pre & forallz.qz->rz: ", result)];
           result, env)
     }
   else None
