@@ -287,7 +287,6 @@ let comparators_of_flags
 (* Runs a single binary analysis. *)
 let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file : string) : combined_pre =
-  Format.printf "Entered single... check! \n";
   let prog, arch = Utils.read_program bap_ctx
       ~loader:Utils.loader ~filepath:file in
   let subs = Term.enum sub_t prog in

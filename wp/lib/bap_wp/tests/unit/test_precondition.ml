@@ -1461,7 +1461,7 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
   (* let mem = Var.create "mem" (mem64_t `r64) in *)
   let sub = Bil.(
       [
-        x := var x
+        x := var x + i64 2
       ]
     ) |> bil_to_sub in
   let main_sub = Bil.(
@@ -1472,8 +1472,8 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
     ) |> bil_to_sub
   in
   let ctx = Env.mk_ctx () in
-  let sub_pre : string =  "(assert false)" in
-  let sub_post : string = "(assert true)" in
+  let sub_pre : string =  "(assert true)" in
+  let sub_post : string = "(assert (= x (bvadd init_x #x0000000000000002)))" in
   let sub_name : string = Sub.name sub in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
       ~specs:[Pre.user_func_spec sub_name sub_pre sub_post]
@@ -1492,9 +1492,7 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
     |> Constr.mk_constr
   in
   let goal = Constr.mk_clause [hyp] [pre] in
-  assert_z3_result test_ctx env (Sub.to_string main_sub) post goal Z3.Solver.SATISFIABLE
-
-(*let suite = [ "Test user specified subroutine specs" >:: test_user_func_spec ]*)
+  assert_z3_result test_ctx env (Sub.to_string main_sub) post goal Z3.Solver.UNSATISFIABLE
 
 let suite = [
   "Test user specified subroutine specs" >:: test_user_func_spec;

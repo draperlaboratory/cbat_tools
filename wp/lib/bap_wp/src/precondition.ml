@@ -1238,6 +1238,7 @@ let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
             Constr.mk_clause [sub_post] [post] in
           (* combine pre and post *)
           let result : Constr.t = Constr.mk_clause [] [sub_pre ; sub_post_imp_post] in
+          (*Format.printf "result: %s \n %!" (Constr.to_string result);*)
           result, env)
     }
   else None
