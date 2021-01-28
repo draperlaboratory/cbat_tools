@@ -13,7 +13,6 @@ run () {
   bap wp \
     --func=main \
     --trip-asserts \
-    --fun-specs=chaos-caller-saved \
     --use-fun-input-regs \
     -- ./bin/main
 }

@@ -13,7 +13,6 @@ run () {
   bap wp \
     --func=nestedIfExample \
     --trip-asserts \
-    --fun-specs=verifier-nondet \
     -- ./bin/main
 }
 

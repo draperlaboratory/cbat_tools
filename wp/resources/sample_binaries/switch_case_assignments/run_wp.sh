@@ -11,7 +11,6 @@ run () {
   bap wp \
     --func=process_status \
     --compare-post-reg-values=RAX \
-    --fun-specs=chaos-caller-saved \
     -- ./bin/main_1 ./bin/main_2
 }
 

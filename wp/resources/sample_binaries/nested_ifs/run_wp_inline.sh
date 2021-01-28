@@ -8,7 +8,7 @@
 run () {
   bap wp \
     --func=main \
-    --inline=calloc \
+    --inline=.* \
     --trip-asserts \
     -- ./bin/main
 }

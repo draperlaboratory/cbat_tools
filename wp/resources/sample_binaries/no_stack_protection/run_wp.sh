@@ -6,7 +6,6 @@ run () {
   bap wp \
     --func=main \
     --compare-post-reg-values=RSI,RAX \
-    --fun-specs=chaos-caller-saved \
     -- ./bin/main_1 ./bin/main_2
 }
 
