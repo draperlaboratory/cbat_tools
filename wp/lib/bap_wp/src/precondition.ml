@@ -370,8 +370,8 @@ let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post 
   let ctx = Env.get_context env in
   let inputs = List.map inputs
       ~f:(fun i ->
-        let input, _ = Env.get_var env i in 
-        input)
+          let input, _ = Env.get_var env i in 
+          input)
   in
   let input_sorts = List.map inputs ~f:Expr.get_sort in
   let outputs = List.map outputs
@@ -684,16 +684,16 @@ let indirect_spec_default : Env.indirect_spec =
    * when we can use it to determine the destination of the
    * indirect call. *)
   fun env post _exp has_return ->
-  if has_return then increment_stack_ptr post env
-  else post, env
+    if has_return then increment_stack_ptr post env
+    else post, env
 
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
 
 let int_spec_default : Env.int_spec =
   fun env post _ ->
-  error "Currently we do not handle system calls%!";
-  post, env
+    error "Currently we do not handle system calls%!";
+    post, env
 
 let num_unroll : int ref = ref 5
 
@@ -1223,17 +1223,17 @@ let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
                       |> Var.Set.to_list in
           let regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
           let inits = List.map vars ~f:(fun v ->
-                          let r  = Env.get_init_var env v in
-                          match r with
-                          | Some q -> q
-                          | None -> let q, _ = Env.mk_init_var env v in q) in
+              let r  = Env.get_init_var env v in
+              match r with
+              | Some q -> q
+              | None -> let q, _ = Env.mk_init_var env v in q) in
           let tid_name : string = Tid.name tid in 
           let sub_post = subst_fun_outputs ~tid_name:tid_name env sub
-                           sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
+              sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
           let sub_post = Constr.substitute sub_post inits regs in
           (*combine sub_post and post*)
           let post : Constr.t = subst_fun_outputs ~tid_name:tid_name env sub
-                                  post ~inputs:sub_inputs ~outputs:sub_outputs in 
+              post ~inputs:sub_inputs ~outputs:sub_outputs in 
           let sub_post_imp_post : Constr.t =
             Constr.mk_clause [sub_post] [post] in
           (* combine pre and post *)
@@ -1248,13 +1248,13 @@ let user_func_spec (sub_name : string) (sub_pre : string) (sub_post : string)
 let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   : Env.exp_cond =
   fun env1 exp ->
-  let ctx = Env.get_context env1 in
-  let conds = collect_mem_read_expr env1 env2 exp offset in
-  let name = "Assume memory equivalence at offset" in
-  if List.is_empty conds then
-    None
-  else
-    Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
+    let ctx = Env.get_context env1 in
+    let conds = collect_mem_read_expr env1 env2 exp offset in
+    let name = "Assume memory equivalence at offset" in
+    if List.is_empty conds then
+      None
+    else
+      Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
 let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
     (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =

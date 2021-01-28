@@ -6,7 +6,7 @@ run () {
     --show=precond-smtlib \
     --postcond="(assert false)" \
     --user-func-spec="g,(assert true),(assert true)" \
-    -- main
+    -- ./bin/main
 }
 
 run

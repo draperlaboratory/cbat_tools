@@ -75,7 +75,7 @@ let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
             let not_in_mod = not @@ Seq.exists subs_mod ~f:(fun s ->
                 String.equal (Sub.name s) name_mod) in
             begin if not_in_mod then
-              warning "%s is not found in the modified binary." name_mod
+                warning "%s is not found in the modified binary." name_mod
             end;
             String.Map.set m ~key:name_orig ~data:name_mod
           else m))
@@ -127,8 +127,8 @@ let exp_conds_mod (p : Params.t) : Env.exp_cond list =
    apply the components to make a func_spec *)
 let parse_user_func_spec (p : Params.t) : (Sub.t -> Arch.t -> Env.fun_spec option) =
   match p.user_func_spec with
-      Some (name,pre,post) -> Pre.user_func_spec name pre post
-     | _ -> Pre.user_func_spec "" "" ""
+    Some (name,pre,post) -> Pre.user_func_spec name pre post
+  | _ -> Pre.user_func_spec "" "" ""
 
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
@@ -304,7 +304,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
   let init_set = Set.add (Set.union (Env.get_gprs env) vars_sub) (Env.get_mem env) in 
   let hyps, env = Pre.init_vars init_set env in 
-(*    (Bap.Std.Var.Set.union vars_pointer_reg vars_sub |> Bap.Std.Var.Set.union sp) env in*)
+  (*    (Bap.Std.Var.Set.union vars_pointer_reg vars_sub |> Bap.Std.Var.Set.union sp) env in*)
   let hyps = (Pre.set_sp_range env) :: hyps in
   let hyps =
     (* short circuit to avoid extraneous "&& true" constraint *)

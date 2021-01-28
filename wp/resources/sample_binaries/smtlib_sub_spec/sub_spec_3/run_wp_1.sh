@@ -6,10 +6,9 @@ run () {
   bap wp \
     --func=main \
     --show=paths \
-    --precond="(assert (= RAX #x0000000000000061))" \
-    --user-func-spec="g,(assert (= RAX #x0000000000000061)),(assert (= RAX init_RAX))" \
+    --user-func-spec="g,(assert true),(assert (= RAX #x0000000000000061))" \
     --trip-assert \
-    -- main
+    -- ./bin/main
 }
 
 run
