@@ -155,6 +155,7 @@ let spec_of_name (name : string) : Sub.t -> Arch.t -> Env.fun_spec option =
   | "chaos-caller-saved" -> Pre.spec_chaos_caller_saved
   | "chaos-rax" -> Pre.spec_chaos_rax
   | "rax-out" -> Pre.spec_rax_out
+  | "empty" -> Pre.spec_empty
   | name ->
     (* TODO: We should return an error here instead of failing directly, but
        that would require some code cleanup on the analysis side. *)

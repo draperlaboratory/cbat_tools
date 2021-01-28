@@ -221,31 +221,40 @@ let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
            site in order of precedence. A target function will be mapped to a
            function spec if it fulfills the spec's requirements. All function
            specs set the target function as called and update the stack
-           pointer. The default spec will set the function as called and update
-           the stack pointer. Available built-in specs:
+           pointer. The default specs set are verifier-assume, varifier-nondet,
+           chaos-caller-saved, and empty. Note that if a function is set to be
+           inlined, it will not use any of the following function specs.
+           Available built-in specs:
 
-           `verifier-error': Trips calls to __assert_fail.
+           `verifier-error': Used for calls to __VERIFIER_error and
+           __assert_fail. Looks for inputs that would cause execution to reach
+           these functions.
 
-           `verifier-assume': Adds an assumption to the precondition based on
-           the argument to the function call.
+           `verifier-assume': Used for calls to __VERIFIER_assume. Adds an
+           assumption to the precondition based on the argument to the function
+           call.
 
-           `verifier-nondet': Chaoses the output to the function call
-           representing an arbitrary pointer.
+           `verifier-nondet': Used for calls to nondeterministic functions such
+           as __VERIFIER_nondet_*, calloc, and malloc. Chaoses the output to
+           the function call representing an arbitrary pointer.
 
-           `afl-maybe-log': Chaoses the registers RAX, RCX, and RDX. Used for
-           calls to __afl_maybe_log.
+           `afl-maybe-log': Used for calls to __afl_maybe_log. Chaoses the
+           registers RAX, RCX, and RDX.
 
-           `arg-terms': Uses BAP's uplifter to determine the input and output
-           registers to a function and chaoses the output registers.
+           `arg-terms': Used when BAP's uplifter returns a nonempty list of
+           input and output registers for the target function. Chaoses this
+           list of output registers.
 
-           `chaos-caller-saved': Chaoses the called-saved registers for x86
-           architectures.
+           `chaos-caller-saved': Used for the x86 architecture. Chaoses the
+           caller-saved registers.
 
            `rax-out': Chaos RAX if it can be found on the left-hand side of an
            assignment in the target function.
 
            `chaos-rax': Chaos RAX regardless if it has been used on the
-           left-hand side of an assignment in the target function.|}
+           left-hand side of an assignment in the target function.
+
+           `empty': Used for empty subroutines. Performs no actions.|}
 
 let grammar = Cmd.(
     args

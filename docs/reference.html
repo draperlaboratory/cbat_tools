@@ -73,16 +73,17 @@ These options apply in most circumstances to adjust CBAT's behavior or output.
   </ul>
 </li>
 
-<li><code>--fun-specs=&lt;spec-list&gt;<</code> &mdash; List of built-in function summaries to be used at a function call site in order of precedence. A target function will be mapped to a function spec if it fulfills the spec's requirements. All function specs set the target function as called and update the stack pointer. The default spec will set the function as called and update the stack pointer. Available built-in specs:
+<li><code>--fun-specs=&lt;spec-list&gt;</code> &mdash; List of built-in function summaries to be used at a function call site in order of precedence. A target function will be mapped to a function spec if it fulfills the spec's requirements. All function specs set the target function as called and update the stack pointer. The default specs set are verifier-assume, varifier-nondet, chaos-caller-saved, and empty. Note that if a function is set to be inlined, it will not use any of the following function specs. Available built-in specs:
   <ul>
-    <li><code>verifier-error</code>: Trips calls to <code>_assert_fail.</code></li>
-    <li><code>verifier-assume</code>: Adds an assumption to the precondition based on the argument to the function call.</li>
-    <li><code>verifier-nondet</code>: Chaoses the output to the function call representing an arbitrary pointer.</li>
-    <li><code>afl-maybe-log</code>: Chaoses the registers RAX, RCX, and RDX. Used for calls to <code>__afl_maybe_log.</code></li>
-    <li><code>arg-terms</code>: Uses BAP's uplifter to determine the input and output registers to a function and chaoses the output registers.</li>
-    <li><code>chaos-caller-saved</code>: Chaoses the called-saved registers for x86 architectures.</li>
+    <li><code>verifier-error</code>: Used for calls to <code>__VERIFIER_error</code> and <code>__assert_fail</code>. Looks for inputs that would cause execution to reach these functions.</li>
+    <li><code>verifier-assume</code>: Used for calls to <code>__VERIFIER_assume</code>. Adds an assumption to the precondition based on the argument to the function call.</li>
+    <li><code>verifier-nondet</code>: Used for calls to nondeterministic functions such as <code>__VERIFIER_nondet_*</code>, <code>calloc</code>, and <code>malloc</code>. Chaoses the output to the function call representing an arbitrary pointer.</li>
+    <li><code>afl-maybe-log</code>: Used for calls to <code>__afl_maybe_log</code>. Chaoses the registers RAX, RCX, and RDX.</li>
+    <li><code>arg-terms</code>: Used when BAP's uplifter returns a nonempty list of input and output registers for the target function. Chaoses this list of output registers.</li>
+    <li><code>chaos-caller-saved</code>: Used for the x86 architecture. Chaoses the caller-saved registers.</li>
     <li><code>rax-out</code>: Chaos RAX if it can be found on the left-hand side of an assignment in the target function.</li>
     <li><code>chaos-rax</code>: Chaos RAX regardless if it has been used on the left-hand side of an assignment in the target function.</li>
+    <li><code>empty</code>: Used for empty subroutines. Performs no actions.</li>
   </ul>
 </li>
 
