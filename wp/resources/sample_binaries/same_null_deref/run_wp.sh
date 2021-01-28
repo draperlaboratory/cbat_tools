@@ -9,7 +9,7 @@ run () {
   bap wp \
     --func=null_deref \
     --check-null-derefs \
-    -- main_1 main_2
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run
