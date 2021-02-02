@@ -148,10 +148,10 @@ let canonize (p : t) : t =
     let e = W.add p.base p.step in
     if W.(>=) e p.base then p
     else create e ~step:(W.neg p.step) ~cardn:two
-  (* If p.cardn steps traverse the full domain, we approximate
-     with an infinite CLP. In other words, all cardinalities c
-     such that c*p.step <= 2^szIn are treated equivalently.
-  *)
+    (* If p.cardn steps traverse the full domain, we approximate
+       with an infinite CLP. In other words, all cardinalities c
+       such that c*p.step <= 2^szIn are treated equivalently.
+    *)
   else if is_infinite p then infinite(p.base, p.step)
   else p
 
@@ -192,8 +192,8 @@ let iter (p : t) : word list =
   iter_acc p'.base p'.step p'.cardn []
 
 (*  computes the closest element of p that precedes
-   i, i.e. the first element reached by starting from i and decreasing.
-   Assumes that the inputs have the same bitwidth.
+    i, i.e. the first element reached by starting from i and decreasing.
+    Assumes that the inputs have the same bitwidth.
 *)
 let nearest_pred (i : word) (p : t) : word option =
   assert(bitwidth p = W.bitwidth i);
@@ -499,49 +499,49 @@ let intersection (p1 : t) (p2 : t) : t =
   Option.value ~default:bot begin
     finite_end p1 >>= fun e1 ->
     finite_end p2 >>= fun e2 ->
-      let step = W.lcm_exn p1.step p2.step in
-      if W.is_zero step then begin
-        (* If there is no bounded LCM then s1 or s2 are 0. In other words,
-           one of the inputs is a singleton. Thus the intersection is either
-           equal to the singleton or empty.
-        *)
-        if W.is_zero p2.step then
-          Option.some_if (elem p2.base p1) () >>= fun _ ->
-          !!(create p2.base)
-        else
-          Option.some_if (elem p1.base p2) () >>= fun _ ->
-          !! (create p1.base)
-      end else begin
-        bounded_diophantine p1.step p2.step p2.base >>= fun (x,_) ->
-        (* the result is the first point on p1 that is also on the infinite CLP
-           approximation of p2. Due to the translation of the CLPs, this is the
-           least possible value (before translating back) that can inhabit the
-           intersection.
-        *)
-        let base = W.mul x p1.step in
-        (* e1 and e2 are meaningful iff p1 and p2 respectively are non-infinite.
-           We therefore guard their use so that when either argument is
-           infinite, we compute the proper end.
-        *)
-        let minE = if p1_infinite then e2
-          else if p2_infinite then e1
-          else min e1 e2 in
-        (* If the least possible value in resulting set is greater than the
-           maximum possible value, then the set is empty. This does not apply
-           when p1 is infinite since sometimes the base of p2 (and therefore
-           the result) can wrap backwards over 0.
-        *)
-        Option.some_if (W.(<=) base minE) () >>= fun _ ->
-        let cardn = cardn_from_bounds base step minE in
-        !!(create base ~step ~cardn)
-      end
-  (* whatever the result, we translate it by the original p1.base
-     to make up for the translation at the start.
-  *)
+    let step = W.lcm_exn p1.step p2.step in
+    if W.is_zero step then begin
+      (* If there is no bounded LCM then s1 or s2 are 0. In other words,
+         one of the inputs is a singleton. Thus the intersection is either
+         equal to the singleton or empty.
+      *)
+      if W.is_zero p2.step then
+        Option.some_if (elem p2.base p1) () >>= fun _ ->
+        !!(create p2.base)
+      else
+        Option.some_if (elem p1.base p2) () >>= fun _ ->
+        !! (create p1.base)
+    end else begin
+      bounded_diophantine p1.step p2.step p2.base >>= fun (x,_) ->
+      (* the result is the first point on p1 that is also on the infinite CLP
+         approximation of p2. Due to the translation of the CLPs, this is the
+         least possible value (before translating back) that can inhabit the
+         intersection.
+      *)
+      let base = W.mul x p1.step in
+      (* e1 and e2 are meaningful iff p1 and p2 respectively are non-infinite.
+         We therefore guard their use so that when either argument is
+         infinite, we compute the proper end.
+      *)
+      let minE = if p1_infinite then e2
+        else if p2_infinite then e1
+        else min e1 e2 in
+      (* If the least possible value in resulting set is greater than the
+         maximum possible value, then the set is empty. This does not apply
+         when p1 is infinite since sometimes the base of p2 (and therefore
+         the result) can wrap backwards over 0.
+      *)
+      Option.some_if (W.(<=) base minE) () >>= fun _ ->
+      let cardn = cardn_from_bounds base step minE in
+      !!(create base ~step ~cardn)
+    end
+    (* whatever the result, we translate it by the original p1.base
+       to make up for the translation at the start.
+    *)
   end |> (fun p -> translate p translation)
 
 (* Computes whether there exists any element in both CLPs
- *)
+*)
 let overlap (p1 : t) (p2 : t) : bool = not (is_bottom (intersection p1 p2))
 
 
@@ -569,10 +569,10 @@ let add (p1 : t) (p2 : t) : t =
   (* If either CLP is empty, return bottom *)
   Option.value_map ~default:(bottom sz) (finite_end p1) ~f:begin fun e1 ->
     Option.value_map ~default:(bottom sz) (finite_end p2) ~f:begin fun e2 ->
-        (* if either CLP has step 0 it is a singleton and
-           we simply add its value to each element of the other
-           This case is computed exactly.
-        *)
+      (* if either CLP has step 0 it is a singleton and
+         we simply add its value to each element of the other
+         This case is computed exactly.
+      *)
       if W.is_zero p1.step || is_one p1.cardn then translate p2 p1.base
       else if W.is_zero p2.step || is_one p2.cardn then translate p1 p2.base
       else if is_infinite p1 || is_infinite p2 then
@@ -643,14 +643,14 @@ let mul (p1 : t) (p2 : t) : t =
    TODO: describe
    TODO: should be in word_ops.ml???
    TODO: check!!!
- *)
+*)
 let lead_1_bit_run (w : word) ~hi ~lo : int =
   let rec lead_help (hi : int) (lo : int) : int =
     if hi = lo then hi else
-    let mid = (hi + lo) / 2 in
-    let hi_part = W.extract_exn ~hi ~lo:(mid + 1) w in
-    if W.is_zero (W.lnot hi_part) then lead_help mid lo
-    else lead_help hi (mid + 1)
+      let mid = (hi + lo) / 2 in
+      let hi_part = W.extract_exn ~hi ~lo:(mid + 1) w in
+      if W.is_zero (W.lnot hi_part) then lead_help mid lo
+      else lead_help hi (mid + 1)
   in
   assert(lo >= 0);
   assert(hi >= lo);
@@ -696,7 +696,7 @@ let compute_range_sep msb msb1 msb2 b1 b2 : int = if msb1 > msb2
 (* This algorithm closely follows the one in "Circular Linear Progressions
    in SWEET". It converts a CLP into an AP (terminology from the paper)
    by using the least non-wrapping superset.
- *)
+*)
 let logand (p1 : t) (p2 : t) : t =
   let sz = get_and_check_sizes p1 p2 in
   let bot = bottom sz in
@@ -709,7 +709,7 @@ let logand (p1 : t) (p2 : t) : t =
   (* We ensure that the cardinality of the second CLP is at
      least the cardinality of the first to collapse the two cases where
      once CLP has cardinality 1 and the other has cardinality 2.
-   *)
+  *)
   let p1, p2 = if W.(<=) (cardinality cp1) (cardinality cp2)
     then (cp1, cp2) else (cp2, cp1) in
   let open Monads.Std.Monad.Option.Syntax in
@@ -720,7 +720,7 @@ let logand (p1 : t) (p2 : t) : t =
     else if W.is_one p1.cardn && W.(=) p2.cardn cardn_two then
       (* CLPs can represent any two-element set exactly, so
          we compute the two elements of the set and return them.
-       *)
+      *)
       finite_end p2 >>= fun e2 ->
       let base = W.logand p1.base p2.base in
       let newE = W.logand p1.base e2 in
@@ -764,9 +764,9 @@ let logand (p1 : t) (p2 : t) : t =
             min_elem_p1 min_elem_p2
         in
         let mask = if l_s_b >= range_sep then W.zero sz
-              else let ones = W.ones (range_sep - l_s_b) in
-                let sized_ones = W.extract_exn ~hi:(sz - 1) ones in
-                Word.lshift sized_ones (W.of_int ~width:sz l_s_b) in
+          else let ones = W.ones (range_sep - l_s_b) in
+            let sized_ones = W.extract_exn ~hi:(sz - 1) ones in
+            Word.lshift sized_ones (W.of_int ~width:sz l_s_b) in
         let safe_lower_bound =
           W.logand min_elem_p1 min_elem_p2 |> W.logand (W.lnot mask) in
         let safe_upper_bound = W.logand max_elem_p1 max_elem_p2 |>
@@ -780,8 +780,8 @@ let logand (p1 : t) (p2 : t) : t =
                       range_sep = l_s_b then
             W.max p1.step twos_step
           else if most_significant_bit_p2 > most_significant_bit_p1 &&
-                      m_s_b = most_significant_bit_p2 &&
-                      range_sep = l_s_b then
+                  m_s_b = most_significant_bit_p2 &&
+                  range_sep = l_s_b then
             W.max p2.step twos_step
           else twos_step in
         let b1_and_b2 = W.logand min_elem_p1 min_elem_p2 in
@@ -882,7 +882,7 @@ let rshift (p1 : t) (p2 : t) : t =
 
    - [if 0 >= c1[n1 - 1]]
 
-   *)
+*)
 let arshift (p1 : t) (p2 : t) : t =
   let sz1 = bitwidth p1 in
   let sz2 = bitwidth p2 in
@@ -905,7 +905,7 @@ let arshift (p1 : t) (p2 : t) : t =
         if W.(>=) (W.signed p1.base) zero
         then W.arshift (W.signed p1.base) e2
         else W.arshift (W.signed p1.base) p2.base
-        in
+      in
 
       let step = rshift_step W.arshift ~p1 ~p2 ~e2 ~sz1 ~sz2 in
 
@@ -913,7 +913,7 @@ let arshift (p1 : t) (p2 : t) : t =
         if W.(>=) (W.signed e1) zero
         then W.arshift (W.signed e1) p2.base
         else W.arshift (W.signed e1) e2
-        in
+      in
       let cardn = cardn_from_bounds base step new_end in
 
       !!(create base ~step ~cardn)
@@ -1064,8 +1064,8 @@ let of_list ~width l : t =
             assert(W.bitwidth diff = W.bitwidth step);
             assert(W.bitwidth diff = W.bitwidth d);
             if W.(>) d diff
-             then i, d, bounded_gcd diff step
-             else idx, diff, bounded_gcd d step) in
+            then i, d, bounded_gcd diff step
+            else idx, diff, bounded_gcd d step) in
     let l = idx
             (* "rotate" the list left by the index of the desired first element *)
             |> List.split_n l
@@ -1101,13 +1101,13 @@ let div (p1 : t) (p2 : t) : t =
       let e = W.div max_e1 min_e2 in
       let step = if W.is_one (cardinality p2) &&
                     W.is_zero (W.modulo p1.step p2.base)
-          then bounded_gcd (W.div p1.step p2.base)
-              (W.sub (W.div p1.base p2.base) base)
-              (* TODO: improve step precision in cases where
-                 every element of the divisor divides every
-                 element of the dividend
-              *)
-          else W.one width in
+        then bounded_gcd (W.div p1.step p2.base)
+            (W.sub (W.div p1.base p2.base) base)
+            (* TODO: improve step precision in cases where
+               every element of the divisor divides every
+               element of the dividend
+            *)
+        else W.one width in
       let cardn = cardn_from_bounds base step e in
       !!{base; step; cardn}
   end
@@ -1163,7 +1163,7 @@ let meet = intersection
 let widen_join (p1 : t) (p2 : t) =
   assert (subset p1 p2);
   if equal p1 p2 then p1 else
-  infinite (p2.base, p2.step)
+    infinite (p2.base, p2.step)
 
 (* Implement the Value interface *)
 

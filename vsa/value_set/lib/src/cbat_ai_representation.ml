@@ -68,8 +68,8 @@ let add_memory (e : t) ~(key : var) ~(data : Mem.t) : t =
      to be safe in the case that the implementation changes.
   *)
   canonize
-  {memories = MemEnv.add e.memories ~key ~data;
-   words = e.words}
+    {memories = MemEnv.add e.memories ~key ~data;
+     words = e.words}
 
 (* adds a variable to the words of the input env *)
 let add_word (e : t) ~(key : var) ~(data : wordset) : t =
@@ -78,8 +78,8 @@ let add_word (e : t) ~(key : var) ~(data : wordset) : t =
      to be safe in the case that the implementation changes.
   *)
   canonize
-  {memories = e.memories;
-   words = WordEnv.add e.words ~key ~data}
+    {memories = e.memories;
+     words = WordEnv.add e.words ~key ~data}
 
 let find_word (i : WordSet.idx) (env : t) (v : var) : wordset = WordEnv.find i env.words v
 let find_memory (i : Mem.idx) (env : t) (v : var) : Mem.t = MemEnv.find i env.memories v
@@ -104,9 +104,9 @@ let join (e1 : t) (e2 : t) : t =
      to be safe in the case that the implementation changes.
   *)
   canonize
-  { memories = MemEnv.join e1.memories e2.memories;
-    words = WordEnv.join e1.words e2.words
-  }
+    { memories = MemEnv.join e1.memories e2.memories;
+      words = WordEnv.join e1.words e2.words
+    }
 
 let widen_join (e1 : t) (e2 : t) : t =
   (* Note: canonization is unnecessary here given the current
@@ -114,18 +114,18 @@ let widen_join (e1 : t) (e2 : t) : t =
      to be safe in the case that the implementation changes.
   *)
   canonize
-  { memories = MemEnv.widen_join e1.memories e2.memories;
-    words = WordEnv.widen_join e1.words e2.words
-  }
+    { memories = MemEnv.widen_join e1.memories e2.memories;
+      words = WordEnv.widen_join e1.words e2.words
+    }
 
 let meet (e1 : t) (e2 : t) : t =
   (* unlike the other operations, canonization is necessary here
      since the meet of two non-bottom elements can be bottom
   *)
   canonize
-  { memories = MemEnv.meet e1.memories e2.memories;
-    words = WordEnv.meet e1.words e2.words
-  }
+    { memories = MemEnv.meet e1.memories e2.memories;
+      words = WordEnv.meet e1.words e2.words
+    }
 
 let precedes (e1 : t) (e2 : t) : bool =
   MemEnv.precedes e1.memories e2.memories &&

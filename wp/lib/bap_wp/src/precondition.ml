@@ -683,16 +683,16 @@ let indirect_spec_default : Env.indirect_spec =
    * when we can use it to determine the destination of the
    * indirect call. *)
   fun env post _exp has_return ->
-  if has_return then increment_stack_ptr post env
-  else post, env
+    if has_return then increment_stack_ptr post env
+    else post, env
 
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
 
 let int_spec_default : Env.int_spec =
   fun env post _ ->
-  error "Currently we do not handle system calls%!";
-  post, env
+    error "Currently we do not handle system calls%!";
+    post, env
 
 let num_unroll : int ref = ref 5
 
@@ -1204,13 +1204,13 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
 let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   : Env.exp_cond =
   fun env1 exp ->
-  let ctx = Env.get_context env1 in
-  let conds = collect_mem_read_expr env1 env2 exp offset in
-  let name = "Assume memory equivalence at offset" in
-  if List.is_empty conds then
-    None
-  else
-    Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
+    let ctx = Env.get_context env1 in
+    let conds = collect_mem_read_expr env1 env2 exp offset in
+    let name = "Assume memory equivalence at offset" in
+    if List.is_empty conds then
+      None
+    else
+      Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
 let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
     (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =

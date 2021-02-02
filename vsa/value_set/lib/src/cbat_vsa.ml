@@ -75,7 +75,7 @@ type wordset = WordSet.t
 (* Denotations
    =========================================================
    These functions are denotations of terms in BIR
- *)
+*)
 
 
 (* bitwidth is the width of the two inputs *)
@@ -235,14 +235,14 @@ let rec denote_exp (e : exp) (env : AI.t) : val_t or_type_error =
   let return_mem (v : Mem.t) = return @@ `Mem v in
   match e with
   | Bil.Var v -> begin match Var.typ v with
-    | Type.Imm bitwidth -> return_imm @@ AI.find_word bitwidth env v
-    | Type.Mem (addr_i, addressable_size) ->
-      let addr_width : int = Size.in_bits addr_i in
-      let addressable_width : int = Size.in_bits addressable_size in
-      let k = {Mem.addr_width = addr_width;
-               Mem.addressable_width = addressable_width} in
-      return_mem @@ AI.find_memory k env v
-    | Type.Unk -> failwith "Error in denote_exp: var type is not representable by Type.t"
+      | Type.Imm bitwidth -> return_imm @@ AI.find_word bitwidth env v
+      | Type.Mem (addr_i, addressable_size) ->
+        let addr_width : int = Size.in_bits addr_i in
+        let addressable_width : int = Size.in_bits addressable_size in
+        let k = {Mem.addr_width = addr_width;
+                 Mem.addressable_width = addressable_width} in
+        return_mem @@ AI.find_memory k env v
+      | Type.Unk -> failwith "Error in denote_exp: var type is not representable by Type.t"
     end
   | Bil.Int bv -> return_imm @@ WordSet.singleton bv
   | Bil.BinOp (op, e1, e2) ->
@@ -363,15 +363,15 @@ let denote_jump (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
     let inspect_call c =
       Format.printf "//Assuming a well-formed call-return control flow@.";
       match Call.return c with
-        | None -> AI.bottom
-        | Some (Direct tid) when not (target = tid) -> AI.bottom
-        | Some (Indirect _)
-        | Some (Direct _) ->
-          (* In this case, the call might return to target *)
-          begin match Call.target c with
-            | Indirect _ -> AI.top
-            | Direct sub -> denote_call ~sub env ~target
-          end in
+      | None -> AI.bottom
+      | Some (Direct tid) when not (target = tid) -> AI.bottom
+      | Some (Indirect _)
+      | Some (Direct _) ->
+        (* In this case, the call might return to target *)
+        begin match Call.target c with
+          | Indirect _ -> AI.top
+          | Direct sub -> denote_call ~sub env ~target
+        end in
     begin match Jmp.kind jmp with
       | Int _ -> not_implemented ~top:AI.top "interrupt denotation"
       | Call c -> inspect_call c
@@ -379,7 +379,7 @@ let denote_jump (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
       | Ret (Direct tid) ->  if target = tid then env else AI.bottom
       | Goto (Indirect _)
       | Ret (Indirect _) -> env
-      end
+    end
   end
   |> Seq.fold ~init:AI.bottom ~f:AI.join
 
@@ -388,11 +388,11 @@ let denote_jump (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
 *)
 let denote_block (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
     (ctx : program term) ~(source : tid) (env : AI.t) : target:tid -> AI.t =
- match (Program.lookup blk_t ctx source) with
-   | Some b ->
-     let postcond = denote_defs b env in
-     denote_jump denote_call b postcond
-   | None -> invalid_arg "source tid does not represent block"
+  match (Program.lookup blk_t ctx source) with
+  | Some b ->
+    let postcond = denote_defs b env in
+    denote_jump denote_call b postcond
+  | None -> invalid_arg "source tid does not represent block"
 
 
 type vsa_sol = (tid, AI.t) Solution.t
@@ -412,7 +412,7 @@ let default_entry () : AI.t =
 
 (* Set up the initial solution for a general VSA pass over a subroutine.
    Assumes that the inputs can be any valid values for their types.
- *)
+*)
 let init_sol ?entry (sub : sub term) =
   let empty_map = Tid.Map.empty in
   let msb = Term.first blk_t sub in

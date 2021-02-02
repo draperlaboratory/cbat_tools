@@ -21,10 +21,10 @@ end
 (** This is the Primus component mentioned above that runs at startup.
     Note that it must be parameterized by a {!Configuration} module. *)
 module Make 
-    : functor (Conf : Configuration) (Machine : Primus.Machine.S) -> sig
+  : functor (Conf : Configuration) (Machine : Primus.Machine.S) -> sig
 
-  (* This function subscribes to the appropriate Primus events, so it
-     can do its thing when Primus starts up. *)
-  val init : unit -> unit Machine.t
+    (* This function subscribes to the appropriate Primus events, so it
+       can do its thing when Primus starts up. *)
+    val init : unit -> unit Machine.t
 
-end
+  end

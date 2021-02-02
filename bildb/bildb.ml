@@ -13,8 +13,8 @@ module Param = struct
   open Config
 
   let () = manpage [
-    `S "DESCRIPTION";
-    `P "A Primus-based BIL debugger.";
+      `S "DESCRIPTION";
+      `P "A Primus-based BIL debugger.";
     ]
 
   let debug = flag "debug" ~doc:"Run the debugger."

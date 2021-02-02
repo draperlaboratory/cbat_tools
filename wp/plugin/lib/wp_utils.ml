@@ -57,7 +57,7 @@ end
 
 (* Reads in the program_t and its architecture from a file. *)
 let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
-    : Program.t * Arch.t =
+  : Program.t * Arch.t =
   let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
   let program_digest = Cache.Digests.program mk_digest in
   match Cache.Program.load program_digest with
@@ -141,6 +141,6 @@ let output_to_gdb ~(filename : string option) ~(func : string)
 (* Checks the user's input for outputting a bildb script. *)
 let output_to_bildb ~(filename : string option) (solver : Z3.Solver.solver)
     (status : Z3.Solver.status) (env : Env.t) : unit =
- match filename with
+  match filename with
   | None -> ()
   | Some name -> Output.output_bildb solver status env name

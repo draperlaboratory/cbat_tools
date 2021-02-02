@@ -24,7 +24,7 @@ let test_validate_input
     ?length:(length = Immediate)
     ~valid:(valid : bool)
     (res : (unit, error) result)
-   : test =
+  : test =
   let test _ = match res with
     | Error _ -> assert_bool "Returned an error when params are valid" (not valid)
     | Ok () -> assert_bool "Should have returned an error for an invalid param" valid

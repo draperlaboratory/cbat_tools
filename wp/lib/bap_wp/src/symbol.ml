@@ -36,7 +36,7 @@ let exec_err (cmd : string) (e : exn) : string =
 
 let cmd_err (cmd : string) (code : int) (out : string) (err : string) : string =
   Format.sprintf "Command exited with non-zero exit code.\nCMD: '%s'\n \
-                 EXIT CODE: '%d'\nSTDOUT: %s\nSTDERR: %s%!" cmd code out err
+                  EXIT CODE: '%d'\nSTDOUT: %s\nSTDERR: %s%!" cmd code out err
 
 let run_command (cmd : string) : string =
   let code, out, err = try

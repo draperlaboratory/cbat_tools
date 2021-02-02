@@ -36,7 +36,7 @@ module Word_ops = Cbat_word_ops
     (This is largely baked into BAP as well)
     TODO: fix this via a secondary, internal module that
     adapts its interface to deal with this.
- *)
+*)
 let addressable_width = 8
 
 module Key = struct
@@ -334,7 +334,7 @@ end = struct
     let top = Seq.singleton @@ WordSet.top sz in
     let p = replicate_wordset v.data sz in
     if WordSet.bitwidth p mod sz > 0 then Utils.not_implemented ~top
-       (Printf.sprintf "%i-val cast to incompatible size %i" w sz)
+        (Printf.sprintf "%i-val cast to incompatible size %i" w sz)
     else let wordset_seq = segment_wordset p sz in
       match e with
       | BigEndian -> reverse_seq wordset_seq
@@ -419,7 +419,7 @@ let bottom (i : idx) : t =
    variable endianness or width properly. These must be addressed.
    TODO: performance: the add functions all sometimes split existing
    intervals. This might usually work, but could cause pathological blowup
- *)
+*)
 
 (* helper function *)
 let default_value (o : BL.t) (i : Val.idx) : Val.t =

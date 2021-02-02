@@ -79,46 +79,46 @@ let add_edges (prog : program term) (s : sub term) (postcondition : AI.t) (b : b
   *)
   (* keep all direct jumps and attempt to enumerate the cases of indirect jumps *)
   |> Seq.iter  ~f:begin fun j -> begin match Jmp.kind j with
-    | Goto (Direct _) | Ret (Direct _) -> ()
-    | Goto (Indirect e) | Ret (Indirect e) ->
-      let targets = Utils.exn_on_err @@ Vsa.denote_imm_exp e postcondition in
-      let cardn = Clp.cardinality targets in
-      if cardn > Word.of_int !Utils.max_edge_explosion ~width:(Word.bitwidth cardn)
-      then Printf.printf "//Edge transform produced edge explosion (>%d)@.\n" !Utils.max_edge_explosion
-      else List.iter (Clp.iter targets) ~f:begin fun w ->
-          (* TODO: this cond is computed twice; fix *)
-          let cond = specialize_cond (Jmp.cond j) e w in
-          let new_j = concrete_jump Jmp.create_goto s (Jmp.cond j) e w in
-          if not @@ List.mem !conds cond ~equal:Bap.Std.Exp.equal
-          (* TODO: this fix should not be necessary; investigate further *)
-          && not (Bap.Std.Exp.equal e (Bil.Int w)) then begin
-            Blk.Builder.add_jmp jump_builder new_j;
-            edges_added := EdgesAdded;
-            conds := cond::!conds;
-          end
-        end
-    | Call c ->
-      (* TODO: specialize return when possible. (Low priority; rarely needed) *)
-      begin match Call.target c with
-        | Direct _ -> ()
-        | Indirect e ->
-          let targets = Utils.exn_on_err @@ Vsa.denote_imm_exp e postcondition in
-          let cardn = Clp.cardinality targets in
-          if cardn > Word.of_int !Utils.max_edge_explosion ~width:(Word.bitwidth cardn)
-          then Printf.printf "//Edge transform produced edge explosion@."
-          else List.iter (Clp.iter targets) ~f:begin fun w ->
-              let cond = specialize_cond (Jmp.cond j) e w in
-              let lbl = create_call_label prog w in
-              let new_c = Call.with_target c lbl in
-              let new_j = Jmp.create_call ~cond new_c in
-              if not @@ List.mem !conds cond ~equal:Bap.Std.Exp.equal then begin
-                Blk.Builder.add_jmp jump_builder new_j;
-                edges_added := EdgesAdded;
-                conds := cond::!conds;
-              end
+      | Goto (Direct _) | Ret (Direct _) -> ()
+      | Goto (Indirect e) | Ret (Indirect e) ->
+        let targets = Utils.exn_on_err @@ Vsa.denote_imm_exp e postcondition in
+        let cardn = Clp.cardinality targets in
+        if cardn > Word.of_int !Utils.max_edge_explosion ~width:(Word.bitwidth cardn)
+        then Printf.printf "//Edge transform produced edge explosion (>%d)@.\n" !Utils.max_edge_explosion
+        else List.iter (Clp.iter targets) ~f:begin fun w ->
+            (* TODO: this cond is computed twice; fix *)
+            let cond = specialize_cond (Jmp.cond j) e w in
+            let new_j = concrete_jump Jmp.create_goto s (Jmp.cond j) e w in
+            if not @@ List.mem !conds cond ~equal:Bap.Std.Exp.equal
+            (* TODO: this fix should not be necessary; investigate further *)
+            && not (Bap.Std.Exp.equal e (Bil.Int w)) then begin
+              Blk.Builder.add_jmp jump_builder new_j;
+              edges_added := EdgesAdded;
+              conds := cond::!conds;
             end
-      end
-    | Int _ -> Utils.not_implemented ~top:() "Edge concretization for interrupt";
+          end
+      | Call c ->
+        (* TODO: specialize return when possible. (Low priority; rarely needed) *)
+        begin match Call.target c with
+          | Direct _ -> ()
+          | Indirect e ->
+            let targets = Utils.exn_on_err @@ Vsa.denote_imm_exp e postcondition in
+            let cardn = Clp.cardinality targets in
+            if cardn > Word.of_int !Utils.max_edge_explosion ~width:(Word.bitwidth cardn)
+            then Printf.printf "//Edge transform produced edge explosion@."
+            else List.iter (Clp.iter targets) ~f:begin fun w ->
+                let cond = specialize_cond (Jmp.cond j) e w in
+                let lbl = create_call_label prog w in
+                let new_c = Call.with_target c lbl in
+                let new_j = Jmp.create_call ~cond new_c in
+                if not @@ List.mem !conds cond ~equal:Bap.Std.Exp.equal then begin
+                  Blk.Builder.add_jmp jump_builder new_j;
+                  edges_added := EdgesAdded;
+                  conds := cond::!conds;
+                end
+              end
+        end
+      | Int _ -> Utils.not_implemented ~top:() "Edge concretization for interrupt";
     end;
     (* We always add the original jump back *)
     Blk.Builder.add_jmp jump_builder j;
@@ -138,7 +138,7 @@ let insert_edges prog sub sol : sub term * is_done =
     let edges_added = both_done edges_added changed in
     let sub' = Term.update blk_t sub res in
     sub', edges_added
-end
+  end
 
 let rec do_until_done ?fuel (f : 'a -> 'a * is_done) (arg : 'a) : 'a =
   if fuel = Some 0 then begin
@@ -197,6 +197,6 @@ module Cmdline = struct
       `S "DESCRIPTION";
       `P
         ("Makes edges in the control-flow graph explicit by rewriting jumps"^
-      " to be direct (target specific locations/tids) where possible.")
+         " to be direct (target specific locations/tids) where possible.")
     ]
 end

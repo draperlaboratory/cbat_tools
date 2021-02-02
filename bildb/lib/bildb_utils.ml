@@ -18,15 +18,15 @@ let pad (s : string) (width : int) : string =
    fill up a screen of the specified [width]. *)
 let tabulate (data : string list) (width : int) : string list =
   let widest = List.fold data ~init:0 ~f:(fun acc s ->
-    let len = String.length s in
-    if Int.(>) len acc then len
-    else acc
+      let len = String.length s in
+      if Int.(>) len acc then len
+      else acc
     ) in
   let item_width = widest + Ui.col_padding in
   let cols = width / item_width in
   let chunks = List.chunks_of data cols in
   List.map chunks ~f:(fun chunk ->
-    String.concat (List.map chunk ~f:(fun s -> pad s item_width)))
+      String.concat (List.map chunk ~f:(fun s -> pad s item_width)))
 
 (* Splits a string on white space characters and trims each word. *)
 let words_of (s : string) : string list =

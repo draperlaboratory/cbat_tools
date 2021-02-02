@@ -37,11 +37,11 @@ let end_tag = "\x1b[0m"
 type t = { style : style; color : color; newline : string; text : string }
 
 let mk 
-      ?style:(style=Plain) 
-      ?color:(color=Default) 
-      ?newline:(newline="") 
-      (text : string) 
-    : t = { style; color; newline; text }
+    ?style:(style=Plain) 
+    ?color:(color=Default) 
+    ?newline:(newline="") 
+    (text : string) 
+  : t = { style; color; newline; text }
 
 let for_terminal t : string =
   let start_style = start_of_style t.style in
@@ -50,7 +50,7 @@ let for_terminal t : string =
     match (start_style, start_color) with
     | ("","") -> ""
     | _ -> end_tag
-    in
+  in
   Printf.sprintf "%s%s%s%s%s" start_style start_color t.text fini t.newline
 
 let to_string t : string = t.text

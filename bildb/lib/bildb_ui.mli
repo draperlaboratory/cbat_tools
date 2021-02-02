@@ -106,7 +106,7 @@ end
 
     If a screen includes no prompt or handler, it simply returns 
     a "Finished" event after it is rendered.
-    
+
     The {!Make.render} function is recursive, so if it renders a screen
     with a handler that returns a new screen, it will render that new
     screen too, and the process can repeat until a quit or finish event

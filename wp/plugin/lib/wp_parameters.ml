@@ -114,7 +114,7 @@ let validate_compare_func_calls (flag : bool) (files : string list)
 
 (* Ensures the uer passed in two files to check for invalid dereferences. *)
 let validate_check_invalid_derefs (flag : bool) (files : string list)
-    : (unit, error) result =
+  : (unit, error) result =
   validate_two_files flag "check-invalid-derefs" files
 
 (* Ensures the user passed in two files to compare post register values. *)

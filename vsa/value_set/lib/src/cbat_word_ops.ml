@@ -57,7 +57,7 @@ let bounded_gcd (w1 : word) (w2 : word) : word =
 
 (* Performs an unsigned division that rounds updwards instead of downwards. *)
 let cdiv a b : word = if W.is_zero (W.modulo a b)
-    then W.div a b else W.succ (W.div a b)
+  then W.div a b else W.succ (W.div a b)
 
 let is_one (w : word) : bool = W.is_zero (W.pred w)
 
@@ -124,10 +124,10 @@ let lead_1_bit (w : word) : int option =
     let open Monads.Std.Monad.Option.Syntax in
     Option.some_if (hi >= lo) () >>= fun _ ->
     if hi = lo then !!hi else
-    let mid = (hi + lo) / 2 in
-    let hi_part = W.extract_exn ~hi ~lo:(mid + 1) w in
-    if W.is_zero hi_part then lead_help mid lo
-    else lead_help hi (mid + 1)
+      let mid = (hi + lo) / 2 in
+      let hi_part = W.extract_exn ~hi ~lo:(mid + 1) w in
+      if W.is_zero hi_part then lead_help mid lo
+      else lead_help hi (mid + 1)
   in
   if W.is_zero w then None else lead_help ((W.bitwidth w) - 1) 0
 

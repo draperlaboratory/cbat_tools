@@ -3,11 +3,11 @@
     In particular, this module loads a file that looks like this:
 
     {[
-            Variables:
-              RAX: 0x00000abc
-              RDI: 0xdeadbeaf
-            Locations:
-              0x3ffffff1: 0x00000003
+      Variables:
+        RAX: 0x00000abc
+          RDI: 0xdeadbeaf
+          Locations:
+        0x3ffffff1: 0x00000003
     ]}
 
     It parses that file, and builds a {!Data.State.t} record, to

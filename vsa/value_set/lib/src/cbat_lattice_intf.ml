@@ -49,7 +49,7 @@ end
    The lattice structure is maintained over elements with the
    same index. Meet, join, and precedes should be expected to error if
    passed elements with different indices.
- *)
+*)
 module type S_indexed = sig
   type t
   type idx

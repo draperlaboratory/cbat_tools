@@ -291,7 +291,7 @@ module Make (Machine : Primus.Machine.S) = struct
           | Some b -> set_blk (Some b)
           | None -> set_blk None 
         end
-      in
+    in
     let* _ = set_tid (Some tid) in
     Machine.return () 
 

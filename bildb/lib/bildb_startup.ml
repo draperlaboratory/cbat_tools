@@ -40,27 +40,27 @@ module Make (Conf : Configuration) (Machine : Primus.Machine.S) = struct
   let initialize_variables (state : Data.t) : unit Machine.t =
     let vars = Data.variables state in
     let output = List.map vars ~f:(fun variable ->
-      let w = Data.word_of_var_value variable in
-      let* var = find_var (Data.string_of_var_key variable) in
-      match var with
-      | None -> Machine.return ()
-      | Some v -> set_variable v w)
-      in
+        let w = Data.word_of_var_value variable in
+        let* var = find_var (Data.string_of_var_key variable) in
+        match var with
+        | None -> Machine.return ()
+        | Some v -> set_variable v w)
+    in
     Machine.sequence output
 
   (* Set the locations specified in [state] to the provided values. *)
   let initialize_locations (state : Data.t) : unit Machine.t =
     let locs = Data.locations state in
     let output = List.map locs ~f:(fun location ->
-      let a = Data.word_of_loc_address location in
-      let w = Data.word_of_loc_value location in
-      let* is_mapped = Mem.is_mapped a in
-      let* _ = if is_mapped
-        then Machine.return ()
-        else Mem.allocate a 1
+        let a = Data.word_of_loc_address location in
+        let w = Data.word_of_loc_value location in
+        let* is_mapped = Mem.is_mapped a in
+        let* _ = if is_mapped
+          then Machine.return ()
+          else Mem.allocate a 1
         in
-      Mem.store a w)
-      in
+        Mem.store a w)
+    in
     Machine.sequence output
 
   (* This function is triggered when {Primus.System.init} fires.

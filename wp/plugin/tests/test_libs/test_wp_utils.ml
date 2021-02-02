@@ -118,33 +118,33 @@ let check_result (stream : char Stream.t) (expected_result : string)
 let check_list (expected_reg_models : ((string * string) list) list )
   : (string StringMap.t -> string option) =
   fun observed_mapping ->
-  List.foldi expected_reg_models ~init:(Some "") ~f:(fun i seen_match model ->
-      match seen_match with
-      | Some err ->
-        let result = List.fold model ~init:(None) ~f:(fun acc (reg, value) ->
-            let err =
-              begin match StringMap.find observed_mapping reg with
-                (* if register not observed, then fail *)
-                | None ->
-                  Some (Printf.sprintf
-                    "\n\tRegister %s not found in returned model.\n" reg)
-                | Some observed_value ->
-                  if String.equal observed_value value then None
-                  else
+    List.foldi expected_reg_models ~init:(Some "") ~f:(fun i seen_match model ->
+        match seen_match with
+        | Some err ->
+          let result = List.fold model ~init:(None) ~f:(fun acc (reg, value) ->
+              let err =
+                begin match StringMap.find observed_mapping reg with
+                  (* if register not observed, then fail *)
+                  | None ->
                     Some (Printf.sprintf
-                      "\tRegister mismatch: %s expected to be %s but was %s\n"
-                      reg value observed_value)
-              end in
-            Option.merge ~f:(^) acc err
-          ) in
-        begin match result with
-          | None -> None
-          | Some cur_err ->
-            let model_msg = (Printf.sprintf "\nModel %d:\n" i) in
-            Some (err ^ model_msg ^ cur_err)
-        end
-      | None -> seen_match
-    )
+                            "\n\tRegister %s not found in returned model.\n" reg)
+                  | Some observed_value ->
+                    if String.equal observed_value value then None
+                    else
+                      Some (Printf.sprintf
+                              "\tRegister mismatch: %s expected to be %s but was %s\n"
+                              reg value observed_value)
+                end in
+              Option.merge ~f:(^) acc err
+            ) in
+          begin match result with
+            | None -> None
+            | Some cur_err ->
+              let model_msg = (Printf.sprintf "\nModel %d:\n" i) in
+              Some (err ^ model_msg ^ cur_err)
+          end
+        | None -> seen_match
+      )
 
 (* given a list of registers, [register_names], and a mapping, [mapping],
    from registers to bitvector values, returns a list of bitvectors
@@ -226,16 +226,16 @@ let get_register_args (n : int) (arch : Arch.t): string list =
 (* returns a function that checks a [n] by [n] nqueens board. *)
 let check_n_queens (n: int) (arch : Arch.t) : (string StringMap.t -> string option) =
   fun var_mapping ->
-  let width = 64 in
-  let board_args = get_register_args 6 arch in
-  let num_bits = n * n in
-  let num_registers = num_bits / width in
-  (* n <= 3 has no solutions *)
-  if n <= 3 then assert_failure "Nqueens example run on too small of an n";
-  let filtered_board_args = board_args |> List.filteri ~f:(fun i _ -> i <= num_registers)
-  in
-  let board_pieces = gather_register_values filtered_board_args var_mapping in
-  check_n_queen_diag_col_row n board_pieces
+    let width = 64 in
+    let board_args = get_register_args 6 arch in
+    let num_bits = n * n in
+    let num_registers = num_bits / width in
+    (* n <= 3 has no solutions *)
+    if n <= 3 then assert_failure "Nqueens example run on too small of an n";
+    let filtered_board_args = board_args |> List.filteri ~f:(fun i _ -> i <= num_registers)
+    in
+    let board_pieces = gather_register_values filtered_board_args var_mapping in
+    check_n_queen_diag_col_row n board_pieces
 
 (* given a sudoku board and list of indices,
    check that indices preserve sudoku invariants *)
@@ -284,7 +284,7 @@ let check_bad_hash_function (registers : string list) : ((string StringMap.t) ->
       None
     else
       Some (Printf.sprintf "\n Expected the hash %s but got hash %s"
-        (Bitvector.to_string result) (Bitvector.to_string result_index))
+              (Bitvector.to_string result) (Bitvector.to_string result_index))
 
 (* The length of a test_case is in seconds.
    OUnit has predefined test lengths of:

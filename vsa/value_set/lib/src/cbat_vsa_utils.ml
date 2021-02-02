@@ -13,20 +13,20 @@
 
 (* Utility functions specific to this project but not associated with
    any particular piece of functionality.
- *)
+*)
 
 exception NotImplemented of string
 
 (* When true, the analysis fails whenever it encounters a denotation
    that isn't implemented yet. When false, the analysis proceeds with
    a (very) conservative approximation.
- *)
+*)
 let fail_on_not_implemented = ref true
 
 (* call as a placeholder where a piece of code has not been written yet.
    An optional argument, top, is for a conservative approximation of
    the desired result, where appropriate.
- *)
+*)
 let not_implemented ?(top : 'a option) component : 'a = match top with
   | None -> raise (NotImplemented component)
   | Some tp -> if !fail_on_not_implemented

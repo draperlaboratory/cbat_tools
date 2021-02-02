@@ -42,7 +42,7 @@ module Lexer = struct
   (* For printing all errors at once. *)
   let string_of_errors (errors : token list) : string =
     let pieces = List.map errors ~f:(fun x ->
-      Printf.sprintf "- %s" (string_of_token x)) in
+        Printf.sprintf "- %s" (string_of_token x)) in
     String.concat pieces ~sep:"\n"
 
   (* This function takes a line number [n] and a line from an init file,
@@ -55,22 +55,22 @@ module Lexer = struct
     else
 
       (* It could be a 'Variables:' or 'Locations:' heading. *)
-      if String.is_prefix s ~prefix:"Variables:" then [Variables n]
-      else
-        if String.is_prefix s ~prefix:"Locations:" then [Locations n]
-        else
+    if String.is_prefix s ~prefix:"Variables:" then [Variables n]
+    else
+    if String.is_prefix s ~prefix:"Locations:" then [Locations n]
+    else
 
-          (* Otherwise, we should have a 'key : value' line. *)
-          let pieces = String.split s ~on:':' in
-          if List.length pieces <> 2 then
-            let msg = 
-              Printf.sprintf "Expected 'key : value' but got '%s'" s in
-            [Error (n, msg)]
-          else
-            let pieces' = List.map pieces ~f:String.strip in
-            let key = List.nth_exn pieces' 0 in
-            let value = List.nth_exn pieces' 1 in
-            [Key (n, key); Value (n, value)]
+      (* Otherwise, we should have a 'key : value' line. *)
+      let pieces = String.split s ~on:':' in
+      if List.length pieces <> 2 then
+        let msg = 
+          Printf.sprintf "Expected 'key : value' but got '%s'" s in
+        [Error (n, msg)]
+      else
+        let pieces' = List.map pieces ~f:String.strip in
+        let key = List.nth_exn pieces' 0 in
+        let value = List.nth_exn pieces' 1 in
+        [Key (n, key); Value (n, value)]
 
   (* Recursively tokenize each line of the init file. *)
   let rec next ?n:(n=1) (lines : string list) : t =
@@ -85,8 +85,8 @@ module Lexer = struct
   let tokenize (lines : string list) : (t, string) Stdlib.result =
     let toks = next lines in
     let errors = List.filter toks ~f:(fun x -> match x with
-      | Error _ -> true
-      | _ -> false) in
+        | Error _ -> true
+        | _ -> false) in
     match List.length errors = 0 with
     | false -> Error (string_of_errors errors)
     | true -> Ok toks
@@ -191,9 +191,9 @@ module Parser = struct
       | Lexer.Variables _ -> 
         begin
           let var_tokens, the_rest = List.split_while tail ~f:(fun x ->
-            match x with
-            | Lexer.Locations _ -> false
-            | _ -> true) in
+              match x with
+              | Lexer.Locations _ -> false
+              | _ -> true) in
           let r = vars_from var_tokens in
           match r with
           | Error e -> Error e
@@ -208,9 +208,9 @@ module Parser = struct
       | Lexer.Locations _ ->
         begin
           let loc_tokens, the_rest = List.split_while tail ~f:(fun x ->
-            match x with
-            | Lexer.Variables _ -> false
-            | _ -> true) in
+              match x with
+              | Lexer.Variables _ -> false
+              | _ -> true) in
           let r = locs_from loc_tokens in
           match r with
           | Error e -> Error e
