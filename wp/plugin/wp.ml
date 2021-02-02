@@ -209,8 +209,13 @@ let func_name_map = Cmd.parameter Typ.(list ~sep:';' (pair ~sep:',' string strin
            assumes subroutines have the same names between the two binaries.|}
 
 let user_func_spec = Cmd.parameter Typ.(some (t3 string string string)) "user-func-spec"
-    ~doc:{|A string of the form Name:Spec where Name is the name of a function the
-           user would like to add a special postcondition (Spec) for.|}
+    ~doc:{|Creates the weakest precondition for a subroutine given the 
+           name of the subroutine and its pre and post-conditions. Usage:
+           --user-func-spec="<sub name>,<precondition>,<postcondition>". For example,
+           --user-func-spec="foo,(assert (= RAX RDI)),(assert (= RAX init_RDI)"
+           means "for subroutine named foo, specify that its precondition is 
+           RAX = RDI and its postcondition is RAX = init_RDI".|}  
+
 
 let grammar = Cmd.(
     args

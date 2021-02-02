@@ -76,7 +76,7 @@ and fun_spec_type =
 
 and fun_spec = {
   spec_name : string;
-  spec : fun_spec_type;
+  spec : fun_spec_type
 }
 
 and indirect_spec = t -> Constr.t -> Exp.t -> bool -> Constr.t * t
@@ -477,7 +477,7 @@ let update_stack_base (range : mem_range) (base : int) : mem_range =
 let update_stack_size (range : mem_range) (size : int) : mem_range =
   { range with size = size }
 
-let mk_init_var (env : t) (var : Var.t) : Z3.Expr.expr * t =
+let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
