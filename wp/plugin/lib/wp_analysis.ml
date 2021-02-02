@@ -75,7 +75,7 @@ let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
             let not_in_mod = not @@ Seq.exists subs_mod ~f:(fun s ->
                 String.equal (Sub.name s) name_mod) in
             begin if not_in_mod then
-                warning "%s is not found in the modified binary." name_mod
+              warning "%s is not found in the modified binary." name_mod
             end;
             String.Map.set m ~key:name_orig ~data:name_mod
           else m))

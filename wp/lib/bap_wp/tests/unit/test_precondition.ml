@@ -37,7 +37,6 @@ let assert_z3_result (test_ctx : test_ctxt) (env : Env.t) (body : string)
     ~printer:Z3.Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nPost:\n%a\n\nAnalyzing:\n%sPre:\n%a\n\n%!"
-
           Constr.pp_constr post body Constr.pp_constr pre;
         print_z3_model solver exp real pre ~orig:env ~modif:env)
     expected result
@@ -1476,7 +1475,7 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
   let sub_post : string = "(assert (= x (bvadd init_x #x0000000000000002)))" in
   let sub_name : string = Sub.name sub in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
-      ~specs:[Pre.user_func_spec sub_name sub_pre sub_post]
+      ~specs:[Pre.user_func_spec ~sub_name:sub_name ~sub_pre:sub_pre ~sub_post:sub_post]
       ~subs:(Seq.of_list [main_sub; sub]) in
   let z3_x, env = Env.get_var env x in
   let init_x, env = Env.mk_init_var env x in
@@ -1495,7 +1494,6 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
   assert_z3_result test_ctx env (Sub.to_string main_sub) post goal Z3.Solver.UNSATISFIABLE
 
 let suite = [
-  "Test user specified subroutine specs" >:: test_user_func_spec;
   "Empty Block" >:: test_empty_block;
   "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
   "Assign SSA block: y = x+1; Post: y == x" >:: test_assign_2;
@@ -1617,4 +1615,5 @@ let suite = [
 
   "Compare init and current vals of var: UNSAT" >:: test_init_vars_1;
   "Compare init and current vals of var: SAT" >:: test_init_vars_2;
+  "Test user specified subroutine specs" >:: test_user_func_spec;
 ]
