@@ -234,14 +234,16 @@ let unit_tests = [
     sat ~script:"run_wp_2.sh";
   "User defined sub specs 3" >: test_plugin "smtlib_sub_spec/sub_spec_1"
     sat ~script:"run_wp_3.sh";
-  "User defined sub specs 4" >: test_plugin "smtlib_sub_spec/sub_spec_2"
-    sat ~script:"run_wp_1.sh";
+  "User defined sub specs 4" >: test_plugin "smtlib_sub_spec/sub_spec_1"
+    sat ~script:"run_wp_4.sh";
   "User defined sub specs 5" >: test_plugin "smtlib_sub_spec/sub_spec_2"
+    sat ~script:"run_wp_1.sh";
+  "User defined sub specs 6" >: test_plugin "smtlib_sub_spec/sub_spec_2"
     unsat ~script:"run_wp_2.sh";
-  "User defined sub specs 6" >: test_plugin "smtlib_sub_spec/sub_spec_3"
-    unsat ~script:"run_wp_1.sh";
   "User defined sub specs 7" >: test_plugin "smtlib_sub_spec/sub_spec_3"
-    sat ~script:"run_wp_2.sh";
+    unsat ~script:"run_wp_1.sh";
   "User defined sub specs 8" >: test_plugin "smtlib_sub_spec/sub_spec_3"
+    sat ~script:"run_wp_2.sh";
+  "User defined sub specs 9" >: test_plugin "smtlib_sub_spec/sub_spec_3"
     unsat ~script:"run_wp_3.sh";  
 ]

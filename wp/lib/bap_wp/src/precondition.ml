@@ -370,7 +370,7 @@ let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post 
   let ctx = Env.get_context env in
   let inputs = List.map inputs
       ~f:(fun i ->
-          let input, _ = Env.get_var env i in 
+          let input, _ = Env.get_var env i in
           input)
   in
   let input_sorts = List.map inputs ~f:Expr.get_sort in
@@ -684,16 +684,16 @@ let indirect_spec_default : Env.indirect_spec =
    * when we can use it to determine the destination of the
    * indirect call. *)
   fun env post _exp has_return ->
-    if has_return then increment_stack_ptr post env
-    else post, env
+  if has_return then increment_stack_ptr post env
+  else post, env
 
 let jmp_spec_default : Env.jmp_spec =
   fun _ _ _ _ -> None
 
 let int_spec_default : Env.int_spec =
   fun env post _ ->
-    error "Currently we do not handle system calls%!";
-    post, env
+  error "Currently we do not handle system calls%!";
+  post, env
 
 let num_unroll : int ref = ref 5
 
@@ -914,7 +914,7 @@ let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   let sub_name = (Sub.to_string sub) in
   debug "Visiting sub:\n%s%!" sub_name;
   let pre, env' =
-    if (Seq.is_empty @@ Term.enum blk_t sub)
+    if (Seq.is_empty @@ Term.enum blk_t sub) 
     then
       (
         warning "encountered empty subroutine %s%!" sub_name;
@@ -1185,8 +1185,7 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
   in
   visitor#visit_exp exp []
 
-let init_vars (vars : Var.Set.t) (env : Env.t)
-  : Constr.t list * Env.t =
+let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
   let ctx = Env.get_context env in
   Var.Set.fold vars ~init:([], env)
     ~f:(fun (inits, env) v ->
@@ -1218,10 +1217,10 @@ let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
       let sub_post, env = increment_stack_ptr sub_post env in
       (* collect (physical) inputs/outputs of sub *)
       let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
-      let sub_inputs : Var.t list =
+      let sub_inputs =
         List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
       let sub_outputs : Var.t list = sub_inputs in
-      let vars  = Set.add (Env.get_gprs env) (Env.get_mem env)
+      let vars = Set.add (Env.get_gprs env) (Env.get_mem env)
                   |> Var.Set.to_list in
       let regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
       let inits = List.map vars ~f:(fun v ->
