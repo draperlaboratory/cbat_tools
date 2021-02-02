@@ -56,5 +56,3 @@ val bil_to_sub : bil -> sub term
 (** Take a [sub term] and a type for the term to build a BIL
     function-call *)
 val call : sub term -> typ -> Bil.Types.stmt
-
-

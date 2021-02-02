@@ -1201,6 +1201,11 @@ let init_vars (vars : Var.Set.t) (env : Env.t)
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
 
+(* Builds a spec of the form (sub_pre /\ (sub_post => post) where post 
+   is the spec right before the subroutine call. All physical registers and mem
+   in post and sub_post are replaced with fresh Z3 functions, and init- physical 
+   registers/init-mem in sub_post are replaced with regular registers/mem. 
+   This is only applied for subroutines with the name sub_name. *)
 let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
     ~sub_post:(sub_post : string) (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   debug "Making user-defined subroutine spec with subroutine-name: %s, pre:
@@ -1249,13 +1254,13 @@ let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
 let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   : Env.exp_cond =
   fun env1 exp ->
-    let ctx = Env.get_context env1 in
-    let conds = collect_mem_read_expr env1 env2 exp offset in
-    let name = "Assume memory equivalence at offset" in
-    if List.is_empty conds then
-      None
-    else
-      Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
+  let ctx = Env.get_context env1 in
+  let conds = collect_mem_read_expr env1 env2 exp offset in
+  let name = "Assume memory equivalence at offset" in
+  if List.is_empty conds then
+    None
+  else
+    Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
 let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
     (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
