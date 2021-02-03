@@ -123,10 +123,18 @@ let exp_conds_mod (p : Params.t) : Env.exp_cond list =
   in
   null_derefs @ invalid_derefs
 
+(* Determine if the user added a user_func_spec. If so, parse the string and
+   apply the components to make a func_spec *)
+let parse_user_func_spec (p : Params.t) : (Sub.t -> Arch.t -> Env.fun_spec option) =
+  match p.user_func_spec with
+    Some (name,pre,post) -> Pre.user_func_spec ~sub_name:name ~sub_pre:pre ~sub_post:post
+  | _ -> Pre.user_func_spec ~sub_name:"" ~sub_pre:"" ~sub_post:""
+
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Arch.t -> Env.fun_spec option) list =
   let default = [
+    parse_user_func_spec p;
     Pre.spec_verifier_assume;
     Pre.spec_verifier_nondet;
     Pre.spec_afl_maybe_log;
@@ -294,8 +302,9 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
   let sp = Env.get_sp env |> Bap.Std.Var.Set.singleton in
   let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-  let hyps, env = Pre.init_vars
-      (Bap.Std.Var.Set.union vars_pointer_reg vars_sub |> Bap.Std.Var.Set.union sp) env in
+  let init_set = Set.add (Set.union (Env.get_gprs env) vars_sub) (Env.get_mem env) in 
+  let hyps, env = Pre.init_vars init_set env in 
+  (*    (Bap.Std.Var.Set.union vars_pointer_reg vars_sub |> Bap.Std.Var.Set.union sp) env in*)
   let hyps = (Pre.set_sp_range env) :: hyps in
   let hyps =
     (* short circuit to avoid extraneous "&& true" constraint *)
@@ -355,8 +364,9 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     let vars_pointer_reg = create_vars p.pointer_reg_list env2 in
     let sp = Env.get_sp env2 |> Bap.Std.Var.Set.singleton in
     let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-    let _, env2 = Pre.init_vars
-        (Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env2 in
+    let init_vars = Set.add (Set.union (Env.get_gprs env2) vars_sub) (Env.get_mem env2) in 
+    let _, env2 = Pre.init_vars init_vars env2 in
+    (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env2 in*)
     env2, vars_pointer_reg
   in
   let env1, pointer_vars_1 =
@@ -375,8 +385,9 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     let vars_pointer_reg = create_vars p.pointer_reg_list env1 in
     let sp = Env.get_sp env1 |> Bap.Std.Var.Set.singleton in
     let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-    let _, env1 = Pre.init_vars
-        (Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in
+    let init_regs = Set.add (Set.union (Env.get_gprs env1) (vars_sub)) (Env.get_mem env1) in 
+    let _, env1 = Pre.init_vars init_regs env1 in 
+    (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in*)
     env1, vars_pointer_reg
   in
   let posts, hyps =

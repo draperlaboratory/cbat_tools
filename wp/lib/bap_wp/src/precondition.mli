@@ -122,6 +122,17 @@ val caller_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 (** Obtains the callee-saved registers for a given architecture. *)
 val callee_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 
+(** This spec is used to handle user-specified subroutine specs 
+    via the --user-func-spec flag, using the user-specified
+    subroutine name, pre and post-conditions. **)
+val user_func_spec
+  : sub_name:string
+  -> sub_pre:string
+  -> sub_post:string
+  -> Bap.Std.Sub.t
+  -> Bap.Std.Arch.t
+  -> Env.fun_spec option
+
 (** This spec is used for the functions [__assert_fail] or [__VERIFIER_error]. It
     returns the precondition [false]. *)
 val spec_verifier_error : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option

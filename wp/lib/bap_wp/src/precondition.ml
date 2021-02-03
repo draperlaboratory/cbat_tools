@@ -364,7 +364,7 @@ let var_of_arg_t (arg : Arg.t) : Var.t =
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It substitutes the original z3_expr
    representing the output variable. *)
-let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
+let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post : Constr.t)
     ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
   debug "Chaosing outputs for %s%!" (Sub.name sub);
   let ctx = Env.get_context env in
@@ -376,7 +376,8 @@ let subst_fun_outputs (env : Env.t) (sub : Sub.t) (post : Constr.t)
   let input_sorts = List.map inputs ~f:Expr.get_sort in
   let outputs = List.map outputs
       ~f:(fun o ->
-          let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Var.to_string o) in
+          let tid_name = if (String.equal tid_name "") then "" else ("_"^tid_name) in
+          let name = Format.sprintf "%s%s_ret_%s" (Sub.name sub) (tid_name) (Var.to_string o) in
           let z3_v, _ = Env.get_var env o in
           let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort z3_v) in
           let application = FuncDecl.apply func_decl inputs in
@@ -1198,6 +1199,54 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
         in
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
+
+(* Builds a spec of the form (sub_pre /\ (sub_post => post) where post 
+   is the spec right before the subroutine call. All physical registers and mem
+   in post and sub_post are replaced with fresh Z3 functions, and init- physical 
+   registers/init-mem in sub_post are replaced with regular registers/mem. 
+   This is only applied for subroutines with the name sub_name. *)
+let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
+    ~sub_post:(sub_post : string) (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+  debug "Making user-defined subroutine spec with subroutine-name: %s, pre:
+%s, post: %s \n%!" sub_name sub_pre sub_post;
+  if String.equal sub_name (Sub.name sub) then
+    let spec env post tid = (
+      (* turn strings into proper smtlib2 statements; incr stack_ptr *)
+      let sub_pre : Constr.t = Z3_utils.mk_smtlib2_single env sub_pre in
+      let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
+      let sub_post, env = increment_stack_ptr sub_post env in
+      (* collect (physical) inputs/outputs of sub *)
+      let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
+      let sub_inputs =
+        List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
+      let sub_outputs : Var.t list = sub_inputs in
+      let vars = Set.add (Env.get_gprs env) (Env.get_mem env)
+                  |> Var.Set.to_list in
+      let regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
+      let inits = List.map vars ~f:(fun v ->
+          let r  = Env.get_init_var env v in
+          match r with
+          | Some q -> q
+          | None -> let q, _ = Env.mk_init_var env v in q) in
+      let tid_name : string = Tid.name tid in 
+      let sub_post = subst_fun_outputs ~tid_name:tid_name env sub
+          sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
+      (* replace init-vars with vars inside sub_post *)
+      let sub_post = Constr.substitute sub_post inits regs in
+      (*combine sub_post and post*)
+      let post : Constr.t = subst_fun_outputs ~tid_name:tid_name env sub
+          post ~inputs:sub_inputs ~outputs:sub_outputs in 
+      let sub_post_imp_post : Constr.t =
+        Constr.mk_clause [sub_post] [post] in
+      (* combine pre and post *)
+      let result : Constr.t = Constr.mk_clause [] [sub_pre ; sub_post_imp_post] in
+      (*Format.printf "result: %s \n %!" (Constr.to_string result);*)
+      result, env)
+    in
+    Some {
+      spec_name = "user_func_spec";
+      spec = (Summary spec)}
+  else None
 
 (* The exp_cond to add to the environment in order to invoke the hooks regarding
    memory read offsets. *)

@@ -50,8 +50,9 @@ type t = {
   stack_base : int option;
   stack_size : int option;
   show : string list;
-  func_name_map : (string * string) list
-}
+  func_name_map : (string * string) list;
+  user_func_spec : (string * string * string) option
+  }
 
 (* Ensures the user inputted a function for analysis. *)
 let validate_func (func : string) : (unit, error) result =
