@@ -7,7 +7,7 @@ $(BIN_DIR):
 	mkdir -p $@
 
 $(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
-	gcc -Wall -g -w -o $@ $<
+	gcc -g -o $@ $<
 
 clean:
 	rm -rf $(BIN_DIR)
