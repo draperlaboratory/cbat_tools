@@ -222,7 +222,7 @@ let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
            function spec if it fulfills the spec's requirements. All function
            specs set the target function as called and update the stack
            pointer. The default specs set are verifier-assume, varifier-nondet,
-           chaos-caller-saved, and empty. Note that if a function is set to be
+           empty, and chaos-caller-saved. Note that if a function is set to be
            inlined, it will not use any of the following function specs.
            Available built-in specs:
 

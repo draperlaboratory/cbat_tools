@@ -75,7 +75,7 @@ let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
             let not_in_mod = not @@ Seq.exists subs_mod ~f:(fun s ->
                 String.equal (Sub.name s) name_mod) in
             begin if not_in_mod then
-              warning "%s is not found in the modified binary." name_mod
+                warning "%s is not found in the modified binary." name_mod
             end;
             String.Map.set m ~key:name_orig ~data:name_mod
           else m))
@@ -136,8 +136,8 @@ let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
   let default = [
     Pre.spec_verifier_assume;
     Pre.spec_verifier_nondet;
-    Pre.spec_chaos_caller_saved;
-    Pre.spec_empty
+    Pre.spec_empty;
+    Pre.spec_chaos_caller_saved
   ] in
   let user_func_spec = [parse_user_func_spec p] in
   let trip_asserts = if p.trip_asserts then [Pre.spec_verifier_error] else [] in
