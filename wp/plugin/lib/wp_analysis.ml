@@ -164,15 +164,6 @@ let smtlib
   else
     Some (Comp.compare_subs_smtlib ~smtlib_hyp:precond ~smtlib_post:postcond)
 
-(* The stack pointer hypothesis for a comparative analysis. *)
-let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
-  match arch with
-  | `x86_64 -> Some Comp.compare_subs_sp
-  | _ ->
-    error "WP can only generate hypotheses about the stack pointer and \
-           memory for the x86_64 architecture.\n%!";
-    None
-
 (* obtain a set of general purpose registers
  * based on their string names and architecture. *)
 let create_vars (l : string list) (env : Env.t) : Bap.Std.Var.Set.t =
@@ -236,13 +227,12 @@ let comparators_of_flags
     (pointer_env1_vars : Var.t List.t)
     (pointer_env2_vars : Var.t List.t)
   : Comp.comparator list * Comp.comparator list =
-  let arch = Env.get_arch env1 in
   let comps = [
+    Some Comp.compare_subs_sp;
     func_calls p.compare_func_calls;
     post_reg_values p.compare_post_reg_values
       ~orig:(sub1, env1) ~modif:(sub2, env2);
     smtlib ~precond:p.precond ~postcond:p.postcond;
-    sp arch;
     gen_pointer_flag_comparators p.pointer_reg_list
       env1 env2 pointer_env1_vars pointer_env2_vars;
     mem_eq p.rewrite_addresses

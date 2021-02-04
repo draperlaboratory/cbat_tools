@@ -401,9 +401,13 @@ let input_regs (arch : Arch.t) : Var.t list =
        causes Z3 to slow down during evaluation. *)
     info "[mem] is not included as an input to the function call.%!";
     [rdi; rsi; rdx; rcx; r.(0); r.(1)]
-  | _ ->
-    raise (Not_implemented "input_regs: Input registers have not been \
-                            implemented for non-x86 architectures.")
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r0; r1; r2; r3]
+  | a ->
+    let err = Format.sprintf "input_regs: Input registers have not been \
+                              implemented for %s." (Arch.to_string a) in
+    raise (Not_implemented err)
 
 let caller_saved_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -412,9 +416,13 @@ let caller_saved_regs (arch : Arch.t) : Var.t list =
     (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
     let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
     [rax; rcx; rdx; rsi; rdi] @ r
-  | _ ->
-    raise (Not_implemented "caller_saved_regs: Caller-saved registers have not been \
-                            implemented for non-x86_64 architectures.")
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r0; r1; r2; r3; r12]
+  | a ->
+    let err = Format.sprintf "caller_saved_regs: Caller-saved registers have not \
+                              been implemented for %s." (Arch.to_string a) in
+    raise (Not_implemented err)
 
 let callee_saved_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -423,9 +431,13 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
     (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
     let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
     [rbx; rsp; rbp] @ r
-  | _ ->
-    raise (Not_implemented "callee_saved_regs: Callee-saved registers have not been \
-                            implemented for non-x86_64 architectures.")
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r4; r5; r6; r7; r8; r9; r10; r11]
+  | a ->
+    let err = Format.sprintf "callee_saved_regs: Callee-saved registers have not \
+                              been implemented for %s." (Arch.to_string a) in
+    raise (Not_implemented err)
 
 let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   let vars =
@@ -626,19 +638,16 @@ let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   | _ -> None
 
 let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
-  if Env.is_x86 arch then
-    Some {
-      spec_name = "spec_chaos_caller_saved";
-      spec = Summary
-          (fun env post tid ->
-             let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env in
-             let inputs = if Env.use_input_regs env then input_regs arch else [] in
-             let regs = caller_saved_regs arch in
-             subst_fun_outputs env sub post ~inputs ~outputs:regs)
-    }
-  else
-    None
+  Some {
+    spec_name = "spec_chaos_caller_saved";
+    spec = Summary
+        (fun env post tid ->
+           let post = set_fun_called post env tid in
+           let post, env = increment_stack_ptr post env in
+           let inputs = if Env.use_input_regs env then input_regs arch else [] in
+           let regs = caller_saved_regs arch in
+           subst_fun_outputs env sub post ~inputs ~outputs:regs)
+  }
 
 let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if String.equal (Sub.name sub) "__afl_maybe_log" then
