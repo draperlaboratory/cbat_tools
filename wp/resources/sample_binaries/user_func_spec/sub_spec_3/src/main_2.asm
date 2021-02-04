@@ -1,25 +1,6 @@
 ; ;  Idea:
 ; ;  Tests that our code sees and uses g's pre and post-conditions.
-; ;  Should return UNSAT
-; #include <assert.h>
-; #include <stdlib.h>
-;
-; ; pre : (true)
-; int g() {
-;   return 0x0000000000000067;
-; }
-; ; post : (RAX = 4)
-;
-;
-; int main(int argc,char ** argv) {
-;   argc = g();
-;   if (argc == 0x0000000000000067) assert(0);
-;   return argc;
-; }
-; ; post : (RAX = 3)
-
 ; ---------------------------------------------------------------------------
-; Printing the command line arguments, one by one.
 ;
 ; To compile this:
 ;
@@ -58,13 +39,8 @@ __assert_fail:
     ret
 .end:
 
-g:
-    mov     rax, 0x61
-    ret
-.end:
-
 main:
-    call    g
+    mov     rax, 0x61
     mov     rdi, rax
     cmp     rdi, 0x67
     je      __assert_fail

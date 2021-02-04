@@ -241,9 +241,13 @@ let unit_tests = [
   "User defined sub specs 6" >: test_plugin "user_func_spec/sub_spec_2"
     unsat ~script:"run_wp_2.sh";
   "User defined sub specs 7" >: test_plugin "user_func_spec/sub_spec_3"
-    unsat ~script:"run_wp_1.sh";
+    unsat ~script:"run_wp_single_1.sh";
   "User defined sub specs 8" >: test_plugin "user_func_spec/sub_spec_3"
-    sat ~script:"run_wp_2.sh";
+    sat ~script:"run_wp_single_2.sh";
   "User defined sub specs 9" >: test_plugin "user_func_spec/sub_spec_3"
-    unsat ~script:"run_wp_3.sh";  
+    unsat ~script:"run_wp_single_3.sh";
+  "User defined sub specs 10" >: test_plugin "user_func_spec/sub_spec_3"
+    unsat ~script:"run_wp_comp.sh";
+  "User defined sub specs 11" >: test_plugin "user_func_spec/sub_spec_4"
+    unsat ~script:"run_wp_1.sh";
 ]

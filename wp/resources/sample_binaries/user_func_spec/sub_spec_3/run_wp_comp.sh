@@ -6,9 +6,9 @@ run () {
   bap wp \
     --func=main \
     --show=paths \
+    --compare-post-reg-values=RAX,RDI \
     --user-func-spec="g,(assert true),(assert (= RAX #x0000000000000061))" \
-    --trip-assert \
-    -- ./bin/main
+    -- ./bin/main_1 ./bin/main_2
 }
 
 run

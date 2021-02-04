@@ -2,8 +2,6 @@ This folder contains four tests that test the basic logic of subroutine specs.
 In each case, we build the weakest precondition for the subroutine that should
 look like the following:
 
-Let R be the constraint right before the subroutine call:
-
 `run_wp_1.sh` - true & (false => false), should return UNSAT
 
 `run_wp_2.sh` - true & (true => false), should return SAT

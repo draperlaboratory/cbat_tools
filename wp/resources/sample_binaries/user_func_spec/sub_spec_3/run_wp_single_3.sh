@@ -9,7 +9,7 @@ run () {
     --precond="(assert (= RAX #x0000000000000061))" \
     --user-func-spec="g,(assert (= RAX #x0000000000000061)),(assert (= RAX init_RAX))" \
     --trip-assert \
-    -- ./bin/main
+    -- ./bin/main_1
 }
 
 run

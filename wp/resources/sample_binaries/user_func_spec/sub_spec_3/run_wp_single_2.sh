@@ -6,7 +6,7 @@ run () {
     --show=paths \
     --user-func-spec="g,(assert true),(assert (= RAX #x0000000000000067))" \
     --trip-assert \
-    -- ./bin/main
+    -- ./bin/main_1
 }
 
 run
