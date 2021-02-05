@@ -32,9 +32,11 @@ let unit_tests = [
 
   "Equiv null check"               >: test_plugin "equiv_null_check" sat;
 
-  "function name map"              >: test_plugin "func_name_map" unsat;
-  "function name map: nest calls"  >: test_plugin "func_name_map_nested_calls" unsat;
-  "Function name map with calls"   >: test_plugin "func_name_map_calls" sat;
+  "Func name map"                  >: test_plugin "func_name_map/toplevel_func" unsat;
+  "Func name map: nested calls"    >: test_plugin "func_name_map/nested_calls" unsat;
+  "Func name map: inline"          >: test_plugin "func_name_map/nested_calls" sat
+    ~script:"run_wp_inline.sh";
+  "Func name map with calls"       >: test_plugin "func_name_map/compare_calls" sat;
 
   "Init var compare: UNSAT"        >: test_plugin "init_var_compare" unsat;
   "Init var compare: SAT"          >: test_plugin "init_var_compare" sat

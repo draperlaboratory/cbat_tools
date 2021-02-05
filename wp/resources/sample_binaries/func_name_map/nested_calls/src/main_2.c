@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int test_bar(int x) {
-  return x + 1;
+  return x + 2;
 }
 
 int test_foo(int x) {
