@@ -118,6 +118,11 @@ let unit_tests = [
 
   "Loop unrolling comparative" >: test_plugin "loop/loop_depth_one" unsat ~script:"run_wp_compare.sh";
 
+  "User defined sub specs comparative 1" >: test_plugin "user_func_spec/sub_spec_3"
+    unsat ~script:"run_wp_comp.sh";  
+  "User defined sub specs comparative 2" >: test_plugin "user_func_spec/sub_spec_4"
+    unsat ~script:"run_wp_1.sh";
+  
   (* Test single elf *)
 
   "Conditional call"               >: test_plugin "conditional_call" unsat;
@@ -227,23 +232,23 @@ let unit_tests = [
     ~script:"run_wp_assume_unsat.sh";
   "Verifier nondent"               >: test_plugin "verifier_calls" sat
     ~script:"run_wp_nondet.sh";
-
-  "User defined sub specs 1" >: test_plugin "user_func_spec/sub_spec_1"
+  
+  "User defined sub specs single 1" >: test_plugin "user_func_spec/sub_spec_1"
     unsat ~script:"run_wp_1.sh";
-  "User defined sub specs 2" >: test_plugin "user_func_spec/sub_spec_1"
+  "User defined sub specs single 2" >: test_plugin "user_func_spec/sub_spec_1"
     sat ~script:"run_wp_2.sh";
-  "User defined sub specs 3" >: test_plugin "user_func_spec/sub_spec_1"
+  "User defined sub specs single 3" >: test_plugin "user_func_spec/sub_spec_1"
     sat ~script:"run_wp_3.sh";
-  "User defined sub specs 4" >: test_plugin "user_func_spec/sub_spec_1"
+  "User defined sub specs single 4" >: test_plugin "user_func_spec/sub_spec_1"
     sat ~script:"run_wp_4.sh";
-  "User defined sub specs 5" >: test_plugin "user_func_spec/sub_spec_2"
+  "User defined sub specs single 5" >: test_plugin "user_func_spec/sub_spec_2"
     sat ~script:"run_wp_1.sh";
-  "User defined sub specs 6" >: test_plugin "user_func_spec/sub_spec_2"
+  "User defined sub specs single 6" >: test_plugin "user_func_spec/sub_spec_2"
     unsat ~script:"run_wp_2.sh";
-  "User defined sub specs 7" >: test_plugin "user_func_spec/sub_spec_3"
-    unsat ~script:"run_wp_1.sh";
-  "User defined sub specs 8" >: test_plugin "user_func_spec/sub_spec_3"
-    sat ~script:"run_wp_2.sh";
-  "User defined sub specs 9" >: test_plugin "user_func_spec/sub_spec_3"
-    unsat ~script:"run_wp_3.sh";  
-]
+  "User defined sub specs single 7" >: test_plugin "user_func_spec/sub_spec_3"
+    unsat ~script:"run_wp_single_1.sh";
+  "User defined sub specs single 8" >: test_plugin "user_func_spec/sub_spec_3"
+    sat ~script:"run_wp_single_2.sh";
+  "User defined sub specs single 9" >: test_plugin "user_func_spec/sub_spec_3"
+    unsat ~script:"run_wp_single_3.sh";
+  ]
