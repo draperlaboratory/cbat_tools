@@ -1248,12 +1248,12 @@ let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
           | Some q -> q
           | None -> let q, _ = Env.mk_init_var env v in q) in
       let tid_name : string = Tid.name tid in
-      let sub_post, _ = subst_fun_outputs ~tid_name:tid_name env sub
+      let sub_post, env = subst_fun_outputs ~tid_name:tid_name env sub
           sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
       (* replace init-vars with vars inside sub_post *)
       let sub_post = Constr.substitute sub_post inits regs in
       (*combine sub_post and post*)
-      let post, _ = subst_fun_outputs ~tid_name:tid_name env sub
+      let post, env = subst_fun_outputs ~tid_name:tid_name env sub
           post ~inputs:sub_inputs ~outputs:sub_outputs in
       let sub_post_imp_post : Constr.t =
         Constr.mk_clause [sub_post] [post] in

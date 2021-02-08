@@ -21,6 +21,7 @@ module Bool = Z3.Boolean
 module Solver = Z3.Solver
 module Model = Z3.Model
 module Fun = Z3.FuncDecl
+module Z3Array = Z3.Z3Array
 module FInterp = Model.FuncInterp
 module Env = Environment
 module Constr = Constraint
@@ -105,9 +106,12 @@ let print_call_preds (fmt : Format.formatter) (model : Model.model)
     (preds : Env.ExprSet.t) : unit =
   let pred_vals =
     Env.ExprSet.fold preds ~init:[] ~f:(fun pairs c ->
-        let name = Expr.to_string c in
-        let value = Constr.eval_model_exn model c in
-        (name, value) :: pairs)
+        if Z3Array.is_array c then
+          pairs
+        else
+          let name = Expr.to_string c in
+          let value = Constr.eval_model_exn model c in
+          (name, value) :: pairs)
   in
   Format.fprintf fmt "\n%!";
   Constr.format_values fmt pred_vals
