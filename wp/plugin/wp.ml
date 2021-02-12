@@ -119,7 +119,7 @@ let gdb_output = Cmd.parameter Typ.(some string) "gdb-output"
            breakpoint at the function given by `--func' and fill the
            appropriate registers with the values found in the countermodel. In
            the case WP returns UNSAT or UNKNOWN, no script will be outputted.|}
-               
+
 let bildb_output = Cmd.parameter Typ.(some string) "bildb-output"
     ~doc:{|When WP results in SAT, outputs a BILDB initialization script to the
            filename specified. This YAML file sets the registers and memory to

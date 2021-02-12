@@ -156,13 +156,13 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
     | Some "stdout" -> Format.fprintf Format.std_formatter 
     | _ -> Format.fprintf Format.err_formatter in 
     match status with
-  | Solver.UNSATISFIABLE -> formatter "%s%!" "\nUNSAT!\n%!"
-  | Solver.UNKNOWN -> formatter "%s%!" "\nUNKNOWN!\n%!"
+  | Solver.UNSATISFIABLE -> formatter "%s%!" "\nUNSAT!\n"
+  | Solver.UNKNOWN -> formatter "%s%!" "\nUNKNOWN!\n"
   | Solver.SATISFIABLE ->
     let module Target = (val target_of_arch (Env.get_arch env1)) in
     let ctx = Env.get_context env1 in
     let model = Constr.get_model_exn solver in
-    formatter "%s%!" "\nSAT!\n%!";
+    formatter "%s%!" "\nSAT!\n";
     formatter "\nModel:\n%s\n%!" (format_model model env1 env2);
     let print_refuted_goals = List.mem show "refuted-goals" ~equal:String.equal in
     let print_path = List.mem show "paths" ~equal:String.equal in
@@ -174,7 +174,7 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
       let mem2, _ = Env.get_var env2 Target.CPU.mem in
       let refuted_goals =
         Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
-      formatter "%s%!" "\nRefuted goals:\n%!";
+      formatter "%s%!" "\nRefuted goals:\n";
       Seq.iter refuted_goals ~f:(fun goal ->
           formatter "%s\n%!"
             (Constr.format_refuted_goal goal model ~orig:(var_map1, sub1)
