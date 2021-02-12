@@ -1262,12 +1262,16 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
     Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
 
 let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
-    (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
-  printf "Evaluating precondition.\n%!";
+      ?formatter:(formatter = None) (solver : Solver.solver)
+      (ctx : Z3.context) (pre : Constr.t) : Solver.status =
+  let formatter = match formatter with
+    | Some "stdout" -> Format.fprintf Format.std_formatter "%s%!"
+    | _ -> Format.fprintf Format.err_formatter "%s%!" in 
+  formatter "Evaluating precondition.\n";
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
     Printf.printf "Internal : %s \n %!" (Constr.to_string pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
-  printf "Checking precondition with Z3.\n%!";
+  formatter "Checking precondition with Z3.\n";
   let is_correct =
     if refute then
       Bool.mk_implies ctx pre' (Bool.mk_false ctx)
@@ -1279,8 +1283,9 @@ let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
     Printf.printf "Z3 : \n %s \n %!" (Z3.Solver.to_string solver) );
   Z3.Solver.check solver []
 
-let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
-    ~pre:(pre : Constr.t) : Solver.status =
+let exclude ?formatter:(formatter=None) (solver : Solver.solver)
+      (ctx : Z3.context) ~var:(var : Constr.z3_expr) ~pre:(pre : Constr.t)
+    : Solver.status =
   let model = Constr.get_model_exn solver in
   let value = Constr.eval_model_exn model var in
   let cond = Bool.mk_not ctx (Bool.mk_eq ctx var value) in
@@ -1288,7 +1293,7 @@ let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_ex
   Solver.add solver [cond];
   info "Added constraints: %s\n%!"
     (Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
-  check solver ctx pre
+  check ~formatter:formatter solver ctx pre 
 
 let set_of_reg_names (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
   let all_vars = get_vars env t in

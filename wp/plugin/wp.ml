@@ -119,7 +119,7 @@ let gdb_output = Cmd.parameter Typ.(some string) "gdb-output"
            breakpoint at the function given by `--func' and fill the
            appropriate registers with the values found in the countermodel. In
            the case WP returns UNSAT or UNKNOWN, no script will be outputted.|}
-
+               
 let bildb_output = Cmd.parameter Typ.(some string) "bildb-output"
     ~doc:{|When WP results in SAT, outputs a BILDB initialization script to the
            filename specified. This YAML file sets the registers and memory to
@@ -216,7 +216,11 @@ let user_func_spec = Cmd.parameter Typ.(some (t3 string string string)) "user-fu
            means "for subroutine named foo, specify that its precondition is 
            RAX = RDI and its postcondition is RAX = init_RDI".|}  
 
-
+let formatter = Cmd.parameter Typ.(some string) "formatter"
+    ~doc:{|Specifies if wp prints to stderr or stdout. Specifically, the user can
+           write --formatter="stderr" or --formatter="stdout". By default, 
+           wp prints to stderr.|}
+                   
 let grammar = Cmd.(
     args
     $ func
@@ -241,6 +245,7 @@ let grammar = Cmd.(
     $ stack_size
     $ func_name_map
     $ user_func_spec
+    $ formatter
     $ files)
 
 (* The callback run when the command is invoked from the command line. *)
@@ -267,6 +272,7 @@ let callback
     (stack_size : int option)
     (func_name_map : (string * string) list)
     (user_func_spec : (string*string*string) option)
+    (formatter : string option)
     (files : string list)
     (ctxt : ctxt) =
   let open Parameters.Err.Syntax in
@@ -293,6 +299,7 @@ let callback
       stack_size = stack_size;
       func_name_map = func_name_map;
       user_func_spec = user_func_spec;
+      formatter = formatter;
     })
   in
   Parameters.validate params files >>= fun () ->

@@ -322,6 +322,7 @@ val check
   : ?refute:bool
   -> ?print_constr: (string list)
   -> ?debug: (bool)
+  -> ?formatter: (string option)
   -> Z3.Solver.solver
   -> Z3.context
   -> Constr.t
@@ -333,7 +334,8 @@ val check
     This has a side effect that updates the state of the solver. The solver's state
     can be reverted back with [Z3.Solver.pop]. *)
 val exclude
-  :  Z3.Solver.solver
+    : ?formatter:(string option)
+  -> Z3.Solver.solver
   -> Z3.context
   -> var:Constr.z3_expr
   -> pre:Constr.t

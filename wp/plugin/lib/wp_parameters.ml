@@ -51,7 +51,8 @@ type t = {
   stack_size : int option;
   show : string list;
   func_name_map : (string * string) list;
-  user_func_spec : (string * string * string) option
+  user_func_spec : (string * string * string) option;
+  formatter : string option
   }
 
 (* Ensures the user inputted a function for analysis. *)
@@ -140,6 +141,19 @@ let validate_mem_flags (mem_offset : bool) (rewrite_addrs : bool)
   else
     Ok ()
 
+let validate_formatter (formatter : string option) : (unit, error) result =
+  let supported = ["stderr";"stdout"] in
+  match formatter with
+  | None -> Ok ()
+  | Some f -> (
+    match find_unsupported_option [f] supported with
+    | Some s ->
+       let err = Printf.sprintf "'%s' is not a supported option for --formatter \
+                                 Available options are: %s%!"
+               s (List.to_string supported ~f:String.to_string) in
+       Error (Unsupported_option err)
+    | None -> Ok ()) 
+       
 let validate (f : t) (files : string list) : (unit, error) result =
   validate_func f.func >>= fun () ->
   validate_compare_func_calls f.compare_func_calls files >>= fun () ->
@@ -148,4 +162,5 @@ let validate (f : t) (files : string list) : (unit, error) result =
   validate_mem_flags f.mem_offset f.rewrite_addresses files >>= fun () ->
   validate_debug f.debug >>= fun () ->
   validate_show f.show >>= fun () ->
+  validate_formatter f.formatter >>= fun () ->
   Ok ()

@@ -54,7 +54,8 @@ type t = {
   stack_size : int option;
   show : string list;
   func_name_map : (string * string) list;
-  user_func_spec : (string * string * string) option 
+  user_func_spec : (string * string * string) option;
+  formatter : string option
   }
 
 (** [validate flags files] ensures the user inputted the appropriate flags for
@@ -94,3 +95,7 @@ val validate_mem_flags : bool -> bool -> string list -> (unit, error) result
 (** [validate_check_invalid_derefs flag files] checks that the flag is only set
     when there are two files to compare. Returns an error otherwise. *)
 val validate_check_invalid_derefs : bool -> string list -> (unit, error) result
+
+(** [validate_formatter flag] checks that the --formatter flag is only set when
+    flag is a Some <valid-formatter> or None. Returns an error otherwise. *)
+val validate_formatter : string option -> (unit, error) result                                                             

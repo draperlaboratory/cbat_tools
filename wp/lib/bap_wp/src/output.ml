@@ -151,16 +151,19 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
 
 let print_result (solver : Solver.solver) (status : Solver.status) (goals: Constr.t)
     ~show:(show : string list) ~orig:(env1, sub1 : Env.t * Sub.t)
-    ~modif:(env2, sub2 : Env.t * Sub.t) : unit =
-  match status with
-  | Solver.UNSATISFIABLE -> Format.printf "\nUNSAT!\n%!"
-  | Solver.UNKNOWN -> Format.printf "\nUNKNOWN!\n%!"
+    ~modif:(env2, sub2 : Env.t * Sub.t) ~formatter:(formatter: string option) : unit =
+  let formatter = match formatter with
+    | Some "stdout" -> Format.fprintf Format.std_formatter 
+    | _ -> Format.fprintf Format.err_formatter in 
+    match status with
+  | Solver.UNSATISFIABLE -> formatter "%s%!" "\nUNSAT!\n%!"
+  | Solver.UNKNOWN -> formatter "%s%!" "\nUNKNOWN!\n%!"
   | Solver.SATISFIABLE ->
     let module Target = (val target_of_arch (Env.get_arch env1)) in
     let ctx = Env.get_context env1 in
     let model = Constr.get_model_exn solver in
-    Format.printf "\nSAT!\n%!";
-    Format.printf "\nModel:\n%s\n%!" (format_model model env1 env2);
+    formatter "%s%!" "\nSAT!\n%!";
+    formatter "\nModel:\n%s\n%!" (format_model model env1 env2);
     let print_refuted_goals = List.mem show "refuted-goals" ~equal:String.equal in
     let print_path = List.mem show "paths" ~equal:String.equal in
     (* If 'paths' is specified, we assume we are also printing the refuted goals. *)
@@ -171,9 +174,9 @@ let print_result (solver : Solver.solver) (status : Solver.status) (goals: Const
       let mem2, _ = Env.get_var env2 Target.CPU.mem in
       let refuted_goals =
         Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
-      Format.printf "\nRefuted goals:\n%!";
+      formatter "%s%!" "\nRefuted goals:\n%!";
       Seq.iter refuted_goals ~f:(fun goal ->
-          Format.printf "%s\n%!"
+          formatter "%s\n%!"
             (Constr.format_refuted_goal goal model ~orig:(var_map1, sub1)
                ~modif:(var_map2, sub2) ~print_path))
     end
