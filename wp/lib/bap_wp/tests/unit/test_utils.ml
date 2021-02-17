@@ -91,7 +91,6 @@ let print_z3_model
   if no_model real exp then () else
     Output.print_result solver real goals ~show:[]
       ~orig:(env1, empty_sub) ~modif:(env2, empty_sub)
-      ~formatter:None
 
 (* Finds a jump in a subroutine given its jump condition. *)
 let find_jump (sub : Sub.t) (cond : Exp.t) : Jmp.t =
