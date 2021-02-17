@@ -412,7 +412,7 @@ let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
   let debug_eval =
     (List.mem p.debug "eval-constraint-stats" ~equal:(String.equal)) in
   let result = Pre.check ~print_constr:p.show ~debug:debug_eval
-                 solver ctx cp.pre in
+      solver ctx cp.pre in
   if (List.mem p.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!" (
       Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
@@ -420,7 +420,7 @@ let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
   Utils.output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env2;
   Utils.output_to_bildb ~filename:p.bildb_output solver result env2;
   Output.print_result solver result cp.pre ~orig:cp.orig
-    ~modif:cp.modif ~show:p.show ;
+    ~modif:cp.modif ~show:p.show;
   Ok ()
 
 (* Entrypoint for the WP analysis. *)

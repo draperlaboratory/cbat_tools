@@ -1264,11 +1264,11 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
 let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
       ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
       (ctx : Z3.context) (pre : Constr.t) : Solver.status =
-  Format.fprintf fmt "Evaluating precondition.\n";
+  Format.fprintf fmt "Evaluating precondition.\n%!";
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
     Printf.printf "Internal : %s \n %!" (Constr.to_string pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
-  Format.fprintf fmt "Checking precondition with Z3.\n";
+  Format.fprintf fmt "Checking precondition with Z3.\n%!";
   let is_correct =
     if refute then
       Bool.mk_implies ctx pre' (Bool.mk_false ctx)
@@ -1290,7 +1290,7 @@ let exclude ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
   Solver.add solver [cond];
   info "Added constraints: %s\n%!"
     (Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
-  check ~fmt:fmt solver ctx pre 
+  check ~fmt:fmt solver ctx pre
 
 let set_of_reg_names (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
   let all_vars = get_vars env t in
