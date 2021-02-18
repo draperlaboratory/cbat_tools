@@ -11,6 +11,7 @@ run () {
   bap wp \
     --func=main \
     --compare-post-reg-values=RAX \
+    --fun-specs=afl-maybe-log \
     --no-glibc-runtime \
     -- ./bin/main_1 ./bin/main_2
 }

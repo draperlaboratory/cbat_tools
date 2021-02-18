@@ -75,7 +75,7 @@ let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
             let not_in_mod = not @@ Seq.exists subs_mod ~f:(fun s ->
                 String.equal (Sub.name s) name_mod) in
             begin if not_in_mod then
-              warning "%s is not found in the modified binary." name_mod
+                warning "%s is not found in the modified binary." name_mod
             end;
             String.Map.set m ~key:name_orig ~data:name_mod
           else m))
@@ -134,20 +134,21 @@ let parse_user_func_spec (p : Params.t) : (Sub.t -> Arch.t -> Env.fun_spec optio
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Arch.t -> Env.fun_spec option) list =
   let default = [
-    parse_user_func_spec p;
     Pre.spec_verifier_assume;
     Pre.spec_verifier_nondet;
-    Pre.spec_afl_maybe_log;
-    Pre.spec_inline to_inline;
     Pre.spec_empty;
-    Pre.spec_arg_terms;
-    Pre.spec_chaos_caller_saved;
-    Pre.spec_rax_out
+    Pre.spec_chaos_caller_saved
   ] in
-  if p.trip_asserts then
-    Pre.spec_verifier_error :: default
-  else
-    default
+  let user_func_spec = [parse_user_func_spec p] in
+  let trip_asserts = if p.trip_asserts then [Pre.spec_verifier_error] else [] in
+  let inline = [Pre.spec_inline to_inline] in
+  let specs =
+    if List.is_empty p.fun_specs then
+      default
+    else
+      List.map p.fun_specs ~f:Utils.spec_of_name
+  in
+  user_func_spec @ trip_asserts @ inline @ specs
 
 (* If the compare_func_calls flag is set, add the property for comparative
    analysis. *)

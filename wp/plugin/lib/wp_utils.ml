@@ -57,7 +57,7 @@ end
 
 (* Reads in the program_t and its architecture from a file. *)
 let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
-    : Program.t * Arch.t =
+  : Program.t * Arch.t =
   let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
   let program_digest = Cache.Digests.program mk_digest in
   match Cache.Program.load program_digest with
@@ -141,6 +141,24 @@ let output_to_gdb ~(filename : string option) ~(func : string)
 (* Checks the user's input for outputting a bildb script. *)
 let output_to_bildb ~(filename : string option) (solver : Z3.Solver.solver)
     (status : Z3.Solver.status) (env : Env.t) : unit =
- match filename with
+  match filename with
   | None -> ()
   | Some name -> Output.output_bildb solver status env name
+
+let spec_of_name (name : string) : Sub.t -> Arch.t -> Env.fun_spec option =
+  match name with
+  | "verifier-error" -> Pre.spec_verifier_error
+  | "verifier-assume" -> Pre.spec_verifier_assume
+  | "verifier-nondet" -> Pre.spec_verifier_nondet
+  | "afl-maybe-log" -> Pre.spec_afl_maybe_log
+  | "arg-terms" -> Pre.spec_arg_terms
+  | "chaos-caller-saved" -> Pre.spec_chaos_caller_saved
+  | "chaos-rax" -> Pre.spec_chaos_rax
+  | "rax-out" -> Pre.spec_rax_out
+  | "empty" -> Pre.spec_empty
+  | name ->
+    (* TODO: We should return an error here instead of failing directly, but
+       that would require some code cleanup on the analysis side. *)
+    let err = Printf.sprintf "'%s' is not a supported spec. See `bap wp \
+                              --help' for available function specs.%!" name in
+    failwith err

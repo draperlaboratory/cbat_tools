@@ -209,13 +209,52 @@ let func_name_map = Cmd.parameter Typ.(list ~sep:';' (pair ~sep:',' string strin
            assumes subroutines have the same names between the two binaries.|}
 
 let user_func_spec = Cmd.parameter Typ.(some (t3 string string string)) "user-func-spec"
-    ~doc:{|Creates the weakest precondition for a subroutine given the 
+    ~doc:{|Creates the weakest precondition for a subroutine given the
            name of the subroutine and its pre and post-conditions. Usage:
            --user-func-spec="<sub name>,<precondition>,<postcondition>". For example,
            --user-func-spec="foo,(assert (= RAX RDI)),(assert (= RAX init_RDI)"
-           means "for subroutine named foo, specify that its precondition is 
-           RAX = RDI and its postcondition is RAX = init_RDI".|}  
+           means "for subroutine named foo, specify that its precondition is
+           RAX = RDI and its postcondition is RAX = init_RDI".|}
 
+let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
+    ~doc:{|List of built-in function summaries to be used at a function call
+           site in order of precedence. A target function will be mapped to a
+           function spec if it fulfills the spec's requirements. All function
+           specs set the target function as called and update the stack
+           pointer. The default specs set are verifier-assume, varifier-nondet,
+           empty, and chaos-caller-saved. Note that if a function is set to be
+           inlined, it will not use any of the following function specs.
+           Available built-in specs:
+
+           `verifier-error': Used for calls to __VERIFIER_error and
+           __assert_fail. Looks for inputs that would cause execution to reach
+           these functions.
+
+           `verifier-assume': Used for calls to __VERIFIER_assume. Adds an
+           assumption to the precondition based on the argument to the function
+           call.
+
+           `verifier-nondet': Used for calls to nondeterministic functions such
+           as __VERIFIER_nondet_*, calloc, and malloc. Chaoses the output to
+           the function call representing an arbitrary pointer.
+
+           `afl-maybe-log': Used for calls to __afl_maybe_log. Chaoses the
+           registers RAX, RCX, and RDX.
+
+           `arg-terms': Used when BAP's uplifter returns a nonempty list of
+           input and output registers for the target function. Chaoses this
+           list of output registers.
+
+           `chaos-caller-saved': Used for the x86 architecture. Chaoses the
+           caller-saved registers.
+
+           `rax-out': Chaos RAX if it can be found on the left-hand side of an
+           assignment in the target function.
+
+           `chaos-rax': Chaos RAX regardless if it has been used on the
+           left-hand side of an assignment in the target function.
+
+           `empty': Used for empty subroutines. Performs no actions.|}
 
 let grammar = Cmd.(
     args
@@ -241,6 +280,7 @@ let grammar = Cmd.(
     $ stack_size
     $ func_name_map
     $ user_func_spec
+    $ fun_specs
     $ files)
 
 (* The callback run when the command is invoked from the command line. *)
@@ -267,6 +307,7 @@ let callback
     (stack_size : int option)
     (func_name_map : (string * string) list)
     (user_func_spec : (string*string*string) option)
+    (fun_specs : string list)
     (files : string list)
     (ctxt : ctxt) =
   let open Parameters.Err.Syntax in
@@ -293,6 +334,7 @@ let callback
       stack_size = stack_size;
       func_name_map = func_name_map;
       user_func_spec = user_func_spec;
+      fun_specs = fun_specs
     })
   in
   Parameters.validate params files >>= fun () ->

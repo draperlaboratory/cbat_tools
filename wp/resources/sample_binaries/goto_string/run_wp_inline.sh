@@ -12,7 +12,7 @@
 run () {
   bap wp \
     --func=main \
-    --inline=.* \
+    --inline=my_string_alloc \
     --trip-asserts \
     -- ./bin/main
 }

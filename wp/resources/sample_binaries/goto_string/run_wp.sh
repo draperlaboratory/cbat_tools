@@ -13,6 +13,7 @@ run () {
   bap wp \
     --func=main \
     --trip-asserts \
+    --use-fun-input-regs \
     -- ./bin/main
 }
 
