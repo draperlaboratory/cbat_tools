@@ -91,6 +91,8 @@ let unit_tests = [
     ~script:"run_wp_inline_all.sh";
   "Retrowrite stub no ret in call" >: test_plugin "retrowrite_stub_no_ret" unsat;
 
+  "Same null dereference"          >: test_plugin "same_null_deref" unsat;
+
   "Same signs: post registers"     >: test_plugin "same_signs" unsat;
   "Same signs: postcondition"      >: test_plugin "same_signs" unsat
     ~script:"run_wp_postcond.sh";
