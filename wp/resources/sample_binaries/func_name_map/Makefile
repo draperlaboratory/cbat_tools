@@ -1,13 +1,13 @@
-SRC_DIR = src
-BIN_DIR = bin
+SAMPLE_DIRS = $(wildcard */)
+BUILD_DIRS = $(SAMPLE_DIRS:%=build-%)
+CLEAN_DIRS = $(SAMPLE_DIRS:%=clean-%)
 
-all: $(BIN_DIR)/main_1 $(BIN_DIR)/main_2
+.PHONY: all subdirs $(BUILD_DIRS)
+all: $(BUILD_DIRS)
+$(BUILD_DIRS):
+	$(MAKE) -C $(@:build-%=%)
 
-$(BIN_DIR):
-	mkdir -p $@
-
-$(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
-	gcc -Wall -g -o $@ -c $<
-
-clean:
-	rm -rf $(BIN_DIR)
+.PHONY: clean subdirs $(CLEAN_DIRS)
+clean: $(CLEAN_DIRS)
+$(CLEAN_DIRS):
+	$(MAKE) -C $(@:clean-%=%) clean

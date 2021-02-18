@@ -6,11 +6,11 @@ API_PATH := $(shell bap --api-list-paths)
 VERIFIER_LOCAL := api/c/cbat.h
 VERIFIER_INSTALL_PATH := $(API_PATH)/c/cbat.h
 
-PKGS := 'z3,bap_wp,re'
+PKGS := 'z3,bap_wp,re,str'
 TAG := 'warn(A-48-44)'
 Is := 'lib'
 
-TEST_PKGS := 'bap,z3,bap_wp,ounit2,re'
+TEST_PKGS := 'bap,z3,bap_wp,ounit2,re,str'
 TEST_TAG := 'warn(A-48-44),debug,thread'
 TEST_Is := 'lib,tests/test_libs'
 
