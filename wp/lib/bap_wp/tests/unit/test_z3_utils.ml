@@ -108,7 +108,7 @@ let test_mk_smtlib2_single_1 (test_ctx : test_ctxt) : unit =
   assert_equal ~ctxt:test_ctx
     ~printer:Constr.to_string
     expected result
-  
+
 let test_mk_smtlib2_single_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
