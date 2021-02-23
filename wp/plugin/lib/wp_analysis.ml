@@ -141,11 +141,8 @@ let post_reg_values
   if List.is_empty reg_names then
     None
   else begin
-    let all_regs = Var.Set.union_list
-        [ Pre.get_vars env1 sub1;
-          Pre.get_vars env2 sub2;
-          Var.Set.singleton @@ Env.get_sp env1 ]
-    in
+    let all_regs = Var.Set.union
+        (Pre.get_all_vars env1 sub1) (Pre.get_all_vars env2 sub2) in
     let post_regs = Var.Set.union
         (Pre.set_of_reg_names env1 sub1 reg_names)
         (Pre.set_of_reg_names env2 sub2 reg_names) in
@@ -182,18 +179,6 @@ let create_vars (l : string list) (env : Env.t) : Bap.Std.Var.Set.t =
           |> failwith
       )
   |> Bap.Std.Var.Set.of_list
-
-let gen_ptr_flag_warnings
-    (vars_sub : Bap.Std.Var.Set.t)
-    (vars_pointer_reg : Bap.Std.Var.Set.t)
-    (sp : Bap.Std.Var.Set.t) : unit =
-  let expected_regs = Bap.Std.Var.Set.union vars_pointer_reg sp in
-  Bap.Std.Var.Set.diff expected_regs vars_sub
-  |> Bap.Std.Var.Set.iter ~f:(fun var ->
-      warning
-        "Variable %s included in pointer flag, but not in sub to be analyzed."
-        (Var.name var)
-    )
 
 (* Returns a set of comparators that provide the constraint that
    the pointer registers are treated as pointers. *)
@@ -260,13 +245,9 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
-  let vars_sub = Pre.get_vars env main_sub in
+  let vars = Pre.get_all_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
-  let sp = Env.get_sp env |> Bap.Std.Var.Set.singleton in
-  let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-  let init_set = Set.add (Set.union (Env.get_gprs env) vars_sub) (Env.get_mem env) in 
-  let hyps, env = Pre.init_vars init_set env in 
-  (*    (Bap.Std.Var.Set.union vars_pointer_reg vars_sub |> Bap.Std.Var.Set.union sp) env in*)
+  let hyps, env = Pre.init_vars (Var.Set.union vars vars_pointer_reg) env in
   let hyps = (Pre.set_sp_range env) :: hyps in
   let hyps =
     (* short circuit to avoid extraneous "&& true" constraint *)
@@ -325,13 +306,9 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~func_name_map
     in
     let env2 = Env.set_freshen env2 true in
-    let vars_sub = Pre.get_vars env2 main_sub2 in
+    let vars_sub = Pre.get_all_vars env2 main_sub2 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env2 in
-    let sp = Env.get_sp env2 |> Bap.Std.Var.Set.singleton in
-    let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-    let init_vars = Set.add (Set.union (Env.get_gprs env2) vars_sub) (Env.get_mem env2) in 
-    let _, env2 = Pre.init_vars init_vars env2 in
-    (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env2 in*)
+    let _, env2 = Pre.init_vars (Var.Set.union vars_sub vars_pointer_reg) env2 in
     env2, vars_pointer_reg
   in
   let env1, pointer_vars_1 =
@@ -346,12 +323,9 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~exp_conds:exp_conds1
         ~stack_range
     in
-    let vars_sub = Pre.get_vars env1 main_sub1 in
+    let vars_sub = Pre.get_all_vars env1 main_sub1 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env1 in
-    let sp = Env.get_sp env1 |> Bap.Std.Var.Set.singleton in
-    let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-    let init_regs = Set.add (Set.union (Env.get_gprs env1) (vars_sub)) (Env.get_mem env1) in 
-    let _, env1 = Pre.init_vars init_regs env1 in 
+    let _, env1 = Pre.init_vars (Var.Set.union vars_sub vars_pointer_reg) env1 in
     (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in*)
     env1, vars_pointer_reg
   in

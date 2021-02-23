@@ -65,6 +65,10 @@ val visit_call : Bap.Std.Call.t -> Constr.t -> Env.t -> Constr.t * Env.t
 (** Get {e every} variable from a subroutine. *)
 val get_vars : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
 
+(** Get {e every} variables in the environment regardless if they are found in
+    the subroutine or not. *)
+val get_all_vars : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
+
 (** Parses a list of register names found in a subroutine and returns a set of
     variables representing those registers. *)
 val set_of_reg_names : Env.t -> Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.t

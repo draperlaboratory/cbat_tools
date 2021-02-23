@@ -6,6 +6,10 @@ let unit_tests = [
   (* Test elf comparison *)
 
   "Arm: Memory comparison"         >: test_plugin "arm/mem_comparison" sat;
+  "Arm: Compare R1"                >: test_plugin "arm/simple_compare" unsat
+    ~script:"run_wp_r1.sh";
+  "Arm: Compare R2"                >: test_plugin "arm/simple_compare" unsat
+    ~script:"run_wp_r2.sh";
 
   "Multicompiler: csmith"          >: test_plugin "cbat-multicompiler-samples/csmith" unsat;
   "Multicompiler: csmith inline"   >:: test_skip timeout_msg (test_plugin "cbat-multicompiler-samples/csmith" unsat

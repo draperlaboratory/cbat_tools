@@ -147,7 +147,7 @@ let compare_subs
   : Constr.t * Env.t * Env.t =
   let env2 = Env.set_freshen env2 true in
   let vars = Var.Set.union
-      (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
+      (Pre.get_all_vars env1 sub1) (Pre.get_all_vars env2 sub2) in
   let post, env1, env2 =
     fold_comparators postconds ~original:(sub1, env1) ~modified:(sub2, env2)
       ~rename_set:vars

@@ -401,6 +401,9 @@ let input_regs (arch : Arch.t) : Var.t list =
        causes Z3 to slow down during evaluation. *)
     info "[mem] is not included as an input to the function call.%!";
     [rdi; rsi; rdx; rcx; r.(0); r.(1)]
+  | `x86 ->
+    warning "In 32-bit x86, arguments are passed through the stack.%!";
+    []
   | #Arch.arm ->
     let open ARM.CPU in
     [r0; r1; r2; r3]
@@ -416,6 +419,9 @@ let caller_saved_regs (arch : Arch.t) : Var.t list =
     (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
     let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
     [rax; rcx; rdx; rsi; rdi] @ r
+  | `x86 ->
+    let open X86_cpu.IA32 in
+    [rax; rcx; rdx]
   | #Arch.arm ->
     let open ARM.CPU in
     [r0; r1; r2; r3; r12]
@@ -431,6 +437,9 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
     (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
     let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
     [rbx; rsp; rbp] @ r
+  | `x86 ->
+    let open X86_cpu.IA32 in
+    [rbx; rdi; rsi; rsp; rbp]
   | #Arch.arm ->
     let open ARM.CPU in
     [r4; r5; r6; r7; r8; r9; r10; r11]
@@ -478,6 +487,13 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
     end)
   in
   visitor#visit_sub t vars
+
+let get_all_vars (env : Env.t) (sub : Sub.t) : Var.Set.t =
+  let gprs = Env.get_gprs env in
+  let mem = Var.Set.singleton (Env.get_mem env) in
+  let sp = Var.Set.singleton (Env.get_sp env) in
+  let sub_vars = get_vars env sub in
+  Var.Set.union_list [gprs; mem; sp; sub_vars]
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let is_verifier_error name = String.(
@@ -1318,7 +1334,7 @@ let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_ex
   check solver ctx pre
 
 let set_of_reg_names (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
-  let all_vars = get_vars env t in
+  let all_vars = get_all_vars env t in
   let has_name name var = String.equal name (Var.to_string var) in
   List.fold var_names ~init:Var.Set.empty ~f:(fun vars name ->
       match Var.Set.find all_vars ~f:(has_name name) with
