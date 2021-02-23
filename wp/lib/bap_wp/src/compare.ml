@@ -54,37 +54,6 @@ let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t)
   let inits2, env2 = Pre.init_vars vars env2 in
   (inits1 @ inits2), env1, env2
 
-(** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
-    as a comparison predicate between an original and modified binary. *)
-let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
-  let var_map1 = Env.get_var_map env1 in
-  let var_map2 = Env.get_var_map env2 in
-  let init_var_map1 = Env.get_init_var_map env1 in
-  let init_var_map2 = Env.get_init_var_map env2 in
-  let var_fmt1 = fun v -> Format.sprintf "%s_orig" (Var.name v) in
-  let var_fmt2 = fun v -> Format.sprintf "%s_mod" (Var.name v) in
-  let init_fmt1 = fun v -> Format.sprintf "init_%s_orig" (Var.name v) in
-  let init_fmt2 = fun v -> Format.sprintf "init_%s_mod" (Var.name v) in
-  let maps = [var_map1; var_map2; init_var_map1; init_var_map2] in
-  let fmts = [var_fmt1; var_fmt2; init_fmt1; init_fmt2] in
-  let names = List.zip_exn maps fmts in
-  let to_z3_name token =
-    List.find_map names ~f:(fun (map, fmt) -> Z3_utils.get_z3_name map token fmt)
-    |> Base.Option.map ~f:Expr.to_string |> Option.value ~default:token
-  in
-  let smtlib_str =
-    smtlib_str
-    |> Z3_utils.tokenize
-    |> List.map ~f:to_z3_name
-    |> Z3_utils.build_str
-  in
-  info "New smtlib string: %s \n" smtlib_str;
-  let declsym1 = Z3_utils.get_decls_and_symbols env1 in
-  let declsym2 = Z3_utils.get_decls_and_symbols env2 in
-  let declsym = declsym1 @ declsym2 in
-  let ctx = Env.get_context env1 in
-  Z3_utils.mk_smtlib2 ctx smtlib_str declsym
-
 let compare_blocks
     ~pre_regs:(pre_regs : Var.Set.t)
     ~post_regs:(post_regs : Var.Set.t)
@@ -97,10 +66,10 @@ let compare_blocks
      their original names. *)
   let env2 = Env.set_freshen env2 true in
   let post_eq_list, env1, env2 = set_to_eqs env1 env2 post_regs in
-  let smtlib_post = mk_smtlib2_compare env1 env2 smtlib_post in
+  let smtlib_post = Z3_utils.mk_smtlib2_compare env1 env2 smtlib_post in
   let output_eq = Constr.mk_clause [] (smtlib_post :: post_eq_list) in
   let pre_eq_list, env1, env2 = set_to_eqs env1 env2 pre_regs in
-  let smtlib_hyp = mk_smtlib2_compare env1 env2 smtlib_hyp in
+  let smtlib_hyp = Z3_utils.mk_smtlib2_compare env1 env2 smtlib_hyp in
   let pre1, _ = Pre.visit_block env1 output_eq blk1 in
   let pre2, _ = Pre.visit_block env2 pre1 blk2 in
   let goal = Constr.mk_clause (smtlib_hyp :: pre_eq_list) [pre2] in
@@ -206,10 +175,10 @@ let compare_subs_smtlib
     ~smtlib_hyp:(smtlib_hyp : string)
   : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    mk_smtlib2_compare env1 env2 smtlib_post, env1, env2
+    Z3_utils.mk_smtlib2_compare env1 env2 smtlib_post, env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
-    let smtlib = mk_smtlib2_compare env1 env2 smtlib_hyp in
+    let smtlib = Z3_utils.mk_smtlib2_compare env1 env2 smtlib_hyp in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
     Constr.mk_clause [] (smtlib :: pre_eqs), env1, env2
   in
