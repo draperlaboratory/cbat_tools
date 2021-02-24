@@ -448,7 +448,7 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
                               been implemented for %s." (Arch.to_string a) in
     raise (Not_implemented err)
 
-let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
+let rec vars_from_sub (env : Env.t) (t : Sub.t) : Var.Set.t =
   let vars =
     if Env.use_input_regs env then
       env |> Env.get_arch |> input_regs |> Var.Set.of_list
@@ -476,7 +476,7 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
                   | Some Inline ->
                     let subs = Env.get_subs env in
                     let target = Seq.find_exn subs ~f:(fun s -> Tid.equal (Term.tid s) tid) in
-                    Var.Set.union vars (get_vars env target)
+                    Var.Set.union vars (vars_from_sub env target)
                   | _ -> vars
                 end
               | Indirect _ -> vars
@@ -488,11 +488,11 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub t vars
 
-let get_all_vars (env : Env.t) (sub : Sub.t) : Var.Set.t =
+let get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   let gprs = Env.get_gprs env in
   let mem = Var.Set.singleton (Env.get_mem env) in
   let sp = Var.Set.singleton (Env.get_sp env) in
-  let sub_vars = get_vars env sub in
+  let sub_vars = vars_from_sub env t in
   Var.Set.union_list [gprs; mem; sp; sub_vars]
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
@@ -1260,7 +1260,7 @@ let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
       let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
       let sub_post, env = increment_stack_ptr sub_post env in
       (* collect (physical) inputs/outputs of sub *)
-      let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
+      let sub_inputs : Var.t list = vars_from_sub env sub |> Var.Set.to_list in
       let sub_inputs =
         List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
       let sub_outputs : Var.t list = sub_inputs in
@@ -1334,7 +1334,7 @@ let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_ex
   check solver ctx pre
 
 let set_of_reg_names (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
-  let all_vars = get_all_vars env t in
+  let all_vars = get_vars env t in
   let has_name name var = String.equal name (Var.to_string var) in
   List.fold var_names ~init:Var.Set.empty ~f:(fun vars name ->
       match Var.Set.find all_vars ~f:(has_name name) with

@@ -142,7 +142,7 @@ let post_reg_values
     None
   else begin
     let all_regs = Var.Set.union
-        (Pre.get_all_vars env1 sub1) (Pre.get_all_vars env2 sub2) in
+        (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
     let post_regs = Var.Set.union
         (Pre.set_of_reg_names env1 sub1 reg_names)
         (Pre.set_of_reg_names env2 sub2 reg_names) in
@@ -245,7 +245,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
-  let vars = Pre.get_all_vars env main_sub in
+  let vars = Pre.get_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
   let hyps, env = Pre.init_vars (Var.Set.union vars vars_pointer_reg) env in
   let hyps = (Pre.set_sp_range env) :: hyps in
@@ -306,7 +306,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~func_name_map
     in
     let env2 = Env.set_freshen env2 true in
-    let vars_sub = Pre.get_all_vars env2 main_sub2 in
+    let vars_sub = Pre.get_vars env2 main_sub2 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env2 in
     let _, env2 = Pre.init_vars (Var.Set.union vars_sub vars_pointer_reg) env2 in
     env2, vars_pointer_reg
@@ -323,7 +323,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~exp_conds:exp_conds1
         ~stack_range
     in
-    let vars_sub = Pre.get_all_vars env1 main_sub1 in
+    let vars_sub = Pre.get_vars env1 main_sub1 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env1 in
     let _, env1 = Pre.init_vars (Var.Set.union vars_sub vars_pointer_reg) env1 in
     (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in*)
