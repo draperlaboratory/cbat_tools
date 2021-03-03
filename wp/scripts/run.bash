@@ -15,11 +15,14 @@ BINARIES=()
 function print_help() {
   printf '%s\n' "-- WP batch running script --"
   printf '%s\n' "This runs WP to compare all subroutines between two binaries."
-  printf '\t%s\n' "1. Compare all subs with default settings that compare post"
-  printf '\t%-3s%s\n' " " "callee-saved register values."
-  printf '\t%s\n' "2. Compare all subs with rewrite-addresses on."
-  printf '\t%s\n' "3. Compare all subs with rewrite-addresses and"
-  printf '\t%-3s%s\n' " " "check-invalid-derefs on."
+  printf '%s\n' "Compares all subs with the default settings that compare post"
+  printf '%s\n' "callee-saved register values."
+  printf '\t%s\n' "1. Does not unroll loops."
+  printf '\t%s\n' "2. Rewrites addresses of global variables in the modified"
+  printf '\t%-3s%s\n' " " "binary to their addresses in the original binary."
+  printf '\t%s\n' "3. If the address of a memory read is at a valid location in"
+  printf '\t%-3s%s\n' " " "the original binary, checks if that same address is"
+  printf '\t%-3s%s\n' " " "at a valid location in the modified binary."
   printf '\nUsage:\n%s ' "$(basename $0)"
   printf '%s\n' "[-j|--jobs] [-t|--timeout] [-o|--output] -- <original> <modified>"
   printf '\t%s\n' "- jobs: How many jobs to run in parallel (default: 1)"
@@ -107,39 +110,9 @@ function prime_cache() {
     ${BINARIES[0]} ${BINARIES[1]} > /dev/null 2>&1"
 }
 
-# The initial run of WP on all the subroutines in the original and modified
-# binaries.
-function run_initial() {
+# Run WP on all subroutines with the default settings.
+function run() {
   cat $NAMES \
-    | parallel --eta --joblog $LOGS/initial-run.txt --timeout $TIMEOUT -j $JOBS \
-    "bap wp \
-    --no-byteweight \
-    --function={} \
-    --num-unroll=0 \
-    --show=bir,paths \
-    --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
-    ${BINARIES[0]} ${BINARIES[1]} > $RESULTS/{} 2>&1"
-}
-
-# Run WP on the subroutines that resulted in SAT and UNKNOWN in the initial run.
-# Note the --rewrite-addresses flag is set.
-function run_rewrite_addresses() {
-  get_sats_and_unknowns \
-    | parallel --eta --joblog $LOGS/rewrite-addrs.txt --timeout $TIMEOUT -j $JOBS \
-    "bap wp \
-    --no-byteweight \
-    --function={} \
-    --num-unroll=0 \
-    --show=bir,paths \
-    --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
-    --rewrite-addresses \
-    ${BINARIES[0]} ${BINARIES[1]} > $RESULTS/{} 2>&1"
-}
-
-# Run WP on the subroutines that resulted in SAT and UNKNOWN in the
-# --rewrite-addresses run. Note the --check-invalid-derefs flag is set.
-function run_invalid_derefs() {
-  get_sats_and_unknowns \
     | parallel --eta --joblog $LOGS/invalid-derefs.txt --timeout $TIMEOUT -j $JOBS \
     "bap wp \
     --no-byteweight \
@@ -191,16 +164,7 @@ prime_cache
 
 START=$SECONDS
 
-echo "Initial run of WP on all subroutines." | tee -a $STATS
-run_initial
-show_results | tee -a $STATS
-
-echo "Running WP on remaining SATs/UNKNOWNs with --rewrite-addresses set." | tee -a $STATS
-run_rewrite_addresses
-show_results | tee -a $STATS
-
-echo "Running WP on remaining SATs/UNKNOWNs with --check-invalid-derefs set." | tee -a $STATS
-run_invalid_derefs
+run
 show_results | tee -a $STATS
 
 END=$SECONDS

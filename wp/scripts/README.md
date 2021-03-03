@@ -14,11 +14,14 @@ bash run.bash --help
 
 ### Run WP on all subroutines between two binaries
 
-This runs WP to compare all subroutines between two binaries.
-  1. Compare all subs with default settings that compare post callee-saved
-     register values.
-  2. Compare all subs with rewrite-addresses on.
-  3. Compare all subs with rewrite-addresses and check-invalid-derefs on.
+This runs WP to compare all subroutines between two binaries. Compares all subs
+with default settings that compare post callee-saved register values.
+  1. Does not unroll loops.
+  2. Rewrites addresses of global variables in the modified binary to their
+     addresses in the original binary.
+  3. If the address of a memory read is at a valid location in the original
+     binary, checks if that same address is at a valid location in the modified
+     binary.
 
 It prints out the number of SATs, UNSATs, and UNKNOWNs (timeouts), and stores
 the results of each subroutine in the output directory.
@@ -40,11 +43,10 @@ bap wp \
   --num-unroll=0 \
   --show=bir,paths \
   --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
+  --rewrite-addresses \
+  --check-invalid-derefs \
   <original> <modified>
 ```
-
-Each iteration of WP will run new options on the SATs and UNKNOWNs from the
-previous results.
 
 ### Test WP on a single function
 
