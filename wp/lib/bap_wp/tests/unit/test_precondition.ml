@@ -1312,7 +1312,7 @@ let test_get_vars_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:true in
-  let vars = Pre.get_vars env sub in
+  let vars = Pre.vars_from_sub env sub in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
     (Var.Set.of_list [rdi; rsi; rdx; rcx; r8; r9; x]) vars
@@ -1329,7 +1329,7 @@ let test_get_vars_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false in
-  let vars = Pre.get_vars env sub in
+  let vars = Pre.vars_from_sub env sub in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
     (Var.Set.of_list [x]) vars
@@ -1357,7 +1357,7 @@ let test_get_vars_inline_1 (test_ctx : test_ctxt) : unit =
   let env = Pre.mk_env ctx var_gen ~use_fun_input_regs:false
       ~specs:[Pre.spec_inline @@ Seq.singleton sub]
       ~subs:(Seq.of_list [main_sub; sub]) in
-  let vars = Pre.get_vars env main_sub in
+  let vars = Pre.vars_from_sub env main_sub in
   assert_equal ~ctxt:test_ctx ~cmp:Var.Set.equal
     ~printer:(fun v -> v |> Var.Set.to_list |> List.to_string ~f:Var.to_string)
     (Var.Set.of_list [x; y; loc; mem]) vars

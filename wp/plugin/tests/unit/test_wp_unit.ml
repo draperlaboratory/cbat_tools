@@ -5,6 +5,12 @@ let unit_tests = [
 
   (* Test elf comparison *)
 
+  "Arm: Memory comparison"         >: test_plugin "arm/mem_comparison" sat;
+  "Arm: Compare R1"                >: test_plugin "arm/simple_compare" unsat
+    ~script:"run_wp_r1.sh";
+  "Arm: Compare R2"                >: test_plugin "arm/simple_compare" unsat
+    ~script:"run_wp_r2.sh";
+
   "Multicompiler: csmith"          >: test_plugin "cbat-multicompiler-samples/csmith" unsat;
   "Multicompiler: csmith inline"   >:: test_skip timeout_msg (test_plugin "cbat-multicompiler-samples/csmith" unsat
                                                                 ~script:"run_wp_inline.sh");
@@ -127,8 +133,11 @@ let unit_tests = [
     unsat ~script:"run_wp_comp.sh";  
   "User defined sub specs comparative 2" >: test_plugin "user_func_spec/sub_spec_4"
     unsat ~script:"run_wp_1.sh";
-  
+
   (* Test single elf *)
+
+  "Arm: Function spec"             >: test_plugin "arm/function_spec" sat;
+  "Arm: Inline"                    >: test_plugin "arm/function_spec" unsat ~script:"run_wp_inline.sh";
 
   "Conditional call"               >: test_plugin "conditional_call" unsat;
 
@@ -237,7 +246,7 @@ let unit_tests = [
     ~script:"run_wp_assume_unsat.sh";
   "Verifier nondent"               >: test_plugin "verifier_calls" sat
     ~script:"run_wp_nondet.sh";
-  
+
   "User defined sub specs single 1" >: test_plugin "user_func_spec/sub_spec_1"
     unsat ~script:"run_wp_1.sh";
   "User defined sub specs single 2" >: test_plugin "user_func_spec/sub_spec_1"
@@ -256,4 +265,4 @@ let unit_tests = [
     sat ~script:"run_wp_single_2.sh";
   "User defined sub specs single 9" >: test_plugin "user_func_spec/sub_spec_3"
     unsat ~script:"run_wp_single_3.sh";
-  ]
+]

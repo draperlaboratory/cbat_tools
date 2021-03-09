@@ -401,9 +401,16 @@ let input_regs (arch : Arch.t) : Var.t list =
        causes Z3 to slow down during evaluation. *)
     info "[mem] is not included as an input to the function call.%!";
     [rdi; rsi; rdx; rcx; r.(0); r.(1)]
-  | _ ->
-    raise (Not_implemented "input_regs: Input registers have not been \
-                            implemented for non-x86 architectures.")
+  | `x86 ->
+    warning "In 32-bit x86, arguments are passed through the stack.%!";
+    []
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r0; r1; r2; r3]
+  | a ->
+    warning "input_regs: Input registers have not been \
+             implemented for %s." (Arch.to_string a);
+    []
 
 let caller_saved_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -412,9 +419,16 @@ let caller_saved_regs (arch : Arch.t) : Var.t list =
     (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
     let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
     [rax; rcx; rdx; rsi; rdi] @ r
-  | _ ->
-    raise (Not_implemented "caller_saved_regs: Caller-saved registers have not been \
-                            implemented for non-x86_64 architectures.")
+  | `x86 ->
+    let open X86_cpu.IA32 in
+    [rax; rcx; rdx]
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r0; r1; r2; r3; r12]
+  | a ->
+    warning "caller_saved_regs: Caller-saved registers have not \
+             been implemented for %s." (Arch.to_string a);
+    []
 
 let callee_saved_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -423,11 +437,18 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
     (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
     let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
     [rbx; rsp; rbp] @ r
-  | _ ->
-    raise (Not_implemented "callee_saved_regs: Callee-saved registers have not been \
-                            implemented for non-x86_64 architectures.")
+  | `x86 ->
+    let open X86_cpu.IA32 in
+    [rbx; rdi; rsi; rsp; rbp]
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r4; r5; r6; r7; r8; r9; r10; r11]
+  | a ->
+    warning "callee_saved_regs: Callee-saved registers have not \
+             been implemented for %s." (Arch.to_string a);
+    []
 
-let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
+let rec vars_from_sub (env : Env.t) (t : Sub.t) : Var.Set.t =
   let vars =
     if Env.use_input_regs env then
       env |> Env.get_arch |> input_regs |> Var.Set.of_list
@@ -455,7 +476,7 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
                   | Some Inline ->
                     let subs = Env.get_subs env in
                     let target = Seq.find_exn subs ~f:(fun s -> Tid.equal (Term.tid s) tid) in
-                    Var.Set.union vars (get_vars env target)
+                    Var.Set.union vars (vars_from_sub env target)
                   | _ -> vars
                 end
               | Indirect _ -> vars
@@ -466,6 +487,13 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
     end)
   in
   visitor#visit_sub t vars
+
+let get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
+  let gprs = Env.get_gprs env in
+  let mem = Var.Set.singleton (Env.get_mem env) in
+  let sp = Var.Set.singleton (Env.get_sp env) in
+  let sub_vars = vars_from_sub env t in
+  Var.Set.union_list [gprs; mem; sp; sub_vars]
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let is_verifier_error name = String.(
@@ -626,19 +654,16 @@ let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   | _ -> None
 
 let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
-  if Env.is_x86 arch then
-    Some {
-      spec_name = "spec_chaos_caller_saved";
-      spec = Summary
-          (fun env post tid ->
-             let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env in
-             let inputs = if Env.use_input_regs env then input_regs arch else [] in
-             let regs = caller_saved_regs arch in
-             subst_fun_outputs env sub post ~inputs ~outputs:regs)
-    }
-  else
-    None
+  Some {
+    spec_name = "spec_chaos_caller_saved";
+    spec = Summary
+        (fun env post tid ->
+           let post = set_fun_called post env tid in
+           let post, env = increment_stack_ptr post env in
+           let inputs = if Env.use_input_regs env then input_regs arch else [] in
+           let regs = caller_saved_regs arch in
+           subst_fun_outputs env sub post ~inputs ~outputs:regs)
+  }
 
 let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if String.equal (Sub.name sub) "__afl_maybe_log" then
@@ -1235,7 +1260,7 @@ let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
       let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
       let sub_post, env = increment_stack_ptr sub_post env in
       (* collect (physical) inputs/outputs of sub *)
-      let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
+      let sub_inputs : Var.t list = vars_from_sub env sub |> Var.Set.to_list in
       let sub_inputs =
         List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
       let sub_outputs : Var.t list = sub_inputs in
