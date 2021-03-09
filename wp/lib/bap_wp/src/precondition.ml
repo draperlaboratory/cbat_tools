@@ -408,9 +408,9 @@ let input_regs (arch : Arch.t) : Var.t list =
     let open ARM.CPU in
     [r0; r1; r2; r3]
   | a ->
-    let err = Format.sprintf "input_regs: Input registers have not been \
-                              implemented for %s." (Arch.to_string a) in
-    raise (Not_implemented err)
+    warning "input_regs: Input registers have not been \
+             implemented for %s." (Arch.to_string a);
+    []
 
 let caller_saved_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -426,9 +426,9 @@ let caller_saved_regs (arch : Arch.t) : Var.t list =
     let open ARM.CPU in
     [r0; r1; r2; r3; r12]
   | a ->
-    let err = Format.sprintf "caller_saved_regs: Caller-saved registers have not \
-                              been implemented for %s." (Arch.to_string a) in
-    raise (Not_implemented err)
+    warning "caller_saved_regs: Caller-saved registers have not \
+             been implemented for %s." (Arch.to_string a);
+    []
 
 let callee_saved_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -444,9 +444,9 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
     let open ARM.CPU in
     [r4; r5; r6; r7; r8; r9; r10; r11]
   | a ->
-    let err = Format.sprintf "callee_saved_regs: Callee-saved registers have not \
-                              been implemented for %s." (Arch.to_string a) in
-    raise (Not_implemented err)
+    warning "callee_saved_regs: Callee-saved registers have not \
+             been implemented for %s." (Arch.to_string a);
+    []
 
 let rec vars_from_sub (env : Env.t) (t : Sub.t) : Var.Set.t =
   let vars =
