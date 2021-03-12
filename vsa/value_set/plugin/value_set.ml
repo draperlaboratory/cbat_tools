@@ -30,11 +30,12 @@ let main (sub : string option) (fail_not_impl : bool) (unsound_stack : bool) (sh
   Utils.unsound_stack := unsound_stack;
   let prog = Project.program proj in
   let prog = match sub with
-  | Some sname -> Term.filter sub_t prog ~f:(fun s -> sname = Sub.name s)
+  | Some sname -> Term.filter sub_t prog ~f:(fun s -> String.(sname = Sub.name s))
   | None -> prog in
   let process_sub s =
     let sname = Sub.name s in
-    if Option.value ~default:sname sub = sname then begin
+    let vname = Option.value ~default:sname sub in
+    if String.(sname = vname) then begin
       if show_vsa then Format.printf "Analyzing routine %s@." sname;
       let vsa = Vsa.static_graph_vsa [] prog s (Vsa.init_sol s) in
       Term.concat_map blk_t s ~f:begin fun b ->

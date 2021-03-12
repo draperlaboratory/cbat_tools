@@ -262,7 +262,7 @@ let rec denote_exp (e : exp) (env : AI.t) : val_t or_type_error =
     let sz = Size.in_bits s in
     let exp = Type.imm sz in
     let u_type_error = Type.Error.bad_type ~exp ~got:u_typ in
-    monadic_assert (exp = u_typ) u_type_error >>= fun () ->
+    monadic_assert Type.(exp = u_typ) u_type_error >>= fun () ->
     denote_exp a env >>= val_as_imm >>= fun addr ->
     denote_exp m env >>= val_as_mem >>= fun mv ->
     denote_exp u env >>= val_as_imm >>= fun v ->
@@ -364,7 +364,7 @@ let denote_jump (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
       Format.printf "//Assuming a well-formed call-return control flow@.";
       match Call.return c with
         | None -> AI.bottom
-        | Some (Direct tid) when not (target = tid) -> AI.bottom
+        | Some (Direct tid) when compare_tid target tid <> 0 -> AI.bottom
         | Some (Indirect _)
         | Some (Direct _) ->
           (* In this case, the call might return to target *)
@@ -376,7 +376,7 @@ let denote_jump (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
       | Int _ -> not_implemented ~top:AI.top "interrupt denotation"
       | Call c -> inspect_call c
       | Goto (Direct tid)
-      | Ret (Direct tid) ->  if target = tid then env else AI.bottom
+      | Ret (Direct tid) ->  if compare_tid target tid = 0 then env else AI.bottom
       | Goto (Indirect _)
       | Ret (Indirect _) -> env
       end

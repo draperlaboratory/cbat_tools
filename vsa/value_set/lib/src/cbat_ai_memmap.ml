@@ -50,7 +50,7 @@ module Key = struct
 
 
   let create ~lo ~hi : t Or_error.t =
-    if lo <= hi then Result.Ok {lo; hi}
+    if Word.(lo <= hi) then Result.Ok {lo; hi}
     else Or_error.error "attempted to create key with lo above hi"
         (lo, hi) (fun (lo, hi) -> Sexp.List[Word.sexp_of_t lo;
                                             Word.sexp_of_t hi])
@@ -242,12 +242,14 @@ end = struct
     let top = 1, BigEndian
 
     let join (w1, e1 : t) (w2, e2 : t) : t =
-      if e1 = e2 then min w1 w2, e1 else min addressable_width (min w1 w2), e1
+      if Bitvector.compare_endian e1 e2 = 0
+      then min w1 w2, e1
+      else min addressable_width (min w1 w2), e1
 
     let widen_join = join
 
     let precedes (w1, e1 : t) (w2, e2 : t) : bool =
-      w1 >= w2 && (w2 <= addressable_width || e1 = e2)
+      w1 >= w2 && (w2 <= addressable_width || Bitvector.compare_endian e1 e2 = 0)
 
     let equal i1 i2 : bool = precedes i1 i2 && precedes i2 i1
 
@@ -266,7 +268,7 @@ end = struct
   let get_idx (v : t) : idx = WordSet.bitwidth v.data, v.endian
 
   let idx_equal (w1, e1 : idx) (w2, e2 : idx) : bool =
-    w1 = w2 && (w1 <= addressable_width || e1 = e2)
+    w1 = w2 && (w1 <= addressable_width || Bitvector.compare_endian e1 e2 = 0)
 
   let lift_in (f : WordSet.t -> 'a) (v : t) : 'a = f v.data
 
@@ -329,7 +331,7 @@ end = struct
   let cast_seq (sz, e : idx) (v : t) : WordSet.t seq =
     (* TODO: if v has size < 8, this could result in an unnecessary
        loss of precision at replication *)
-    let sz = if e = v.endian then sz else addressable_width in
+    let sz = if Bitvector.compare_endian e v.endian = 0 then sz else addressable_width in
     let w, e = get_idx v in
     let top = Seq.singleton @@ WordSet.top sz in
     let p = replicate_wordset v.data sz in
@@ -464,7 +466,7 @@ let meet_add : t -> key:Key.t -> data:Val.t -> t = op_add Val.meet_poly
 *)
 let add (m : t) ~key : data:Val.t -> t =
   (* TODO: op is unsound in the case that d' is longer than d*)
-  if Key.lower key = Key.upper key then op_add (fun d _ -> d) m ~key
+  if Word.(Key.lower key = Key.upper key) then op_add (fun d _ -> d) m ~key
   else join_add m ~key
 
 (* Retrieves a WORDSET representing the set of possible values stored
@@ -480,8 +482,8 @@ let find' (i : Val.idx) (m : itree) (k : Key.t) : Val.t =
        only one intersection.
     *)
     Seq.fold ints ~init:hd ~f:(fun v (k',v') ->
-        let lo_key_start = min (Key.lower k) (Key.lower k') in
-        let hi_key_start = max (Key.lower k) (Key.lower k') in
+        let lo_key_start = Word.(min (Key.lower k) (Key.lower k')) in
+        let hi_key_start = Word.(max (Key.lower k) (Key.lower k')) in
         let keys_aligned =
           Word.is_zero (Word.modulo (Word.sub hi_key_start lo_key_start)
                           (Word.of_int (fst i) ~width:(Addr.bitwidth lo_key_start))) in
