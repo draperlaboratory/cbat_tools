@@ -15,7 +15,7 @@ To get started, see the documentation link above.  If you're digging into the co
   behavior of two programs.  The WP calculation verifies intra-procedural
   properties specified using first-order logic, and resolved using the Z3
   theorem prover.  To compare programs, the plugin combines them into a single
-  program and use the weakest precondition computation to find differences in
+  program and uses the weakest precondition computation to find differences in
   the behavior of the two parts.
 
 * [bildb](./bildb) - A debugger to step through binary programs lifted into
