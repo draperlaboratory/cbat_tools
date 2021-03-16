@@ -324,7 +324,7 @@ let mk_env
   }
 
 let env_to_string (env : t) : string =
-  let pair_printer ts1 ts2 f (x,y) = Format.fprintf f "%s -> \n%s\n" (ts1 x) (ts2 y) in
+  let pair_printer ts1 ts2 f (x,y) = Format.fprintf f "%s -> _BSN1_%s_BSN2_" (ts1 x) (ts2 y) in
   let map_seq_printer ts1 ts2 f seq = Seq.pp (pair_printer ts1 ts2) f seq in
   let var_list = env.var_map |> EnvMap.to_sequence in
   let sub_list = env.sub_handler |> TidMap.to_sequence in
@@ -498,12 +498,17 @@ let update_stack_base (range : mem_range) (base : int) : mem_range =
 let update_stack_size (range : mem_range) (size : int) : mem_range =
   { range with size = size }
 
+let expr_mk_const_s (ctx : Z3.context) (name : string) (range : Z3.Sort.sort) : Z3.Expr.expr =
+  Z3.FuncDecl.apply (Z3.FuncDecl.mk_func_decl_s ctx ("wp_const_"^name) [] range) [] 
+  
 let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
   let name = Format.sprintf "init_%s" (String.strip ~drop:(fun c -> Char.(c = '|')) (Expr.to_string z3_var)) in
   let init_var = Expr.mk_const_s ctx name sort in
+  if (String.equal name "init_|#590|") then Format.printf "%s\n%!" (Expr.get_simplify_help ctx) else (); 
+  Format.printf "(Expr.to_string init_var): %s \n %!" (Expr.to_string init_var) ;
   let env = { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var } in
   init_var, env
 
