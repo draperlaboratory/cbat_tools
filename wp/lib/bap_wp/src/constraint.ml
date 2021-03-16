@@ -19,7 +19,7 @@ module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Model = Z3.Model
 module Solver = Z3.Solver
-
+              
 type z3_expr = Expr.expr
 
 type path = bool Jmp.Map.t
@@ -47,8 +47,13 @@ let get_model_exn (solver : Solver.solver) : Model.model =
     ~message:(Format.sprintf "Unable to get the model from the Z3 solver : %s"
                 (Solver.to_string solver))
 
+let remove_char (chr : char) (s : string) : string =
+  String.filter s ~f:(fun c -> not (Char.equal c chr))  
+  
 let goal_to_string (g : goal) : string =
-  Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
+  let lhs = g.goal_name |> remove_char '\\' in
+  let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> remove_char '\\' in
+  Format.sprintf "%s%s%s: %s%s%s%!" ("\x1b[31m") lhs ("\x1b[0m") ("\x1b[36m") rhs ("\x1b[0m")
 
 let expr_to_hex (exp : z3_expr) : string =
   let decimal = BV.numeral_to_string exp in
@@ -169,7 +174,7 @@ let goal_of_refuted_goal (rg : refuted_goal) : goal =
   rg.goal
 
 let mk_goal (name : string) (value : z3_expr) : goal =
-  { goal_name = name; goal_val = value }
+  { goal_name = name ; goal_val = value }
 
 let get_goal_name (g : goal) : string =
   g.goal_name
@@ -185,23 +190,28 @@ type t =
 
 let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
   match constr with
-  | Goal g -> Format.fprintf ch "%s" (goal_to_string g)
+  | Goal g ->
+     Format.fprintf ch "%s\n" (goal_to_string g |> String.escaped)
   | ITE (tid, e, c1, c2) ->
-    Format.fprintf ch "ITE(%s, %s, %a, %a)"
+    Format.fprintf ch "%s: if %s then %a else %a" 
       (tid |> Term.tid |> Tid.to_string) (Expr.to_string e) pp_constr c1 pp_constr c2
   | Clause (hyps, concs) ->
-    Format.fprintf ch "(";
-    (List.iter hyps ~f:(fun h -> Format.fprintf ch "%a" pp_constr h));
-    Format.fprintf ch ") => (";
+     if (List.is_empty hyps) then ()
+     else
+       (let print_hyps =
+         List.iter hyps ~f:(fun h -> Format.fprintf ch "%a" pp_constr h) in 
+       if (List.length hyps = 1) then (print_hyps; Format.fprintf ch " => ")
+       else (Format.fprintf ch "("; print_hyps; Format.fprintf ch ") => "));
+     Format.fprintf ch "(";
     (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" pp_constr c));
     Format.fprintf ch ")"
   | Subst (c, olds, news) ->
-    Format.fprintf ch "Substitute: %s to %s in %a"
+     Format.fprintf ch "let %s = %s in %a"  
       (List.to_string ~f:Expr.to_string olds) (List.to_string ~f:Expr.to_string news)
       pp_constr c
 
 let to_string (constr : t) : string =
-  Format.asprintf "%a" pp_constr constr
+  Format.asprintf "%a" pp_constr constr |> remove_char '"' |> Scanf.unescaped 
 
 let mk_constr (g : goal) : t =
   Goal g
