@@ -37,31 +37,42 @@ let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
   |> List.iter ~f:(fun (key, data) ->
       Format.fprintf fmt "\t\t%s |-> %s ;\n"
         (Expr.to_string key) (Constr.expr_to_hex data));
-  Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
+  if (Z3.BitVector.is_bv_numeral mem_model.default)
+  then Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
+  else Format.fprintf fmt "%s]\n" (Expr.to_string mem_model.default)
 
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
 let extract_array (e : Constr.z3_expr) : mem_model =
   let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
+    Printf.printf "%s \t %d \n" (Z3.Expr.to_string e) (Z3.Expr.get_num_args e);
     let numargs = Z3.Expr.get_num_args e in
-    let args = Z3.Expr.get_args e in
-    let f_decl = Z3.Expr.get_func_decl e in
-    let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
-    if Int.(numargs = 3) && String.(f_name = "store") then begin
-      let next_arr = List.nth_exn args 0 in
-      let key = List.nth_exn args 1 in
-      let value = List.nth_exn args 2 in
-      extract_array' ((key , value) :: partial_map) next_arr
+    if numargs <= 3 then begin
+      let args = Z3.Expr.get_args e in
+      let f_decl = Z3.Expr.get_func_decl e in
+      let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
+      if Int.(numargs = 3) && String.(f_name = "store") then begin
+        let next_arr = List.nth_exn args 0 in
+        let key = List.nth_exn args 1 in
+        let value = List.nth_exn args 2 in
+        extract_array' ((key , value) :: partial_map) next_arr
+      end
+      else if Int.(numargs = 1) && String.(f_name = "const") then begin
+        let key = List.nth_exn args 0 in
+        { default = key; model = List.rev partial_map }
+      end
+      else begin
+        warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
+        { default = e ; model = partial_map }
+      end
     end
-    else if Int.(numargs = 1) && String.(f_name = "const") then begin
-      let key = List.nth_exn args 0 in
-      { default = key; model = List.rev partial_map }
-    end
-    else begin
-      warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
-      { default = e ; model = partial_map }
-    end
+    else 
+      begin
+        (* FIXME: Presumably a lambda term *)
+        warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
+        { default = e; model = partial_map }
+      end
   in
   extract_array' [] e
 

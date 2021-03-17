@@ -112,10 +112,10 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   mk_smtlib2 ctx smt_post decl_syms
 
 
-(** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an 
+(** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an
     [and] node if the number of operands is less than 2. This may improve sharing,
     but also improves compatibility of smtlib2 expressions with other solvers  *)
-let mk_and ( ctx : Z3.context ) (xs : Constr.z3_expr list) : Constr.z3_expr = 
+let mk_and ( ctx : Z3.context ) (xs : Constr.z3_expr list) : Constr.z3_expr =
   match xs with
   | []  -> Bool.mk_true ctx
   | [x] -> x
@@ -153,9 +153,9 @@ let mk_and ( ctx : Z3.context ) (xs : Constr.z3_expr list) : Constr.z3_expr =
           #b00000000))))))))))))))))))))
     ] *)
 
-let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t list = 
-  let process_decl l = match l with 
-    | Sexp.List [Sexp.Atom "define-fun" ; Sexp.Atom varname; args ; _ ; model_val ] -> 
+let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t list =
+  let process_decl l = match l with
+    | Sexp.List [Sexp.Atom "define-fun" ; Sexp.Atom varname; args ; _ ; model_val ] ->
       (* If variable is not in sym_names, z3 will crash on processing it.
          Z3 can fill in gaps in the model via it's own smt search.
          The main cost is slowdown. *)
@@ -166,35 +166,35 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
             model_val
           | Sexp.List _  ->  (* Function model *)
             Sexp.List [Sexp.Atom "lambda" ; args; model_val] (* Sexp.Atom varname *)
-          | Sexp.Atom _ -> failwith "Unexpected atom" 
-        in 
-        Sexp.List [Sexp.Atom "assert" ; 
-                   Sexp.List [Sexp.Atom "=" ; Sexp.Atom varname ; model_val]] 
-      else 
+          | Sexp.Atom _ -> failwith "Unexpected atom"
+        in
+        Sexp.List [Sexp.Atom "assert" ;
+                   Sexp.List [Sexp.Atom "=" ; Sexp.Atom varname ; model_val]]
+      else
         begin
-          Printf.printf "Warning: %s not instantiated in Z3 query" varname;
+          Printf.printf "Warning: %s not instantiated in Z3 query\n" varname;
           Sexp.List [Sexp.Atom "assert" ; Sexp.Atom "true"]
         end
-    | _ -> failwith "Error: Unexpected form in external smt model" 
+    | _ -> failwith "Error: Unexpected form in external smt model"
   in
   let model_sexp = Sexp.of_string model_string in
   match model_sexp with
-  | Sexp.List (Sexp.Atom "model" :: t) -> 
+  | Sexp.List (Sexp.Atom "model" :: t) ->
     List.map ~f:process_decl t
-  | _ -> failwith "Error: Unexpected form in external smt model" 
+  | _ -> failwith "Error: Unexpected form in external smt model"
 
 (* We are still missing some funcdecls, particularly function return values *)
-(** [check_external] invokes an external smt solver as a process. It communicates to the 
-    process via a fairly rigid interpretation of the smtlib2 protocol. It extracts the 
-    smtlib2 query string from the given z3_solver, queries the external solver, receives 
+(** [check_external] invokes an external smt solver as a process. It communicates to the
+    process via a fairly rigid interpretation of the smtlib2 protocol. It extracts the
+    smtlib2 query string from the given z3_solver, queries the external solver, receives
     a counter model if SAT. It then asserts this model back to the z3_solver, which should
-    check quickly. This solver can then be used with the regular cbat z3 model 
+    check quickly. This solver can then be used with the regular cbat z3 model
     interpretation machinery. Tested with Boolector, results with other solvers may vary.*)
 
-let check_external 
-    (solver : Z3.Solver.solver) 
-    (solver_path : string) 
-    (ctx : Z3.context) 
+let check_external
+    (solver : Z3.Solver.solver)
+    (solver_path : string)
+    (ctx : Z3.context)
     (declsyms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : Z3.Solver.status =
   let smt_string = Z3.Solver.to_string solver in
   let smt_preamble = "(set-logic QF_AUFBV) (set-option :produce-models true)" in
@@ -208,9 +208,9 @@ let check_external
   Out_channel.flush solver_stdin;
   printf "Running external solver %s\n%!" solver_path;
   let result = In_channel.input_line_exn solver_stdout in
-  (* Parse external model into SExp, convert into smtlib asserts, 
+  (* Parse external model into SExp, convert into smtlib asserts,
      assert to Z3, verify that it is a model *)
-  let process_sat (_ : unit) = 
+  let process_sat (_ : unit) =
     let model_string = In_channel.input_all solver_stdout in
     (* SexpLib unfortunately uses # as an comment delimitter.
        We replace it with a special token and revert this after parsing. *)
@@ -218,24 +218,24 @@ let check_external
     let model_string = String.substr_replace_all model_string ~pattern:"#" ~with_:pound_token in
     let decls, syms = (* get_decls_and_symbols env*) declsyms |> List.unzip in
     let smt_asserts = asserts_of_model model_string (List.map ~f:Z3.Symbol.to_string syms) in
-    let smt_asserts = List.map smt_asserts ~f:(fun assert_ -> 
+    let smt_asserts = List.map smt_asserts ~f:(fun assert_ ->
         Sexp.to_string assert_ |>
         String.substr_replace_all ~pattern:pound_token ~with_:"#") in
-    List.iter smt_asserts ~f:(fun smt_assert -> 
-        let asts = Z3.SMT.parse_smtlib2_string ctx smt_assert [] [] syms decls  in 
+    List.iter smt_asserts ~f:(fun smt_assert ->
+        let asts = Z3.SMT.parse_smtlib2_string ctx smt_assert [] [] syms decls  in
         Z3.Solver.add solver (Z3.AST.ASTVector.to_expr_list asts)
       );
     let res = Z3.Solver.check solver [] in
     match res with
     | Z3.Solver.SATISFIABLE -> ()
-    | Z3.Solver.UNSATISFIABLE -> 
-      failwith (sprintf "External smt model returns unsat for Z3: \n 
+    | Z3.Solver.UNSATISFIABLE ->
+      failwith (sprintf "External smt model returns unsat for Z3: \n
                            Old_query: %s \n
                            Model : %s \n
                            Asserts: %s \n
-                           New query :%s \n" 
-                  smt_string 
-                  (String.concat ~sep:"\n" smt_asserts) 
+                           New query :%s \n"
+                  smt_string
+                  (String.concat ~sep:"\n" smt_asserts)
                   (Z3.Solver.to_string solver)
                   (model_string))
     | Z3.Solver.UNKNOWN -> failwith "External smt model returns unknown for Z3"
@@ -252,7 +252,7 @@ let check_external
   else
     begin
       let unknown_output = In_channel.input_all solver_stdout in
-      failwith (sprintf "Unidentified external solver %s output : %s\n%s " 
+      failwith (sprintf "Unidentified external solver %s output : %s\n%s "
                   solver_path result unknown_output)
     end
 
