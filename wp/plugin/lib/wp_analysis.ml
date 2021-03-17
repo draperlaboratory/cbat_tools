@@ -32,11 +32,16 @@ type Extension.Error.t += Unsupported_file_count of string
 
 (* Contains information about the precondition and the subroutines from
    the analysis to be printed out. *)
-type combined_pre = {
+type combined_pre = 
+| Single of {
+  pre : Constr.t;
+  orig : Env.t * Sub.t
+  }
+| Comparative of {
   pre : Constr.t;
   orig : Env.t * Sub.t;
   modif : Env.t * Sub.t
-}
+} 
 
 (* If an offset is specified, generates a function of the address of a memory
    read in the original binary to the address plus an offset in the modified
@@ -269,7 +274,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
-  { pre = pre; orig = env, main_sub; modif = env, main_sub }
+  Single { pre = pre; orig = env, main_sub}
 
 (* Runs a comparative analysis. *)
 let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
@@ -343,30 +348,47 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
       (Sub.to_string main_sub1) (Sub.to_string main_sub2);
-  { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
+  Comparative { pre = pre; orig = (env1, main_sub1); modif = (env2, main_sub2) }
 
-let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre) 
+let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
   : (unit, error) result =
   let solver = Z3.Solver.mk_solver ctx None in
+  let pre = match cp with
+    | Single cp -> cp.pre
+    | Comparative cp -> cp.pre
+  in
   if (List.mem p.debug "constraint-stats" ~equal:(String.equal)) then
-    Constr.print_stats cp.pre;
+    Constr.print_stats pre;
   let debug_eval =
     (List.mem p.debug "eval-constraint-stats" ~equal:(String.equal)) in
   let result = match p.ext_solver_path with
-  | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx cp.pre 
-  | Some ext_solver_path -> 
-      let declsyms = List.append (Z3_utils.get_decls_and_symbols (fst cp.modif)) (Z3_utils.get_decls_and_symbols (fst cp.orig)) in 
+  | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx pre
+  | Some ext_solver_path ->
+      let declsyms = match cp with
+        | Single cp -> Z3_utils.get_decls_and_symbols (fst cp.orig)
+        | Comparative cp ->
+          let declsyms_orig = Z3_utils.get_decls_and_symbols (fst cp.orig) in
+          let declsyms_modif = Z3_utils.get_decls_and_symbols (fst cp.modif) in
+          List.append declsyms_orig declsyms_modif
+      in
       Pre.check ~print_constr:p.show ~debug:debug_eval ~ext_solver:(ext_solver_path, declsyms)
-      solver ctx cp.pre 
+      solver ctx pre
   in
   if (List.mem p.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!" (
       Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
-  let env2, _ = cp.modif in
-  Utils.output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env2;
-  Utils.output_to_bildb ~filename:p.bildb_output solver result env2;
-  Output.print_result solver result cp.pre ~orig:cp.orig
-    ~modif:cp.modif ~show:p.show;
+  let env = match cp with
+    | Single cp -> fst cp.orig
+    | Comparative cp -> fst cp.modif
+  in
+  Utils.output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env;
+  Utils.output_to_bildb ~filename:p.bildb_output solver result env;
+  let () = match cp with
+  | Single cp ->   Output.print_result solver result cp.pre ~orig:cp.orig
+              ~modif:cp.orig ~show:p.show;
+  | Comparative cp ->  Output.print_result solver result cp.pre ~orig:cp.orig
+          ~modif:cp.modif ~show:p.show;
+  in
   Ok ()
 
 (* Entrypoint for the WP analysis. *)
