@@ -207,20 +207,29 @@ let check_external
   Out_channel.output_string solver_stdin smt_postamble;
   Out_channel.flush solver_stdin;
   printf "Running external solver %s\n%!" solver_path;
+
+  (* SexpLib unfortunately uses # as an comment delimitter.
+     We replace it with a special token and revert this after parsing. *)
+  let pound_token = "MYSPECIALPOUND682" in
+  let remove_pound s = String.substr_replace_all s ~pattern:"#" ~with_:pound_token in
+  let add_pound s = String.substr_replace_all s ~pattern:pound_token ~with_:"#" in
+
   let result = In_channel.input_line_exn solver_stdout in
   (* Parse external model into SExp, convert into smtlib asserts,
      assert to Z3, verify that it is a model *)
   let process_sat (_ : unit) =
     let model_string = In_channel.input_all solver_stdout in
-    (* SexpLib unfortunately uses # as an comment delimitter.
-       We replace it with a special token and revert this after parsing. *)
-    let pound_token = "MYSPECIALPOUND682" in
-    let model_string = String.substr_replace_all model_string ~pattern:"#" ~with_:pound_token in
+    let model_string = remove_pound model_string in
     let decls, syms = (* get_decls_and_symbols env*) declsyms |> List.unzip in
-    let smt_asserts = asserts_of_model model_string (List.map ~f:Z3.Symbol.to_string syms) in
+    let sym_strings = List.map ~f:(fun sym ->
+      let sym_string = Z3.Symbol.to_string sym in
+      if (String.contains sym_string '#')
+      then "|" ^ (remove_pound sym_string) ^ "|" (* SMTlib escaping using | *)
+      else sym_string) syms
+    in
+    let smt_asserts = asserts_of_model model_string sym_strings in
     let smt_asserts = List.map smt_asserts ~f:(fun assert_ ->
-        Sexp.to_string assert_ |>
-        String.substr_replace_all ~pattern:pound_token ~with_:"#") in
+        Sexp.to_string assert_ |> add_pound) in
     List.iter smt_asserts ~f:(fun smt_assert ->
         let asts = Z3.SMT.parse_smtlib2_string ctx smt_assert [] [] syms decls  in
         Z3.Solver.add solver (Z3.AST.ASTVector.to_expr_list asts)

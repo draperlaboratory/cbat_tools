@@ -48,6 +48,7 @@ let extract_array (e : Constr.z3_expr) : mem_model =
   let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
     Printf.printf "%s \t %d \n" (Z3.Expr.to_string e) (Z3.Expr.get_num_args e);
     let numargs = Z3.Expr.get_num_args e in
+    (* FIXME: Better condition for detecting lambda term. *)
     if numargs <= 3 then begin
       let args = Z3.Expr.get_args e in
       let f_decl = Z3.Expr.get_func_decl e in
@@ -67,7 +68,7 @@ let extract_array (e : Constr.z3_expr) : mem_model =
         { default = e ; model = partial_map }
       end
     end
-    else 
+    else
       begin
         (* FIXME: Presumably a lambda term *)
         warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
