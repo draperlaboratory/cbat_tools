@@ -54,6 +54,8 @@ These options apply in most circumstances to adjust CBAT's behavior or output.
 
 <li><code>--stack-size=&lt;size&gt;</code> &mdash; Sets the size of the stack. <code>size</code> should be denoted in bytes. By default, the size of the stack is <code>0x800000</code>, which is 8MB.</li>
 
+<li><code>--ext-solver-path=&lt;/bin/boolector&gt;</code> &mdash; Allows the usage of an external SMT solver. This option has only been tested with Boolector version 3.2.1. For other solvers, results may vary.</li>
+
 <li><code>--show=[bir|refuted-goals|paths|precond-internal|precond-smtlib]</code> &mdash; A list of details to print out from the analysis. Multiple options can be specified as a comma-separated list. For example: <code>--show=bir,refuted-goals</code>. The options are:
   <ul>
     <li><code>bir</code>: The code of the binary/binaries in BAP Intermediate Representation.</li>
