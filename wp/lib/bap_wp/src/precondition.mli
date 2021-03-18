@@ -51,7 +51,13 @@ val z3_expr_zero : Z3.context -> int -> Constr.z3_expr
 val z3_expr_one : Z3.context -> int -> Constr.z3_expr
 
 (** Translate a BIR binary operator to a Z3 one. *)
-val binop : Env.t -> Bap.Std.binop -> Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr
+val binop
+  : ?smtlib_compat:bool
+  -> Z3.context
+  -> Bap.Std.binop
+  -> Constr.z3_expr
+  -> Constr.z3_expr
+  -> Constr.z3_expr
 
 (** Translate a BIR unary operator to a Z3 one. *)
 val unop : Z3.context -> Bap.Std.unop -> Constr.z3_expr -> Constr.z3_expr
@@ -125,7 +131,7 @@ val caller_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 (** Obtains the callee-saved registers for a given architecture. *)
 val callee_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 
-(** This spec is used to handle user-specified subroutine specs 
+(** This spec is used to handle user-specified subroutine specs
     via the --user-func-spec flag, using the user-specified
     subroutine name, pre and post-conditions. **)
 val user_func_spec
@@ -327,7 +333,7 @@ val check
   : ?refute:bool
   -> ?print_constr: (string list)
   -> ?debug: (bool)
-  -> ?ext_solver : (string * ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)) 
+  -> ?ext_solver : (string * ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list))
   -> Z3.Solver.solver
   -> Z3.context
   -> Constr.t

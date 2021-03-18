@@ -39,9 +39,8 @@ type hooks = {
 let z3_expr_zero (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "0" size
 let z3_expr_one (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "1" size
 
-let binop (env : Env.t) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr =
-  let ctx = Env.get_context env in
-  let smtlib_compat = Env.get_smtlib_compat env in
+let binop ?(smtlib_compat = false) (ctx : Z3.context) (b : binop) :
+  Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr =
   let open Bap.Std.Bil.Types in
   let zero = z3_expr_zero ctx 1 in
   let one = z3_expr_one ctx 1 in
@@ -61,7 +60,7 @@ let binop (env : Env.t) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> Constr
   | XOR -> BV.mk_xor ctx
   | EQ -> fun x y -> if smtlib_compat then (Bool.mk_ite ctx (Bool.mk_eq ctx x y) one zero)
     else  (BV.mk_not ctx @@ BV.mk_redor ctx @@ BV.mk_xor ctx x y)
-  | NEQ -> fun x y -> if smtlib_compat 
+  | NEQ -> fun x y -> if smtlib_compat
     then  Bool.mk_ite ctx (Bool.mk_eq ctx x y) zero one
     else  BV.mk_redor ctx @@ BV.mk_xor ctx x y
   | LT -> fun x y -> Bool.mk_ite ctx (BV.mk_ult ctx x y) one zero
@@ -232,7 +231,8 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
         | _ -> x_val, y_val
       in
       assert (get_size x_val = get_size y_val);
-      binop env bop x_val y_val, env
+      let smtlib_compat = Env.get_smtlib_compat env in
+      binop ~smtlib_compat ctx bop x_val y_val, env
     | UnOp (u, x) ->
       debug "Visiting unop: %s %s%!" (Bil.string_of_unop u) (Exp.to_string x);
       let x_val, env = exp_to_z3_body x env in
@@ -965,7 +965,7 @@ let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   let sub_name = (Sub.to_string sub) in
   debug "Visiting sub:\n%s%!" sub_name;
   let pre, env' =
-    if (Seq.is_empty @@ Term.enum blk_t sub) 
+    if (Seq.is_empty @@ Term.enum blk_t sub)
     then
       (
         warning "encountered empty subroutine %s%!" sub_name;
@@ -1311,7 +1311,7 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   else
     Some (Assume (AfterExec (Constr.mk_goal name (Z3_utils.mk_and ctx conds))))
 
-let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
+let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
     (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   printf "Evaluating precondition.\n%!";
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (

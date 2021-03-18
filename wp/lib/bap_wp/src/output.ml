@@ -39,16 +39,15 @@ let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
         (Expr.to_string key) (Constr.expr_to_hex data));
   if (Z3.BitVector.is_bv_numeral mem_model.default)
   then Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
-  else Format.fprintf fmt "%s]\n" (Expr.to_string mem_model.default)
+  else Format.fprintf fmt "\t\telse |-> %s]\n" (Expr.to_string mem_model.default)
 
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
 let extract_array (e : Constr.z3_expr) : mem_model =
   let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
-    let numargs = Z3.Expr.get_num_args e in
-    (* FIXME: Better condition for detecting lambda term. *)
-    if numargs <= 3 then begin
+    if (Z3.Z3Array.is_array e) then begin
+      let numargs = Z3.Expr.get_num_args e in
       let args = Z3.Expr.get_args e in
       let f_decl = Z3.Expr.get_func_decl e in
       let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
