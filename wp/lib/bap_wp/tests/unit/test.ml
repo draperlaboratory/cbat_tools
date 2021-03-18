@@ -16,10 +16,10 @@ open OUnit2
 let suite =
   "Unit Tests" >::: [
     "Precondition" >::: Test_precondition.suite;
-    "Compare"      >::: Test_compare.suite;
-    "Constraint"   >::: Test_constraint.suite;
-    "Output"       >::: Test_output.suite;
-    "Z3 Utils"     >::: Test_z3_utils.suite;
+    (* "Compare"      >::: Test_compare.suite; *)
+    (* "Constraint"   >::: Test_constraint.suite; *)
+    (* "Output"       >::: Test_output.suite; *)
+    (* "Z3 Utils"     >::: Test_z3_utils.suite; *)
   ]
 
 let _ = run_test_tt_main suite

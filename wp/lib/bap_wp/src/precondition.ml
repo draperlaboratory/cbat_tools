@@ -752,6 +752,7 @@ let mk_env
     ?int_spec:(int_spec = int_spec_default)
     ?exp_conds:(exp_conds = [])
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
+    ?loop_invariant:(loop_invariant = "")
     ?arch:(arch = `x86_64)
     ?freshen_vars:(freshen_vars = false)
     ?use_fun_input_regs:(use_fun_input_regs = true)
@@ -771,6 +772,7 @@ let mk_env
     ~int_spec
     ~exp_conds
     ~num_loop_unroll
+    ~loop_invariant
     ~arch
     ~freshen_vars
     ~use_fun_input_regs
@@ -880,12 +882,18 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     raise (Not_implemented "visit_elt: case `Phi(phi) not implemented")
 
 let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t =
-  debug "Visiting block:\n%s%!" (Blk.to_string blk);
-  let compute_pre b =
-    Seq.fold b ~init:(post, env) ~f:(fun (pre, env) a -> visit_elt env pre a)
-  in
-  let pre, env = blk |> Blk.elts ~rev:true |> compute_pre in
-  (pre, Env.add_precond env (Term.tid blk) pre)
+  printf "Visiting block:\n%s\n%!" (Blk.to_string blk);
+  match Env.get_precondition env (Term.tid blk) with
+  | Some pre ->
+    printf "%s: %s\n%!" (Term.tid blk |> Tid.to_string) (Constr.to_string pre);
+    pre, env
+  | None ->
+    let compute_pre b =
+      Seq.fold b ~init:(post, env) ~f:(fun (pre, env) a -> visit_elt env pre a)
+    in
+    let pre, env = blk |> Blk.elts ~rev:true |> compute_pre in
+    printf "%s: %s\n%!" (Term.tid blk |> Tid.to_string) (Constr.to_string pre);
+    (pre, Env.add_precond env (Term.tid blk) pre)
 
 let visit_graph (env : Env.t) (post : Constr.t)
     ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
@@ -907,7 +915,7 @@ let visit_graph (env : Env.t) (post : Constr.t)
       begin
         let src = G.Edge.src e in
         let dst = G.Edge.dst e in
-        debug "Entering back edge from\n%sto\n%s\n%!"
+        printf "Entering back edge from\n%sto\n%s\n\n%!"
           (G.Node.to_string src) (G.Node.to_string dst);
         let handler = Env.get_loop_handler env in
         post, handler env post ~start:dst g
@@ -1388,3 +1396,150 @@ let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
   in
   let expr = List.fold l ~init:(Bool.mk_true ctx) ~f:gen_constr in
   Constr.mk_goal "pointer_precond" expr |> Constr.mk_constr
+
+(* Gets the target destination of a jump. *)
+let target (jmp : Jmp.t) : Tid.t option =
+  match Jmp.kind jmp with
+  | Goto (Direct tid) -> Some tid
+  | Int (_, tid) -> Some tid
+  | Call t -> begin
+      match Call.return t with
+      | Some (Direct tid) -> Some tid
+      | Some (Indirect _) | None -> None
+    end
+  | Goto (Indirect _) | Ret _ -> None
+
+(* Checks if [tid] corresponds to the tid of a block in a loop. *)
+let in_loop (loop : Graphs.Ir.Node.t group) (tid : Tid.t) : bool =
+  Seq.exists (Group.enum loop) ~f:(fun n ->
+      Tid.equal (n |> Graphs.Ir.Node.label |> Term.tid) tid)
+
+(* Gets a BAP expression representing the condition for a loop. *)
+let get_cond (loop : Graphs.Ir.Node.t group) (blk : Blk.t)
+  : Exp.t option =
+  match Seq.to_list (Term.enum jmp_t blk) with
+  | [jmp1; jmp2] -> begin
+      (* Assuming the condition node for a loop branches to 2 different
+         nodes. *)
+      match target jmp1, target jmp2 with
+      | Some target1, Some target2 ->
+        if in_loop loop target1 then
+          (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
+          Some (Jmp.cond jmp1)
+        else if in_loop loop target2 then
+          (* jmp1 exits, jmp2 foes to loop. while(E) is the negation of jmp1's
+             condition. *)
+          Some Bil.(unop neg (Jmp.cond jmp1))
+        else
+          None
+      | _, _ -> None
+    end
+  | _ -> None
+
+(* Gets the body of a loop without the header node containg the loop
+   condition. *)
+let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) (blk : Blk.t)
+  : Graphs.Ir.t =
+  let outside_loop node =
+    let label = Graphs.Ir.Node.label node in
+    (Blk.equal label blk) || (not @@ in_loop loop (Term.tid label))
+  in
+  (* Removes the block that represents the loop header which determines
+     whether to jump to the loop or exit. *)
+  let enter_node _ node g =
+    if outside_loop node then
+      Graphs.Ir.Node.remove node g
+    else
+      g
+  in
+  (* Removes edges that exit the loop. *)
+  let enter_edge _ edge g =
+    let dst = Graphs.Ir.Edge.dst edge in
+    if outside_loop dst then
+      Graphs.Ir.Edge.remove edge g
+    else
+      g
+  in
+  Graphlib.depth_first_search (module Graphs.Ir) ~enter_node ~enter_edge ~init:graph graph
+
+(* Splits the loop into the condition and the body of the loop. Assumes there
+   are no breaks in the loop. *)
+let split_loop (start : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+  : (Exp.t * Sub.t) option =
+  let scc = Graphlib.strong_components (module Graphs.Ir) graph in
+  let loop = Option.value_exn (Partition.group scc start) in
+  let sub = Sub.of_cfg graph in
+  Seq.find_map (Term.enum blk_t sub) ~f:(fun blk ->
+      match get_cond loop blk with
+      | Some cond ->
+        let body = Sub.of_cfg (get_body graph loop blk) in
+        Some (cond, body)
+      | None -> None)
+
+(* Gets a set of vars that get updated in the body of a loop. *)
+let loop_vars (sub : Sub.t) : Var.Set.t =
+  let visitor =
+    (object inherit [Var.Set.t] Term.visitor
+      method! visit_def def vars =
+        Var.Set.add vars (Def.lhs def)
+    end)
+  in
+  visitor#visit_sub sub Var.Set.empty
+
+let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handler =
+  {
+    handle =
+      let module Node = Graphs.Ir.Node in
+      let checker env post ~start:node g : Env.t =
+        let ctx = Env.get_context env in
+        let tid = node |> Node.label |> Term.tid in
+        let c1 =
+          Bool.mk_eq ctx
+            (BV.mk_add ctx (BV.mk_const_s ctx "x0" 32) (BV.mk_const_s ctx "y0" 32))
+            (BV.mk_numeral ctx "5" 32)
+        in
+        let c2 = BV.mk_uge ctx (BV.mk_const_s ctx "y0" 32) (BV.mk_numeral ctx "0" 32) in
+        let c3 = BV.mk_ule ctx (BV.mk_const_s ctx "x0" 32) (BV.mk_numeral ctx "5" 32) in
+        let invariant = Bool.mk_and ctx [c1; c2; c3]
+                        |> Constr.mk_goal "Invariant"
+                        |> Constr.mk_constr
+        in
+        let cond, body = Option.value_exn (split_loop node g) in
+        let cond_val, _, env = exp_to_z3 cond env in
+        let cond_size = BV.get_size (Expr.get_sort cond_val) in
+        let vars = loop_vars body in
+        let freshen constr env =
+          Var.Set.fold vars ~init:(constr, env) ~f:(fun (constr, env) v ->
+              let z3_v, env = Env.get_var env v in
+              let name = Format.sprintf "fresh_%s" (Expr.to_string z3_v) in
+              let fresh = Env.new_z3_expr ~name env (Var.typ v) in
+              Constr.substitute_one constr z3_v fresh, Env.add_call_pred env fresh)
+        in
+        let iteration, env =
+          let loop_cond =
+            Bool.mk_not ctx (Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size))
+            |> Constr.mk_goal "Loop guard"
+            |> Constr.mk_constr
+          in
+          printf "Rec call\n%!";
+          let body_wp, env = visit_sub env invariant body in
+          printf "End rec call\n%!";
+          freshen (Constr.mk_clause [loop_cond; invariant] [body_wp]) env
+        in
+        let exit, env =
+          let exit_cond =
+            Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size)
+            |> Constr.mk_goal "Loop exit"
+            |> Constr.mk_constr
+          in
+          freshen (Constr.mk_clause [exit_cond; invariant] [post]) env
+        in
+        let pre = Constr.mk_clause [] [invariant; iteration; exit] in
+        (* printf "Clause:\n%s\n%!" (Constr.to_string pre); *)
+        Env.add_precond env tid pre
+      in
+      checker
+  }
+
+let _ = Env.loop_invariant_checker_rec_call :=
+    fun invariant -> init_loop_invariant_checker invariant

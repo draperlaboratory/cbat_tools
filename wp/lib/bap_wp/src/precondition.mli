@@ -284,6 +284,7 @@ val mk_env
   -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
   -> ?num_loop_unroll:int
+  -> ?loop_invariant:string
   -> ?arch:Bap.Std.Arch.t
   -> ?freshen_vars:bool
   -> ?use_fun_input_regs:bool

@@ -177,11 +177,8 @@ let wp_rec_call :
   (t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
   ref (fun _ _ ~start:_ _ -> assert false)
 
-let trivial_constr (env : t) : Constr.t =
-  get_context env
-  |> Z3.Boolean.mk_true
-  |> Constr.mk_goal "true"
-  |> Constr.mk_constr
+let loop_invariant_checker_rec_call : (string -> loop_handler) ref =
+  ref (fun _ -> assert false)
 
 (* Looks up the precondition of the exit node of a loop by:
    - obtaining the post dominator tree
@@ -240,13 +237,14 @@ let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
       in
       let unroll env pre ~start:node g =
         if find_depth node <= 0 then
+          let ctx = get_context env in
           let tid = node |> Node.label |> Term.tid in
           let pre =
             match List.find_map [loop_exit_pre] ~f:(fun spec -> spec env node g) with
             | Some p -> p
             | None ->
               warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
-              trivial_constr env
+              Constr.trivial ctx
           in
           add_precond env tid pre
         else
@@ -288,6 +286,7 @@ let mk_env
     ~int_spec:(int_spec : int_spec)
     ~exp_conds:(exp_conds : exp_cond list)
     ~num_loop_unroll:(num_loop_unroll : int)
+    ~loop_invariant:(loop_invariant : string)
     ~arch:(arch : Arch.t)
     ~freshen_vars:(freshen_vars : bool)
     ~use_fun_input_regs:(fun_input_regs : bool)
@@ -311,7 +310,8 @@ let mk_env
     indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
-    loop_handler = init_loop_unfold num_loop_unroll;
+    (* loop_handler = init_loop_unfold num_loop_unroll; *)
+    loop_handler = !loop_invariant_checker_rec_call loop_invariant;
     exp_conds = exp_conds;
     arch = arch;
     use_fun_input_regs = fun_input_regs;

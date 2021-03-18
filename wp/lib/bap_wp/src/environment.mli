@@ -116,6 +116,7 @@ val mk_env
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
   -> num_loop_unroll:int
+  -> loop_invariant:string
   -> arch:Bap.Std.Arch.t
   -> freshen_vars:bool
   -> use_fun_input_regs:bool
@@ -158,6 +159,8 @@ val clear_call_preds : t -> t
     loop handler of the environment simulating "open recursion". *)
 val wp_rec_call :
   (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t) ref
+
+val loop_invariant_checker_rec_call : (string -> loop_handler) ref
 
 (** Add a new binding to the environment for a bap variable to a Z3 expression,
     typically a constant. *)
@@ -301,9 +304,6 @@ val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
 (** [get_init_var var] obtains the Z3 expression that represents the initial state
     of a bap variable [var]. *)
 val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
-
-(** [trivial_constr] generates a trivial constraint of just [true]. *)
-val trivial_constr : t -> Constr.t
 
 (** [map_sub_name env name_mod] obtains the name of the subroutine in the
     original binary based off its name in the modified binary. In the case
