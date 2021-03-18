@@ -31,10 +31,10 @@ let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) 
   let ctx = Env.get_context env in
   let var_to_decl ~key:_ ~data:z3_var decls =
     assert (Expr.is_const z3_var);
-    let decl = FuncDecl.mk_const_decl_s ctx
-        (Expr.to_string z3_var |> (String.strip ~drop:(fun c -> Char.(c = '|'))))
-        (Expr.get_sort z3_var) in
-    let sym =  Symbol.mk_string ctx (Expr.to_string z3_var |> (String.strip ~drop:(fun c -> Char.(c = '|')))) in
+    (* "|" is a quotation character Z3 inserts we want stripped. *)
+    let var_name = String.strip ~drop:(fun c -> Char.(c = '|')) (Expr.to_string z3_var) in
+    let decl = FuncDecl.mk_const_decl_s ctx var_name (Expr.get_sort z3_var) in
+    let sym =  Symbol.mk_string ctx var_name in
     (decl, sym) :: decls
   in
   let var_map = Env.get_var_map env in
@@ -172,7 +172,7 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
                    Sexp.List [Sexp.Atom "=" ; Sexp.Atom varname ; model_val]]
       else
         begin
-          Printf.printf "Warning: %s not instantiated in Z3 query\n" varname;
+          warning "Warning: %s not instantiated in Z3 query\n" varname;
           Sexp.List [Sexp.Atom "assert" ; Sexp.Atom "true"]
         end
     | _ -> failwith "Error: Unexpected form in external smt model"
