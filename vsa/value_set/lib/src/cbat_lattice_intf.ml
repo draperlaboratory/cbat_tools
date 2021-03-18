@@ -139,7 +139,7 @@ end = struct
   let meet a b = a && b
   let join a b = a || b
   let widen_join = join
-  let equal a b = a = b
+  let equal = Bool.(=)
   let precedes a b = (not a) || b (* definition of classical implication *)
 
   let pp ppf (b : t) = Format.fprintf ppf (if b then "top" else "bottom")

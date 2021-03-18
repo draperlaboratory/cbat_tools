@@ -1,3 +1,4 @@
+
 (***************************************************************************)
 (*                                                                         *)
 (*  Copyright (C) 2018/2019 The Charles Stark Draper Laboratory, Inc.      *)
@@ -37,7 +38,7 @@ let specialize_cond cond e w : exp =
 
 let create_label terms w : label =
   let has_address w b = Option.value_map ~default:false
-      (Term.get_attr b address) ~f:(fun addr -> addr = w) in
+      (Term.get_attr b address) ~f:(fun addr -> Word.(addr = w)) in
   match Seq.find terms ~f:(has_address w) with
   | Some b -> (Direct (Term.tid b))
   | None -> (Indirect (Bil.Int w))
@@ -83,7 +84,7 @@ let add_edges (prog : program term) (s : sub term) (postcondition : AI.t) (b : b
     | Goto (Indirect e) | Ret (Indirect e) ->
       let targets = Utils.exn_on_err @@ Vsa.denote_imm_exp e postcondition in
       let cardn = Clp.cardinality targets in
-      if cardn > Word.of_int !Utils.max_edge_explosion ~width:(Word.bitwidth cardn)
+      if Word.(cardn > of_int !Utils.max_edge_explosion ~width:(bitwidth cardn))
       then Printf.printf "//Edge transform produced edge explosion (>%d)@.\n" !Utils.max_edge_explosion
       else List.iter (Clp.iter targets) ~f:begin fun w ->
           (* TODO: this cond is computed twice; fix *)
@@ -104,7 +105,7 @@ let add_edges (prog : program term) (s : sub term) (postcondition : AI.t) (b : b
         | Indirect e ->
           let targets = Utils.exn_on_err @@ Vsa.denote_imm_exp e postcondition in
           let cardn = Clp.cardinality targets in
-          if cardn > Word.of_int !Utils.max_edge_explosion ~width:(Word.bitwidth cardn)
+          if Word.(cardn > of_int !Utils.max_edge_explosion ~width:(bitwidth cardn))
           then Printf.printf "//Edge transform produced edge explosion@."
           else List.iter (Clp.iter targets) ~f:begin fun w ->
               let cond = specialize_cond (Jmp.cond j) e w in
@@ -141,11 +142,12 @@ let insert_edges prog sub sol : sub term * is_done =
 end
 
 let rec do_until_done ?fuel (f : 'a -> 'a * is_done) (arg : 'a) : 'a =
-  if fuel = Some 0 then begin
-    Printf.printf "@.Giving up on edge addition; could not find fixpoint!@.";
-    arg
-  end else
-    let res1, done_ = f arg in
+  match fuel with
+  | Some 0 -> begin
+      Printf.printf "@.Giving up on edge addition; could not find fixpoint!@.";
+      arg
+    end
+  | _ -> let res1, done_ = f arg in
     match done_ with
     | Done -> res1
     | EdgesAdded -> do_until_done ?fuel:(Option.map fuel ~f:pred) f res1
@@ -168,7 +170,7 @@ let main (sub_name : string option) (max_edges : int) (proj : project) : project
     Term.enum sub_t prog
     |> Seq.fold ~init:(prog, Done) ~f:begin fun (prog, done_) sub ->
       let sname = Sub.name sub in
-      if Option.value ~default:sname sub_name = sname then
+      if String.(Option.value ~default:sname sub_name = sname) then
         let sol = Option.value_exn ~message:"VSA not stored!" (Vsa.load sub) in
         let sub', edges_added = insert_edges prog sub sol in
         let prog' = Term.update sub_t prog sub' in
