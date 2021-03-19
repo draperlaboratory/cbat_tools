@@ -1423,7 +1423,7 @@ let get_cond (loop : Graphs.Ir.Node.t group) (blk : Blk.t)
         else if in_loop loop target2 then
           (* jmp1 exits, jmp2 foes to loop. while(E) is the negation of jmp1's
              condition. *)
-          Some Bil.(unop neg (Jmp.cond jmp1))
+          Some Bil.(unop not (Jmp.cond jmp1))
         else
           None
       | _, _ -> None
@@ -1481,7 +1481,8 @@ let loop_vars (sub : Sub.t) : Var.Set.t =
   visitor#visit_sub sub Var.Set.empty
 
 (* Creates fresh names for [vars] found in the constraint. *)
-let freshen (constr : Constr.t) (env : Env.t) (vars : Var.Set.t) =
+let freshen (constr : Constr.t) (env : Env.t) (vars : Var.Set.t)
+  : Constr.t * Env.t =
   Var.Set.fold vars ~init:(constr, env) ~f:(fun (constr, env) v ->
       let z3_v, env = Env.get_var env v in
       let name = Format.sprintf "fresh_%s" (Expr.to_string z3_v) in

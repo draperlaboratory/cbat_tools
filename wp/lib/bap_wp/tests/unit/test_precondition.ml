@@ -1112,6 +1112,62 @@ let test_loop_invariant_2 (test_ctx : test_ctxt) : unit =
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
+let test_loop_invariant_3 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let loop_invariant = "(assert (= (bvadd x y) #x00000005))" in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let sub = Bil.(
+      [
+        x := zero;
+        y := i32 5;
+        while_ ( var x < i32 5 )
+          [
+            x := var x + one;
+            y := var y - one;
+          ];
+      ]
+    ) |> bil_to_sub
+  in
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
+             |> Constr.mk_goal "x = 5"
+             |> Constr.mk_constr
+  in
+  let _, env = Pre.init_vars (Var.Set.of_list [x; y]) env in
+  let pre, env = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
+
+
+let test_loop_invariant_4 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let loop_invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let sub = Bil.(
+      [
+        x := zero;
+        y := i32 5;
+        while_ ( var x < i32 5 )
+          [
+            x := var x + one;
+            y := var y - one;
+          ];
+      ]
+    ) |> bil_to_sub
+  in
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
+             |> Constr.mk_goal "x = 5"
+             |> Constr.mk_constr
+  in
+  let _, env = Pre.init_vars (Var.Set.of_list [x; y]) env in
+  let pre, env = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+
+
 (* Currently only testing expressions that evaluate to immediates. *)
 let eval_to_int (exp : exp) : int =
   match Exp.eval exp with
@@ -1664,6 +1720,14 @@ let suite = [
    b1: x = 0; y = 5; goto b2; \n\
    b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
    b3:" >:: test_loop_invariant_2;
+  "Loop invariant BIL UNSAT: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
+   b3:" >:: test_loop_invariant_3;
+  "Loop invariant BIL SAT: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
+   b3:" >:: test_loop_invariant_4;
 
   "Read NULL; SAT:\n\
    x = mem[addr];" >:: test_exp_cond_1;
