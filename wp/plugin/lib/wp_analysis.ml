@@ -247,8 +247,16 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let specs = fun_specs p to_inline in
   let exp_conds = exp_conds_mod p in
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
-  let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs ~smtlib_compat:(Option.is_some p.ext_solver_path)
-      ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
+  let env = Pre.mk_env z3_ctx var_gen
+      ~subs
+      ~arch
+      ~specs
+      ~smtlib_compat:(Option.is_some p.ext_solver_path)
+      ~use_fun_input_regs:p.use_fun_input_regs
+      ~exp_conds
+      ~stack_range
+      ~loop_invariant:p.loop_invariant
+  in
   let true_constr = Env.trivial_constr env in
   let vars = Pre.get_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in

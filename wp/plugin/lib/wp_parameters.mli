@@ -44,7 +44,7 @@ type t = {
   pointer_reg_list : string list;
   inline : string option;
   num_unroll : int option;
-  loop_invariant : string option;
+  loop_invariant : string;
   gdb_output : string option;
   bildb_output : string option;
   use_fun_input_regs : bool;

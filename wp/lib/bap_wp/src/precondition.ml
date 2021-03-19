@@ -1421,7 +1421,7 @@ let get_cond (loop : Graphs.Ir.Node.t group) (blk : Blk.t)
           (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
           Some (Jmp.cond jmp1)
         else if in_loop loop target2 then
-          (* jmp1 exits, jmp2 foes to loop. while(E) is the negation of jmp1's
+          (* jmp1 exits, jmp2 goes to loop. while(E) is the negation of jmp1's
              condition. *)
           Some Bil.(unop not (Jmp.cond jmp1))
         else

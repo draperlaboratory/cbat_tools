@@ -258,7 +258,7 @@ let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
 let ext_solver_path = Cmd.parameter Typ.(some string) "ext-solver-path"
     ~doc:{|Path of external smt solver to call. Boolector recommended. |}
 
-let loop_invariant = Cmd.parameter Typ.(some string) "loop-invariant"
+let loop_invariant = Cmd.parameter Typ.string "loop-invariant"
     ~doc:{|Assumes the subroutine contains a single unnested loop with one entrance
            and one exit. Checks the specified loop invariant written in
            smt-lib2 format.|}
@@ -305,7 +305,7 @@ let callback
     (pointer_reg_list : string list)
     (inline : string option)
     (num_unroll : int option)
-    (loop_invariant : string option)
+    (loop_invariant : string)
     (gdb_output : string option)
     (bildb_output : string option)
     (use_fun_input_regs : bool)
