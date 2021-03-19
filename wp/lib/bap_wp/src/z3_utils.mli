@@ -46,8 +46,6 @@ val get_decls_and_symbols : Env.t -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol)
      and postconditions for single binary analysis *)
 val mk_smtlib2_single : Env.t -> string -> Constr.t
 
-(** [mk_smtlib2] parses a smtlib2 string in the context that has a mapping of func_decl
-    to symbols and returns a constraint [Constr.t] corresponding to the smtlib2 string.
-    The [func_decl * symbol] mapping can be constructed from an [Env.t] using the
-    [get_decls_and_symbols] function. *)
-val mk_smtlib2 : Z3.context -> string -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)  -> Constr.t
+(** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
+    as a comparison predicate between an original and modified binary. *)
+val mk_smtlib2_compare : Env.t -> Env.t -> string -> Constr.t
