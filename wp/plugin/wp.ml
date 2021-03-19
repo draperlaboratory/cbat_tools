@@ -258,6 +258,11 @@ let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
 let ext_solver_path = Cmd.parameter Typ.(some string) "ext-solver-path"
     ~doc:{|Path of external smt solver to call. Boolector recommended. |}
 
+let loop_invariant = Cmd.parameter Typ.(some string) "loop-invariant"
+    ~doc:{|Assumes the subroutine contains a single unnested loop with one entrance
+           and one exit. Checks the specified loop invariant written in
+           smt-lib2 format.|}
+
 let grammar = Cmd.(
     args
     $ func
@@ -271,6 +276,7 @@ let grammar = Cmd.(
     $ pointer_reg_list
     $ inline
     $ num_unroll
+    $ loop_invariant
     $ gdb_output
     $ bildb_output
     $ use_fun_input_regs
@@ -283,8 +289,8 @@ let grammar = Cmd.(
     $ func_name_map
     $ user_func_spec
     $ fun_specs
-    $ files
-    $ ext_solver_path)
+    $ ext_solver_path
+    $ files)
 
 (* The callback run when the command is invoked from the command line. *)
 let callback
@@ -299,6 +305,7 @@ let callback
     (pointer_reg_list : string list)
     (inline : string option)
     (num_unroll : int option)
+    (loop_invariant : string option)
     (gdb_output : string option)
     (bildb_output : string option)
     (use_fun_input_regs : bool)
@@ -311,8 +318,8 @@ let callback
     (func_name_map : (string * string) list)
     (user_func_spec : (string*string*string) option)
     (fun_specs : string list)
-    (files : string list)
     (ext_solver_path : string option)
+    (files : string list)
     (ctxt : ctxt) =
   let open Parameters.Err.Syntax in
   let params = Parameters.({
@@ -327,6 +334,7 @@ let callback
       pointer_reg_list = pointer_reg_list;
       inline = inline;
       num_unroll = num_unroll;
+      loop_invariant = loop_invariant;
       gdb_output = gdb_output;
       bildb_output = bildb_output;
       use_fun_input_regs = use_fun_input_regs;
@@ -339,7 +347,7 @@ let callback
       func_name_map = func_name_map;
       user_func_spec = user_func_spec;
       fun_specs = fun_specs;
-      ext_solver_path = ext_solver_path
+      ext_solver_path = ext_solver_path;
     })
   in
   Parameters.validate params files >>= fun () ->

@@ -882,18 +882,12 @@ let visit_elt (env : Env.t) (post : Constr.t) (elt : Blk.elt) : Constr.t * Env.t
     raise (Not_implemented "visit_elt: case `Phi(phi) not implemented")
 
 let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t =
-  printf "Visiting block:\n%s\n%!" (Blk.to_string blk);
-  match Env.get_precondition env (Term.tid blk) with
-  | Some pre ->
-    printf "%s: %s\n%!" (Term.tid blk |> Tid.to_string) (Constr.to_string pre);
-    pre, env
-  | None ->
-    let compute_pre b =
-      Seq.fold b ~init:(post, env) ~f:(fun (pre, env) a -> visit_elt env pre a)
-    in
-    let pre, env = blk |> Blk.elts ~rev:true |> compute_pre in
-    printf "%s: %s\n%!" (Term.tid blk |> Tid.to_string) (Constr.to_string pre);
-    (pre, Env.add_precond env (Term.tid blk) pre)
+  debug "Visiting block:\n%s%!" (Blk.to_string blk);
+  let compute_pre b =
+    Seq.fold b ~init:(post, env) ~f:(fun (pre, env) a -> visit_elt env pre a)
+  in
+  let pre, env = blk |> Blk.elts ~rev:true |> compute_pre in
+  (pre, Env.add_precond env (Term.tid blk) pre)
 
 let visit_graph (env : Env.t) (post : Constr.t)
     ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
@@ -915,7 +909,7 @@ let visit_graph (env : Env.t) (post : Constr.t)
       begin
         let src = G.Edge.src e in
         let dst = G.Edge.dst e in
-        printf "Entering back edge from\n%sto\n%s\n\n%!"
+        debug "Entering back edge from\n%sto\n%s\n%!"
           (G.Node.to_string src) (G.Node.to_string dst);
         let handler = Env.get_loop_handler env in
         post, handler env post ~start:dst g
@@ -1486,6 +1480,14 @@ let loop_vars (sub : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub sub Var.Set.empty
 
+(* Creates fresh names for [vars] found in the constraint. *)
+let freshen (constr : Constr.t) (env : Env.t) (vars : Var.Set.t) =
+  Var.Set.fold vars ~init:(constr, env) ~f:(fun (constr, env) v ->
+      let z3_v, env = Env.get_var env v in
+      let name = Format.sprintf "fresh_%s" (Expr.to_string z3_v) in
+      let fresh = Env.new_z3_expr ~name env (Var.typ v) in
+      Constr.substitute_one constr z3_v fresh, Env.add_call_pred env fresh)
+
 let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handler =
   {
     handle =
@@ -1493,38 +1495,21 @@ let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handler =
       let checker env post ~start:node g : Env.t =
         let ctx = Env.get_context env in
         let tid = node |> Node.label |> Term.tid in
-        let c1 =
-          Bool.mk_eq ctx
-            (BV.mk_add ctx (BV.mk_const_s ctx "x0" 32) (BV.mk_const_s ctx "y0" 32))
-            (BV.mk_numeral ctx "5" 32)
-        in
-        let c2 = BV.mk_uge ctx (BV.mk_const_s ctx "y0" 32) (BV.mk_numeral ctx "0" 32) in
-        let c3 = BV.mk_ule ctx (BV.mk_const_s ctx "x0" 32) (BV.mk_numeral ctx "5" 32) in
-        let invariant = Bool.mk_and ctx [c1; c2; c3]
-                        |> Constr.mk_goal "Invariant"
-                        |> Constr.mk_constr
-        in
+        let invariant = Z3_utils.mk_smtlib2_single ~name:(Some "Loop invariant")
+            env loop_invariant in
+        debug "Loop invariant: %s\n%!" (Constr.to_string invariant);
         let cond, body = Option.value_exn (split_loop node g) in
         let cond_val, _, env = exp_to_z3 cond env in
         let cond_size = BV.get_size (Expr.get_sort cond_val) in
         let vars = loop_vars body in
-        let freshen constr env =
-          Var.Set.fold vars ~init:(constr, env) ~f:(fun (constr, env) v ->
-              let z3_v, env = Env.get_var env v in
-              let name = Format.sprintf "fresh_%s" (Expr.to_string z3_v) in
-              let fresh = Env.new_z3_expr ~name env (Var.typ v) in
-              Constr.substitute_one constr z3_v fresh, Env.add_call_pred env fresh)
-        in
         let iteration, env =
           let loop_cond =
             Bool.mk_not ctx (Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size))
             |> Constr.mk_goal "Loop guard"
             |> Constr.mk_constr
           in
-          printf "Rec call\n%!";
           let body_wp, env = visit_sub env invariant body in
-          printf "End rec call\n%!";
-          freshen (Constr.mk_clause [loop_cond; invariant] [body_wp]) env
+          freshen (Constr.mk_clause [loop_cond; invariant] [body_wp]) env vars
         in
         let exit, env =
           let exit_cond =
@@ -1532,10 +1517,9 @@ let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handler =
             |> Constr.mk_goal "Loop exit"
             |> Constr.mk_constr
           in
-          freshen (Constr.mk_clause [exit_cond; invariant] [post]) env
+          freshen (Constr.mk_clause [exit_cond; invariant] [post]) env vars
         in
         let pre = Constr.mk_clause [] [invariant; iteration; exit] in
-        (* printf "Clause:\n%s\n%!" (Constr.to_string pre); *)
         Env.add_precond env tid pre
       in
       checker

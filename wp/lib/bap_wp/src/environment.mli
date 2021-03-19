@@ -100,6 +100,7 @@ type mem_range = {
     - an {!int_spec} for handling interrupts
     - a list of {!exp_cond}s to satisfy
     - the number of times to unroll a loop
+    - a loop invariant to verify
     - the architecture of the binary
     - the option to freshen variable names
     - the option to use all input registers when generating function symbols at a call site
@@ -304,6 +305,9 @@ val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
 (** [get_init_var var] obtains the Z3 expression that represents the initial state
     of a bap variable [var]. *)
 val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
+
+(** [trivial_constr] generates a trivial constraint of just [true]. *)
+val trivial_constr : t -> Constr.t
 
 (** [map_sub_name env name_mod] obtains the name of the subroutine in the
     original binary based off its name in the modified binary. In the case

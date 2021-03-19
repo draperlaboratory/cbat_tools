@@ -433,9 +433,3 @@ let print_stats (t : t) : unit =
    Printf.printf "Showing constr.t statistics: \n ";
    Printf.printf "goals: %i , ites: %i, clauses: %i, subs: %i, \n %!"
      z.goals z.ites z.clauses z.subs )
-
-let trivial (ctx : Z3.context) : t =
-  Bool.mk_true ctx
-  |> mk_goal "true"
-  |> mk_constr
-

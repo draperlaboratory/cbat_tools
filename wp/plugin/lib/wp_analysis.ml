@@ -198,7 +198,7 @@ let gen_pointer_flag_comparators
     let regs_mod = List.filter_map pointer_env2_vars ~f:(fun var -> Env.get_init_var env2 var) in
     let pre_conds = Pre.construct_pointer_constraint regs_orig env1
         (Some regs_mod) (Some env2) in
-    let post_conds = Constr.trivial (Env.get_context env1) in
+    let post_conds = Env.trivial_constr env1 in
     Some (Comp.compare_subs_constraints ~pre_conds ~post_conds)
 
 (* If we are rewriting addresses, we can equate the two memory arrays. *)
@@ -249,7 +249,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
   let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs ~smtlib_compat:(Option.is_some p.ext_solver_path)
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
-  let true_constr = Constr.trivial z3_ctx in
+  let true_constr = Env.trivial_constr env in
   let vars = Pre.get_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
   let hyps, env = Pre.init_vars (Var.Set.union vars vars_pointer_reg) env in

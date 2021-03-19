@@ -263,6 +263,7 @@ val default_data_section_range : Env.mem_range
     - an empty list of {!Environment.exp_cond}s which adds assumptions and VCs to
       the precondition as hooks on certain instructions
     - a loop unroll count of 5 for use when reaching a back edge during analysis
+    - a loop invariant to verify. Defaults to no invariant to be checked.
     - an architecture of x86_64 for architecture specific constraints and specs
     - freshening variables set to false. Should be set to true in order to represent the
       variables in the modified binary

@@ -151,7 +151,3 @@ val get_stats : t -> stats -> unit
 (** [print_stats t] calls get_stats to collect and print the statistics
     for the number of goals, ites, clauses and subs that compose t **)
 val print_stats : t -> unit
-
-(** [trivial] generates a trivial constraint of just [true]. *)
-val trivial : Z3.context -> t
-

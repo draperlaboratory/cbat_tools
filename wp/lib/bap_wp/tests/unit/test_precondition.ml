@@ -1047,7 +1047,8 @@ let test_loop_6 (test_ctx : test_ctxt) : unit =
 let test_loop_invariant_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_env ctx var_gen ~num_loop_unroll:0 in
+  let loop_invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let start = Blk.create () in
@@ -1072,44 +1073,43 @@ let test_loop_invariant_1 (test_ctx : test_ctxt) : unit =
              |> Constr.mk_goal "x = 5"
              |> Constr.mk_constr
   in
-  printf "%s\n%!" (Sub.to_string sub);
+  let _, env = Pre.init_vars (Var.Set.of_list [x; y]) env in
   let pre, env = Pre.visit_sub env post sub in
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+
 
 let test_loop_invariant_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let invariant = "(= (bvadd x y) #x9)" in
-  (* let invariant = *)
-  (*   Bool.mk_eq ctx *)
-  (*     (BV.mk_add ctx (BV.mk_const_s ctx "x" 32) (BV.mk_const_s ctx "y" 32)) *)
-  (*     (BV.mk_numeral ctx "9" 32) *)
-  (*   |> Constr.mk_goal "x + y = 9" *)
-  (*   |> Constr.mk_constr *)
-  (* in *)
-  let env = Pre.mk_env ~loop_invariant:(invariant) ctx var_gen in
+  let loop_invariant = "(assert (= (bvadd x y) #x00000005))" in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
-  let sub = Bil.(
-      [
-        x := zero;
-        y := i32 9;
-        while_ (var x < i32 9)
-          [
-            x := var x + one;
-            y := var y - one;
-          ];
-      ]
-    ) |> bil_to_sub
+  let start = Blk.create () in
+  let loop_header = Blk.create () in
+  let loop_body = Blk.create () in
+  let exit = Blk.create () in
+  let start = start
+              |> mk_def x zero
+              |> mk_def y (i32 5)
+              |> mk_jmp loop_header
   in
-  (* let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "9" 32) *)
-  (*   |> Constr.mk_goal "x = 9" *)
-  (*   |> Constr.mk_constr *)
-  (* in *)
-  let post = Constr.trivial ctx in
-  printf "%s\n%!" (Sub.to_string sub);
-  let pre, _ = Pre.visit_sub env post sub in
-  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+  let loop_header = loop_header
+                    |> mk_cond Bil.(var x < i32 5) loop_body exit
+  in
+  let loop_body = loop_body
+                  |> mk_def x Bil.(var x + one)
+                  |> mk_def y Bil.(var y - one)
+                  |> mk_jmp loop_header
+  in
+  let sub = mk_sub [start; loop_header; loop_body; exit] in
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
+             |> Constr.mk_goal "x = 5"
+             |> Constr.mk_constr
+  in
+  let _, env = Pre.init_vars (Var.Set.of_list [x; y]) env in
+  let pre, env = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
 (* Currently only testing expressions that evaluate to immediates. *)
@@ -1562,130 +1562,136 @@ let test_user_func_spec (test_ctx : test_ctxt) : unit =
   assert_z3_result test_ctx env (Sub.to_string main_sub) post goal Z3.Solver.UNSATISFIABLE
 
 let suite = [
-  (* "Empty Block" >:: test_empty_block; *)
-  (* "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1; *)
-  (* "Assign SSA block: y = x+1; Post: y == x" >:: test_assign_2; *)
-  (* "Assign SSA block: y = x; x = x+1; Post: y == x-1" >:: test_assign_3; *)
-  (* "Read/Write Little Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_1; *)
-  (* "Read/Write Big Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_2; *)
-  (* "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_3; *)
-  (* "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_4; *)
-  (* "Bit Shifting Logical: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_1; *)
-  (* "Bit Shifting Logical Overflow: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_2; *)
-  (* "Bit Shifting Arithmetic: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_1; *)
-  (* "Bit Shifting Arithmetic Overflow: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_2; *)
-  (* "Ite Assign: y = if x < 0x40 then x << 2 ~>> 2 else x" >:: test_ite_assign_1; *)
-  (*  *)
-  (* "Subroutine: \n\ *)
-     (*  bl: when x < 0xA goto b2; goto b3; \n\ *)
-     (*  b2: y = x+1; goto b4; \n\ *)
-     (*  b3: y = x-1; goto b4; \n\ *)
-     (*  b4: z = y;" >:: test_subroutine_1; *)
-  (* "Subroutine: \n\ *)
-     (*  bl: when x < 0xA goto b2; goto b3; \n\ *)
-     (*  b2: y = x+1; goto b4; \n\ *)
-     (*  b3: y = x-1; goto b4; \n\ *)
-     (*  b4: z = y; \n \ *)
-     (*  but using the smt-lib parser for the postcondition" >:: test_subroutine_1_2; *)
-  (* "Ends with two blocks: \n\ *)
-     (*  b1: when x < 0 goto b2; goto b3; \n\ *)
-     (*  b2: x = y; \n\ *)
-     (*  b3: x = z;" >:: test_subroutine_3; *)
-  (* "Starts with two blocks: \n\ *)
-     (*  b1: x = y; goto b3; \n\ *)
-     (*  b2: x = z; goto b3; \n\ *)
-     (*  b3: w = x;" >:: test_subroutine_4; *)
-  (* "Call function: \n\ *)
-     (*  b1: x = y; call b4 with return b2; \n\ *)
-     (*  b2: x = x + 1; goto b3 \n\ *)
-     (*  b3: z = x; \n\ *)
-     (*  b4: noop;" >:: test_subroutine_5; *)
-  (* "Assert fail label: \n\ *)
-     (*  b1: call @__assert_fail with return b2; \n\ *)
-     (*  b2: noop;" >:: test_subroutine_6; *)
-  (* "Assert fail BIL: \n\ *)
-     (*  b1: call @__assert_fail with no return; \ *)
-     (* " >:: test_subroutine_7; *)
-  (* "Assert loc <> 0:\n\ *)
-     (*  if mem[loc] = 12 then else; \ *)
-     (*  //using the \"assume non-null\" generator" >:: test_subroutine_8; *)
-  (* "Call fail: \n\ *)
-     (* " >:: test_call_1; *)
-  (* "Call vars with spec_arg_terms: \n\ *)
-     (* " >:: test_call_2; *)
-  (* "Call vars with spec_rax_out: \n\ *)
-     (* " >:: test_call_3; *)
-  (* "Call vars with spec_default: \n\ *)
-     (* " >:: test_call_4; *)
-  (* "Call vars: fun not called: \n\ *)
-     (* " >:: test_call_5; *)
-  (* "Call vars with branches: \n\ *)
-     (* " >:: test_call_6; *)
-  (* "Test call with function inlining UNSAT: \n\ *)
-     (* " >:: test_call_7; *)
-  (* "Test call with disabling function inlining SAT: \n\ *)
-     (* " >:: test_call_8; *)
-  (* "Test call with nested function inlining UNSAT: \n\ *)
-     (* " >:: test_call_9; *)
-  (* "Test call with nested function inlining SAT (don't inline everything): \n\ *)
-     (* " >:: test_call_10; *)
-  (* "Interrupt 0x0: \n\ *)
-     (* " >:: test_int_1; *)
-  (* "Loop: \n\ *)
-     (*  b1: x = a; y = b; goto b2; \n\ *)
-     (*  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\ *)
-     (*  b3:" >:: test_loop_1; *)
-  (* "Loop: \n\ *)
-     (*  b1: x = 0; y = 5; goto b2; \n\ *)
-     (*  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\ *)
-     (*  b3:" >:: test_loop_2; *)
-  (* "Loop: \n\ *)
-     (*  b1: x = 0; y = 6; goto b2; \n\ *)
-     (*  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\ *)
-     (*  b3:" >:: test_loop_3; *)
-  (* "Loop: \n\ *)
-     (*  b1: x = 0; y = 2; goto b2; \n\ *)
-     (*  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\ *)
-     (*  b3:" >:: test_loop_4; *)
-  (* "Loop: \n\ *)
-     (*  b1: x = 0; y = 1; goto b2; \n\ *)
-     (*  b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\ *)
-     (*  b3: x = x + 2;" >:: test_skip "This test currently fails!" test_loop_5; *)
-  (* "Loop: \n\ *)
-     (*  b1: x = 0; y = 5; goto b2; \n\ *)
-     (*  b2: x = x + 1; y = y - 1; when y > 0 goto b2; goto b3; \n\ *)
-     (*  b3: x = x + 2" >:: test_loop_6; *)
+  "Empty Block" >:: test_empty_block;
+  "Assign SSA block: y = x+1; Post: y == x+1" >:: test_assign_1;
+  "Assign SSA block: y = x+1; Post: y == x" >:: test_assign_2;
+  "Assign SSA block: y = x; x = x+1; Post: y == x-1" >:: test_assign_3;
+  "Read/Write Little Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_1;
+  "Read/Write Big Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_2;
+  "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_3;
+  "Read/Write Mismatched Endian: m = m[addr, el] <- x; y = m[addr, el]; Post: y == x" >:: test_read_write_4;
+  "Bit Shifting Logical: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_1;
+  "Bit Shifting Logical Overflow: y = x; y = y << 2; y = y >> 2; Post: x == y" >:: test_bit_shift_2;
+  "Bit Shifting Arithmetic: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_1;
+  "Bit Shifting Arithmetic Overflow: y = x; y = y << 2; y = y ~>> 2; Post: x == y" >:: test_bit_ashift_2;
+  "Ite Assign: y = if x < 0x40 then x << 2 ~>> 2 else x" >:: test_ite_assign_1;
+
+  "Subroutine: \n\
+   bl: when x < 0xA goto b2; goto b3; \n\
+   b2: y = x+1; goto b4; \n\
+   b3: y = x-1; goto b4; \n\
+   b4: z = y;" >:: test_subroutine_1;
+  "Subroutine: \n\
+   bl: when x < 0xA goto b2; goto b3; \n\
+   b2: y = x+1; goto b4; \n\
+   b3: y = x-1; goto b4; \n\
+   b4: z = y; \n \
+   but using the smt-lib parser for the postcondition" >:: test_subroutine_1_2;
+  "Ends with two blocks: \n\
+   b1: when x < 0 goto b2; goto b3; \n\
+   b2: x = y; \n\
+   b3: x = z;" >:: test_subroutine_3;
+  "Starts with two blocks: \n\
+   b1: x = y; goto b3; \n\
+   b2: x = z; goto b3; \n\
+   b3: w = x;" >:: test_subroutine_4;
+  "Call function: \n\
+   b1: x = y; call b4 with return b2; \n\
+   b2: x = x + 1; goto b3 \n\
+   b3: z = x; \n\
+   b4: noop;" >:: test_subroutine_5;
+  "Assert fail label: \n\
+   b1: call @__assert_fail with return b2; \n\
+   b2: noop;" >:: test_subroutine_6;
+  "Assert fail BIL: \n\
+   b1: call @__assert_fail with no return; \
+  " >:: test_subroutine_7;
+  "Assert loc <> 0:\n\
+   if mem[loc] = 12 then else; \
+   //using the \"assume non-null\" generator" >:: test_subroutine_8;
+  "Call fail: \n\
+  " >:: test_call_1;
+  "Call vars with spec_arg_terms: \n\
+  " >:: test_call_2;
+  "Call vars with spec_rax_out: \n\
+  " >:: test_call_3;
+  "Call vars with spec_default: \n\
+  " >:: test_call_4;
+  "Call vars: fun not called: \n\
+  " >:: test_call_5;
+  "Call vars with branches: \n\
+  " >:: test_call_6;
+  "Test call with function inlining UNSAT: \n\
+  " >:: test_call_7;
+  "Test call with disabling function inlining SAT: \n\
+  " >:: test_call_8;
+  "Test call with nested function inlining UNSAT: \n\
+  " >:: test_call_9;
+  "Test call with nested function inlining SAT (don't inline everything): \n\
+  " >:: test_call_10;
+  "Interrupt 0x0: \n\
+  " >:: test_int_1;
   "Loop: \n\
-   b1: x = 0; y = 9; goto b2; \n\
+   b1: x = a; y = b; goto b2; \n\
    b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   b3:" >:: test_loop_1;
+  "Loop: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   b3:" >:: test_loop_2;
+  "Loop: \n\
+   b1: x = 0; y = 6; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   b3:" >:: test_loop_3;
+  "Loop: \n\
+   b1: x = 0; y = 2; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   b3:" >:: test_loop_4;
+  "Loop: \n\
+   b1: x = 0; y = 1; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when y <= 0 goto b3; goto b2; \n\
+   b3: x = x + 2;" >:: test_skip "This test currently fails!" test_loop_5;
+  "Loop: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when y > 0 goto b2; goto b3; \n\
+   b3: x = x + 2" >:: test_loop_6;
+
+  "Loop invariant UNSAT: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
    b3:" >:: test_loop_invariant_1;
-  (* "Read NULL; SAT:\n\ *)
-     (*  x = mem[addr];" >:: test_exp_cond_1; *)
-  (* "Read NULL; UNSAT:\n\ *)
-     (*  addr = 0x40000000;\ *)
-     (*  x = mem[addr];" >:: test_exp_cond_2; *)
-  (*  *)
-  (* "Signed: Bitwidth 3 -> 8; Value 6 -> -2" >:: test_cast 3 8 6 Bil.SIGNED; *)
-  (* "Unsigned: Bitwidth 3 -> 8; Value 6 -> 6" >:: test_cast 3 8 6 Bil.UNSIGNED; *)
-  (* "High: Bitwidth 8 -> 5; Value: 238 -> 29" >:: test_cast 8 5 238 Bil.HIGH; *)
-  (* "Low: Bitwidth 8 -> 5; Value: 238 -> 14" >:: test_cast 8 5 238 Bil.LOW; *)
-  (*  *)
-  (* "Test Shift Bitwidth" >:: test_shift_bitwidth; *)
-  (*  *)
-  (* "Test branches" >:: test_branches_1; *)
-  (* "Test jmp_spec_reach SAT" >:: test_jmp_spec_reach_1; *)
-  (* "Test jmp_spec_reach UNSAT" >:: test_jmp_spec_reach_2; *)
-  (*  *)
-  (* "Test exclude" >:: test_exclude_1; *)
-  (*  *)
-  (* "Use fun input registers in get_vars" >:: test_get_vars_1; *)
-  (* "Don't use fun input registers in get_vars" >:: test_get_vars_2; *)
-  (* "Collect vars from inlined functions" >:: test_get_vars_inline_1; *)
-  (*  *)
-  (* "Test get output variables by name" >:: test_output_vars_1; *)
-  (* "z not in subroutine" >:: test_output_vars_2; *)
-  (*  *)
-  (* "Compare init and current vals of var: UNSAT" >:: test_init_vars_1; *)
-  (* "Compare init and current vals of var: SAT" >:: test_init_vars_2; *)
-  (* "Test user specified subroutine specs" >:: test_user_func_spec; *)
+  "Loop invariant SAT: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
+   b3:" >:: test_loop_invariant_2;
+
+  "Read NULL; SAT:\n\
+   x = mem[addr];" >:: test_exp_cond_1;
+  "Read NULL; UNSAT:\n\
+   addr = 0x40000000;\
+   x = mem[addr];" >:: test_exp_cond_2;
+
+  "Signed: Bitwidth 3 -> 8; Value 6 -> -2" >:: test_cast 3 8 6 Bil.SIGNED;
+  "Unsigned: Bitwidth 3 -> 8; Value 6 -> 6" >:: test_cast 3 8 6 Bil.UNSIGNED;
+  "High: Bitwidth 8 -> 5; Value: 238 -> 29" >:: test_cast 8 5 238 Bil.HIGH;
+  "Low: Bitwidth 8 -> 5; Value: 238 -> 14" >:: test_cast 8 5 238 Bil.LOW;
+
+  "Test Shift Bitwidth" >:: test_shift_bitwidth;
+
+  "Test branches" >:: test_branches_1;
+  "Test jmp_spec_reach SAT" >:: test_jmp_spec_reach_1;
+  "Test jmp_spec_reach UNSAT" >:: test_jmp_spec_reach_2;
+
+  "Test exclude" >:: test_exclude_1;
+
+  "Use fun input registers in get_vars" >:: test_get_vars_1;
+  "Don't use fun input registers in get_vars" >:: test_get_vars_2;
+  "Collect vars from inlined functions" >:: test_get_vars_inline_1;
+
+  "Test get output variables by name" >:: test_output_vars_1;
+  "z not in subroutine" >:: test_output_vars_2;
+
+  "Compare init and current vals of var: UNSAT" >:: test_init_vars_1;
+  "Compare init and current vals of var: SAT" >:: test_init_vars_2;
+  "Test user specified subroutine specs" >:: test_user_func_spec;
 ]

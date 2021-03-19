@@ -180,6 +180,12 @@ let wp_rec_call :
 let loop_invariant_checker_rec_call : (string -> loop_handler) ref =
   ref (fun _ -> assert false)
 
+let trivial_constr (env : t) : Constr.t =
+  get_context env
+  |> Z3.Boolean.mk_true
+  |> Constr.mk_goal "true"
+  |> Constr.mk_constr
+
 (* Looks up the precondition of the exit node of a loop by:
    - obtaining the post dominator tree
    - for each node in the SCC, find its parent in the dominator tree
@@ -237,14 +243,13 @@ let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
       in
       let unroll env pre ~start:node g =
         if find_depth node <= 0 then
-          let ctx = get_context env in
           let tid = node |> Node.label |> Term.tid in
           let pre =
             match List.find_map [loop_exit_pre] ~f:(fun spec -> spec env node g) with
             | Some p -> p
             | None ->
               warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
-              Constr.trivial ctx
+              trivial_constr env
           in
           add_precond env tid pre
         else
@@ -258,8 +263,15 @@ let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
       unroll
   }
 
-
 let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll Unfold_depth.empty
+
+(* Defaults to loop unfolding. If a user passes in a loop invariant, turns off
+   the loop unfolder and verifies the invariant instead. *)
+let init_loop_handler (num_unfold : int) (loop_invariant : string) : loop_handler =
+  if String.is_empty loop_invariant then
+    init_loop_unfold num_unfold
+  else
+    !loop_invariant_checker_rec_call loop_invariant
 
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
@@ -270,6 +282,7 @@ let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll 
    - an {!int_spec} for handling interrupts
    - a list of {!exp_cond}s to satisfy
    - the number of times to unroll a loop
+   - a loop invariant to verify
    - the architecture of the binary
    - the option to freshen variable names
    - the option to use all input registers when generating function symbols at a call site
@@ -310,8 +323,7 @@ let mk_env
     indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
-    (* loop_handler = init_loop_unfold num_loop_unroll; *)
-    loop_handler = !loop_invariant_checker_rec_call loop_invariant;
+    loop_handler = init_loop_handler num_loop_unroll loop_invariant;
     exp_conds = exp_conds;
     arch = arch;
     use_fun_input_regs = fun_input_regs;
