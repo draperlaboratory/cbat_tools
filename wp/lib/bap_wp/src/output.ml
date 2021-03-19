@@ -37,9 +37,9 @@ let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
   |> List.iter ~f:(fun (key, data) ->
       Format.fprintf fmt "\t\t%s |-> %s ;\n"
         (Expr.to_string key) (Constr.expr_to_hex data));
-  if (Z3.BitVector.is_bv_numeral mem_model.default)
+  if (Z3.Expr.is_numeral mem_model.default)
   then Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
-  else Format.fprintf fmt "\t\telse |-> %s]\n" (Expr.to_string mem_model.default)
+  else Format.fprintf fmt "\t\t%s]\n" (Expr.to_string mem_model.default)
 
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
