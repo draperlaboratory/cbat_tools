@@ -193,8 +193,8 @@ let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
   | Goal g ->
      Format.fprintf ch "%s\n" (goal_to_string g |> String.escaped)
   | ITE (tid, e, c1, c2) ->
-    Format.fprintf ch "%s: if %s then %a else %a" 
-      (tid |> Term.tid |> Tid.to_string) (Expr.to_string e) pp_constr c1 pp_constr c2
+    Format.fprintf ch "@[%s:@;if %s then @[<v 2>@;%a@]@;else@[<v 2>@;%a@]@]" 
+      (tid |> Term.tid |> Tid.to_string) (Expr.simplify e None |> Expr.to_string) pp_constr c1 pp_constr c2
   | Clause (hyps, concs) ->
      if (List.is_empty hyps) then ()
      else
@@ -206,8 +206,9 @@ let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
     (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" pp_constr c));
     Format.fprintf ch ")"
   | Subst (c, olds, news) ->
-     Format.fprintf ch "let %s = %s in %a"  
-      (List.to_string ~f:Expr.to_string olds) (List.to_string ~f:Expr.to_string news)
+     Format.fprintf ch "let @[<v 2> %s = %s@] in@;@[<v 2>%a@]"  
+       (List.to_string ~f:(fun x -> Expr.simplify x None |> Expr.to_string) olds)
+       (List.to_string ~f:(fun x -> Expr.simplify x None |> Expr.to_string) news)
       pp_constr c
 
 let to_string (constr : t) : string =
