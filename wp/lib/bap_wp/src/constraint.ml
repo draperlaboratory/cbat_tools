@@ -47,12 +47,10 @@ let get_model_exn (solver : Solver.solver) : Model.model =
     ~message:(Format.sprintf "Unable to get the model from the Z3 solver : %s"
                 (Solver.to_string solver))
 
-let remove_char (chr : char) (s : string) : string =
-  String.filter s ~f:(fun c -> not (Char.equal c chr))  
-  
 let goal_to_string (g : goal) : string =
-  let lhs = g.goal_name |> remove_char '\\' in
-  let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> remove_char '\\' in
+  let rem_backslash = String.substr_replace_all ~pattern:"\\" ~with_:"" in 
+  let lhs = g.goal_name |> rem_backslash in 
+  let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> rem_backslash in 
   Format.sprintf "%s%s%s: %s%s%s%!" ("\x1b[31m") lhs ("\x1b[0m") ("\x1b[36m") rhs ("\x1b[0m")
 
 let expr_to_hex (exp : z3_expr) : string =
@@ -188,13 +186,21 @@ type t =
   | Clause of t list * t list
   | Subst of t * z3_expr list * z3_expr list
 
+(* preen_expr expr will simplify and clean up the 
+   the printing of expr by getting rid of white space 
+   and simplifying the expression. *)
+let preen_expr (expr : Expr.expr) : string =
+  Expr.simplify expr None
+  |> Expr.to_string
+  |> String.substr_replace_all ~pattern:"  " ~with_:""
+           
 let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
   match constr with
   | Goal g ->
-     Format.fprintf ch "%s\n" (goal_to_string g |> String.escaped)
+     Format.fprintf ch "%s\n" (goal_to_string g)
   | ITE (tid, e, c1, c2) ->
-    Format.fprintf ch "@[%s:@;if %s then @[<v 2>@;%a@]@;else@[<v 2>@;%a@]@]" 
-      (tid |> Term.tid |> Tid.to_string) (Expr.simplify e None |> Expr.to_string) pp_constr c1 pp_constr c2
+    Format.fprintf ch "@[%s:@;if %s then @[@;%a@]@;else@[@;%a@]@]" 
+      (tid |> Term.tid |> Tid.to_string) (preen_expr e) pp_constr c1 pp_constr c2
   | Clause (hyps, concs) ->
      if (List.is_empty hyps) then ()
      else
@@ -206,13 +212,15 @@ let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
     (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" pp_constr c));
     Format.fprintf ch ")"
   | Subst (c, olds, news) ->
-     Format.fprintf ch "let @[<v 2> %s = %s@] in@;@[<v 2>%a@]"  
-       (List.to_string ~f:(fun x -> Expr.simplify x None |> Expr.to_string) olds)
-       (List.to_string ~f:(fun x -> Expr.simplify x None |> Expr.to_string) news)
+     Format.fprintf ch "let @[%s = %s@] in@;@[%a@]"  
+       (List.to_string ~f:(preen_expr) olds)
+       (List.to_string ~f:(preen_expr) news)
       pp_constr c
 
 let to_string (constr : t) : string =
-  Format.asprintf "%a" pp_constr constr |> remove_char '"' |> Scanf.unescaped 
+  Format.asprintf "%a" pp_constr constr
+  |> String.substr_replace_all ~pattern:"\"" ~with_:""
+  |> Scanf.unescaped 
 
 let mk_constr (g : goal) : t =
   Goal g
