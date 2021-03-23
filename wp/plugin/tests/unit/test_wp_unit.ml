@@ -130,7 +130,7 @@ let unit_tests = [
   "Loop unrolling comparative" >: test_plugin "loop/loop_depth_one" unsat ~script:"run_wp_compare.sh";
 
   "User defined sub specs comparative 1" >: test_plugin "user_func_spec/sub_spec_3"
-    unsat ~script:"run_wp_comp.sh";  
+    unsat ~script:"run_wp_comp.sh";
   "User defined sub specs comparative 2" >: test_plugin "user_func_spec/sub_spec_4"
     unsat ~script:"run_wp_1.sh";
 
@@ -194,6 +194,10 @@ let unit_tests = [
 
   "Loop incomplete unroll"         >:: test_skip fail_msg
     (test_plugin "loop/loop_depth_one" sat);
+
+  "Loop invariant check: UNSAT"    >: test_plugin "loop_invariant" unsat;
+  "Loop invariant check: SAT"      >: test_plugin "loop_invariant" sat
+    ~script:"run_wp_no_invariant.sh";
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
 
