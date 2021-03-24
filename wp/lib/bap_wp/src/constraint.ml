@@ -18,8 +18,7 @@ module Expr = Z3.Expr
 module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Model = Z3.Model
-module Solver = Z3.Solver
-              
+module Solver = Z3.Solver              
 type z3_expr = Expr.expr
 
 type path = bool Jmp.Map.t
@@ -47,12 +46,16 @@ let get_model_exn (solver : Solver.solver) : Model.model =
     ~message:(Format.sprintf "Unable to get the model from the Z3 solver : %s"
                 (Solver.to_string solver))
 
-let goal_to_string (g : goal) : string =
+let goal_to_string ?colorful:(colorful = false) (g : goal) : string =
   let rem_backslash = String.substr_replace_all ~pattern:"\\" ~with_:"" in 
   let lhs = g.goal_name |> rem_backslash in 
-  let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> rem_backslash in 
-  Format.sprintf "%s%s%s: %s%s%s%!" ("\x1b[31m") lhs ("\x1b[0m") ("\x1b[36m") rhs ("\x1b[0m")
+  let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> rem_backslash in
+  if colorful then
+    Format.sprintf "%s%s%s: %s%s%s%!"
+      ("\x1b[31m") lhs ("\x1b[0m") ("\x1b[36m") rhs ("\x1b[0m")
+  else Format.sprintf "%s: %s!" lhs rhs
 
+  
 let expr_to_hex (exp : z3_expr) : string =
   let decimal = BV.numeral_to_string exp in
   let size = exp |> Expr.get_sort |> BV.get_size in
@@ -172,7 +175,7 @@ let goal_of_refuted_goal (rg : refuted_goal) : goal =
   rg.goal
 
 let mk_goal (name : string) (value : z3_expr) : goal =
-  { goal_name = name ; goal_val = value }
+  { goal_name = name; goal_val = value }
 
 let get_goal_name (g : goal) : string =
   g.goal_name
@@ -193,32 +196,44 @@ let preen_expr (expr : Expr.expr) : string =
   Expr.simplify expr None
   |> Expr.to_string
   |> String.substr_replace_all ~pattern:"  " ~with_:""
-           
-let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
-  match constr with
-  | Goal g ->
-     Format.fprintf ch "%s\n" (goal_to_string g)
-  | ITE (tid, e, c1, c2) ->
-    Format.fprintf ch "@[%s:@;if %s then @[@;%a@]@;else@[@;%a@]@]" 
-      (tid |> Term.tid |> Tid.to_string) (preen_expr e) pp_constr c1 pp_constr c2
-  | Clause (hyps, concs) ->
-     if (List.is_empty hyps) then ()
-     else
-       (let print_hyps =
-         List.iter hyps ~f:(fun h -> Format.fprintf ch "%a" pp_constr h) in 
-       if (List.length hyps = 1) then (print_hyps; Format.fprintf ch " => ")
-       else (Format.fprintf ch "("; print_hyps; Format.fprintf ch ") => "));
-     Format.fprintf ch "(";
-    (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" pp_constr c));
-    Format.fprintf ch ")"
-  | Subst (c, olds, news) ->
-     Format.fprintf ch "let @[%s = %s@] in@;@[%a@]"  
-       (List.to_string ~f:(preen_expr) olds)
-       (List.to_string ~f:(preen_expr) news)
-      pp_constr c
 
-let to_string (constr : t) : string =
-  Format.asprintf "%a" pp_constr constr
+let pp_constr (colorful : bool) (form : Format.formatter)
+      (cons : t) : unit =
+  let rec rec_pp_constr ch constr =
+    match constr with
+    | Goal g ->
+       Format.fprintf ch "%s\n" (goal_to_string ~colorful:colorful g)
+    | ITE (tid, e, c1, c2) ->
+       let color = if colorful then 35 else 0 in 
+       Format.fprintf ch
+         "@[%s:@;\x1b[%dmif \x1b[0m%s\x1b[%dmthen\x1b[0m@[@;%a@]@;\x1b[%dmelse\x1b[0m@[@;%a@]@]"
+        (tid |> Term.tid |> Tid.to_string) color (preen_expr e) color
+        rec_pp_constr c1 color rec_pp_constr c2
+    | Clause (hyps, concs) ->
+       if (List.is_empty hyps) then ()
+       else
+         (let color = if colorful then "38;5;91" else "0" in
+         let print_hyps =
+           List.iter hyps ~f:(fun h -> Format.fprintf ch "%a" rec_pp_constr h) in 
+          if (List.length hyps = 1) then
+            (print_hyps; Format.fprintf ch "\x1b[%sm => \x1b[0m" color)
+          else (Format.fprintf ch "("; print_hyps;
+                Format.fprintf ch ")\x1b[%sm => \x1b[0m" color));
+       Format.fprintf ch "(";
+      (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" rec_pp_constr c));
+      Format.fprintf ch ")"
+    | Subst (c, olds, news) ->
+       let color = if colorful then 32 else 0 in 
+       Format.fprintf ch
+         "\x1b[%dmlet\x1b[0m @[%s = %s@] \x1b[%dm in \x1b[0m @;@[%a@]"  
+         color (List.to_string ~f:(preen_expr) olds)
+         (List.to_string ~f:(preen_expr) news) color rec_pp_constr c
+  in
+  rec_pp_constr form cons
+      
+let to_string ?(colorful=false) (constr : t) : string =
+  let pp_constr = pp_constr colorful in 
+  Format.asprintf "%a" pp_constr constr 
   |> String.substr_replace_all ~pattern:"\"" ~with_:""
   |> Scanf.unescaped 
 
@@ -325,6 +340,7 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
 let eval ?debug:(debug = false) (constr : t) (ctx : Z3.context) : z3_expr =
+  Format.printf "---\n%s\n---\n%!" (Expr.get_simplify_help ctx);
   if debug then
     let stats = init_stats in
     let eval = eval_aux ~stats:stats constr [] [] ctx in

@@ -57,7 +57,7 @@ type refuted_goal
 val mk_goal : string -> z3_expr -> goal
 
 (** Creates a string representation of a goal. *)
-val goal_to_string : goal -> string
+val goal_to_string : ?colorful:bool -> goal -> string
 
 (** Creates a string representation of a Z3 numeral as a hexadecimal in BAP notation. *)
 val expr_to_hex : z3_expr -> string
@@ -87,10 +87,10 @@ val get_goal_name : goal -> string
 val get_goal_val : goal -> z3_expr
 
 (** Creates a string representation of a constraint. *)
-val to_string : t -> string
+val to_string : ?colorful:(bool) -> t -> string
 
 (** Pretty prints a constraint. *)
-val pp_constr : Format.formatter -> t -> unit
+val pp_constr : bool -> Format.formatter -> t -> unit
 
 (** Creates a constraint made of a single goal. *)
 val mk_constr : goal -> t

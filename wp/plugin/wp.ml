@@ -185,8 +185,13 @@ let show = Cmd.parameter Typ.(list string) "show"
            format.
 
            `precond-internal': The precondition printed out in WP's internal
-           format for the `Constr.t' type.|}
+           format for the `Constr.t' type.
 
+           `colorful': The above commands now have color to highlight key words
+           to make reading the output easier. Warning: Don't use this flag if 
+           you wish to pass the printed output as an input elsewhere, since 
+           coloring will change the syntax. |}
+         
 let stack_base = Cmd.parameter Typ.(some int) "stack-base"
     ~doc:{|Sets the location of the stack frame for the function under
            analysis. By default, WP assumes the stack frame for the current

@@ -1283,7 +1283,8 @@ let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
     (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   printf "Evaluating precondition.\n%!";
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
-    Printf.printf "Internal : %s \n %!" (Constr.to_string pre) ) ;
+    let colorful = List.mem print_constr "colorful" ~equal:String.equal in  
+    Printf.printf "Internal : %s \n %!" (Constr.to_string ~colorful:colorful pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
   printf "Checking precondition with Z3.\n%!";
   let is_correct =
