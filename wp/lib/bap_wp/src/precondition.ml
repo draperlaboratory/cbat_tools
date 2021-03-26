@@ -752,7 +752,7 @@ let mk_env
     ?int_spec:(int_spec = int_spec_default)
     ?exp_conds:(exp_conds = [])
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
-    ?loop_invariant:(loop_invariant = "")
+    ?loop_invariant:(loop_invariant = Tid.Map.empty)
     ?arch:(arch = `x86_64)
     ?freshen_vars:(freshen_vars = false)
     ?use_fun_input_regs:(use_fun_input_regs = true)
@@ -911,7 +911,8 @@ let visit_graph (env : Env.t) (post : Constr.t)
         let dst = G.Edge.dst e in
         debug "Entering back edge from\n%sto\n%s\n%!"
           (G.Node.to_string src) (G.Node.to_string dst);
-        let handler = Env.get_loop_handler env in
+        let tid = dst |> G.Node.label |> Term.tid in
+        let handler = Env.get_loop_handler env tid in
         post, handler env post ~start:dst g
       end
     | _ -> p
@@ -1517,38 +1518,35 @@ let freshen (constr : Constr.t) (env : Env.t) (vars : Var.Set.t)
       let fresh = Env.new_z3_expr ~name env (Var.typ v) in
       Constr.substitute_one constr z3_v fresh, Env.add_call_pred env fresh)
 
-let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handler =
-  {
-    handle =
-      let module Node = Graphs.Ir.Node in
-      let checker env post ~start:node g : Env.t =
-        let ctx = Env.get_context env in
-        let tid = node |> Node.label |> Term.tid in
-        let invariant = Z3_utils.mk_smtlib2_single ~name:(Some "Loop invariant")
-            env loop_invariant in
-        debug "Loop invariant: %s\n%!" (Constr.to_string invariant);
-        let cond, body = Option.value_exn (split_loop node g env) in
-        let vars = loop_vars body in
-        let iteration, env =
-          let body_wp, env = visit_sub env invariant body in
-          freshen (Constr.mk_clause [cond; invariant] [body_wp]) env vars
+let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handle =
+  let module Node = Graphs.Ir.Node in
+  let checker env post ~start:node g : Env.t =
+    let ctx = Env.get_context env in
+    let tid = node |> Node.label |> Term.tid in
+    let invariant = Z3_utils.mk_smtlib2_single ~name:(Some "Loop invariant")
+        env loop_invariant in
+    debug "Loop invariant: %s\n%!" (Constr.to_string invariant);
+    let cond, body = Option.value_exn (split_loop node g env) in
+    let vars = loop_vars body in
+    let iteration, env =
+      let body_wp, env = visit_sub env invariant body in
+      freshen (Constr.mk_clause [cond; invariant] [body_wp]) env vars
+    in
+    let exit, env =
+      let exit_cond =
+        let false_cond =
+          Bool.mk_false ctx
+          |> Constr.mk_goal "false"
+          |> Constr.mk_constr
         in
-        let exit, env =
-          let exit_cond =
-            let false_cond =
-              Bool.mk_false ctx
-              |> Constr.mk_goal "false"
-              |> Constr.mk_constr
-            in
-            Constr.mk_clause [cond] [false_cond]
-          in
-          freshen (Constr.mk_clause [exit_cond; invariant] [post]) env vars
-        in
-        let pre = Constr.mk_clause [] [invariant; iteration; exit] in
-        Env.add_precond env tid pre
+        Constr.mk_clause [cond] [false_cond]
       in
-      checker
-  }
+      freshen (Constr.mk_clause [exit_cond; invariant] [post]) env vars
+    in
+    let pre = Constr.mk_clause [] [invariant; iteration; exit] in
+    Env.add_precond env tid pre
+  in
+  checker
 
 let _ = Env.loop_invariant_checker_rec_call :=
     fun invariant -> init_loop_invariant_checker invariant

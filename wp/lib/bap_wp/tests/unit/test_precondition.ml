@@ -1047,8 +1047,6 @@ let test_loop_6 (test_ctx : test_ctxt) : unit =
 let test_loop_invariant_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let loop_invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
-  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let start = Blk.create () in
@@ -1069,6 +1067,10 @@ let test_loop_invariant_1 (test_ctx : test_ctxt) : unit =
                   |> mk_jmp loop_header
   in
   let sub = mk_sub [start; loop_header; loop_body; exit] in
+  let tid = Term.tid loop_header in
+  let invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
+  let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
              |> Constr.mk_goal "x = 5"
              |> Constr.mk_constr
@@ -1081,8 +1083,6 @@ let test_loop_invariant_1 (test_ctx : test_ctxt) : unit =
 let test_loop_invariant_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let loop_invariant = "(assert (= (bvadd x y) #x00000005))" in
-  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let start = Blk.create () in
@@ -1103,6 +1103,10 @@ let test_loop_invariant_2 (test_ctx : test_ctxt) : unit =
                   |> mk_jmp loop_header
   in
   let sub = mk_sub [start; loop_header; loop_body; exit] in
+  let tid = Term.tid loop_header in
+  let invariant = "(assert (= (bvadd x y) #x00000005))" in
+  let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
              |> Constr.mk_goal "x = 5"
              |> Constr.mk_constr
@@ -1112,11 +1116,20 @@ let test_loop_invariant_2 (test_ctx : test_ctxt) : unit =
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
+let loop_header_tid (sub : Sub.t) : Tid.t =
+  let graph = Sub.to_cfg sub in
+  let enter_edge kind e tid =
+    match kind with
+    | `Back -> e |> Graphs.Ir.Edge.dst |> Graphs.Ir.Node.label |> Term.tid
+    | _ -> tid
+  in
+  Graphlib.Std.Graphlib.depth_first_search (module Graphs.Ir) ~enter_edge
+    ~init:(Tid.create ()) graph
+
+
 let test_loop_invariant_3 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let loop_invariant = "(assert (= (bvadd x y) #x00000005))" in
-  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let sub = Bil.(
@@ -1131,6 +1144,10 @@ let test_loop_invariant_3 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
+  let tid = loop_header_tid sub in
+  let invariant = "(assert (= (bvadd x y) #x00000005))" in
+  let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
              |> Constr.mk_goal "x = 5"
              |> Constr.mk_constr
@@ -1143,8 +1160,6 @@ let test_loop_invariant_3 (test_ctx : test_ctxt) : unit =
 let test_loop_invariant_4 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let loop_invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
-  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let sub = Bil.(
@@ -1159,6 +1174,10 @@ let test_loop_invariant_4 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
+  let tid = loop_header_tid sub in
+  let invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
+  let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
              |> Constr.mk_goal "x = 5"
              |> Constr.mk_constr
@@ -1172,8 +1191,6 @@ let test_loop_invariant_4 (test_ctx : test_ctxt) : unit =
 let test_loop_invariant_5 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let loop_invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
-  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let tmp = Var.create ~is_virtual:true "tmp" bool_t in
@@ -1199,6 +1216,10 @@ let test_loop_invariant_5 (test_ctx : test_ctxt) : unit =
     |> mk_jmp loop_header
   in
   let sub = mk_sub [start; loop_header; loop_body; exit] in
+  let tid = Term.tid loop_header in
+  let invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
+  let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
              |> Constr.mk_goal "x = 5"
              |> Constr.mk_constr

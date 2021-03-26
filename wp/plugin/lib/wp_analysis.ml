@@ -32,16 +32,21 @@ type Extension.Error.t += Unsupported_file_count of string
 
 (* Contains information about the precondition and the subroutines from
    the analysis to be printed out. *)
-type combined_pre = 
-| Single of {
-  pre : Constr.t;
-  orig : Env.t * Sub.t
-  }
-| Comparative of {
-  pre : Constr.t;
-  orig : Env.t * Sub.t;
-  modif : Env.t * Sub.t
-} 
+type combined_pre =
+  | Single of {
+      pre : Constr.t;
+      orig : Env.t * Sub.t
+    }
+  | Comparative of {
+      pre : Constr.t;
+      orig : Env.t * Sub.t;
+      modif : Env.t * Sub.t
+    }
+
+type loop_invariant = {
+  address : string;
+  invariant : string
+} [@@deriving sexp]
 
 (* If an offset is specified, generates a function of the address of a memory
    read in the original binary to the address plus an offset in the modified
@@ -236,6 +241,24 @@ let comparators_of_flags
   in
   List.unzip comps
 
+(* Parses the loop invariant and address from the user into the format accepted
+   by the environment. *)
+let parse_loop_invariant (invariants : string list) (sub : Sub.t)
+  : string Tid.Map.t =
+  Term.enum blk_t sub
+  |> Seq.fold ~init:Tid.Map.empty ~f:(fun map blk ->
+      match Term.get_attr blk address with
+      | None -> map
+      | Some address ->
+        List.fold invariants ~init:map ~f:(fun m invariant ->
+            let inv = loop_invariant_of_sexp (Sexp.of_string invariant) in
+            let addr = Addr.of_string inv.address in
+            if Addr.equal address addr then
+              let tid = Term.tid blk in
+              Tid.Map.set m ~key:tid ~data:inv.invariant
+            else
+              m))
+
 (* Runs a single binary analysis. *)
 let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file : string) : combined_pre =
@@ -255,7 +278,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~use_fun_input_regs:p.use_fun_input_regs
       ~exp_conds
       ~stack_range
-      ~loop_invariant:p.loop_invariant
+      ~loop_invariant:(parse_loop_invariant p.loop_invariant main_sub)
   in
   let true_constr = Env.trivial_constr env in
   let vars = Pre.get_vars env main_sub in
@@ -370,8 +393,8 @@ let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
   let debug_eval =
     (List.mem p.debug "eval-constraint-stats" ~equal:(String.equal)) in
   let result = match p.ext_solver_path with
-  | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx pre
-  | Some ext_solver_path ->
+    | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx pre
+    | Some ext_solver_path ->
       let declsyms = match cp with
         | Single cp -> Z3_utils.get_decls_and_symbols (fst cp.orig)
         | Comparative cp ->
@@ -380,7 +403,7 @@ let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
           List.append declsyms_orig declsyms_modif
       in
       Pre.check ~print_constr:p.show ~debug:debug_eval ~ext_solver:(ext_solver_path, declsyms)
-      solver ctx pre
+        solver ctx pre
   in
   if (List.mem p.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!" (
@@ -392,10 +415,10 @@ let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
   Utils.output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env;
   Utils.output_to_bildb ~filename:p.bildb_output solver result env;
   let () = match cp with
-  | Single cp ->   Output.print_result solver result cp.pre ~orig:cp.orig
-              ~modif:cp.orig ~show:p.show;
-  | Comparative cp ->  Output.print_result solver result cp.pre ~orig:cp.orig
-          ~modif:cp.modif ~show:p.show;
+    | Single cp ->   Output.print_result solver result cp.pre ~orig:cp.orig
+                       ~modif:cp.orig ~show:p.show;
+    | Comparative cp ->  Output.print_result solver result cp.pre ~orig:cp.orig
+                           ~modif:cp.modif ~show:p.show;
   in
   Ok ()
 

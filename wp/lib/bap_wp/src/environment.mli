@@ -63,8 +63,13 @@ type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> (Constr.t * t
 type int_spec = t -> Constr.t -> int -> Constr.t * t
 
 (** The loop handling procedure for the appropriate blocks. *)
+type loop_handle =
+  t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
+
+(** Type that specifies which type of handler to use for the appropriate blocks. *)
 type loop_handler = {
-  handle : t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
+  unroller : loop_handle;
+  invariant_checker : loop_handle Bap.Std.Tid.Map.t
 }
 
 (** Condition generated when exploring an expression: [BeforeExec] will generate a
@@ -117,7 +122,7 @@ val mk_env
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
   -> num_loop_unroll:int
-  -> loop_invariant:string
+  -> loop_invariant:string Bap.Std.Tid.Map.t
   -> arch:Bap.Std.Arch.t
   -> freshen_vars:bool
   -> use_fun_input_regs:bool
@@ -161,7 +166,9 @@ val clear_call_preds : t -> t
 val wp_rec_call :
   (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t) ref
 
-val loop_invariant_checker_rec_call : (string -> loop_handler) ref
+(** A reference to {!Precondition.init_loop_invariant_checker} that is needed in
+    the loop handler of the environment. *)
+val loop_invariant_checker_rec_call : (string -> loop_handle) ref
 
 (** Add a new binding to the environment for a bap variable to a Z3 expression,
     typically a constant. *)
@@ -231,8 +238,10 @@ val get_int_handler : t -> int_spec
 
 (** Finds the {!loop_handler} that is used to unroll loops when it is visited in
     the BIR program. *)
-val get_loop_handler :
-  t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t)
+val get_loop_handler
+  : t
+  -> Bap.Std.Tid.t
+  -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t)
 
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t

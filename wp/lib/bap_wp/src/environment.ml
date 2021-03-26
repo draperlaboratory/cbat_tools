@@ -87,10 +87,13 @@ and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option
 
 and int_spec = t -> Constr.t -> int -> Constr.t * t
 
+and loop_handle = t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
+
 and loop_handler = {
   (* Updates the environment with the preconditions computed by
      the loop handling procedure for the appropriate blocks *)
-  handle : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
+  unroller : loop_handle;
+  invariant_checker : loop_handle TidMap.t
 }
 
 and cond = BeforeExec of Constr.goal | AfterExec of Constr.goal
@@ -177,7 +180,7 @@ let wp_rec_call :
   (t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
   ref (fun _ _ ~start:_ _ -> assert false)
 
-let loop_invariant_checker_rec_call : (string -> loop_handler) ref =
+let loop_invariant_checker_rec_call : (string -> loop_handle) ref =
   ref (fun _ -> assert false)
 
 let trivial_constr (env : t) : Constr.t =
@@ -230,48 +233,49 @@ type unfold_depth = int Unfold_depth.t
    - Otherwise, decrement the [depth] map which tracks the unfoldings for that node, and
      recursively call [Precondition.visit_graph]. Because this function is defined in another
      (later) module, we use open recursion via the [wp_rec_call] function reference. *)
-let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
-  {
-    handle =
-      let module Node = Graphs.Ir.Node in
-      let find_depth node = Unfold_depth.find depth (Node.label node)
-                            |> Option.value ~default:num_unroll
+let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handle =
+  let module Node = Graphs.Ir.Node in
+  let find_depth node = Unfold_depth.find depth (Node.label node)
+                        |> Option.value ~default:num_unroll
+  in
+  let decr_depth node =
+    Unfold_depth.update depth (Node.label node)
+      ~f:(function None -> num_unroll - 1 | Some n -> n - 1)
+  in
+  let unroll env pre ~start:node g =
+    if find_depth node <= 0 then
+      let tid = node |> Node.label |> Term.tid in
+      let pre =
+        match List.find_map [loop_exit_pre] ~f:(fun spec -> spec env node g) with
+        | Some p -> p
+        | None ->
+          warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
+          trivial_constr env
       in
-      let decr_depth node =
-        Unfold_depth.update depth (Node.label node)
-          ~f:(function None -> num_unroll - 1 | Some n -> n - 1)
-      in
-      let unroll env pre ~start:node g =
-        if find_depth node <= 0 then
-          let tid = node |> Node.label |> Term.tid in
-          let pre =
-            match List.find_map [loop_exit_pre] ~f:(fun spec -> spec env node g) with
-            | Some p -> p
-            | None ->
-              warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
-              trivial_constr env
-          in
-          add_precond env tid pre
-        else
-          begin
-            let updated_depth = decr_depth node in
-            let updated_handle = loop_unfold num_unroll updated_depth in
-            let updated_env = { env with loop_handler = updated_handle } in
-            !wp_rec_call updated_env pre ~start:node g
-          end
-      in
-      unroll
-  }
+      add_precond env tid pre
+    else
+      begin
+        let updated_depth = decr_depth node in
+        let updated_handle = loop_unfold num_unroll updated_depth in
+        let updated_env =
+          { env with loop_handler =
+                       { env.loop_handler with unroller = updated_handle } } in
+        !wp_rec_call updated_env pre ~start:node g
+      end
+  in
+  unroll
 
-let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll Unfold_depth.empty
+let init_loop_unfold (num_unroll : int) : loop_handle = loop_unfold num_unroll Unfold_depth.empty
 
 (* Defaults to loop unfolding. If a user passes in a loop invariant, turns off
    the loop unfolder and verifies the invariant instead. *)
-let init_loop_handler (num_unfold : int) (loop_invariant : string) : loop_handler =
-  if String.is_empty loop_invariant then
-    init_loop_unfold num_unfold
-  else
-    !loop_invariant_checker_rec_call loop_invariant
+let init_loop_handler (num_unfold : int) (loop_invariant : string TidMap.t)
+  : loop_handler =
+  {
+    unroller = init_loop_unfold num_unfold;
+    invariant_checker = TidMap.map loop_invariant ~f:(fun invariant ->
+        !loop_invariant_checker_rec_call invariant)
+  }
 
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
@@ -299,7 +303,7 @@ let mk_env
     ~int_spec:(int_spec : int_spec)
     ~exp_conds:(exp_conds : exp_cond list)
     ~num_loop_unroll:(num_loop_unroll : int)
-    ~loop_invariant:(loop_invariant : string)
+    ~loop_invariant:(loop_invariant : string TidMap.t)
     ~arch:(arch : Arch.t)
     ~freshen_vars:(freshen_vars : bool)
     ~use_fun_input_regs:(fun_input_regs : bool)
@@ -423,9 +427,11 @@ let get_jmp_handler (env : t) : jmp_spec =
 let get_int_handler (env : t) : int_spec =
   env.int_handler
 
-let get_loop_handler (env : t) :
+let get_loop_handler (env : t) (tid : Tid.t) :
   t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
-  env.loop_handler.handle
+  match TidMap.find env.loop_handler.invariant_checker tid with
+  | Some handle -> handle
+  | None -> env.loop_handler.unroller
 
 let get_call_preds (env : t) : ExprSet.t =
   env.call_preds
