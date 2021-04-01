@@ -32,7 +32,7 @@ module Constr = Constraint
     a list of goals that have been refuted, and if specified, the paths that lead to
     the refuted goals. *)
 val print_result
-    : ?fmt:Stdlib__format.formatter
+    : ?fmt:Format.formatter
       -> Z3.Solver.solver
       -> Z3.Solver.status
       -> Constr.t
