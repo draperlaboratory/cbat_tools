@@ -1312,13 +1312,15 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
     Some (Assume (AfterExec (Constr.mk_goal name (Z3_utils.mk_and ctx conds))))
 
 let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
-    (solver : Solver.solver) (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
-  printf "Evaluating precondition.\n%!";
+      ?(fmt = Format.err_formatter) (solver : Solver.solver)
+      (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
+  Format.fprintf fmt "Evaluating precondition.\n%!";
+
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
     let colorful = List.mem print_constr "colorful" ~equal:String.equal in  
     Printf.printf "Internal : %s \n %!" (Constr.to_string ~colorful:colorful pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
-  printf "Checking precondition with Z3.\n%!";
+  Format.fprintf fmt "Checking precondition with Z3.\n%!";
   let is_correct =
     if refute then
       Bool.mk_implies ctx pre' (Bool.mk_false ctx)
@@ -1333,8 +1335,9 @@ let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
   | Some (solver_path, declsyms) ->
     Z3_utils.check_external solver solver_path ctx declsyms
 
-let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_expr)
-    ~pre:(pre : Constr.t) : Solver.status =
+let exclude ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
+      (ctx : Z3.context) ~var:(var : Constr.z3_expr) ~pre:(pre : Constr.t)
+    : Solver.status =
   let model = Constr.get_model_exn solver in
   let value = Constr.eval_model_exn model var in
   let cond = Bool.mk_not ctx (Bool.mk_eq ctx var value) in
@@ -1342,7 +1345,7 @@ let exclude (solver : Solver.solver) (ctx : Z3.context) ~var:(var : Constr.z3_ex
   Solver.add solver [cond];
   info "Added constraints: %s\n%!"
     (Solver.get_assertions solver |> List.to_string ~f:Expr.to_string);
-  check solver ctx pre
+  check ~fmt:fmt solver ctx pre
 
 let set_of_reg_names (env : Env.t) (t : Sub.t) (var_names : string list) : Var.Set.t =
   let all_vars = get_vars env t in
