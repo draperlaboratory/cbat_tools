@@ -67,7 +67,9 @@ type t = {
   stack : mem_range;
   data_section : mem_range;
   init_vars : Constr.z3_expr EnvMap.t;
-  consts : ExprSet.t
+  call_preds : ExprSet.t;
+  func_name_map : string StringMap.t;
+  smtlib_compat : bool
 }
 
 and fun_spec_type =
@@ -124,10 +126,19 @@ let get_precondition (env : t) (tid : Tid.t) : Constr.t option =
 let get_context (env : t) : Z3.context =
   env.ctx
 
-let init_fun_name (subs : Sub.t Seq.t) : Tid.t StringMap.t =
+let get_mapped_name (name_mod : string) (map : string String.Map.t) : string =
+  (* If the name is not in the map, we assume both binaries have the same
+     name. *)
+  match String.Map.find map name_mod with
+  | Some name -> name
+  | None -> name_mod
+
+let init_fun_name (subs : Sub.t Seq.t) (name_map : string String.Map.t)
+  : Tid.t StringMap.t =
   Seq.fold subs ~init:StringMap.empty
     ~f:(fun map sub ->
-        StringMap.set map ~key:(Sub.name sub) ~data:(Term.tid sub))
+        let name = get_mapped_name (Sub.name sub) name_map in
+        StringMap.set map ~key:name ~data:(Term.tid sub))
 
 let get_fresh ?name:(n = "fresh_") (var_seed : var_gen) : string =
   incr var_seed;
@@ -138,10 +149,12 @@ let new_z3_expr ?name:(name = "fresh_") (env: t) (typ : Type.t) : Constr.z3_expr
   let var_seed = env.var_gen in
   mk_z3_expr ctx ~name:(get_fresh ~name:name var_seed) ~typ:typ
 
-let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t) : string TidMap.t =
+let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t)
+    (name_map : string StringMap.t) : string TidMap.t =
   Seq.fold subs ~init:TidMap.empty
     ~f:(fun map sub ->
-        let is_called = get_fresh ~name:("called_" ^ (Sub.name sub)) var_gen in
+        let name = get_mapped_name (Sub.name sub) name_map in
+        let is_called = get_fresh ~name:("called_" ^ name) var_gen in
         TidMap.set map ~key:(Term.tid sub) ~data:is_called)
 
 let init_sub_handler (subs : Sub.t Seq.t) (arch : Arch.t)
@@ -280,6 +293,8 @@ let mk_env
     ~use_fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : mem_range)
     ~data_section_range:(data_section_range : mem_range)
+    ~func_name_map:(func_name_map : string StringMap.t)
+    ~smtlib_compat:(smtlib_compat : bool)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -290,8 +305,8 @@ let mk_env
     subs = subs;
     var_map = EnvMap.empty;
     precond_map = TidMap.empty;
-    fun_name_tid = init_fun_name subs;
-    call_map = init_call_map var_gen subs;
+    fun_name_tid = init_fun_name subs func_name_map;
+    call_map = init_call_map var_gen subs func_name_map;
     sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
     indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
@@ -303,7 +318,9 @@ let mk_env
     stack = stack_range;
     data_section = data_section_range;
     init_vars = EnvMap.empty;
-    consts = ExprSet.empty
+    call_preds = ExprSet.empty;
+    func_name_map = func_name_map;
+    smtlib_compat = smtlib_compat
   }
 
 let env_to_string (env : t) : string =
@@ -324,11 +341,11 @@ let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }
 let add_var (env : t) (v : Var.t) (x : Constr.z3_expr) : t =
   { env with var_map = EnvMap.set env.var_map ~key:v ~data:x }
 
-let add_const (env : t) (c : Constr.z3_expr) : t =
-  { env with consts = ExprSet.add env.consts c }
+let add_call_pred (env : t) (c : Constr.z3_expr) : t =
+  { env with call_preds = ExprSet.add env.call_preds c }
 
-let clear_consts (env : t) : t =
-  { env with consts = ExprSet.empty }
+let clear_call_preds (env : t) : t =
+  { env with call_preds = ExprSet.empty }
 
 let remove_var (env : t) (v : Var.t) : t =
   { env with var_map = EnvMap.remove env.var_map v }
@@ -398,8 +415,8 @@ let get_loop_handler (env : t) :
   t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
   env.loop_handler.handle
 
-let get_consts (env : t) : ExprSet.t =
-  env.consts
+let get_call_preds (env : t) : ExprSet.t =
+  env.call_preds
 
 let get_arch (env : t) : Arch.t =
   env.arch
@@ -427,6 +444,10 @@ let is_x86 (a : Arch.t) : bool =
 
 let use_input_regs (env : t) : bool =
   env.use_fun_input_regs
+
+(** Determine whether to generate constraints that are smtlib compatible or using
+    optimizations that are Z3 specific. Put to [true] if using external smt solver *)
+let get_smtlib_compat (env : t) : bool = env.smtlib_compat
 
 (* Returns a function that takes in a memory address as a z3_expr and outputs a
    z3_expr that checks if that address is within the region of stack we are
@@ -481,10 +502,13 @@ let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
-  let name = Format.sprintf "init_%s" (Expr.to_string z3_var) in
+  let name = Format.sprintf "init_%s" (String.strip ~drop:(fun c -> Char.(c = '|')) (Expr.to_string z3_var)) in
   let init_var = Expr.mk_const_s ctx name sort in
   let env = { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var } in
   init_var, env
 
 let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
   EnvMap.find env.init_vars var
+
+let map_sub_name (env : t) (name_mod : string) : string =
+  get_mapped_name name_mod env.func_name_map

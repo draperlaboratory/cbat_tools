@@ -121,6 +121,8 @@ val mk_env
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
   -> data_section_range:mem_range
+  -> func_name_map:string Core_kernel.String.Map.t
+  -> smtlib_compat:bool
   -> Z3.context
   -> var_gen
   -> t
@@ -143,14 +145,14 @@ val get_fresh : ?name:string -> var_gen -> string
     create fresh variables. *)
 val set_freshen : t -> bool -> t
 
-(** Add a z3 expression representing a constant generated during the analysis to
-    the environment. *)
-val add_const : t -> Constr.z3_expr -> t
+(** Add a z3 expression representing a function call predicate generated during
+    the analysis to the environment. *)
+val add_call_pred : t -> Constr.z3_expr -> t
 
-(** Removes all z3 expressions representing constants from the environment. This is used
-    because the initial pass through a binary generates constants that are not
-    used during precondition computation. *)
-val clear_consts : t -> t
+(** Removes all z3 expressions representing function call predicates from the
+    environment. This is used because the initial pass through a binary
+    generates predicates that are not used during precondition computation. *)
+val clear_call_preds : t -> t
 
 (** A reference to {!Precondition.visit_sub} that is needed in the
     loop handler of the environment simulating "open recursion". *)
@@ -240,9 +242,9 @@ val get_sp: t -> Bap.Std.Var.t
 (** Obtains the BAP variable representing a program's memory. *)
 val get_mem : t -> Bap.Std.Var.t
 
-(** Obtains a list of all the {!Constr.z3_expr}s that represents constants that
-    were generated during analysis. *)
-val get_consts : t -> ExprSet.t
+(** Obtains a list of all the {!Constr.z3_expr}s that represents function call
+    predicates that were generated during analysis. *)
+val get_call_preds : t -> ExprSet.t
 
 (** Performs a fold on the map of of function names to tids to generate a
     {!Constr.z3_expr}. *)
@@ -255,6 +257,10 @@ val is_x86 : Bap.Std.Arch.t -> bool
 (** Checks to see if the environment supports using all possible input registers
     when generating symbols in the function specs at a function call site. *)
 val use_input_regs : t -> bool
+
+(** Determine whether to generate constraints that are smtlib compatible or using
+    optimizations that are Z3 specific. Put to [true] if using external smt solver *)
+val get_smtlib_compat : t -> bool
 
 (** [in_stack env addr] is the constraint [STACK_MIN < addr <= STACK_MAX] as
     defined by the concrete range of the stack in the env. *)
@@ -298,6 +304,12 @@ val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
 (** [trivial_constr] generates a trivial constraint of just [true]. *)
 val trivial_constr : t -> Constr.t
+
+(** [map_sub_name env name_mod] obtains the name of the subroutine in the
+    original binary based off its name in the modified binary. In the case
+    there is no mapping for the subroutine, [get_sub_name] will return
+    [name_mod] (when calling this function from the original binary. *)
+val map_sub_name : t -> string -> string
 
 (*-------- Z3 constant creation utilities ----------*)
 

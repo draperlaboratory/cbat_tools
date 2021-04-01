@@ -57,7 +57,7 @@ end
 
 (* Reads in the program_t and its architecture from a file. *)
 let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
-    : Program.t * Arch.t =
+  : Program.t * Arch.t =
   let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
   let program_digest = Cache.Digests.program mk_digest in
   match Cache.Program.load program_digest with
@@ -141,6 +141,60 @@ let output_to_gdb ~(filename : string option) ~(func : string)
 (* Checks the user's input for outputting a bildb script. *)
 let output_to_bildb ~(filename : string option) (solver : Z3.Solver.solver)
     (status : Z3.Solver.status) (env : Env.t) : unit =
- match filename with
+  match filename with
   | None -> ()
   | Some name -> Output.output_bildb solver status env name
+
+let spec_of_name (name : string) : Sub.t -> Arch.t -> Env.fun_spec option =
+  match name with
+  | "verifier-error" -> Pre.spec_verifier_error
+  | "verifier-assume" -> Pre.spec_verifier_assume
+  | "verifier-nondet" -> Pre.spec_verifier_nondet
+  | "afl-maybe-log" -> Pre.spec_afl_maybe_log
+  | "arg-terms" -> Pre.spec_arg_terms
+  | "chaos-caller-saved" -> Pre.spec_chaos_caller_saved
+  | "chaos-rax" -> Pre.spec_chaos_rax
+  | "rax-out" -> Pre.spec_rax_out
+  | "empty" -> Pre.spec_empty
+  | name ->
+    (* TODO: We should return an error here instead of failing directly, but
+       that would require some code cleanup on the analysis side. *)
+    let err = Printf.sprintf "'%s' is not a supported spec. See `bap wp \
+                              --help' for available function specs.%!" name in
+    failwith err
+
+(* Creates a map of modified subroutine names to original subroutine names
+   based off the regex from the user. *)
+let mk_func_name_map
+    ~orig:(subs_orig : Sub.t Seq.t)
+    ~modif:(subs_mod : Sub.t Seq.t)
+    (re : (string * string) list)
+  : string String.Map.t =
+  let re = List.rev re in
+  Seq.fold subs_orig ~init:String.Map.empty ~f:(fun map sub_orig ->
+      let name_orig = Sub.name sub_orig in
+      List.fold re ~init:map ~f:(fun m (orig, modif) ->
+          let regexp = Str.regexp orig in
+          let name_mod = Str.replace_first regexp modif name_orig in
+          let in_orig = Str.string_match regexp name_orig 0 in
+          let in_mod = Seq.exists subs_mod ~f:(fun s ->
+              String.equal (Sub.name s) name_mod) in
+          if in_orig && in_mod then
+            String.Map.set m ~key:name_mod ~data:name_orig
+          else
+            m))
+
+(* Determines the name of the modified subroutine based off of the original
+   subroutine's name and the regex from the user. We raise an exception if we
+   can't find a subroutine that matches the regex. *)
+let get_mod_func_name (name_orig : string) (re : (string * string) list)
+  : string option =
+  if List.is_empty re then
+    Some name_orig
+  else
+    List.find_map (List.rev re) ~f:(fun (orig, modif) ->
+        let regexp = Str.regexp orig in
+        if Str.string_match regexp name_orig 0 then
+          Some (Str.replace_first regexp modif name_orig)
+        else
+          None)

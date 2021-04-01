@@ -32,11 +32,16 @@ type Extension.Error.t += Unsupported_file_count of string
 
 (* Contains information about the precondition and the subroutines from
    the analysis to be printed out. *)
-type combined_pre = {
+type combined_pre = 
+| Single of {
+  pre : Constr.t;
+  orig : Env.t * Sub.t
+  }
+| Comparative of {
   pre : Constr.t;
   orig : Env.t * Sub.t;
   modif : Env.t * Sub.t
-}
+} 
 
 (* If an offset is specified, generates a function of the address of a memory
    read in the original binary to the address plus an offset in the modified
@@ -56,35 +61,6 @@ let rewrite_addresses (p : Params.t) (syms_orig : Symbol.t list)
     Symbol.rewrite_addresses ~orig:syms_orig ~modif:syms_mod sub
   else
     sub
-
-(* Creates a map of original subroutine names to modified subroutine names
-   based off the regex from the user. *)
-let mk_func_name_map (subs_orig : Sub.t Seq.t) (subs_mod : Sub.t Seq.t)
-    (re : (string * string) list) : string String.Map.t =
-  let re = List.rev re in
-  Seq.fold subs_orig ~init:String.Map.empty ~f:(fun map sub ->
-      let name_orig = Sub.name sub in
-      (* By default, we assume subroutines in the original and modified
-         binaries have the same names. *)
-      let map = String.Map.set map ~key:name_orig ~data:name_orig in
-      List.fold re ~init:map ~f:(fun m (orig, modif) ->
-          let regexp = Str.regexp orig in
-          (* The regex matches the original name. *)
-          if Str.string_match regexp name_orig 0 then
-            let name_mod = Str.replace_first regexp modif name_orig in
-            let not_in_mod = not @@ Seq.exists subs_mod ~f:(fun s ->
-                String.equal (Sub.name s) name_mod) in
-            begin if not_in_mod then
-              warning "%s is not found in the modified binary." name_mod
-            end;
-            String.Map.set m ~key:name_orig ~data:name_mod
-          else m))
-
-(* Obtain the name of the function in the modified binary based off its name in
-   the original binary. *)
-let get_mod_func_name (map : string String.Map.t) (name_orig : string)
-  : string =
-  String.Map.find_exn map name_orig
 
 (* Generate the exp_conds for the original binary based on the flags passed in
    from the CLI. Generating the memory offsets requires the environment of
@@ -134,20 +110,21 @@ let parse_user_func_spec (p : Params.t) : (Sub.t -> Arch.t -> Env.fun_spec optio
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Arch.t -> Env.fun_spec option) list =
   let default = [
-    parse_user_func_spec p;
     Pre.spec_verifier_assume;
     Pre.spec_verifier_nondet;
-    Pre.spec_afl_maybe_log;
-    Pre.spec_inline to_inline;
     Pre.spec_empty;
-    Pre.spec_arg_terms;
-    Pre.spec_chaos_caller_saved;
-    Pre.spec_rax_out
+    Pre.spec_chaos_caller_saved
   ] in
-  if p.trip_asserts then
-    Pre.spec_verifier_error :: default
-  else
-    default
+  let user_func_spec = [parse_user_func_spec p] in
+  let trip_asserts = if p.trip_asserts then [Pre.spec_verifier_error] else [] in
+  let inline = [Pre.spec_inline to_inline] in
+  let specs =
+    if List.is_empty p.fun_specs then
+      default
+    else
+      List.map p.fun_specs ~f:Utils.spec_of_name
+  in
+  user_func_spec @ trip_asserts @ inline @ specs
 
 (* If the compare_func_calls flag is set, add the property for comparative
    analysis. *)
@@ -169,11 +146,8 @@ let post_reg_values
   if List.is_empty reg_names then
     None
   else begin
-    let all_regs = Var.Set.union_list
-        [ Pre.get_vars env1 sub1;
-          Pre.get_vars env2 sub2;
-          Var.Set.singleton @@ Env.get_sp env1 ]
-    in
+    let all_regs = Var.Set.union
+        (Pre.get_vars env1 sub1) (Pre.get_vars env2 sub2) in
     let post_regs = Var.Set.union
         (Pre.set_of_reg_names env1 sub1 reg_names)
         (Pre.set_of_reg_names env2 sub2 reg_names) in
@@ -191,15 +165,6 @@ let smtlib
     None
   else
     Some (Comp.compare_subs_smtlib ~smtlib_hyp:precond ~smtlib_post:postcond)
-
-(* The stack pointer hypothesis for a comparative analysis. *)
-let sp (arch : Arch.t) : (Comp.comparator * Comp.comparator) option =
-  match arch with
-  | `x86_64 -> Some Comp.compare_subs_sp
-  | _ ->
-    error "WP can only generate hypotheses about the stack pointer and \
-           memory for the x86_64 architecture.\n%!";
-    None
 
 (* obtain a set of general purpose registers
  * based on their string names and architecture. *)
@@ -219,18 +184,6 @@ let create_vars (l : string list) (env : Env.t) : Bap.Std.Var.Set.t =
           |> failwith
       )
   |> Bap.Std.Var.Set.of_list
-
-let gen_ptr_flag_warnings
-    (vars_sub : Bap.Std.Var.Set.t)
-    (vars_pointer_reg : Bap.Std.Var.Set.t)
-    (sp : Bap.Std.Var.Set.t) : unit =
-  let expected_regs = Bap.Std.Var.Set.union vars_pointer_reg sp in
-  Bap.Std.Var.Set.diff expected_regs vars_sub
-  |> Bap.Std.Var.Set.iter ~f:(fun var ->
-      warning
-        "Variable %s included in pointer flag, but not in sub to be analyzed."
-        (Var.name var)
-    )
 
 (* Returns a set of comparators that provide the constraint that
    the pointer registers are treated as pointers. *)
@@ -264,13 +217,12 @@ let comparators_of_flags
     (pointer_env1_vars : Var.t List.t)
     (pointer_env2_vars : Var.t List.t)
   : Comp.comparator list * Comp.comparator list =
-  let arch = Env.get_arch env1 in
   let comps = [
+    Some Comp.compare_subs_sp;
     func_calls p.compare_func_calls;
     post_reg_values p.compare_post_reg_values
       ~orig:(sub1, env1) ~modif:(sub2, env2);
     smtlib ~precond:p.precond ~postcond:p.postcond;
-    sp arch;
     gen_pointer_flag_comparators p.pointer_reg_list
       env1 env2 pointer_env1_vars pointer_env2_vars;
     mem_eq p.rewrite_addresses
@@ -295,16 +247,12 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let specs = fun_specs p to_inline in
   let exp_conds = exp_conds_mod p in
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
-  let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs
+  let env = Pre.mk_env z3_ctx var_gen ~subs ~arch ~specs ~smtlib_compat:(Option.is_some p.ext_solver_path)
       ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
   let true_constr = Env.trivial_constr env in
-  let vars_sub = Pre.get_vars env main_sub in
+  let vars = Pre.get_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
-  let sp = Env.get_sp env |> Bap.Std.Var.Set.singleton in
-  let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-  let init_set = Set.add (Set.union (Env.get_gprs env) vars_sub) (Env.get_mem env) in 
-  let hyps, env = Pre.init_vars init_set env in 
-  (*    (Bap.Std.Var.Set.union vars_pointer_reg vars_sub |> Bap.Std.Var.Set.union sp) env in*)
+  let hyps, env = Pre.init_vars (Var.Set.union vars vars_pointer_reg) env in
   let hyps = (Pre.set_sp_range env) :: hyps in
   let hyps =
     (* short circuit to avoid extraneous "&& true" constraint *)
@@ -326,7 +274,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
-  { pre = pre; orig = env, main_sub; modif = env, main_sub }
+  Single { pre = pre; orig = env, main_sub}
 
 (* Runs a comparative analysis. *)
 let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
@@ -339,10 +287,10 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let syms2 = Symbol.get_symbols file2 in
   let subs1 = Term.enum sub_t prog1 in
   let subs2 = Term.enum sub_t prog2 in
-  let func_name_map = mk_func_name_map subs1 subs2 p.func_name_map in
   let main_sub1 = Utils.find_func_err subs1 p.func in
   let main_sub2 =
-    get_mod_func_name func_name_map p.func
+    Utils.get_mod_func_name p.func p.func_name_map
+    |> Option.value ~default:p.func
     |> Utils.find_func_err subs2
     |> rewrite_addresses p syms1 syms2
   in
@@ -351,22 +299,22 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     let to_inline2 = Utils.match_inline p.inline subs2 in
     let specs2 = fun_specs p to_inline2 in
     let exp_conds2 = exp_conds_mod p in
+    let func_name_map =
+      Utils.mk_func_name_map ~orig:subs1 ~modif:subs2 p.func_name_map in
     let env2 = Pre.mk_env z3_ctx var_gen
         ~subs:subs2
         ~arch:arch2
         ~specs:specs2
+        ~smtlib_compat:(Option.is_some p.ext_solver_path)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds2
         ~stack_range
+        ~func_name_map
     in
     let env2 = Env.set_freshen env2 true in
     let vars_sub = Pre.get_vars env2 main_sub2 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env2 in
-    let sp = Env.get_sp env2 |> Bap.Std.Var.Set.singleton in
-    let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-    let init_vars = Set.add (Set.union (Env.get_gprs env2) vars_sub) (Env.get_mem env2) in 
-    let _, env2 = Pre.init_vars init_vars env2 in
-    (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env2 in*)
+    let _, env2 = Pre.init_vars (Var.Set.union vars_sub vars_pointer_reg) env2 in
     env2, vars_pointer_reg
   in
   let env1, pointer_vars_1 =
@@ -377,16 +325,14 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
         ~subs:subs1
         ~arch:arch1
         ~specs:specs1
+        ~smtlib_compat:(Option.is_some p.ext_solver_path)
         ~use_fun_input_regs:p.use_fun_input_regs
         ~exp_conds:exp_conds1
         ~stack_range
     in
     let vars_sub = Pre.get_vars env1 main_sub1 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env1 in
-    let sp = Env.get_sp env1 |> Bap.Std.Var.Set.singleton in
-    let () = gen_ptr_flag_warnings vars_sub vars_pointer_reg sp in
-    let init_regs = Set.add (Set.union (Env.get_gprs env1) (vars_sub)) (Env.get_mem env1) in 
-    let _, env1 = Pre.init_vars init_regs env1 in 
+    let _, env1 = Pre.init_vars (Var.Set.union vars_sub vars_pointer_reg) env1 in
     (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in*)
     env1, vars_pointer_reg
   in
@@ -402,25 +348,47 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
       (Sub.to_string main_sub1) (Sub.to_string main_sub2);
-  { pre = pre; orig = env1, main_sub1; modif = env2, main_sub2 }
+  Comparative { pre = pre; orig = (env1, main_sub1); modif = (env2, main_sub2) }
 
 let check_pre (p : Params.t) (ctx : Z3.context) (cp : combined_pre)
   : (unit, error) result =
   let solver = Z3.Solver.mk_solver ctx None in
+  let pre = match cp with
+    | Single cp -> cp.pre
+    | Comparative cp -> cp.pre
+  in
   if (List.mem p.debug "constraint-stats" ~equal:(String.equal)) then
-    Constr.print_stats cp.pre;
+    Constr.print_stats pre;
   let debug_eval =
     (List.mem p.debug "eval-constraint-stats" ~equal:(String.equal)) in
-  let result = Pre.check ~print_constr:p.show ~debug:debug_eval
-      solver ctx cp.pre in
+  let result = match p.ext_solver_path with
+  | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx pre
+  | Some ext_solver_path ->
+      let declsyms = match cp with
+        | Single cp -> Z3_utils.get_decls_and_symbols (fst cp.orig)
+        | Comparative cp ->
+          let declsyms_orig = Z3_utils.get_decls_and_symbols (fst cp.orig) in
+          let declsyms_modif = Z3_utils.get_decls_and_symbols (fst cp.modif) in
+          List.append declsyms_orig declsyms_modif
+      in
+      Pre.check ~print_constr:p.show ~debug:debug_eval ~ext_solver:(ext_solver_path, declsyms)
+      solver ctx pre
+  in
   if (List.mem p.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!" (
       Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
-  let env2, _ = cp.modif in
-  Utils.output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env2;
-  Utils.output_to_bildb ~filename:p.bildb_output solver result env2;
-  Output.print_result solver result cp.pre ~orig:cp.orig
-    ~modif:cp.modif ~show:p.show;
+  let env = match cp with
+    | Single cp -> fst cp.orig
+    | Comparative cp -> fst cp.modif
+  in
+  Utils.output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env;
+  Utils.output_to_bildb ~filename:p.bildb_output solver result env;
+  let () = match cp with
+  | Single cp ->   Output.print_result solver result cp.pre ~orig:cp.orig
+              ~modif:cp.orig ~show:p.show;
+  | Comparative cp ->  Output.print_result solver result cp.pre ~orig:cp.orig
+          ~modif:cp.modif ~show:p.show;
+  in
   Ok ()
 
 (* Entrypoint for the WP analysis. *)

@@ -51,7 +51,13 @@ val z3_expr_zero : Z3.context -> int -> Constr.z3_expr
 val z3_expr_one : Z3.context -> int -> Constr.z3_expr
 
 (** Translate a BIR binary operator to a Z3 one. *)
-val binop : Z3.context -> Bap.Std.binop -> Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr
+val binop
+  : ?smtlib_compat:bool
+  -> Z3.context
+  -> Bap.Std.binop
+  -> Constr.z3_expr
+  -> Constr.z3_expr
+  -> Constr.z3_expr
 
 (** Translate a BIR unary operator to a Z3 one. *)
 val unop : Z3.context -> Bap.Std.unop -> Constr.z3_expr -> Constr.z3_expr
@@ -63,6 +69,9 @@ val cast : Z3.context -> Bap.Std.cast -> int -> Constr.z3_expr -> Constr.z3_expr
 val visit_call : Bap.Std.Call.t -> Constr.t -> Env.t -> Constr.t * Env.t
 
 (** Get {e every} variable from a subroutine. *)
+val vars_from_sub : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
+
+(** Get {e every} variable from a subroutine and all general purpose registers. *)
 val get_vars : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
 
 (** Parses a list of register names found in a subroutine and returns a set of
@@ -122,7 +131,7 @@ val caller_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 (** Obtains the callee-saved registers for a given architecture. *)
 val callee_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
 
-(** This spec is used to handle user-specified subroutine specs 
+(** This spec is used to handle user-specified subroutine specs
     via the --user-func-spec flag, using the user-specified
     subroutine name, pre and post-conditions. **)
 val user_func_spec
@@ -280,6 +289,8 @@ val mk_env
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
   -> ?data_section_range:Env.mem_range
+  -> ?func_name_map:string Core_kernel.String.Map.t
+  -> ?smtlib_compat:bool
   -> Z3.context
   -> Env.var_gen
   -> Env.t
@@ -322,6 +333,7 @@ val check
   : ?refute:bool
   -> ?print_constr: (string list)
   -> ?debug: (bool)
+  -> ?ext_solver : (string * ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list))
   -> ?fmt:Stdlib__format.formatter
   -> Z3.Solver.solver
   -> Z3.context

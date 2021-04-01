@@ -193,9 +193,10 @@ let compare_subs_sp : comparator * comparator =
     let post = Env.trivial_constr env1 in
     post, env1, env2
   in
-  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
     let sp_range = Pre.set_sp_range env1 in
-    sp_range, env1, env2
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
+    Constr.mk_clause [] (sp_range :: pre_eqs), env1, env2
   in
   postcond, hyps
 
@@ -234,8 +235,9 @@ let compare_subs_constraints
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
     Constr.mk_clause [] [post_conds], env1, env2
   in
-  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    Constr.mk_clause [] [pre_conds], env1, env2
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
+    Constr.mk_clause [] (pre_conds :: pre_eqs), env1, env2
   in
   postcond, hyps
 
@@ -297,7 +299,7 @@ let compare_subs_mem_eq : comparator * comparator =
     let post = Env.trivial_constr env1 in
     post, env1, env2
   in
-  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
+  let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
     let ctx = Env.get_context env1 in
     let mem1, env1 = Env.get_var env1 (Env.get_mem env1) in
     let mem2, env2 = Env.get_var env2 (Env.get_mem env2) in
@@ -306,6 +308,7 @@ let compare_subs_mem_eq : comparator * comparator =
       |> Constr.mk_goal "mem_orig = mem_mod"
       |> Constr.mk_constr
     in
-    mem_eq, env1, env2
+    let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
+    Constr.mk_clause [] (mem_eq :: pre_eqs), env1, env2
   in
   postcond, hyps

@@ -39,7 +39,8 @@ type hooks = {
 let z3_expr_zero (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "0" size
 let z3_expr_one (ctx : Z3.context) (size : int) : Constr.z3_expr = BV.mk_numeral ctx "1" size
 
-let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr =
+let binop ?(smtlib_compat = false) (ctx : Z3.context) (b : binop) :
+  Constr.z3_expr -> Constr.z3_expr -> Constr.z3_expr =
   let open Bap.Std.Bil.Types in
   let zero = z3_expr_zero ctx 1 in
   let one = z3_expr_one ctx 1 in
@@ -57,8 +58,11 @@ let binop (ctx : Z3.context) (b : binop) : Constr.z3_expr -> Constr.z3_expr -> C
   | AND -> BV.mk_and ctx
   | OR -> BV.mk_or ctx
   | XOR -> BV.mk_xor ctx
-  | EQ -> fun x y -> BV.mk_not ctx @@ BV.mk_redor ctx @@ BV.mk_xor ctx x y
-  | NEQ -> fun x y -> BV.mk_redor ctx @@ BV.mk_xor ctx x y
+  | EQ -> fun x y -> if smtlib_compat then (Bool.mk_ite ctx (Bool.mk_eq ctx x y) one zero)
+    else  (BV.mk_not ctx @@ BV.mk_redor ctx @@ BV.mk_xor ctx x y)
+  | NEQ -> fun x y -> if smtlib_compat
+    then  Bool.mk_ite ctx (Bool.mk_eq ctx x y) zero one
+    else  BV.mk_redor ctx @@ BV.mk_xor ctx x y
   | LT -> fun x y -> Bool.mk_ite ctx (BV.mk_ult ctx x y) one zero
   | LE -> fun x y -> Bool.mk_ite ctx (BV.mk_ule ctx x y) one zero
   | SLT -> fun x y -> Bool.mk_ite ctx (BV.mk_slt ctx x y) one zero
@@ -227,7 +231,8 @@ let exp_to_z3 (exp : Exp.t) (env : Env.t) : Constr.z3_expr * hooks * Env.t =
         | _ -> x_val, y_val
       in
       assert (get_size x_val = get_size y_val);
-      binop ctx bop x_val y_val, env
+      let smtlib_compat = Env.get_smtlib_compat env in
+      binop ~smtlib_compat ctx bop x_val y_val, env
     | UnOp (u, x) ->
       debug "Visiting unop: %s %s%!" (Bil.string_of_unop u) (Exp.to_string x);
       let x_val, env = exp_to_z3_body x env in
@@ -364,10 +369,12 @@ let var_of_arg_t (arg : Arg.t) : Var.t =
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It substitutes the original z3_expr
    representing the output variable. *)
-let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post : Constr.t)
-    ~inputs:(inputs : Var.t list) ~outputs:(outputs : Var.t list) : Constr.t =
+let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
+    ~outputs:(outputs : Var.t list) (env : Env.t) (sub : Sub.t) (post : Constr.t)
+  : Constr.t * Env.t =
   debug "Chaosing outputs for %s%!" (Sub.name sub);
   let ctx = Env.get_context env in
+  let sub_name = Env.map_sub_name env (Sub.name sub) in
   let inputs = List.map inputs
       ~f:(fun i ->
           let input, _ = Env.get_var env i in
@@ -376,8 +383,8 @@ let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post 
   let input_sorts = List.map inputs ~f:Expr.get_sort in
   let outputs = List.map outputs
       ~f:(fun o ->
-          let tid_name = if (String.equal tid_name "") then "" else ("_"^tid_name) in
-          let name = Format.sprintf "%s%s_ret_%s" (Sub.name sub) (tid_name) (Var.to_string o) in
+          let tid_name = if (String.equal tid_name "") then "" else ("_" ^ tid_name) in
+          let name = Format.sprintf "%s%s_ret_%s" sub_name (tid_name) (Var.to_string o) in
           let z3_v, _ = Env.get_var env o in
           let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort z3_v) in
           let application = FuncDecl.apply func_decl inputs in
@@ -385,7 +392,9 @@ let subst_fun_outputs ?tid_name:(tid_name="") (env : Env.t) (sub : Sub.t) (post 
           (z3_v, application))
   in
   let subs_from, subs_to = List.unzip outputs in
-  Constr.substitute post subs_from subs_to
+  let env = List.fold subs_to ~init:env ~f:(fun env sub_to ->
+      Env.add_call_pred env sub_to) in
+  Constr.substitute post subs_from subs_to, env
 
 let input_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -397,9 +406,16 @@ let input_regs (arch : Arch.t) : Var.t list =
        causes Z3 to slow down during evaluation. *)
     info "[mem] is not included as an input to the function call.%!";
     [rdi; rsi; rdx; rcx; r.(0); r.(1)]
-  | _ ->
-    raise (Not_implemented "input_regs: Input registers have not been \
-                            implemented for non-x86 architectures.")
+  | `x86 ->
+    warning "In 32-bit x86, arguments are passed through the stack.%!";
+    []
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r0; r1; r2; r3]
+  | a ->
+    warning "input_regs: Input registers have not been \
+             implemented for %s." (Arch.to_string a);
+    []
 
 let caller_saved_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -408,9 +424,16 @@ let caller_saved_regs (arch : Arch.t) : Var.t list =
     (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
     let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
     [rax; rcx; rdx; rsi; rdi] @ r
-  | _ ->
-    raise (Not_implemented "caller_saved_regs: Caller-saved registers have not been \
-                            implemented for non-x86_64 architectures.")
+  | `x86 ->
+    let open X86_cpu.IA32 in
+    [rax; rcx; rdx]
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r0; r1; r2; r3; r12]
+  | a ->
+    warning "caller_saved_regs: Caller-saved registers have not \
+             been implemented for %s." (Arch.to_string a);
+    []
 
 let callee_saved_regs (arch : Arch.t) : Var.t list =
   match arch with
@@ -419,11 +442,18 @@ let callee_saved_regs (arch : Arch.t) : Var.t list =
     (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
     let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
     [rbx; rsp; rbp] @ r
-  | _ ->
-    raise (Not_implemented "callee_saved_regs: Callee-saved registers have not been \
-                            implemented for non-x86_64 architectures.")
+  | `x86 ->
+    let open X86_cpu.IA32 in
+    [rbx; rdi; rsi; rsp; rbp]
+  | #Arch.arm ->
+    let open ARM.CPU in
+    [r4; r5; r6; r7; r8; r9; r10; r11]
+  | a ->
+    warning "callee_saved_regs: Callee-saved registers have not \
+             been implemented for %s." (Arch.to_string a);
+    []
 
-let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
+let rec vars_from_sub (env : Env.t) (t : Sub.t) : Var.Set.t =
   let vars =
     if Env.use_input_regs env then
       env |> Env.get_arch |> input_regs |> Var.Set.of_list
@@ -451,7 +481,7 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
                   | Some Inline ->
                     let subs = Env.get_subs env in
                     let target = Seq.find_exn subs ~f:(fun s -> Tid.equal (Term.tid s) tid) in
-                    Var.Set.union vars (get_vars env target)
+                    Var.Set.union vars (vars_from_sub env target)
                   | _ -> vars
                 end
               | Indirect _ -> vars
@@ -462,6 +492,13 @@ let rec get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
     end)
   in
   visitor#visit_sub t vars
+
+let get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
+  let gprs = Env.get_gprs env in
+  let mem = Var.Set.singleton (Env.get_mem env) in
+  let sp = Var.Set.singleton (Env.get_sp env) in
+  let sub_vars = vars_from_sub env t in
+  Var.Set.union_list [gprs; mem; sp; sub_vars]
 
 let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   let is_verifier_error name = String.(
@@ -544,7 +581,7 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
              let z3_v, env = Env.get_var env v in
              let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string z3_v) in
              let fresh = Env.new_z3_expr env ~name:name (Var.typ v) in
-             Constr.substitute_one post z3_v fresh, Env.add_const env fresh)
+             Constr.substitute_one post z3_v fresh, Env.add_call_pred env fresh)
     }
   else
     None
@@ -576,7 +613,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
                      | None -> ins, outs)
              in
              let inputs = if Env.use_input_regs env then inputs else [] in
-             subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs, env)
+             subst_fun_outputs env sub post ~inputs:inputs ~outputs:outputs)
     }
   else
     None
@@ -602,7 +639,7 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let post, env = increment_stack_ptr post env in
              let inputs = if Env.use_input_regs env then input_regs arch else [] in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
-             subst_fun_outputs env sub post ~inputs ~outputs:[rax], env)
+             subst_fun_outputs env sub post ~inputs ~outputs:[rax])
     }
   else
     None
@@ -617,24 +654,21 @@ let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
              let inputs = if Env.use_input_regs env then input_regs arch else [] in
-             subst_fun_outputs env sub post ~inputs ~outputs:[X86_cpu.AMD64.rax], env)
+             subst_fun_outputs env sub post ~inputs ~outputs:[X86_cpu.AMD64.rax])
     }
   | _ -> None
 
 let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
-  if Env.is_x86 arch then
-    Some {
-      spec_name = "spec_chaos_caller_saved";
-      spec = Summary
-          (fun env post tid ->
-             let post = set_fun_called post env tid in
-             let post, env = increment_stack_ptr post env in
-             let inputs = if Env.use_input_regs env then input_regs arch else [] in
-             let regs = caller_saved_regs arch in
-             subst_fun_outputs env sub post ~inputs ~outputs:regs, env)
-    }
-  else
-    None
+  Some {
+    spec_name = "spec_chaos_caller_saved";
+    spec = Summary
+        (fun env post tid ->
+           let post = set_fun_called post env tid in
+           let post, env = increment_stack_ptr post env in
+           let inputs = if Env.use_input_regs env then input_regs arch else [] in
+           let regs = caller_saved_regs arch in
+           subst_fun_outputs env sub post ~inputs ~outputs:regs)
+  }
 
 let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   if String.equal (Sub.name sub) "__afl_maybe_log" then
@@ -652,7 +686,7 @@ let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                    let open X86_cpu.AMD64 in
                    [rax; rcx; rdx]
                  in
-                 subst_fun_outputs env sub post ~inputs ~outputs, env)
+                 subst_fun_outputs env sub post ~inputs ~outputs)
         }
       | _ ->
         raise (Not_implemented "spec_afl_maybe_log: The spec for afl_maybe_log only \
@@ -723,11 +757,28 @@ let mk_env
     ?use_fun_input_regs:(use_fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
     ?data_section_range:(data_section_range = default_data_section_range)
+    ?func_name_map:(func_name_map = String.Map.empty)
+    ?smtlib_compat:(smtlib_compat = false)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
-  Env.mk_env ~subs ~specs ~default_spec ~indirect_spec ~jmp_spec ~int_spec ~exp_conds ~num_loop_unroll
-    ~arch ~freshen_vars ~use_fun_input_regs ~stack_range ~data_section_range ctx var_gen
+  Env.mk_env
+    ~subs
+    ~specs
+    ~default_spec
+    ~indirect_spec
+    ~jmp_spec
+    ~int_spec
+    ~exp_conds
+    ~num_loop_unroll
+    ~arch
+    ~freshen_vars
+    ~use_fun_input_regs
+    ~stack_range
+    ~data_section_range
+    ~func_name_map
+    ~smtlib_compat
+    ctx var_gen
 
 (* Determines the condition for taking a jump, and uses it to generate the jump
    expression's precondition based off of the postcondition and the
@@ -914,7 +965,7 @@ let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
   let sub_name = (Sub.to_string sub) in
   debug "Visiting sub:\n%s%!" sub_name;
   let pre, env' =
-    if (Seq.is_empty @@ Term.enum blk_t sub) 
+    if (Seq.is_empty @@ Term.enum blk_t sub)
     then
       (
         warning "encountered empty subroutine %s%!" sub_name;
@@ -1032,7 +1083,7 @@ let non_null_load_vc : Env.exp_cond = fun env exp ->
     None
   else
     Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem load"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 let non_null_load_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -1041,7 +1092,7 @@ let non_null_load_assert : Env.exp_cond = fun env exp ->
     None
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem load"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 (* This adds a non-null condition for every memory write in the term *)
 let non_null_store_vc : Env.exp_cond = fun env exp ->
@@ -1051,7 +1102,7 @@ let non_null_store_vc : Env.exp_cond = fun env exp ->
     None
   else
     Some (Verify (BeforeExec (Constr.mk_goal "verify non-null mem store"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 let non_null_store_assert : Env.exp_cond = fun env exp ->
   let ctx = Env.get_context env in
@@ -1060,7 +1111,7 @@ let non_null_store_assert : Env.exp_cond = fun env exp ->
     None
   else
     Some (Assume (BeforeExec (Constr.mk_goal "assume non-null mem store"
-                                (Bool.mk_and ctx conds))))
+                                (Z3_utils.mk_and ctx conds))))
 
 (* For a given address, generates the constraint of:
    addr >= RSP \/ addr <= stack_bottom - 0x256 *)
@@ -1216,31 +1267,30 @@ let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
       let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
       let sub_post, env = increment_stack_ptr sub_post env in
       (* collect (physical) inputs/outputs of sub *)
-      let sub_inputs : Var.t list = get_vars env sub |> Var.Set.to_list in
+      let sub_inputs : Var.t list = vars_from_sub env sub |> Var.Set.to_list in
       let sub_inputs =
         List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
       let sub_outputs : Var.t list = sub_inputs in
       let vars = Set.add (Env.get_gprs env) (Env.get_mem env)
-                  |> Var.Set.to_list in
+                 |> Var.Set.to_list in
       let regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
       let inits = List.map vars ~f:(fun v ->
           let r  = Env.get_init_var env v in
           match r with
           | Some q -> q
           | None -> let q, _ = Env.mk_init_var env v in q) in
-      let tid_name : string = Tid.name tid in 
-      let sub_post = subst_fun_outputs ~tid_name:tid_name env sub
+      let tid_name : string = Tid.name tid in
+      let sub_post, env = subst_fun_outputs ~tid_name:tid_name env sub
           sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
       (* replace init-vars with vars inside sub_post *)
       let sub_post = Constr.substitute sub_post inits regs in
       (*combine sub_post and post*)
-      let post : Constr.t = subst_fun_outputs ~tid_name:tid_name env sub
-          post ~inputs:sub_inputs ~outputs:sub_outputs in 
+      let post, env = subst_fun_outputs ~tid_name:tid_name env sub
+          post ~inputs:sub_inputs ~outputs:sub_outputs in
       let sub_post_imp_post : Constr.t =
         Constr.mk_clause [sub_post] [post] in
       (* combine pre and post *)
       let result : Constr.t = Constr.mk_clause [] [sub_pre ; sub_post_imp_post] in
-      (*Format.printf "result: %s \n %!" (Constr.to_string result);*)
       result, env)
     in
     Some {
@@ -1259,12 +1309,13 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
   if List.is_empty conds then
     None
   else
-    Some (Assume (AfterExec (Constr.mk_goal name (Bool.mk_and ctx conds))))
+    Some (Assume (AfterExec (Constr.mk_goal name (Z3_utils.mk_and ctx conds))))
 
-let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
-      ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
-      (ctx : Z3.context) (pre : Constr.t) : Solver.status =
+let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
+      ?(fmt = Format.err_formatter) (solver : Solver.solver)
+      (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   Format.fprintf fmt "Evaluating precondition.\n%!";
+
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
     Printf.printf "Internal : %s \n %!" (Constr.to_string pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
@@ -1278,7 +1329,10 @@ let check ?refute:(refute = true) ?(print_constr = []) ?(debug = false)
   Z3.Solver.add solver [is_correct];
   if (List.mem print_constr "precond-smtlib" ~equal:(String.equal)) then (
     Printf.printf "Z3 : \n %s \n %!" (Z3.Solver.to_string solver) );
-  Z3.Solver.check solver []
+  match ext_solver with
+  | None -> Z3.Solver.check solver []
+  | Some (solver_path, declsyms) ->
+    Z3_utils.check_external solver solver_path ctx declsyms
 
 let exclude ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
       (ctx : Z3.context) ~var:(var : Constr.z3_expr) ~pre:(pre : Constr.t)

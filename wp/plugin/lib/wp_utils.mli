@@ -20,6 +20,8 @@
 
 *)
 
+open Core_kernel
+
 open Bap_main
 open Bap.Std
 open Bap_wp
@@ -55,7 +57,7 @@ val update_stack : base:int option -> size:int option -> Env.mem_range
 (** Checks if the user provided a filename to output a gdb script to, and if
     provided, outputs the script. *)
 val output_to_gdb :
-     filename:string option
+  filename:string option
   -> func:string
   -> Z3.Solver.solver
   -> Z3.Solver.status
@@ -65,8 +67,26 @@ val output_to_gdb :
 (** Checks if the user provided a filename to input a bildb init file to, and if
     provided, outputs the script. *)
 val output_to_bildb :
-     filename:string option
+  filename:string option
   -> Z3.Solver.solver
   -> Z3.Solver.status
   -> Env.t
   -> unit
+
+(** [spec_of_name name] returns the function spec creator with the
+    corresponding [name]. *)
+val spec_of_name : string -> Sub.t -> Arch.t -> Env.fun_spec option
+
+(** [mk_func_name orig modif regex] creates a map of modified subroutine names
+    to original subroutine names based off the regex list. *)
+val mk_func_name_map :
+  orig:Sub.t Seq.t
+  -> modif:Sub.t Seq.t
+  -> (string * string) list
+  -> string String.Map.t
+
+(** [get_mod_func_name orig_name regex] determines the name of the modified
+    subroutine based off of the original subroutine's name and the regex list.
+    Raises an exception if a subroutine that matches the regex can't be
+    found. *)
+val get_mod_func_name : string -> (string * string) list -> string option

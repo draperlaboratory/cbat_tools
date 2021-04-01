@@ -54,8 +54,10 @@ type t = {
   stack_size : int option;
   show : string list;
   func_name_map : (string * string) list;
-  user_func_spec : (string * string * string) option 
-  }
+  user_func_spec : (string * string * string) option;
+  fun_specs : string list;
+  ext_solver_path : string option
+}
 
 (** [validate flags files] ensures the user inputted the appropriate flags for
     the inputted [files]. In the case the user has invalid flags, an error is

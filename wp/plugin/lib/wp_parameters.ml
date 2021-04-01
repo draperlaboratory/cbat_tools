@@ -51,8 +51,10 @@ type t = {
   stack_size : int option;
   show : string list;
   func_name_map : (string * string) list;
-  user_func_spec : (string * string * string) option
-  }
+  user_func_spec : (string * string * string) option;
+  fun_specs : string list;
+  ext_solver_path : string option
+}
 
 (* Ensures the user inputted a function for analysis. *)
 let validate_func (func : string) : (unit, error) result =
@@ -115,7 +117,7 @@ let validate_compare_func_calls (flag : bool) (files : string list)
 
 (* Ensures the uer passed in two files to check for invalid dereferences. *)
 let validate_check_invalid_derefs (flag : bool) (files : string list)
-    : (unit, error) result =
+  : (unit, error) result =
   validate_two_files flag "check-invalid-derefs" files
 
 (* Ensures the user passed in two files to compare post register values. *)

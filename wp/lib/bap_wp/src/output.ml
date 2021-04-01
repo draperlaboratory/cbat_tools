@@ -21,6 +21,7 @@ module Bool = Z3.Boolean
 module Solver = Z3.Solver
 module Model = Z3.Model
 module Fun = Z3.FuncDecl
+module Z3Array = Z3.Z3Array
 module FInterp = Model.FuncInterp
 module Env = Environment
 module Constr = Constraint
@@ -36,31 +37,41 @@ let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
   |> List.iter ~f:(fun (key, data) ->
       Format.fprintf fmt "\t\t%s |-> %s ;\n"
         (Expr.to_string key) (Constr.expr_to_hex data));
-  Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
+  if (Z3.Expr.is_numeral mem_model.default)
+  then Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
+  else Format.fprintf fmt "\t\t%s]\n" (Expr.to_string mem_model.default)
 
 (** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
     a mem_model, which consists of a key/value association list and a default value *)
 
 let extract_array (e : Constr.z3_expr) : mem_model =
   let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
-    let numargs = Z3.Expr.get_num_args e in
-    let args = Z3.Expr.get_args e in
-    let f_decl = Z3.Expr.get_func_decl e in
-    let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
-    if Int.(numargs = 3) && String.(f_name = "store") then begin
-      let next_arr = List.nth_exn args 0 in
-      let key = List.nth_exn args 1 in
-      let value = List.nth_exn args 2 in
-      extract_array' ((key , value) :: partial_map) next_arr
+    if (Z3.Z3Array.is_array e) then begin
+      let numargs = Z3.Expr.get_num_args e in
+      let args = Z3.Expr.get_args e in
+      let f_decl = Z3.Expr.get_func_decl e in
+      let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
+      if Int.(numargs = 3) && String.(f_name = "store") then begin
+        let next_arr = List.nth_exn args 0 in
+        let key = List.nth_exn args 1 in
+        let value = List.nth_exn args 2 in
+        extract_array' ((key , value) :: partial_map) next_arr
+      end
+      else if Int.(numargs = 1) && String.(f_name = "const") then begin
+        let key = List.nth_exn args 0 in
+        { default = key; model = List.rev partial_map }
+      end
+      else begin
+        warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
+        { default = e ; model = partial_map }
+      end
     end
-    else if Int.(numargs = 1) && String.(f_name = "const") then begin
-      let key = List.nth_exn args 0 in
-      { default = key; model = List.rev partial_map }
-    end
-    else begin
-      warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
-      { default = e ; model = partial_map }
-    end
+    else
+      begin
+        (* FIXME: Presumably a lambda term *)
+        warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
+        { default = e; model = partial_map }
+      end
   in
   extract_array' [] e
 
@@ -99,17 +110,21 @@ let print_memory (fmt : Format.formatter) (model : Model.model)
       else Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str
     )
 
-(* These are the constants that were generated during the analysis. *)
-let print_constants (fmt : Format.formatter) (model : Model.model)
-    (consts : Env.ExprSet.t) : unit =
-  let const_vals =
-    Env.ExprSet.fold consts ~init:[] ~f:(fun pairs c ->
-        let name = Expr.to_string c in
-        let value = Constr.eval_model_exn model c in
-        (name, value) :: pairs)
+(* These are the constants and function call predicates that were generated
+   during the analysis. *)
+let print_call_preds (fmt : Format.formatter) (model : Model.model)
+    (preds : Env.ExprSet.t) : unit =
+  let pred_vals =
+    Env.ExprSet.fold preds ~init:[] ~f:(fun pairs c ->
+        if Z3Array.is_array c then
+          pairs
+        else
+          let name = Expr.to_string c in
+          let value = Constr.eval_model_exn model c in
+          (name, value) :: pairs)
   in
   Format.fprintf fmt "\n%!";
-  Constr.format_values fmt const_vals
+  Constr.format_values fmt pred_vals
 
 let print_fun_decls (fmt : Format.formatter) (model : Model.model) : unit =
   let fun_defs =
@@ -131,23 +146,19 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   let mem_map, reg_map =
     Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data:_ -> Target.CPU.is_mem key)
   in
-  let consts = Env.ExprSet.union (Env.get_consts env1) (Env.get_consts env2) in
+  let call_preds = Env.ExprSet.union
+      (Env.get_call_preds env1) (Env.get_call_preds env2) in
   print_registers fmt model reg_map;
   print_memory fmt model mem_map env2;
-  print_constants fmt model consts;
+  print_call_preds fmt model call_preds;
   print_fun_decls fmt model;
   Format.flush_str_formatter ()
 
-let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model option =
+let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model =
   let arch = Env.get_arch env in
-  if Env.is_x86 arch then
-    begin
-      let module Target = (val target_of_arch arch) in
-      let mem, _ = Env.get_var env Target.CPU.mem in
-      Some (extract_array (Constr.eval_model_exn m mem))
-    end
-  else
-    None
+  let module Target = (val target_of_arch arch) in
+  let mem, _ = Env.get_var env Target.CPU.mem in
+  extract_array (Constr.eval_model_exn m mem)
 
 let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
       (status : Solver.status) (goals: Constr.t) ~show:(show : string list)
@@ -187,7 +198,7 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
   | Solver.SATISFIABLE ->
     info "Dumping gdb script to file: %s\n" gdb_filename;
     let model = Constr.get_model_exn solver in
-    let option_mem_model = get_mem model env in
+    let mem_model = get_mem model env in
     let varmap = Env.get_var_map env in
     let module Target = (val target_of_arch (Env.get_arch env)) in
     let regmap = VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in
@@ -199,9 +210,7 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
             let hex_value = Constr.expr_to_hex data in
             Printf.fprintf t "set $%s = %s \n" (String.lowercase (Var.name key)) hex_value;
           );
-        match option_mem_model with
-        | None -> ()
-        | Some mem_model ->  List.iter mem_model.model ~f:(fun (addr,value) ->
+        List.iter mem_model.model ~f:(fun (addr,value) ->
             Printf.fprintf t "set {int}%s = %s \n"
               (Constr.expr_to_hex addr) (Constr.expr_to_hex value))
       )
@@ -229,14 +238,11 @@ let output_bildb (solver : Solver.solver) (status : Solver.status) (env : Env.t)
               Printf.fprintf t "  %s: %s\n" (Var.name key) hex_value)
         end;
         (* Print memory addresses and the values they hold if present in the model. *)
-        match mem_model with
-        | None -> ()
-        | Some m ->
-          if not @@ List.is_empty m.model then begin
-            Printf.fprintf t "Locations:\n";
-            List.iter m.model ~f:(fun (addr, value) ->
-                Printf.fprintf t "  %s: %s\n"
-                  (Constr.expr_to_hex addr) (Constr.expr_to_hex value))
-          end
+        if not @@ List.is_empty mem_model.model then begin
+          Printf.fprintf t "Locations:\n";
+          List.iter mem_model.model ~f:(fun (addr, value) ->
+              Printf.fprintf t "  %s: %s\n"
+                (Constr.expr_to_hex addr) (Constr.expr_to_hex value))
+        end
       )
   | _ -> info "Result of analysis is not SAT. No BilDB init script to output.\n%!"
