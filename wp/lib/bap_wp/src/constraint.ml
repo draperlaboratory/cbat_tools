@@ -51,9 +51,10 @@ let goal_to_string ?colorful:(colorful = false) (g : goal) : string =
   let lhs = g.goal_name |> rem_backslash in 
   let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> rem_backslash in
   if colorful then
+    (* lhs is red, rhs is cyan *)
     Format.sprintf "%s%s%s: %s%s%s%!"
       ("\x1b[31m") lhs ("\x1b[0m") ("\x1b[36m") rhs ("\x1b[0m")
-  else Format.sprintf "%s: %s!" lhs rhs
+  else Format.sprintf "%s: %s" lhs rhs
 
   
 let expr_to_hex (exp : z3_expr) : string =
@@ -196,41 +197,71 @@ let preen_expr (expr : Expr.expr) : string =
   Expr.simplify expr None
   |> Expr.to_string
   |> String.substr_replace_all ~pattern:"  " ~with_:""
-
+     
+let rec del_empty_constr_hyps (const : t) : t =
+  match const with
+  | Clause(hyps,concs) ->
+    let fold_list c_list =
+      List.fold_right c_list ~init:[]
+        ~f:(fun x y ->
+          match x with
+          | Clause([],xs) ->
+             List.append (List.map xs ~f:del_empty_constr_hyps) y
+          | _ -> (del_empty_constr_hyps x) :: y) in
+    Clause(fold_list hyps, fold_list concs)
+  | Goal g -> Goal g
+  | ITE (ite, e, c1, c2) ->
+     let new_c1 = del_empty_constr_hyps c1 in
+     let new_c2 = del_empty_constr_hyps c2 in
+     ITE (ite, e, new_c1, new_c2)
+  | Subst (c, olds, news) ->
+     let new_c = del_empty_constr_hyps c in
+     Subst (new_c, olds, news)
+  
+let to_color (colorful : bool) frm (c : int) str (ins : string) =
+    if colorful then Format.fprintf frm "\x1b[%dm" c;
+    Format.fprintf frm str ins;
+    if colorful then Format.fprintf frm "\x1b[0m"
+  
 let pp_constr (colorful : bool) (form : Format.formatter)
       (cons : t) : unit =
   let rec rec_pp_constr ch constr =
+    let to_color = to_color colorful ch in
     match constr with
     | Goal g ->
-       Format.fprintf ch "%s\n" (goal_to_string ~colorful:colorful g)
+       Format.fprintf ch "%s@;" (goal_to_string ~colorful:colorful g)
     | ITE (tid, e, c1, c2) ->
-       let color = if colorful then 35 else 0 in 
-       Format.fprintf ch
-         "@[%s:@;\x1b[%dmif \x1b[0m%s\x1b[%dmthen\x1b[0m@[@;%a@]@;\x1b[%dmelse\x1b[0m@[@;%a@]@]"
-        (tid |> Term.tid |> Tid.to_string) color (preen_expr e) color
-        rec_pp_constr c1 color rec_pp_constr c2
+       let color = 35 in (* green *)
+       to_color color "%s: (if" (tid |> Term.tid |> Tid.to_string);
+       Format.fprintf ch " %s " (preen_expr e);
+       to_color color "then%s" "";
+       Format.fprintf ch "@;%a" rec_pp_constr c1;
+       to_color color "else%s" "";
+       Format.fprintf ch "@;%a" rec_pp_constr c2;
+       to_color color ")%s" "";
     | Clause (hyps, concs) ->
-       if (List.is_empty hyps) then ()
-       else
-         (let color = if colorful then "38;5;91" else "0" in
+       (if not (List.is_empty hyps) then 
          let print_hyps =
-           List.iter hyps ~f:(fun h -> Format.fprintf ch "%a" rec_pp_constr h) in 
-          if (List.length hyps = 1) then
-            (print_hyps; Format.fprintf ch "\x1b[%sm => \x1b[0m" color)
-          else (Format.fprintf ch "("; print_hyps;
-                Format.fprintf ch ")\x1b[%sm => \x1b[0m" color));
-       Format.fprintf ch "(";
-      (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" rec_pp_constr c));
-      Format.fprintf ch ")"
+           List.iter hyps
+             ~f:(fun h -> Format.fprintf ch "%a" rec_pp_constr h) in
+         if colorful then 
+           let color = "38;5;91" in (* purple *)
+           (print_hyps; Format.fprintf ch "\x1b[%sm => \x1b[0m" color)
+         else
+           (print_hyps; Format.fprintf ch " => "));
+       (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" rec_pp_constr c));
     | Subst (c, olds, news) ->
-       let color = if colorful then 32 else 0 in 
-       Format.fprintf ch
-         "\x1b[%dmlet\x1b[0m @[%s = %s@] \x1b[%dm in \x1b[0m @;@[%a@]"  
-         color (List.to_string ~f:(preen_expr) olds)
-         (List.to_string ~f:(preen_expr) news) color rec_pp_constr c
+       let color = 32 in (* pink *)
+       to_color color "(let %s" "";
+       Format.fprintf ch "%s" (List.to_string ~f:(preen_expr) olds);
+       to_color color "=%s" "";
+       Format.fprintf ch "%s" (List.to_string ~f:(preen_expr) news);
+       to_color color " in%s" "";
+       Format.fprintf ch "@;%a" rec_pp_constr c;
+       to_color color ")%s" "";
   in
-  rec_pp_constr form cons
-      
+  rec_pp_constr form (del_empty_constr_hyps cons)
+  
 let to_string ?(colorful=false) (constr : t) : string =
   let pp_constr = pp_constr colorful in 
   Format.asprintf "%a" pp_constr constr 
@@ -340,7 +371,6 @@ let rec eval_aux ?stats:(stats = init_stats) (constr : t) (olds : z3_expr list)
 
 (* This needs to be evaluated in the same context as was used to create the root goals *)
 let eval ?debug:(debug = false) (constr : t) (ctx : Z3.context) : z3_expr =
-  Format.printf "---\n%s\n---\n%!" (Expr.get_simplify_help ctx);
   if debug then
     let stats = init_stats in
     let eval = eval_aux ~stats:stats constr [] [] ctx in
