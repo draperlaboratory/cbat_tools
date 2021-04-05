@@ -1,4 +1,4 @@
-((address 0x12:64u)
+(((address 0x12:64u)
  (invariant
    "(assert
       (let ((x!1 (concat (select mem (bvadd #xffffffffffffffff RBP))
@@ -11,4 +11,4 @@
                          (select mem (bvadd #xfffffffffffffff8 RBP)))))
       (and (= (bvadd x!1 y!1) #x00000005)
            (bvuge y!1 #x00000000)
-           (bvule x!1 #x00000005))))"))
+           (bvule x!1 #x00000005))))")))

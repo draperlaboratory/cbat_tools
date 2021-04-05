@@ -48,6 +48,8 @@ type loop_invariant = {
   invariant : string
 } [@@deriving sexp]
 
+type invariant_list = loop_invariant list [@@deriving sexp]
+
 (* If an offset is specified, generates a function of the address of a memory
    read in the original binary to the address plus an offset in the modified
    binary. *)
@@ -243,21 +245,24 @@ let comparators_of_flags
 
 (* Parses the loop invariant and address from the user into the format accepted
    by the environment. *)
-let parse_loop_invariant (invariants : string list) (sub : Sub.t)
+let parse_loop_invariant (invariants : string) (sub : Sub.t)
   : string Tid.Map.t =
-  Term.enum blk_t sub
-  |> Seq.fold ~init:Tid.Map.empty ~f:(fun map blk ->
-      match Term.get_attr blk address with
-      | None -> map
-      | Some address ->
-        List.fold invariants ~init:map ~f:(fun m invariant ->
-            let inv = loop_invariant_of_sexp (Sexp.of_string invariant) in
-            let addr = Addr.of_string inv.address in
-            if Addr.equal address addr then
-              let tid = Term.tid blk in
-              Tid.Map.set m ~key:tid ~data:inv.invariant
-            else
-              m))
+  if String.is_empty invariants then
+    Tid.Map.empty
+  else
+    Term.enum blk_t sub
+    |> Seq.fold ~init:Tid.Map.empty ~f:(fun map blk ->
+        match Term.get_attr blk address with
+        | None -> map
+        | Some address ->
+          let invs = invariant_list_of_sexp (Sexp.of_string invariants) in
+          List.fold invs ~init:map ~f:(fun m inv ->
+              let addr = Addr.of_string inv.address in
+              if Addr.equal address addr then
+                let tid = Term.tid blk in
+                Tid.Map.set m ~key:tid ~data:inv.invariant
+              else
+                m))
 
 (* Runs a single binary analysis. *)
 let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
