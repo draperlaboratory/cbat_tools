@@ -18,7 +18,7 @@ module Expr = Z3.Expr
 module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Model = Z3.Model
-module Solver = Z3.Solver              
+module Solver = Z3.Solver
 type z3_expr = Expr.expr
 
 type path = bool Jmp.Map.t
@@ -193,17 +193,15 @@ type t =
 (* preen_expr expr will improve the readability
    of expr by getting rid of white space 
    and simplifying the expression. *)
-let preen_expr_old (expr : Expr.expr) : string =
+let preen_expr (expr : Expr.expr) : string =
   Expr.simplify expr None
   |> Expr.to_string
   |> String.substr_replace_all ~pattern:"  " ~with_:""
 
-let preen_expr (expr : Expr.expr) : string list =
-  Expr.simplify expr None
-  |> Expr.to_string
-  |> String.substr_replace_all ~pattern:"  " ~with_:""
-  |> String.split_lines
-     
+(* delete_empty_constr_hyps const will remove 
+   some empty lists in Clause constructs. For example
+   Clause([],Clause[Clause([],[x]),y]) becomes 
+   Clause([],Clause[x,y]). *)
 let rec del_empty_constr_hyps (const : t) : t =
   match const with
   | Clause(hyps,concs) ->
@@ -223,17 +221,25 @@ let rec del_empty_constr_hyps (const : t) : t =
   | Subst (c, olds, news) ->
      let new_c = del_empty_constr_hyps c in
      Subst (new_c, olds, news)
-  
-let to_color (colorful : bool) (frm : Format.formatter)
-      (c : int) str (ins : string) : unit =
-    if colorful then Format.fprintf frm "\x1b[%dm" c;
-    Format.fprintf frm str ins;
-    if colorful then Format.fprintf frm "\x1b[0m"
 
+(* to_color colorful ch c str ins will print str with insert
+   ins and formatter ch. If colorful is true, then this will 
+   print in the color c. *)
+let to_color (colorful : bool) (ch : Format.formatter) (c : int)
+      (str : ('a -> 'b, Format.formatter, unit) Stdlib.format)
+      (ins : string) : unit =
+    if colorful then Format.fprintf ch "\x1b[%dm" c;
+    Format.fprintf ch str ins;
+    if colorful then Format.fprintf ch "\x1b[0m"
+
+(* print_expr_list expr_list ch converts expr_list into a list of 
+   strings of expressions and then prints each one on a new line 
+   using the formatter ch *)
 let print_expr_list (expr_list : Expr.expr list)
       (ch : Format.formatter) : unit =
   let expr_string_list : string list =
-    List.map expr_list ~f:(preen_expr) |> List.join in
+    List.map expr_list ~f:(fun e -> preen_expr e |> String.split_lines)
+    |> List.join in
   let rec print_exprs ch exprs =
     match exprs with
     | [] -> ();
@@ -251,7 +257,7 @@ let pp_constr (colorful : bool) (form : Format.formatter)
     | ITE (tid, e, c1, c2) ->
        let color = 35 in (* green *)
        to_color color "%s: (if " (tid |> Term.tid |> Tid.to_string);
-       Format.fprintf ch "%s" (preen_expr_old e);
+       Format.fprintf ch "%s" (preen_expr e);
        to_color color " then%s" "";
        Format.fprintf ch "@[@;%a@]" rec_pp_constr c1;
        to_color color " else%s" "";
@@ -271,7 +277,7 @@ let pp_constr (colorful : bool) (form : Format.formatter)
     | Subst (c, olds, news) ->
        let color = 32 in (* pink *)
        to_color color "(let %s" "";
-       Format.fprintf ch "%s" (List.to_string ~f:(preen_expr_old) olds);
+       Format.fprintf ch "%s" (List.to_string ~f:(preen_expr) olds);
        to_color color " = %s" "";
        (*Format.fprintf ch "@[<v 2>%s@]" (List.to_string ~f:(preen_expr) news);*)
        print_expr_list news ch;
