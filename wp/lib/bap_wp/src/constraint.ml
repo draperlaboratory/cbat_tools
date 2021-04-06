@@ -190,13 +190,19 @@ type t =
   | Clause of t list * t list
   | Subst of t * z3_expr list * z3_expr list
 
-(* preen_expr expr will simplify and clean up the 
-   the printing of expr by getting rid of white space 
+(* preen_expr expr will improve the readability
+   of expr by getting rid of white space 
    and simplifying the expression. *)
-let preen_expr (expr : Expr.expr) : string =
+let preen_expr_old (expr : Expr.expr) : string =
   Expr.simplify expr None
   |> Expr.to_string
   |> String.substr_replace_all ~pattern:"  " ~with_:""
+
+let preen_expr (expr : Expr.expr) : string list =
+  Expr.simplify expr None
+  |> Expr.to_string
+  |> String.substr_replace_all ~pattern:"  " ~with_:""
+  |> String.split_lines
      
 let rec del_empty_constr_hyps (const : t) : t =
   match const with
@@ -218,11 +224,23 @@ let rec del_empty_constr_hyps (const : t) : t =
      let new_c = del_empty_constr_hyps c in
      Subst (new_c, olds, news)
   
-let to_color (colorful : bool) frm (c : int) str (ins : string) =
+let to_color (colorful : bool) (frm : Format.formatter)
+      (c : int) str (ins : string) : unit =
     if colorful then Format.fprintf frm "\x1b[%dm" c;
     Format.fprintf frm str ins;
     if colorful then Format.fprintf frm "\x1b[0m"
-  
+
+let print_expr_list (expr_list : Expr.expr list)
+      (ch : Format.formatter) : unit =
+  let expr_string_list : string list =
+    List.map expr_list ~f:(preen_expr) |> List.join in
+  let rec print_exprs ch exprs =
+    match exprs with
+    | [] -> ();
+    | [e] -> Format.fprintf ch "%s" e
+    | e :: es -> Format.fprintf ch "%s@;" e ; print_exprs ch es in 
+  Format.fprintf ch "@[<v 2>%a@]" print_exprs expr_string_list
+
 let pp_constr (colorful : bool) (form : Format.formatter)
       (cons : t) : unit =
   let rec rec_pp_constr ch constr =
@@ -232,11 +250,11 @@ let pp_constr (colorful : bool) (form : Format.formatter)
        Format.fprintf ch "%s@;" (goal_to_string ~colorful:colorful g)
     | ITE (tid, e, c1, c2) ->
        let color = 35 in (* green *)
-       to_color color "%s: (if" (tid |> Term.tid |> Tid.to_string);
-       Format.fprintf ch " %s " (preen_expr e);
-       to_color color "then%s" "";
-       Format.fprintf ch "@;%a" rec_pp_constr c1;
-       to_color color "else%s" "";
+       to_color color "%s: (if " (tid |> Term.tid |> Tid.to_string);
+       Format.fprintf ch "%s" (preen_expr_old e);
+       to_color color " then%s" "";
+       Format.fprintf ch "@[@;%a@]" rec_pp_constr c1;
+       to_color color " else%s" "";
        Format.fprintf ch "@;%a" rec_pp_constr c2;
        to_color color ")%s" "";
     | Clause (hyps, concs) ->
@@ -253,9 +271,10 @@ let pp_constr (colorful : bool) (form : Format.formatter)
     | Subst (c, olds, news) ->
        let color = 32 in (* pink *)
        to_color color "(let %s" "";
-       Format.fprintf ch "%s" (List.to_string ~f:(preen_expr) olds);
-       to_color color "=%s" "";
-       Format.fprintf ch "%s" (List.to_string ~f:(preen_expr) news);
+       Format.fprintf ch "%s" (List.to_string ~f:(preen_expr_old) olds);
+       to_color color " = %s" "";
+       (*Format.fprintf ch "@[<v 2>%s@]" (List.to_string ~f:(preen_expr) news);*)
+       print_expr_list news ch;
        to_color color " in%s" "";
        Format.fprintf ch "@;%a" rec_pp_constr c;
        to_color color ")%s" "";
