@@ -5,6 +5,9 @@
 
 run () {
   bap wp \
+    --num-unroll=0 \
+    --optimization-level=3 \
+    --show=bir \
     --func=loop \
     --postcond="(assert (= RAX #x0000000000000005))" \
     -- ./bin/main

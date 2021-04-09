@@ -37,6 +37,8 @@ module ExprSet = Set.Make(
     let t_of_sexp _ = raise (Not_implemented "t_of_sexp for z3_expr not implemented")
   end)
 
+let (let*) (x : 'a option) (f : 'a -> 'b) = Option.bind x ~f
+
 type var_gen = int ref
 
 type mem_range = {
@@ -60,7 +62,7 @@ type t = {
   indirect_handler : indirect_spec;
   jmp_handler : jmp_spec;
   int_handler : int_spec;
-  loop_handler : loop_handler;
+  loop_handler : loop_handle;
   exp_conds : exp_cond list;
   arch : Arch.t;
   use_fun_input_regs : bool;
@@ -87,13 +89,13 @@ and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option
 
 and int_spec = t -> Constr.t -> int -> Constr.t * t
 
-and loop_handle = t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
+and loop_handler = t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
 
-and loop_handler = {
+and loop_handle = {
   (* Updates the environment with the preconditions computed by
      the loop handling procedure for the appropriate blocks *)
-  unroller : loop_handle;
-  invariant_checker : loop_handle TidMap.t
+  unroller : loop_handler;
+  invariant_checker : loop_handler TidMap.t
 }
 
 and cond = BeforeExec of Constr.goal | AfterExec of Constr.goal
@@ -180,7 +182,7 @@ let wp_rec_call :
   (t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
   ref (fun _ _ ~start:_ _ -> assert false)
 
-let loop_invariant_checker_rec_call : (string -> loop_handle) ref =
+let loop_invariant_checker_rec_call : (string -> loop_handler) ref =
   ref (fun _ -> assert false)
 
 let trivial_constr (env : t) : Constr.t =
@@ -189,38 +191,24 @@ let trivial_constr (env : t) : Constr.t =
   |> Constr.mk_goal "true"
   |> Constr.mk_constr
 
-(* Looks up the precondition of the exit node of a loop by:
+(* Looks up the exit node of a loop by:
    - obtaining the post dominator tree
    - for each node in the SCC, find its parent in the dominator tree
    - if the parent node is not in the original SCC, it is an exit node *)
-let loop_exit_pre (env : t) (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
-  : Constr.t option =
+let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+  : Graphs.Ir.Node.t option =
   let module Node = Graphs.Ir.Node in
   let scc = Graphlib.strong_components (module Graphs.Ir) graph in
-  match Partition.group scc node with
-  | None -> None
-  | Some g ->
-    let leaf = Seq.find (Graphlib.postorder_traverse (module Graphs.Ir) graph)
-        ~f:(fun n -> Seq.is_empty (Node.succs n graph))
-    in
-    match leaf with
-    | None -> None
-    | Some l ->
-      let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph l in
-      let exit_node = Seq.find_map (Group.enum g) ~f:(fun n ->
-          match Tree.parent dom_tree n with
-          | None -> None
-          | Some p ->
-            if Group.mem g p then
-              None
-            else
-              Some (p |> Node.label |> Term.tid)
-        ) in
-      match exit_node with
-      | None -> None
-      | Some e ->
-        debug "Using precondition from node %s%!" (Tid.to_string e);
-        get_precondition env e
+  let* group = Partition.group scc node in
+  let* leaf = Seq.find (Graphlib.postorder_traverse (module Graphs.Ir) graph)
+      ~f:(fun n -> Seq.is_empty (Node.succs n graph)) in
+  let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph leaf in
+  Seq.find_map (Group.enum group) ~f:(fun n ->
+      let* parent = Tree.parent dom_tree n in
+      if Group.mem group parent then
+        None
+      else
+        Some parent)
 
 
 module Unfold_depth = Blk.Map
@@ -233,7 +221,7 @@ type unfold_depth = int Unfold_depth.t
    - Otherwise, decrement the [depth] map which tracks the unfoldings for that node, and
      recursively call [Precondition.visit_graph]. Because this function is defined in another
      (later) module, we use open recursion via the [wp_rec_call] function reference. *)
-let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handle =
+let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
   let module Node = Graphs.Ir.Node in
   let find_depth node = Unfold_depth.find depth (Node.label node)
                         |> Option.value ~default:num_unroll
@@ -246,7 +234,12 @@ let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handle =
     if find_depth node <= 0 then
       let tid = node |> Node.label |> Term.tid in
       let pre =
-        match List.find_map [loop_exit_pre] ~f:(fun spec -> spec env node g) with
+        List.find_map [loop_exit] ~f:(fun spec ->
+            let* exit = spec node g in
+            let tid = exit |> Node.label |> Term.tid in
+            get_precondition env tid)
+      in
+      let pre = match pre with
         | Some p -> p
         | None ->
           warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
@@ -265,12 +258,12 @@ let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handle =
   in
   unroll
 
-let init_loop_unfold (num_unroll : int) : loop_handle = loop_unfold num_unroll Unfold_depth.empty
+let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll Unfold_depth.empty
 
 (* Defaults to loop unfolding. If a user passes in a loop invariant, turns off
    the loop unfolder and verifies the invariant instead. *)
 let init_loop_handler (num_unfold : int) (loop_invariant : string TidMap.t)
-  : loop_handler =
+  : loop_handle =
   {
     unroller = init_loop_unfold num_unfold;
     invariant_checker = TidMap.map loop_invariant ~f:(fun invariant ->
@@ -427,11 +420,14 @@ let get_jmp_handler (env : t) : jmp_spec =
 let get_int_handler (env : t) : int_spec =
   env.int_handler
 
-let get_loop_handler (env : t) (tid : Tid.t) :
-  t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
+let get_loop_handler (env : t) (tid : Tid.t) : loop_handler =
   match TidMap.find env.loop_handler.invariant_checker tid with
-  | Some handle -> handle
-  | None -> env.loop_handler.unroller
+  | Some handle ->
+    debug "Checking loop invariant for %s%!" (Tid.to_string tid);
+    handle
+  | None ->
+    debug "Unrolling loop %s%!" (Tid.to_string tid);
+    env.loop_handler.unroller
 
 let get_call_preds (env : t) : ExprSet.t =
   env.call_preds

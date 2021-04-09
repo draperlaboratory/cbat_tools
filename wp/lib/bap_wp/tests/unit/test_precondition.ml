@@ -1116,15 +1116,17 @@ let test_loop_invariant_2 (test_ctx : test_ctxt) : unit =
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
 
 
-let loop_header_tid (sub : Sub.t) : Tid.t =
+let loop_header_tid (sub : Sub.t) : Tid.t list =
   let graph = Sub.to_cfg sub in
-  let enter_edge kind e tid =
+  let enter_edge kind e tids =
     match kind with
-    | `Back -> e |> Graphs.Ir.Edge.dst |> Graphs.Ir.Node.label |> Term.tid
-    | _ -> tid
+    | `Back ->
+      let tid = e |> Graphs.Ir.Edge.dst |> Graphs.Ir.Node.label |> Term.tid in
+      tid :: tids
+    | _ -> tids
   in
   Graphlib.Std.Graphlib.depth_first_search (module Graphs.Ir) ~enter_edge
-    ~init:(Tid.create ()) graph
+    ~init:[] graph
 
 
 let test_loop_invariant_3 (test_ctx : test_ctxt) : unit =
@@ -1144,7 +1146,7 @@ let test_loop_invariant_3 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let tid = loop_header_tid sub in
+  let tid = List.hd_exn @@ loop_header_tid sub in
   let invariant = "(assert (= (bvadd x y) #x00000005))" in
   let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
   let env = Pre.mk_env ctx var_gen ~loop_invariant in
@@ -1174,7 +1176,7 @@ let test_loop_invariant_4 (test_ctx : test_ctxt) : unit =
       ]
     ) |> bil_to_sub
   in
-  let tid = loop_header_tid sub in
+  let tid = List.hd_exn @@ loop_header_tid sub in
   let invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
   let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
   let env = Pre.mk_env ctx var_gen ~loop_invariant in
@@ -1221,6 +1223,45 @@ let test_loop_invariant_5 (test_ctx : test_ctxt) : unit =
   let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
   let env = Pre.mk_env ctx var_gen ~loop_invariant in
   let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
+             |> Constr.mk_goal "x = 5"
+             |> Constr.mk_constr
+  in
+  let _, env = Pre.init_vars (Var.Set.of_list [x; y]) env in
+  let pre, env = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+
+
+let test_loop_invariant_6 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let sub = Bil.(
+      [
+        x := zero;
+        y := i32 5;
+        while_ ( var x < i32 5 )
+          [
+            x := var x + one;
+            y := var y - one;
+          ];
+        while_ ( var y < i32 3 )
+          [
+            y := var y + one;
+            x := var x - one;
+          ]
+      ]
+    ) |> bil_to_sub
+  in
+  let tids = loop_header_tid sub in
+  let inv1 = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
+  let inv2 = "(assert (and (= (bvadd x y) #x00000005) (bvuge x #x00000000) (bvule y #x00000003)))" in
+  let invariants = [inv1; inv2] in
+  let loop_invariant =
+    List.fold2_exn tids invariants ~init:Tid.Map.empty ~f:(fun map tid inv ->
+        Tid.Map.set map ~key:tid ~data:inv) in
+  let env = Pre.mk_env ctx var_gen ~loop_invariant in
+  let post = Bool.mk_eq ctx (mk_z3_var env y) (BV.mk_numeral ctx "3" 32)
              |> Constr.mk_goal "x = 5"
              |> Constr.mk_constr
   in
@@ -1793,6 +1834,11 @@ let suite = [
    b1: x = 0; y = 5; goto b2; \n\
    b2: x = x + 1; y = y - 1; tmp = x < 5; when tmp goto b2; goto b3; \n\
    b3:" >:: test_loop_invariant_5;
+  "Loop invariant: Two loops UNSAT: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
+   b3: y = y + 1; x = x - 1; when y < 3 goto b3; goto b4; \n\
+   b4:" >:: test_loop_invariant_6;
 
   "Read NULL; SAT:\n\
    x = mem[addr];" >:: test_exp_cond_1;

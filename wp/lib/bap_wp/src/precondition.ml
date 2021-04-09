@@ -29,6 +29,8 @@ module Constr = Constraint
 
 exception Not_implemented of string
 
+let (let*) (x : 'a option) (f : 'a -> 'b) = Option.bind x ~f
+
 type hooks = {
   assume_before : Constr.t list;
   assume_after : Constr.t list;
@@ -889,21 +891,23 @@ let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t
   let pre, env = blk |> Blk.elts ~rev:true |> compute_pre in
   (pre, Env.add_precond env (Term.tid blk) pre)
 
+(* Returns [true] if the node is not reachable from the start of the graph.
+   This is used to prune non-reachable subgraphs from the DFS. *)
+let unreachable_from_start (graph : Graphs.Ir.t) (start : Graphs.Ir.Node.t)
+    (node : Graphs.Ir.Node.t) : bool =
+  not (Graphlib.is_reachable (module Graphs.Ir) graph start node)
+
 let visit_graph (env : Env.t) (post : Constr.t)
-    ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
+    ~(start : Graphs.Ir.Node.t) ~(skip_node : Graphs.Ir.Node.t -> bool)
+    (g : Graphs.Ir.t) : Constr.t * Env.t =
   let module G = Graphs.Ir in
-  (* Prune non-reachable sub-graphs from the DFS *)
-  let module Reachable_from_start =
-    (val
-      Graphlib.filtered (module G)
-        ~skip_node:(fun n -> not (Graphlib.is_reachable (module G) g start n)) ())
-  in
+  let module Filtered_graph = (val Graphlib.filtered (module G) ~skip_node ()) in
   let leave_node _ n (_, env) =
     let b = G.Node.label n in
     visit_block env post b in
   (* This function is the identity on forward & cross edges, and
      invokes loop handling code on back edges *)
-  let enter_edge kind e ((post, env) as p) : Constr.t * Env.t =
+  let enter_edge kind e (_, env) : Constr.t * Env.t =
     match kind with
     | `Back ->
       begin
@@ -915,16 +919,17 @@ let visit_graph (env : Env.t) (post : Constr.t)
         let handler = Env.get_loop_handler env tid in
         post, handler env post ~start:dst g
       end
-    | _ -> p
+    | _ -> post, env
   in
-  Graphlib.depth_first_search (module Reachable_from_start)
+  Graphlib.depth_first_search (module Filtered_graph)
     ~enter_edge:enter_edge ~start:start ~leave_node:leave_node ~init:(post, env)
     g
 
 (* Now that we've defined [visit_graph], we can replace it in the
    [wp_rec_call] placeholder. *)
 let _ = Env.wp_rec_call :=
-    fun env post ~start g -> visit_graph env post ~start g |> snd
+    fun env post ~start g ->
+      visit_graph env post ~start ~skip_node:(unreachable_from_start g start) g |> snd
 
 (* BAP currently doesn't have a way to determine that exit does not return.
    This function removes the backedge after the call to exit. *)
@@ -979,7 +984,7 @@ let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
       let start = Term.first blk_t sub
                   |> Option.value_exn ?here:None ?error:None ?message:None
                   |> Graphs.Ir.Node.create in
-      visit_graph ~start:start env post cfg
+      visit_graph ~start ~skip_node:(unreachable_from_start cfg start) env post cfg
   in (pre, Env.add_precond env' (Term.tid sub) pre)
 
 (* Replace the [inline_func] placeholder with [visit_sub]. *)
@@ -1435,7 +1440,6 @@ let get_branch_condition (loop : Graphs.Ir.Node.t group) (jmp1 : Jmp.t)
 (* Gets a constraint representing the condition for a loop. *)
 let get_cond (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
   : Constr.t option =
-  let (let*) x f = Option.bind x ~f in
   let ctx = Env.get_context env in
   let* jmp1, jmp2 = get_branch blk in
   let* branch_cond = get_branch_condition loop jmp1 jmp2 in
@@ -1452,7 +1456,7 @@ let get_cond (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
         | `Def _ | `Phi _ -> visit_elt env pre elt
         | `Jmp jmp ->
           if (Jmp.equal jmp jmp1) || (Jmp.equal jmp jmp2) then
-            (pre, env)
+            pre, env
           else
             visit_elt env pre elt)
   in
@@ -1483,14 +1487,13 @@ let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) (blk : Blk.t)
     else
       g
   in
-  Graphlib.depth_first_search (module Graphs.Ir) ~enter_node ~enter_edge ~init:graph graph
+  Graphlib.depth_first_search (module Graphs.Ir)
+    ~enter_node ~enter_edge ~init:graph graph
 
 (* Splits the loop into the condition and the body of the loop. Assumes there
    are no breaks in the loop. *)
-let split_loop (start : Graphs.Ir.Node.t) (graph : Graphs.Ir.t) (env : Env.t)
+let split_loop (loop : Graphs.Ir.Node.t group) (graph : Graphs.Ir.t) (env : Env.t)
   : (Constr.t * Sub.t) option =
-  let scc = Graphlib.strong_components (module Graphs.Ir) graph in
-  let loop = Option.value_exn (Partition.group scc start) in
   let sub = Sub.of_cfg graph in
   Seq.find_map (Term.enum blk_t sub) ~f:(fun blk ->
       match get_cond loop blk env with
@@ -1518,15 +1521,40 @@ let freshen (constr : Constr.t) (env : Env.t) (vars : Var.Set.t)
       let fresh = Env.new_z3_expr ~name env (Var.typ v) in
       Constr.substitute_one constr z3_v fresh, Env.add_call_pred env fresh)
 
-let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handle =
+(* Gets the precondition of the exit node of a loop. *)
+let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
+    (g : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) : Constr.t =
+  let p =
+    List.find_map [Env.loop_exit] ~f:(fun spec ->
+        let* exit = spec node g in
+        let tid = exit |> Graphs.Ir.Node.label |> Term.tid in
+        let skip_node n =
+          let label = Graphs.Ir.Node.label n in
+          let in_loop = in_loop loop (Term.tid label) in
+          let unreachable = unreachable_from_start g exit n in
+          in_loop || unreachable
+        in
+        let _, env = visit_graph env post ~start:exit ~skip_node g in
+        Env.get_precondition env tid)
+  in
+  match p with
+  | Some p -> p
+  | None ->
+    let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+    warning "Trivial precondition is being used for node %s\n%!" (Tid.to_string tid);
+    post
+
+let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handler =
   let module Node = Graphs.Ir.Node in
   let checker env post ~start:node g : Env.t =
     let ctx = Env.get_context env in
     let tid = node |> Node.label |> Term.tid in
     let invariant = Z3_utils.mk_smtlib2_single ~name:(Some "Loop invariant")
         env loop_invariant in
-    debug "Loop invariant: %s\n%!" (Constr.to_string invariant);
-    let cond, body = Option.value_exn (split_loop node g env) in
+    debug "Loop invariant: %s%!" (Constr.to_string invariant);
+    let scc = Graphlib.strong_components (module Graphs.Ir) g in
+    let loop = Option.value_exn (Partition.group scc node) in
+    let cond, body = Option.value_exn (split_loop loop g env) in
     let vars = loop_vars body in
     let iteration, env =
       let body_wp, env = visit_sub env invariant body in
@@ -1541,6 +1569,7 @@ let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handle =
         in
         Constr.mk_clause [cond] [false_cond]
       in
+      let post = exit_pre env post node g loop in
       freshen (Constr.mk_clause [exit_cond; invariant] [post]) env vars
     in
     let pre = Constr.mk_clause [] [invariant; iteration; exit] in
