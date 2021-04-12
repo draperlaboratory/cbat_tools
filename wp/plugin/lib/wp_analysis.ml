@@ -43,13 +43,6 @@ type combined_pre =
       modif : Env.t * Sub.t
     }
 
-type loop_invariant = {
-  address : string;
-  invariant : string
-} [@@deriving sexp]
-
-type invariant_list = loop_invariant list [@@deriving sexp]
-
 (* If an offset is specified, generates a function of the address of a memory
    read in the original binary to the address plus an offset in the modified
    binary. *)
@@ -243,27 +236,6 @@ let comparators_of_flags
   in
   List.unzip comps
 
-(* Parses the loop invariant and address from the user into the format accepted
-   by the environment. *)
-let parse_loop_invariant (invariants : string) (sub : Sub.t)
-  : string Tid.Map.t =
-  if String.is_empty invariants then
-    Tid.Map.empty
-  else
-    Term.enum blk_t sub
-    |> Seq.fold ~init:Tid.Map.empty ~f:(fun map blk ->
-        match Term.get_attr blk address with
-        | None -> map
-        | Some address ->
-          let invs = invariant_list_of_sexp (Sexp.of_string invariants) in
-          List.fold invs ~init:map ~f:(fun m inv ->
-              let addr = Addr.of_string inv.address in
-              if Addr.equal address addr then
-                let tid = Term.tid blk in
-                Tid.Map.set m ~key:tid ~data:inv.invariant
-              else
-                m))
-
 (* Runs a single binary analysis. *)
 let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file : string) : combined_pre =
@@ -283,7 +255,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~use_fun_input_regs:p.use_fun_input_regs
       ~exp_conds
       ~stack_range
-      ~loop_invariant:(parse_loop_invariant p.loop_invariant main_sub)
+      ~loop_invariant:(Params.parse_loop_invariant p.loop_invariant main_sub)
   in
   let true_constr = Env.trivial_constr env in
   let vars = Pre.get_vars env main_sub in

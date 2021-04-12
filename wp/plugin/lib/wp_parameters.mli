@@ -20,6 +20,7 @@
 *)
 
 open Bap_main
+open Bap.Std
 open Monads.Std
 
 (** A result monad that includes Extension.Error.t as the error type. This
@@ -97,3 +98,9 @@ val validate_mem_flags : bool -> bool -> string list -> (unit, error) result
 (** [validate_check_invalid_derefs flag files] checks that the flag is only set
     when there are two files to compare. Returns an error otherwise. *)
 val validate_check_invalid_derefs : bool -> string list -> (unit, error) result
+
+(** [parse_loop_environment invariant sub] parses the [invariant] which is an
+     S-expression representing the address of a loop header and its
+     corresponding loop invariant, and returns a format accepted by the
+     environment. *)
+val parse_loop_invariant : string -> Sub.t -> string Tid.Map.t

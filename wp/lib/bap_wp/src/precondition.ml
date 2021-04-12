@@ -1397,7 +1397,7 @@ let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
   let expr = List.fold l ~init:(Bool.mk_true ctx) ~f:gen_constr in
   Constr.mk_goal "pointer_precond" expr |> Constr.mk_constr
 
-(* Gets the target destination of a jump. *)
+(* Gets the target destination of a jump. We do not handle indirect jumps. *)
 let target (jmp : Jmp.t) : Tid.t option =
   match Jmp.kind jmp with
   | Goto (Direct tid) -> Some tid
@@ -1450,6 +1450,7 @@ let get_cond (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
     |> Constr.mk_goal "Loop guard"
     |> Constr.mk_constr
   in
+  (* Compute to get the constraint at the top of the block. *)
   let compute elts =
     Seq.fold elts ~init:(loop_guard, env) ~f:(fun (pre, env) elt ->
         match elt with
@@ -1547,19 +1548,24 @@ let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
 let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handler =
   let module Node = Graphs.Ir.Node in
   let checker env post ~start:node g : Env.t =
+    (* WP(while E do S done, R) *)
     let ctx = Env.get_context env in
     let tid = node |> Node.label |> Term.tid in
-    let invariant = Z3_utils.mk_smtlib2_single ~name:(Some "Loop invariant")
+    (* I *)
+    let name = Format.sprintf "Loop invariant (%s)%!" (Tid.to_string tid) in
+    let invariant = Z3_utils.mk_smtlib2_single ~name:(Some name)
         env loop_invariant in
     debug "Loop invariant: %s%!" (Constr.to_string invariant);
     let scc = Graphlib.strong_components (module Graphs.Ir) g in
     let loop = Option.value_exn (Partition.group scc node) in
     let cond, body = Option.value_exn (split_loop loop g env) in
     let vars = loop_vars body in
+    (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
     let iteration, env =
       let body_wp, env = visit_sub env invariant body in
       freshen (Constr.mk_clause [cond; invariant] [body_wp]) env vars
     in
+    (* forall y, ((~E ^ I) => R)[x <- y] *)
     let exit, env =
       let exit_cond =
         let false_cond =

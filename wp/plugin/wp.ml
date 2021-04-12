@@ -259,11 +259,12 @@ let ext_solver_path = Cmd.parameter Typ.(some string) "ext-solver-path"
     ~doc:{|Path of external smt solver to call. Boolector recommended. |}
 
 let loop_invariant = Cmd.parameter Typ.string "loop-invariant"
-    ~doc:{|Usage: `((address <addr>) (invariant <smtlib>))'. Assumes the
-           subroutine contains a single unnested loop with one
-           entrance and one exit. Checks the loop invariant written in
-           smt-lib2 format for the loop with header at the given address.
-           The address should be written in with BAP bitvector string format.|}
+    ~doc:{|Usage: `(((address <addr>) (invariant <smtlib>)) (...))'. Assumes the
+           subroutine contains unnested loops with one entrance and one exit
+           each. Checks the loop invariant written in smt-lib2 format for the
+           loop with its header at the given address. The address should be
+           written in BAP's bitvector string format. Only supported for a single
+           binary analysis.|}
 
 let grammar = Cmd.(
     args

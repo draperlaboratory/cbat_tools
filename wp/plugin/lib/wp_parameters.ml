@@ -13,6 +13,7 @@
 
 open !Core_kernel
 open Bap_main
+open Bap.Std
 open Monads.Std
 
 (* Error for when a user does not specify a function to analyze. *)
@@ -56,6 +57,13 @@ type t = {
   fun_specs : string list;
   ext_solver_path : string option
 }
+
+type loop_invariant = {
+  address : string;
+  invariant : string
+} [@@deriving sexp]
+
+type invariant_list = loop_invariant list [@@deriving sexp]
 
 (* Ensures the user inputted a function for analysis. *)
 let validate_func (func : string) : (unit, error) result =
@@ -152,3 +160,24 @@ let validate (f : t) (files : string list) : (unit, error) result =
   validate_debug f.debug >>= fun () ->
   validate_show f.show >>= fun () ->
   Ok ()
+
+(* Parses the loop invariant and address from the user into the format accepted
+   by the environment. *)
+let parse_loop_invariant (invariants : string) (sub : Sub.t)
+  : string Tid.Map.t =
+  if String.is_empty invariants then
+    Tid.Map.empty
+  else
+    Term.enum blk_t sub
+    |> Seq.fold ~init:Tid.Map.empty ~f:(fun map blk ->
+        match Term.get_attr blk address with
+        | None -> map
+        | Some address ->
+          let invs = invariant_list_of_sexp (Sexp.of_string invariants) in
+          List.fold invs ~init:map ~f:(fun m inv ->
+              let addr = Addr.of_string inv.address in
+              if Addr.equal address addr then
+                let tid = Term.tid blk in
+                Tid.Map.set m ~key:tid ~data:inv.invariant
+              else
+                m))
