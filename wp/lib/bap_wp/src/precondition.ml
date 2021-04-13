@@ -14,6 +14,7 @@
 open !Core_kernel
 open Bap.Std
 open Graphlib.Std
+open Utils.Option_let
 
 include Self()
 
@@ -28,8 +29,6 @@ module Env = Environment
 module Constr = Constraint
 
 exception Not_implemented of string
-
-let (let*) (x : 'a option) (f : 'a -> 'b) = Option.bind x ~f
 
 type hooks = {
   assume_before : Constr.t list;

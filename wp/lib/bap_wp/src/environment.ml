@@ -14,6 +14,7 @@
 open !Core_kernel
 open Bap.Std
 open Graphlib.Std
+open Utils.Option_let
 
 include Self()
 
@@ -36,8 +37,6 @@ module ExprSet = Set.Make(
     let sexp_of_t _ = raise (Not_implemented "sexp_of_t for z3_expr not implemented")
     let t_of_sexp _ = raise (Not_implemented "t_of_sexp for z3_expr not implemented")
   end)
-
-let (let*) (x : 'a option) (f : 'a -> 'b) = Option.bind x ~f
 
 type var_gen = int ref
 
