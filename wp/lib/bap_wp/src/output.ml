@@ -13,6 +13,7 @@
 
 open !Core_kernel
 open Bap.Std
+open Bap_core_theory
 
 include Self()
 
@@ -136,15 +137,17 @@ let print_fun_decls (fmt : Format.formatter) (model : Model.model) : unit =
   in
   Format.fprintf fmt "\n";
   List.iter fun_defs ~f:(fun (def, interp) ->
-      Format.fprintf fmt "%s  %s\n" (Fun.to_string def) (FInterp.to_string interp))
+      Format.fprintf fmt "%s  %s\n"
+        (Fun.to_string def)
+        (FInterp.to_string interp))
 
 let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   let fmt = Format.str_formatter in
-  let arch = Env.get_arch env1 in
-  let module Target = (val target_of_arch arch) in
   let var_map = Env.get_var_map env1 in
   let mem_map, reg_map =
-    Env.EnvMap.partitioni_tf var_map ~f:(fun ~key ~data:_ -> Target.CPU.is_mem key)
+    Env.EnvMap.partitioni_tf var_map
+      ~f:(fun ~key ~data:_ ->
+          Var.((Env.get_mem env1) = key))
   in
   let call_preds = Env.ExprSet.union
       (Env.get_call_preds env1) (Env.get_call_preds env2) in
@@ -155,20 +158,17 @@ let format_model (model : Model.model) (env1 : Env.t) (env2 : Env.t) : string =
   Format.flush_str_formatter ()
 
 let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model =
-  let arch = Env.get_arch env in
-  let module Target = (val target_of_arch arch) in
-  let mem, _ = Env.get_var env Target.CPU.mem in
+  let mem, _ = Env.get_var env (Env.get_mem env) in
   extract_array (Constr.eval_model_exn m mem)
 
 let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
       (status : Solver.status) (goals: Constr.t) ~show:(show : string list)
       ~orig:(env1, sub1 : Env.t * Sub.t) ~modif:(env2, sub2 : Env.t * Sub.t)
     : unit =
-  match status with 
+  match status with
   | Solver.UNSATISFIABLE -> Format.fprintf fmt "%s%!" "\nUNSAT!\n"
   | Solver.UNKNOWN -> Format.fprintf fmt "%s%!" "\nUNKNOWN!\n"
   | Solver.SATISFIABLE ->
-    let module Target = (val target_of_arch (Env.get_arch env1)) in
     let ctx = Env.get_context env1 in
     let model = Constr.get_model_exn solver in
     Format.fprintf fmt "%s%!" "\nSAT!\n";
@@ -179,8 +179,8 @@ let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
     if print_refuted_goals || print_path then begin
       let var_map1 = Env.get_var_map env1 in
       let var_map2 = Env.get_var_map env2 in
-      let mem1, _ = Env.get_var env1 Target.CPU.mem in
-      let mem2, _ = Env.get_var env2 Target.CPU.mem in
+      let mem1, _ = Env.get_var env1 (Env.get_mem env1) in
+      let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
       let refuted_goals =
         Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
       Format.fprintf fmt "%s%!" "\nRefuted goals:\n";
@@ -200,11 +200,15 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     let model = Constr.get_model_exn solver in
     let mem_model = get_mem model env in
     let varmap = Env.get_var_map env in
-    let module Target = (val target_of_arch (Env.get_arch env)) in
-    let regmap = VarMap.filter_keys ~f:(Target.CPU.is_reg) varmap in
+    let target = (Env.get_arch env) in
+    let to_core v = Theory.Var.create (Var.sort v) (Var.ident v) in
+    (* FIXME: does this return [mem] by accident? *)
+    let is_reg v = Theory.Target.has_roles target [Theory.Role.Register.general] (to_core v) in
+    let regmap = VarMap.filter_keys ~f:is_reg varmap in
     let reg_val_map = VarMap.map ~f:(fun z3_reg -> Constr.eval_model_exn model z3_reg) regmap in
     Out_channel.with_file gdb_filename  ~f:(fun t ->
-        Printf.fprintf t "break *%s\n" func; (* The "*" is necessary to break before some slight setup *)
+        (* The "*" is necessary to break before some slight setup *)
+        Printf.fprintf t "break *%s\n" func;
         Printf.fprintf t "run\n";
         VarMap.iteri reg_val_map ~f:(fun ~key ~data ->
             let hex_value = Constr.expr_to_hex data in
@@ -221,11 +225,14 @@ let output_bildb (solver : Solver.solver) (status : Solver.status) (env : Env.t)
   match status with
   | Solver.SATISFIABLE ->
     info "Outputting BilDB init script to %s\n%!" filename;
-    let module Target = (val target_of_arch (Env.get_arch env)) in
     let model = Constr.get_model_exn solver in
     let mem_model = get_mem model env in
     let var_map = Env.get_var_map env in
-    let reg_map = VarMap.filter_keys ~f:(Target.CPU.is_reg) var_map in
+    let target = (Env.get_arch env) in
+    let to_core v = Theory.Var.create (Var.sort v) (Var.ident v) in
+    (* FIXME: does this return [mem] by accident? *)
+    let is_reg v = Theory.Target.has_roles target [Theory.Role.Register.general] (to_core v) in
+    let reg_map = VarMap.filter_keys ~f:is_reg var_map in
     let reg_vals =  VarMap.map reg_map ~f:(fun z3_reg ->
         Constr.eval_model_exn model z3_reg)
     in

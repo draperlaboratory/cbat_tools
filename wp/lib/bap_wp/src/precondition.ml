@@ -14,6 +14,7 @@
 open !Core_kernel
 open Bap.Std
 open Graphlib.Std
+open Bap_core_theory
 
 include Self()
 
@@ -303,14 +304,14 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
   in
   Constr.substitute_one post fun_name (Bool.mk_true ctx)
 
+(* FIXME: handle other architectures *)
 let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
   let arch = Env.get_arch env in
   if Env.is_x86 arch then
     begin
-      let module Target = (val target_of_arch arch) in
-      let sp, env = Env.get_var env Target.CPU.sp in
-      let width = Target.CPU.sp |> Var.typ |> typ_size in
-      let addr_size = arch |> Arch.addr_size |> Size.in_bytes in
+      let sp, env = Env.get_sp env |> Env.get_var env in
+      let width = arch |> Theory.Target.bits in
+      let addr_size = arch |> Theory.Target.data_addr_size in
       let ctx = Env.get_context env in
       let offset = BV.mk_numeral ctx (Int.to_string addr_size) width in
       let z3_off = BV.mk_add ctx sp offset in
@@ -396,62 +397,84 @@ let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
       Env.add_call_pred env sub_to) in
   Constr.substitute post subs_from subs_to, env
 
-let input_regs (arch : Arch.t) : Var.t list =
-  match arch with
-  | `x86_64 ->
-    let open X86_cpu.AMD64 in
-    (* r.(0) and r.(1) refer to registers R8 and R9 respectively.
-       Arguments are placed on the stack when they have a higher count than the
-       number of registers. We currently do not handle mem as an input because it
-       causes Z3 to slow down during evaluation. *)
-    info "[mem] is not included as an input to the function call.%!";
-    [rdi; rsi; rdx; rcx; r.(0); r.(1)]
-  | `x86 ->
-    warning "In 32-bit x86, arguments are passed through the stack.%!";
-    []
-  | #Arch.arm ->
-    let open ARM.CPU in
-    [r0; r1; r2; r3]
-  | a ->
-    warning "input_regs: Input registers have not been \
-             implemented for %s." (Arch.to_string a);
-    []
+(* FIXME: use built-in BAP roles? *)
+let input_regs (arch : Theory.target) : Var.t list =
+  if (Theory.Target.matches arch "amd64") then
+    begin
+      let open X86_cpu.AMD64 in
+      (* r.(0) and r.(1) refer to registers R8 and R9 respectively.
+         Arguments are placed on the stack when they have a higher count than the
+         number of registers. We currently do not handle mem as an input because it
+         causes Z3 to slow down during evaluation. *)
+      info "[mem] is not included as an input to the function call.%!";
+      [rdi; rsi; rdx; rcx; r.(0); r.(1)]
+    end
+  else if (Theory.Target.matches arch "i386") then
+    begin
+      warning "In 32-bit x86, arguments are passed through the stack.%!";
+      []
+    end
+  else if (Theory.Target.matches arch "arm") then
+    begin
+      let open ARM.CPU in
+      [r0; r1; r2; r3; r12]
+    end
+  else
+    begin
+      warning "caller_saved_regs: input registers have not \
+               been implemented for %s." (Theory.Target.to_string arch);
+      []
+    end
 
-let caller_saved_regs (arch : Arch.t) : Var.t list =
-  match arch with
-  | `x86_64 ->
-    let open X86_cpu.AMD64 in
-    (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
-    let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
-    [rax; rcx; rdx; rsi; rdi] @ r
-  | `x86 ->
-    let open X86_cpu.IA32 in
-    [rax; rcx; rdx]
-  | #Arch.arm ->
-    let open ARM.CPU in
-    [r0; r1; r2; r3; r12]
-  | a ->
-    warning "caller_saved_regs: Caller-saved registers have not \
-             been implemented for %s." (Arch.to_string a);
-    []
+let caller_saved_regs (arch : Theory.target) : Var.t list =
+  if (Theory.Target.matches arch "amd64") then
+    begin
+      let open X86_cpu.AMD64 in
+      (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
+      let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
+      [rax; rcx; rdx; rsi; rdi] @ r
+    end
+  else if (Theory.Target.matches arch "i386") then
+    begin
+      let open X86_cpu.IA32 in
+      [rax; rcx; rdx]
+    end
+  else if (Theory.Target.matches arch "arm") then
+    begin
+      let open ARM.CPU in
+      [r0; r1; r2; r3; r12]
+    end
+  else
+    begin
+      warning "caller_saved_regs: Caller-saved registers have not \
+               been implemented for %s." (Theory.Target.to_string arch);
+      []
+    end
 
-let callee_saved_regs (arch : Arch.t) : Var.t list =
-  match arch with
-  | `x86_64 ->
-    let open X86_cpu.AMD64 in
-    (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
-    let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
-    [rbx; rsp; rbp] @ r
-  | `x86 ->
-    let open X86_cpu.IA32 in
-    [rbx; rdi; rsi; rsp; rbp]
-  | #Arch.arm ->
-    let open ARM.CPU in
-    [r4; r5; r6; r7; r8; r9; r10; r11]
-  | a ->
-    warning "callee_saved_regs: Callee-saved registers have not \
-             been implemented for %s." (Arch.to_string a);
-    []
+let callee_saved_regs (arch : Theory.target) : Var.t list =
+  if Theory.Target.matches arch "amd64" then
+    begin
+      let open X86_cpu.AMD64 in
+      (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
+      let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
+      [rbx; rsp; rbp] @ r
+    end
+  else if Theory.Target.matches arch "i386" then
+    begin
+      let open X86_cpu.IA32 in
+      [rbx; rdi; rsi; rsp; rbp]
+    end
+  else if Theory.Target.matches arch "arm" then
+    begin
+      let open ARM.CPU in
+      [r4; r5; r6; r7; r8; r9; r10; r11]
+    end
+  else
+    begin
+      warning "callee_saved_regs: Callee-saved registers have not \
+               been implemented for %s." (Theory.Target.to_string arch);
+      []
+    end
 
 let rec vars_from_sub (env : Env.t) (t : Sub.t) : Var.Set.t =
   let vars =
@@ -500,7 +523,7 @@ let get_vars (env : Env.t) (t : Sub.t) : Var.Set.t =
   let sub_vars = vars_from_sub env t in
   Var.Set.union_list [gprs; mem; sp; sub_vars]
 
-let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+let spec_verifier_error (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
   let is_verifier_error name = String.(
       name = "__VERIFIER_error" ||
       name = "__assert_fail")
@@ -521,7 +544,7 @@ let spec_verifier_error (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_verifier_assume (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+let spec_verifier_assume (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
   if String.equal (Sub.name sub) "__VERIFIER_assume" then
     Some {
       spec_name = "spec_verifier_assume";
@@ -553,7 +576,7 @@ let spec_verifier_assume (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+let spec_verifier_nondet (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
   let is_nondet name = String.(
       (is_prefix name ~prefix:"__VERIFIER_nondet_")
       || (equal name "calloc")
@@ -586,7 +609,7 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_empty (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+let spec_empty (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
   if (Seq.is_empty @@ Term.enum blk_t sub) then
     Some {
       spec_name = "spec_empty";
@@ -594,7 +617,7 @@ let spec_empty (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
     }
   else None
 
-let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+let spec_arg_terms (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
   let args = Term.enum arg_t sub in
   if not (Seq.is_empty args) then
     Some {
@@ -618,7 +641,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let spec_rax_out (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
   (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
     Term.enum blk_t sub
@@ -644,9 +667,8 @@ let spec_rax_out (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
   else
     None
 
-let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
-  match arch with
-  | `x86_64 ->
+let spec_chaos_rax (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
+  if Theory.Target.matches arch "amd64" then
     Some {
       spec_name = "spec_chaos_rax";
       spec = Summary
@@ -656,9 +678,10 @@ let spec_chaos_rax (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
              let inputs = if Env.use_input_regs env then input_regs arch else [] in
              subst_fun_outputs env sub post ~inputs ~outputs:[X86_cpu.AMD64.rax])
     }
-  | _ -> None
+  else
+    None
 
-let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let spec_chaos_caller_saved (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
   Some {
     spec_name = "spec_chaos_caller_saved";
     spec = Summary
@@ -670,11 +693,10 @@ let spec_chaos_caller_saved (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option 
            subst_fun_outputs env sub post ~inputs ~outputs:regs)
   }
 
-let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
+let spec_afl_maybe_log (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
   if String.equal (Sub.name sub) "__afl_maybe_log" then
     begin
-      match arch with
-      | `x86_64 ->
+      if Theory.Target.matches arch "amd64" then
         Some {
           spec_name = "spec_afl_maybe_log";
           spec = Summary
@@ -688,14 +710,14 @@ let spec_afl_maybe_log (sub : Sub.t) (arch : Arch.t) : Env.fun_spec option =
                  in
                  subst_fun_outputs env sub post ~inputs ~outputs)
         }
-      | _ ->
+      else
         raise (Not_implemented "spec_afl_maybe_log: The spec for afl_maybe_log only \
                                 supports x86_64.")
     end
   else
     None
 
-let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
+let spec_default (_ : Sub.t) (_ : Theory.target) : Env.fun_spec =
   {
     spec_name = "spec_default";
     spec = Summary (fun env post tid ->
@@ -703,7 +725,7 @@ let spec_default (_ : Sub.t) (_ : Arch.t) : Env.fun_spec =
         increment_stack_ptr post env)
   }
 
-let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Arch. t)
+let spec_inline (to_inline : Sub.t Seq.t) (sub : Sub.t) (_ : Theory.target)
   : Env.fun_spec option =
   if Seq.mem to_inline sub ~equal:Sub.equal then
     Some {
@@ -752,7 +774,7 @@ let mk_env
     ?int_spec:(int_spec = int_spec_default)
     ?exp_conds:(exp_conds = [])
     ?num_loop_unroll:(num_loop_unroll = !num_unroll)
-    ?arch:(arch = `x86_64)
+    ?arch:(arch = Theory.Target.get ~package:"bap" "amd64")
     ?freshen_vars:(freshen_vars = false)
     ?use_fun_input_regs:(use_fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
@@ -1207,7 +1229,8 @@ let valid_store_assert : Env.exp_cond =
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
     (offset : Constr.z3_expr -> Constr.z3_expr) : Constr.z3_expr list =
   let ctx = Env.get_context env1 in
-  let module Target = (val target_of_arch (Env.get_arch env1)) in
+  let bap_mem1 = Env.get_mem env1 in
+  let bap_mem2 = Env.get_mem env2 in
   let visitor =
     begin
       object inherit [Constr.z3_expr list] Exp.visitor
@@ -1215,8 +1238,8 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
           let addr, _, _ = exp_to_z3 addr env1 in
           let word_size = Size.in_bits size in
           let compare_mem addr1 addr2 =
-            let init_mem1 = Option.value_exn (Env.get_init_var env1 Target.CPU.mem) in
-            let init_mem2 = Option.value_exn (Env.get_init_var env2 Target.CPU.mem) in
+            let init_mem1 = Option.value_exn (Env.get_init_var env1 bap_mem1) in
+            let init_mem2 = Option.value_exn (Env.get_init_var env2 bap_mem2) in
             let mem_orig = load_z3_mem ctx ~word_size ~mem:init_mem1 ~addr:addr1 endian in
             let mem_mod = load_z3_mem ctx ~word_size ~mem:init_mem2 ~addr:addr2 endian in
             Bool.mk_eq ctx mem_orig mem_mod
@@ -1256,8 +1279,13 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
    in post and sub_post are replaced with fresh Z3 functions, and init- physical 
    registers/init-mem in sub_post are replaced with regular registers/mem. 
    This is only applied for subroutines with the name sub_name. *)
-let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
-    ~sub_post:(sub_post : string) (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
+let user_func_spec
+    ~sub_name:(sub_name : string)
+    ~sub_pre:(sub_pre : string)
+    ~sub_post:(sub_post : string)
+    (sub : Sub.t)
+    (_ : Theory.target)
+  : Env.fun_spec option =
   debug "Making user-defined subroutine spec with subroutine-name: %s, pre:
 %s, post: %s \n%!" sub_name sub_pre sub_post;
   if String.equal sub_name (Sub.name sub) then
@@ -1358,9 +1386,7 @@ let set_of_reg_names (env : Env.t) (t : Sub.t) (var_names : string list) : Var.S
     )
 
 let set_sp_range (env : Env.t) : Constr.t =
-  let arch = Env.get_arch env in
-  let module Target = (val target_of_arch arch) in
-  let sp, _ = Env.get_var env Target.CPU.sp in
+  let sp, _ = Env.get_var env (Env.get_sp env) in
   let stack_range = Env.init_stack_ptr env sp in
   stack_range
   |> Constr.mk_goal (Format.sprintf "SP in stack range: %s" (Expr.to_string stack_range))

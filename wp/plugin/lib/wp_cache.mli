@@ -16,13 +16,14 @@
    This module is used for managing BAP caches for the knowledge base and
    and project state. It contains functions for loading and saving the state
    of the knowledge base, the state of a project, the program representation
-   of a binary, and the architecture of a binary.
+   of a binary, and the target architecture of a binary.
 
 *)
 
 open Bap_main
 open Bap.Std
 open Regular.Std
+open Bap_core_theory
 
 (** This module is used for creating digests, which is a cryptographic key
     for caching. In order to create a digest, the generator must first be
@@ -73,9 +74,9 @@ end
 module Program : sig
 
   (** Loads a program and its architecture (if any) from the cache. *)
-  val load : digest -> (Program.t * Arch.t) option
+  val load : digest -> (Program.t * Theory.target) option
 
   (** Saves a program and its architecture in the cache. *)
-  val save : digest -> Program.t -> Arch.t -> unit
+  val save : digest -> Program.t -> Theory.target -> unit
 
 end

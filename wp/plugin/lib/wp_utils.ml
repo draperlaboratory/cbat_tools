@@ -16,6 +16,7 @@ open Bap_main
 open Bap.Std
 open Regular.Std
 open Bap_wp
+open Bap_core_theory
 
 include Self()
 
@@ -57,7 +58,7 @@ end
 
 (* Reads in the program_t and its architecture from a file. *)
 let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
-  : Program.t * Arch.t =
+  : Program.t * Theory.target =
   let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
   let program_digest = Cache.Digests.program mk_digest in
   match Cache.Program.load program_digest with
@@ -71,9 +72,9 @@ let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
       filepath Data.Cache.Digest.pp program_digest;
     let project = create_proj None loader filepath in
     let prog = project |> Project.program |> clear_mapper#run in
-    let arch = Project.arch project in
-    let () = Cache.Program.save program_digest prog arch in
-    prog, arch
+    let tgt = Project.target project in
+    let () = Cache.Program.save program_digest prog tgt in
+    prog, tgt
 
 (* Finds a function in the binary. *)
 let find_func_err (subs : Sub.t Seq.t) (func : string) : Sub.t =
@@ -145,7 +146,7 @@ let output_to_bildb ~(filename : string option) (solver : Z3.Solver.solver)
   | None -> ()
   | Some name -> Output.output_bildb solver status env name
 
-let spec_of_name (name : string) : Sub.t -> Arch.t -> Env.fun_spec option =
+let spec_of_name (name : string) : Sub.t -> Theory.target -> Env.fun_spec option =
   match name with
   | "verifier-error" -> Pre.spec_verifier_error
   | "verifier-assume" -> Pre.spec_verifier_assume

@@ -25,6 +25,7 @@ open Core_kernel
 open Bap_main
 open Bap.Std
 open Bap_wp
+open Bap_core_theory
 
 module Env = Environment
 
@@ -34,7 +35,7 @@ val loader : string
 (** Obtains the program representation and the architecture of the binary at the
     given filepath using the BAP context and loader for lifting the binary. *)
 val read_program :
-  ctxt -> loader:string -> filepath:string -> Program.t * Arch.t
+  ctxt -> loader:string -> filepath:string -> Program.t * Theory.target
 
 (** [find_func_err subs name] obtains a function named [name] from a
     sequence of subroutines [subs]. Fails if the function can't be found. *)
@@ -75,7 +76,7 @@ val output_to_bildb :
 
 (** [spec_of_name name] returns the function spec creator with the
     corresponding [name]. *)
-val spec_of_name : string -> Sub.t -> Arch.t -> Env.fun_spec option
+val spec_of_name : string -> Sub.t -> Theory.target -> Env.fun_spec option
 
 (** [mk_func_name orig modif regex] creates a map of modified subroutine names
     to original subroutine names based off the regex list. *)

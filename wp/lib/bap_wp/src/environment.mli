@@ -23,6 +23,8 @@
 
 *)
 
+open Bap_core_theory
+
 module EnvMap = Bap.Std.Var.Map
 
 module Constr = Constraint
@@ -109,14 +111,14 @@ type mem_range = {
     - and a variable generator. *)
 val mk_env
   :  subs:Bap.Std.Sub.t Bap.Std.Seq.t
-  -> specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec option) list
-  -> default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> fun_spec)
+  -> specs:(Bap.Std.Sub.t -> Theory.target -> fun_spec option) list
+  -> default_spec:(Bap.Std.Sub.t -> Theory.target -> fun_spec)
   -> indirect_spec:indirect_spec
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
   -> num_loop_unroll:int
-  -> arch:Bap.Std.Arch.t
+  -> arch:Theory.target
   -> freshen_vars:bool
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
@@ -231,13 +233,13 @@ val get_loop_handler :
   t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t)
 
 (** Obtains the architecture of the program. *)
-val get_arch : t -> Bap.Std.Arch.t
+val get_arch : t -> Theory.target
 
 (** Obtains the general purpose registers of the architecture of the program. *)
 val get_gprs : t -> Bap.Std.Var.Set.t
 
 (** Obtains the name of the program's stack pointer *)
-val get_sp: t -> Bap.Std.Var.t
+val get_sp : t -> Bap.Std.Var.t
 
 (** Obtains the BAP variable representing a program's memory. *)
 val get_mem : t -> Bap.Std.Var.t
@@ -252,7 +254,7 @@ val fold_fun_tids :
   t -> init:'a -> f:(key:string -> data:Bap.Std.Tid.t -> 'a -> 'a) -> 'a
 
 (** Checks if the architecture is part of the x86 family. *)
-val is_x86 : Bap.Std.Arch.t -> bool
+val is_x86 : Theory.target -> bool
 
 (** Checks to see if the environment supports using all possible input registers
     when generating symbols in the function specs at a function call site. *)
