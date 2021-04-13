@@ -47,13 +47,13 @@ let get_model_exn (solver : Solver.solver) : Model.model =
                 (Solver.to_string solver))
 
 let goal_to_string ?colorful:(colorful = false) (g : goal) : string =
-  let rem_backslash = String.substr_replace_all ~pattern:"\\" ~with_:"" in 
-  let lhs = g.goal_name |> rem_backslash in 
-  let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> rem_backslash in
+  let rm_backslash = String.substr_replace_all ~pattern:"\\" ~with_:"" in 
+  let lhs = g.goal_name |> rm_backslash in 
+  let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> rm_backslash in
   if colorful then
-    (* lhs is red, rhs is cyan *)
+    (* lhs is blue, rhs is cyan *)
     Format.sprintf "%s%s%s: %s%s%s%!"
-      ("\x1b[31m") lhs ("\x1b[0m") ("\x1b[36m") rhs ("\x1b[0m")
+      ("\x1b[1;34m") lhs ("\x1b[0m") ("\x1b[1;36m") rhs ("\x1b[0m")
   else Format.sprintf "%s: %s" lhs rhs
 
   
@@ -228,7 +228,7 @@ let rec del_empty_constr_hyps (const : t) : t =
 let to_color (colorful : bool) (ch : Format.formatter) (c : int)
       (str : ('a -> 'b, Format.formatter, unit) Stdlib.format)
       (ins : string) : unit =
-    if colorful then Format.fprintf ch "\x1b[%dm" c;
+    if colorful then Format.fprintf ch "\x1b[1;%dm" c;
     Format.fprintf ch str ins;
     if colorful then Format.fprintf ch "\x1b[0m"
 
@@ -247,15 +247,15 @@ let print_expr_list (expr_list : Expr.expr list)
     | e :: es -> Format.fprintf ch "%s@;" e ; print_exprs ch es in 
   Format.fprintf ch "@[<v 2>%a@]" print_exprs expr_string_list
 
-let pp_constr (colorful : bool) (form : Format.formatter)
-      (cons : t) : unit =
+let pp_constr ?colorful:(colorful = false) (fmt : Format.formatter)
+      (t : t) : unit =
   let rec rec_pp_constr ch constr =
     let to_color = to_color colorful ch in
     match constr with
     | Goal g ->
-       Format.fprintf ch "%s@;" (goal_to_string ~colorful:colorful g)
+       Format.fprintf ch "%s@;" (goal_to_string ~colorful g)
     | ITE (tid, e, c1, c2) ->
-       let color = 35 in (* green *)
+       let color = 35 in (* magenta *)
        to_color color "%s: (if " (tid |> Term.tid |> Tid.to_string);
        Format.fprintf ch "%s" (preen_expr e);
        to_color color " then%s" "";
@@ -268,27 +268,24 @@ let pp_constr (colorful : bool) (form : Format.formatter)
          let print_hyps =
            List.iter hyps
              ~f:(fun h -> Format.fprintf ch "%a" rec_pp_constr h) in
-         if colorful then 
-           let color = "38;5;91" in (* purple *)
-           (print_hyps; Format.fprintf ch "\x1b[%sm => \x1b[0m" color)
-         else
-           (print_hyps; Format.fprintf ch " => "));
+         print_hyps; 
+         let color = 33 in (* yellow *)
+         to_color color " => %s" "") ;
        (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" rec_pp_constr c));
     | Subst (c, olds, news) ->
-       let color = 32 in (* pink *)
+       let color = 32 in (* green *)
        to_color color "(let %s" "";
        Format.fprintf ch "%s" (List.to_string ~f:(preen_expr) olds);
        to_color color " = %s" "";
-       (*Format.fprintf ch "@[<v 2>%s@]" (List.to_string ~f:(preen_expr) news);*)
        print_expr_list news ch;
        to_color color " in%s" "";
        Format.fprintf ch "@;%a" rec_pp_constr c;
        to_color color ")%s" "";
   in
-  rec_pp_constr form (del_empty_constr_hyps cons)
+  rec_pp_constr fmt (del_empty_constr_hyps t)
   
 let to_string ?(colorful=false) (constr : t) : string =
-  let pp_constr = pp_constr colorful in 
+  let pp_constr = pp_constr ~colorful:colorful in 
   Format.asprintf "%a" pp_constr constr 
   |> String.substr_replace_all ~pattern:"\"" ~with_:""
   |> Scanf.unescaped 

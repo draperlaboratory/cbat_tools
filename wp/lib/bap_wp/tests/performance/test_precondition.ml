@@ -58,11 +58,12 @@ let time_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : Sub.t)
   let start_time = Sys.time () in
   let result = Pre.check solver z3_ctx pre in
   let end_time = Sys.time () in
+  let pp_constr = Constr.pp_constr ~colorful:false in 
   assert_equal ~ctxt:test_ctx
     ~printer:Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nPost:\n%a\n\nAnalyzing:\n%sPre:\n%a\n\n%!"
-          Constr.pp_constr post (Sub.to_string body) Constr.pp_constr pre;
+          pp_constr post (Sub.to_string body) pp_constr pre;
         print_z3_model ff solver exp real)
     expected result;
   let time = end_time -. start_time in

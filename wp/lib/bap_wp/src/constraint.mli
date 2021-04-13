@@ -90,7 +90,7 @@ val get_goal_val : goal -> z3_expr
 val to_string : ?colorful:(bool) -> t -> string
 
 (** Pretty prints a constraint. *)
-val pp_constr : bool -> Format.formatter -> t -> unit
+val pp_constr : ?colorful:bool -> Format.formatter -> t -> unit
 
 (** Creates a constraint made of a single goal. *)
 val mk_constr : goal -> t

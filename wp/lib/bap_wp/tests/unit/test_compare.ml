@@ -33,11 +33,12 @@ let assert_z3_compare (test_ctx : test_ctxt) (body1 : string) (body2 : string)
   let z3_ctx = Env.get_context env1 in
   let solver = Z3.Solver.mk_simple_solver z3_ctx in
   let result = Pre.check solver z3_ctx pre in
+  let pp_constr = Constr.pp_constr ~colorful:false in 
   assert_equal ~ctxt:test_ctx
     ~printer:Z3.Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nComparing:\n%s\nand\n\n%s\nCompare_prop:\n%a\n\n%!"
-          body1 body2 Constr.pp_constr pre;
+          body1 body2 pp_constr pre;
         print_z3_model solver exp real pre ~orig:env1 ~modif:env2)
     expected result
 
