@@ -13,6 +13,7 @@
 
 open !Core_kernel
 open Bap.Std
+open Bap_core_theory
 open OUnit2
 open OUnitTest
 
@@ -219,12 +220,12 @@ let check_n_queen_diag_col_row (n : int) (board_list: Bitvector.t list): string 
   has_exactly_one_queen
 
 (* Obtains the list registers in the x86-64 specified by the sysV AMD64 ABI, *)
-let get_register_args (n : int) (arch : Arch.t): string list =
+let get_register_args (n : int) (arch : Theory.target): string list =
   List.slice (Bap_wp.Precondition.input_regs arch) 0 n
   |> List.map ~f:(fun x -> Var.to_string x |> String.uppercase)
 
 (* returns a function that checks a [n] by [n] nqueens board. *)
-let check_n_queens (n: int) (arch : Arch.t) : (string StringMap.t -> string option) =
+let check_n_queens (n: int) (arch : Theory.target) : (string StringMap.t -> string option) =
   fun var_mapping ->
   let width = 64 in
   let board_args = get_register_args 6 arch in
@@ -325,11 +326,12 @@ let lift_out_regs (reg_value : ((string * string) list) list) : StringSet.t =
           StringSet.add acc reg) |> StringSet.union acc)
 
 let nqueens_tests = List.range 4 20 |> List.map ~f:(fun i ->
+    let x86_64 = X86_target.amd64 in
     let description = Printf.sprintf "NQueens solver %dx%d" i i in
     let script = Printf.sprintf "run_wp.sh" in
     let test = (description >: test_plugin "nqueens" sat
-                  ~reg_list:(get_register_args 6 `x86_64 |> StringSet.of_list)
-                  ~checker:(Some (check_n_queens i `x86_64))
+                  ~reg_list:(get_register_args 6 x86_64 |> StringSet.of_list)
+                  ~checker:(Some (check_n_queens i x86_64))
                   ~script:script ~args:[string_of_int i])
     in
     (* tests 17 to 19 currently time out *)
