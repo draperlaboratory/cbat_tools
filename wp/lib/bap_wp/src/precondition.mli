@@ -286,13 +286,13 @@ val mk_env
   -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
   -> ?num_loop_unroll:int
-  -> ?arch:Theory.target
   -> ?freshen_vars:bool
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
   -> ?data_section_range:Env.mem_range
   -> ?func_name_map:string Core_kernel.String.Map.t
   -> ?smtlib_compat:bool
+  -> arch:Theory.target
   -> Z3.context
   -> Env.var_gen
   -> Env.t

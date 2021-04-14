@@ -433,14 +433,13 @@ let get_gprs (env : t) : Bap.Std.Var.Set.t =
 let get_sp (env : t) : Var.t =
   let arch = get_arch env in
   let error =
-    Format.asprintf "Stack pointer not found for arch:%a"
+    Format.asprintf "Stack pointer not found for arch: %a"
       Theory.Target.pp arch
   in
-  Theory.Target.reg
-    (get_arch env)
-    Theory.Role.Register.stack_pointer |>
-  Option.value_exn None None ~message:error |>
-  Var.reify
+  let sp = Theory.Target.reg (get_arch env)
+      Theory.Role.Register.stack_pointer
+  in
+  Option.value_exn ~message:error sp |> Var.reify
 
 let get_mem (env : t) : Var.t =
   Theory.Target.data (get_arch env) |> Var.reify
