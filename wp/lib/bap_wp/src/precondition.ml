@@ -311,7 +311,9 @@ let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
     begin
       let sp, env = Env.get_sp env |> Env.get_var env in
       let width = arch |> Theory.Target.bits in
-      let addr_size = arch |> Theory.Target.data_addr_size in
+      (* let addr_size = arch |> Theory.Target.data_addr_size in *)
+      let addr_size = arch |> Theory.Target.code_addr_size in
+      let addr_size = addr_size / Theory.Target.byte arch in
       let ctx = Env.get_context env in
       let offset = BV.mk_numeral ctx (Int.to_string addr_size) width in
       let z3_off = BV.mk_add ctx sp offset in
