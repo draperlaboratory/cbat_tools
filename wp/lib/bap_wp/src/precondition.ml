@@ -1317,7 +1317,8 @@ let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
   Format.fprintf fmt "Evaluating precondition.\n%!";
 
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
-    Printf.printf "Internal : %s \n %!" (Constr.to_string pre) ) ;
+    let colorful = List.mem print_constr "colorful" ~equal:String.equal in  
+    Printf.printf "Internal : %s \n %!" (Constr.to_string ~colorful:colorful pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
   Format.fprintf fmt "Checking precondition with Z3.\n%!";
   let is_correct =

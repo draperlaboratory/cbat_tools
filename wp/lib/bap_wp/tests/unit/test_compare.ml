@@ -37,7 +37,7 @@ let assert_z3_compare (test_ctx : test_ctxt) (body1 : string) (body2 : string)
     ~printer:Z3.Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nComparing:\n%s\nand\n\n%s\nCompare_prop:\n%a\n\n%!"
-          body1 body2 Constr.pp_constr pre;
+          body1 body2 (Constr.pp ()) pre;
         print_z3_model solver exp real pre ~orig:env1 ~modif:env2)
     expected result
 

@@ -19,7 +19,6 @@ module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Model = Z3.Model
 module Solver = Z3.Solver
-
 type z3_expr = Expr.expr
 
 type path = bool Jmp.Map.t
@@ -47,9 +46,17 @@ let get_model_exn (solver : Solver.solver) : Model.model =
     ~message:(Format.sprintf "Unable to get the model from the Z3 solver : %s"
                 (Solver.to_string solver))
 
-let goal_to_string (g : goal) : string =
-  Format.sprintf "%s: %s%!" g.goal_name (Expr.to_string (Expr.simplify g.goal_val None))
+let goal_to_string ?colorful:(colorful = false) (g : goal) : string =
+  let rm_backslash = String.substr_replace_all ~pattern:"\\" ~with_:"" in 
+  let lhs = g.goal_name |> rm_backslash in 
+  let rhs = (Expr.to_string (Expr.simplify g.goal_val None)) |> rm_backslash in
+  if colorful then
+    (* lhs is blue, rhs is cyan *)
+    Format.sprintf "%s%s%s: %s%s%s%!"
+      ("\x1b[1;34m") lhs ("\x1b[0m") ("\x1b[1;36m") rhs ("\x1b[0m")
+  else Format.sprintf "%s: %s" lhs rhs
 
+  
 let expr_to_hex (exp : z3_expr) : string =
   let decimal = BV.numeral_to_string exp in
   let size = exp |> Expr.get_sort |> BV.get_size in
@@ -183,25 +190,105 @@ type t =
   | Clause of t list * t list
   | Subst of t * z3_expr list * z3_expr list
 
-let rec pp_constr (ch : Format.formatter) (constr : t) : unit =
-  match constr with
-  | Goal g -> Format.fprintf ch "%s" (goal_to_string g)
-  | ITE (tid, e, c1, c2) ->
-    Format.fprintf ch "ITE(%s, %s, %a, %a)"
-      (tid |> Term.tid |> Tid.to_string) (Expr.to_string e) pp_constr c1 pp_constr c2
-  | Clause (hyps, concs) ->
-    Format.fprintf ch "(";
-    (List.iter hyps ~f:(fun h -> Format.fprintf ch "%a" pp_constr h));
-    Format.fprintf ch ") => (";
-    (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" pp_constr c));
-    Format.fprintf ch ")"
-  | Subst (c, olds, news) ->
-    Format.fprintf ch "Substitute: %s to %s in %a"
-      (List.to_string ~f:Expr.to_string olds) (List.to_string ~f:Expr.to_string news)
-      pp_constr c
+(* preen_expr expr will improve the readability
+   of expr by getting rid of white space 
+   and simplifying the expression. *)
+let preen_expr (expr : Expr.expr) : string =
+  Expr.simplify expr None
+  |> Expr.to_string
+  |> String.substr_replace_all ~pattern:"  " ~with_:""
 
-let to_string (constr : t) : string =
-  Format.asprintf "%a" pp_constr constr
+(* delete_empty_constr_hyps const will remove 
+   some empty lists in Clause constructs. For example
+   Clause([],Clause[Clause([],[x]),y]) becomes 
+   Clause([],Clause[x,y]). *)
+let rec del_empty_constr_hyps (const : t) : t =
+  match const with
+  | Clause(hyps,concs) ->
+    let fold_list c_list =
+      List.fold_right c_list ~init:[]
+        ~f:(fun x y ->
+          match x with
+          | Clause([],xs) ->
+             List.append (List.map xs ~f:del_empty_constr_hyps) y
+          | _ -> (del_empty_constr_hyps x) :: y) in
+    Clause(fold_list hyps, fold_list concs)
+  | Goal g -> Goal g
+  | ITE (ite, e, c1, c2) ->
+     let new_c1 = del_empty_constr_hyps c1 in
+     let new_c2 = del_empty_constr_hyps c2 in
+     ITE (ite, e, new_c1, new_c2)
+  | Subst (c, olds, news) ->
+     let new_c = del_empty_constr_hyps c in
+     Subst (new_c, olds, news)
+
+(* to_color colorful ch c str ins will print str with insert
+   ins and formatter ch. If colorful is true, then this will 
+   print in the color c. *)
+let to_color (colorful : bool) (ch : Format.formatter) (c : int)
+      (str : ('a -> 'b, Format.formatter, unit) Stdlib.format)
+      (ins : string) : unit =
+    if colorful then Format.fprintf ch "\x1b[1;%dm" c;
+    Format.fprintf ch str ins;
+    if colorful then Format.fprintf ch "\x1b[0m"
+
+(* print_expr_list expr_list ch converts expr_list into a list of 
+   strings of expressions and then prints each one on a new line 
+   using the formatter ch *)
+let print_expr_list (expr_list : Expr.expr list)
+      (ch : Format.formatter) : unit =
+  let expr_string_list : string list =
+    List.map expr_list ~f:(fun e -> preen_expr e |> String.split_lines)
+    |> List.join in
+  let rec print_exprs ch exprs =
+    match exprs with
+    | [] -> ();
+    | [e] -> Format.fprintf ch "%s" e
+    | e :: es -> Format.fprintf ch "%s@;" e ; print_exprs ch es in 
+  Format.fprintf ch "@[<v 2>%a@]" print_exprs expr_string_list
+
+let pp ?colorful:(colorful = false) (_ : unit)
+      (fmt : Format.formatter) (t : t) : unit =
+  let rec rec_pp ch constr =
+    let to_color = to_color colorful ch in
+    match constr with
+    | Goal g ->
+       Format.fprintf ch "%s@;" (goal_to_string ~colorful g)
+    | ITE (tid, e, c1, c2) ->
+       let color = 35 in (* magenta *)
+       to_color color "%s: (if " (tid |> Term.tid |> Tid.to_string);
+       Format.fprintf ch "%s" (preen_expr e);
+       to_color color " then%s" "";
+       Format.fprintf ch "@[@;%a@]" rec_pp c1;
+       to_color color " else%s" "";
+       Format.fprintf ch "@;%a" rec_pp c2;
+       to_color color ")%s" "";
+    | Clause (hyps, concs) ->
+       (if not (List.is_empty hyps) then 
+         let print_hyps =
+           List.iter hyps
+             ~f:(fun h -> Format.fprintf ch "%a" rec_pp h) in
+         print_hyps; 
+         let color = 33 in (* yellow *)
+         to_color color " => %s" "") ;
+       (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" rec_pp c));
+    | Subst (c, olds, news) ->
+       let color = 32 in (* green *)
+       to_color color "(let %s" "";
+       Format.fprintf ch "%s" (List.to_string ~f:(preen_expr) olds);
+       to_color color " = %s" "";
+       print_expr_list news ch;
+       to_color color " in%s" "";
+       Format.fprintf ch "@;%a" rec_pp c;
+       to_color color ")%s" "";
+  in
+  rec_pp fmt (del_empty_constr_hyps t)
+  
+let to_string ?(colorful=false) (constr : t) : string =
+  let pp_constr = pp ~colorful:colorful () in 
+  Format.asprintf "%a" pp_constr constr 
+  |> String.substr_replace_all ~pattern:"\"" ~with_:""
+  |> Scanf.unescaped 
 
 let mk_constr (g : goal) : t =
   Goal g
