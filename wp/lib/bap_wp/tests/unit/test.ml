@@ -22,4 +22,14 @@ let suite =
     "Z3 Utils"     >::: Test_z3_utils.suite;
   ]
 
-let _ = run_test_tt_main suite
+let _ =
+  (* match Bap_main.init () with
+   * | Ok () ->
+   *   run_test_tt_main suite
+   * | Error e ->
+   *   let msg =
+   *     Format.asprintf "Bap_main.init failed with error %a"
+   *       Bap_main.Extension.Error.pp e
+   *   in
+   *   failwith msg *)
+  run_test_tt_main suite

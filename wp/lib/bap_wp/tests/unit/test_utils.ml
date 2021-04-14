@@ -122,3 +122,7 @@ let false_constr (ctx : Z3.context) : Constr.t =
 
 let test_skip (msg : string) (_ : test_ctxt -> unit) (_ : test_ctxt) : unit =
   skip_if true msg
+
+(* Create a dummy target for tests, we choose amd64 (at our own risk)
+   because we support most things on it. *)
+let test_tgt = X86_target.amd64
