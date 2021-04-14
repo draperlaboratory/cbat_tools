@@ -33,12 +33,11 @@ let assert_z3_result (test_ctx : test_ctxt) (env : Env.t) (body : string)
   let z3_ctx = Env.get_context env in
   let solver = Z3.Solver.mk_simple_solver z3_ctx in
   let result = Pre.check solver z3_ctx pre in
-  let pp_constr = Constr.pp_constr ~colorful:false in  
   assert_equal ~ctxt:test_ctx
     ~printer:Z3.Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->
         Format.fprintf ff "\n\nPost:\n%a\n\nAnalyzing:\n%sPre:\n%a\n\n%!"
-          pp_constr post body pp_constr pre;
+          (Constr.pp ()) post body (Constr.pp ()) pre;
         print_z3_model solver exp real pre ~orig:env ~modif:env)
     expected result
 

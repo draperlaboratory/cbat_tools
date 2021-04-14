@@ -247,9 +247,9 @@ let print_expr_list (expr_list : Expr.expr list)
     | e :: es -> Format.fprintf ch "%s@;" e ; print_exprs ch es in 
   Format.fprintf ch "@[<v 2>%a@]" print_exprs expr_string_list
 
-let pp_constr ?colorful:(colorful = false) (fmt : Format.formatter)
-      (t : t) : unit =
-  let rec rec_pp_constr ch constr =
+let pp ?colorful:(colorful = false) (_ : unit)
+      (fmt : Format.formatter) (t : t) : unit =
+  let rec rec_pp ch constr =
     let to_color = to_color colorful ch in
     match constr with
     | Goal g ->
@@ -259,19 +259,19 @@ let pp_constr ?colorful:(colorful = false) (fmt : Format.formatter)
        to_color color "%s: (if " (tid |> Term.tid |> Tid.to_string);
        Format.fprintf ch "%s" (preen_expr e);
        to_color color " then%s" "";
-       Format.fprintf ch "@[@;%a@]" rec_pp_constr c1;
+       Format.fprintf ch "@[@;%a@]" rec_pp c1;
        to_color color " else%s" "";
-       Format.fprintf ch "@;%a" rec_pp_constr c2;
+       Format.fprintf ch "@;%a" rec_pp c2;
        to_color color ")%s" "";
     | Clause (hyps, concs) ->
        (if not (List.is_empty hyps) then 
          let print_hyps =
            List.iter hyps
-             ~f:(fun h -> Format.fprintf ch "%a" rec_pp_constr h) in
+             ~f:(fun h -> Format.fprintf ch "%a" rec_pp h) in
          print_hyps; 
          let color = 33 in (* yellow *)
          to_color color " => %s" "") ;
-       (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" rec_pp_constr c));
+       (List.iter concs ~f:(fun c -> Format.fprintf ch "%a" rec_pp c));
     | Subst (c, olds, news) ->
        let color = 32 in (* green *)
        to_color color "(let %s" "";
@@ -279,13 +279,13 @@ let pp_constr ?colorful:(colorful = false) (fmt : Format.formatter)
        to_color color " = %s" "";
        print_expr_list news ch;
        to_color color " in%s" "";
-       Format.fprintf ch "@;%a" rec_pp_constr c;
+       Format.fprintf ch "@;%a" rec_pp c;
        to_color color ")%s" "";
   in
-  rec_pp_constr fmt (del_empty_constr_hyps t)
+  rec_pp fmt (del_empty_constr_hyps t)
   
 let to_string ?(colorful=false) (constr : t) : string =
-  let pp_constr = pp_constr ~colorful:colorful in 
+  let pp_constr = pp ~colorful:colorful () in 
   Format.asprintf "%a" pp_constr constr 
   |> String.substr_replace_all ~pattern:"\"" ~with_:""
   |> Scanf.unescaped 
