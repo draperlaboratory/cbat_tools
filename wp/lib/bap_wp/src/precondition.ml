@@ -398,9 +398,15 @@ let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
       Env.add_call_pred env sub_to) in
   Constr.substitute post subs_from subs_to, env
 
+
+let is_amd64 tgt = Theory.Target.matches tgt "amd64"
+let is_i386 tgt = Theory.Target.matches tgt "i386"
+let is_arm tgt = Theory.Target.matches tgt "arm"
+
+
 (* FIXME: use built-in BAP roles? *)
 let input_regs (target : Theory.target) : Var.t list =
-  if (Theory.Target.matches target "amd64") then
+  if is_amd64 target then
     begin
       let open X86_cpu.AMD64 in
       (* r.(0) and r.(1) refer to registers R8 and R9 respectively.
@@ -410,12 +416,12 @@ let input_regs (target : Theory.target) : Var.t list =
       info "[mem] is not included as an input to the function call.%!";
       [rdi; rsi; rdx; rcx; r.(0); r.(1)]
     end
-  else if (Theory.Target.matches target "i386") then
+  else if is_i386 target then
     begin
       warning "In 32-bit x86, arguments are passed through the stack.%!";
       []
     end
-  else if (Theory.Target.matches target "arm") then
+  else if is_arm target then
     begin
       let open ARM.CPU in
       [r0; r1; r2; r3; r12]
@@ -428,19 +434,19 @@ let input_regs (target : Theory.target) : Var.t list =
     end
 
 let caller_saved_regs (target : Theory.target) : Var.t list =
-  if (Theory.Target.matches target "amd64") then
+  if is_amd64 target then
     begin
       let open X86_cpu.AMD64 in
       (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
       let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
       [rax; rcx; rdx; rsi; rdi] @ r
     end
-  else if (Theory.Target.matches target "i386") then
+  else if is_i386 target then
     begin
       let open X86_cpu.IA32 in
       [rax; rcx; rdx]
     end
-  else if (Theory.Target.matches target "arm") then
+  else if is_arm target then
     begin
       let open ARM.CPU in
       [r0; r1; r2; r3; r12]
@@ -453,19 +459,19 @@ let caller_saved_regs (target : Theory.target) : Var.t list =
     end
 
 let callee_saved_regs (target : Theory.target) : Var.t list =
-  if Theory.Target.matches target "amd64" then
+  if is_amd64 target then
     begin
       let open X86_cpu.AMD64 in
       (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
       let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
       [rbx; rsp; rbp] @ r
     end
-  else if Theory.Target.matches target "i386" then
+  else if is_i386 target then
     begin
       let open X86_cpu.IA32 in
       [rbx; rdi; rsi; rsp; rbp]
     end
-  else if Theory.Target.matches target "arm" then
+  else if is_arm target then
     begin
       let open ARM.CPU in
       [r4; r5; r6; r7; r8; r9; r10; r11]
@@ -669,7 +675,7 @@ let spec_rax_out (sub : Sub.t) (target : Theory.target) : Env.fun_spec option =
     None
 
 let spec_chaos_rax (sub : Sub.t) (target : Theory.target) : Env.fun_spec option =
-  if Theory.Target.matches target "amd64" then
+  if is_amd64 target then
     Some {
       spec_name = "spec_chaos_rax";
       spec = Summary
@@ -697,7 +703,7 @@ let spec_chaos_caller_saved (sub : Sub.t) (target : Theory.target) : Env.fun_spe
 let spec_afl_maybe_log (sub : Sub.t) (target : Theory.target) : Env.fun_spec option =
   if String.equal (Sub.name sub) "__afl_maybe_log" then
     begin
-      if Theory.Target.matches target "amd64" then
+      if is_amd64 target then
         Some {
           spec_name = "spec_afl_maybe_log";
           spec = Summary

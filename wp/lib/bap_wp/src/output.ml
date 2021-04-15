@@ -190,6 +190,17 @@ let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
                ~modif:(var_map2, sub2) ~print_path))
     end
 
+
+let reg_map (env : Env.t) =
+  let varmap = Env.get_var_map env in
+  let target = (Env.get_target env) in
+  (* to_core casts a Bap.Std.Var.t to a Theory.Var.t *)
+  let to_core v = Theory.Var.create (Var.sort v) (Var.ident v) in
+  (* Returns true iff the variable is a GPR for [target] *)
+  let is_reg v = Theory.Target.has_roles target [Theory.Role.Register.general] (to_core v) in
+  VarMap.filter_keys ~f:is_reg varmap
+
+
 (** [output_gdb] is similar to [print_result] except chews on the model and outputs a gdb script with a
     breakpoint at the subroutine and fills the appropriate registers *)
 let output_gdb (solver : Solver.solver) (status : Solver.status)
@@ -199,13 +210,8 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     info "Dumping gdb script to file: %s\n" gdb_filename;
     let model = Constr.get_model_exn solver in
     let mem_model = get_mem model env in
-    let varmap = Env.get_var_map env in
-    let target = (Env.get_target env) in
-    let to_core v = Theory.Var.create (Var.sort v) (Var.ident v) in
-    (* FIXME: does this return [mem] by accident? *)
-    let is_reg v = Theory.Target.has_roles target [Theory.Role.Register.general] (to_core v) in
-    let regmap = VarMap.filter_keys ~f:is_reg varmap in
-    let reg_val_map = VarMap.map ~f:(fun z3_reg -> Constr.eval_model_exn model z3_reg) regmap in
+    let reg_map = reg_map env in
+    let reg_val_map = VarMap.map ~f:(fun z3_reg -> Constr.eval_model_exn model z3_reg) reg_map in
     Out_channel.with_file gdb_filename  ~f:(fun t ->
         (* The "*" is necessary to break before some slight setup *)
         Printf.fprintf t "break *%s\n" func;
@@ -227,12 +233,7 @@ let output_bildb (solver : Solver.solver) (status : Solver.status) (env : Env.t)
     info "Outputting BilDB init script to %s\n%!" filename;
     let model = Constr.get_model_exn solver in
     let mem_model = get_mem model env in
-    let var_map = Env.get_var_map env in
-    let target = (Env.get_target env) in
-    let to_core v = Theory.Var.create (Var.sort v) (Var.ident v) in
-    (* FIXME: does this return [mem] by accident? *)
-    let is_reg v = Theory.Target.has_roles target [Theory.Role.Register.general] (to_core v) in
-    let reg_map = VarMap.filter_keys ~f:is_reg var_map in
+    let reg_map = reg_map env in
     let reg_vals =  VarMap.map reg_map ~f:(fun z3_reg ->
         Constr.eval_model_exn model z3_reg)
     in

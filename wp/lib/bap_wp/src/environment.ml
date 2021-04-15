@@ -422,6 +422,8 @@ let get_call_preds (env : t) : ExprSet.t =
 let get_target (env : t) : Theory.target =
   env.target
 
+(* The comparator value for Var.t sets. We use this to convert a
+   [Theory.Var.Top.Set.t] to a [Var.Set.t] *)
 let var_comp : (_, _) Set.comparator = (module Var.Set.Elt)
 
 let get_gprs (env : t) : Bap.Std.Var.Set.t =
