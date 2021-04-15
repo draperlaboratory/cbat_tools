@@ -306,14 +306,13 @@ let set_fun_called (post : Constr.t) (env : Env.t) (tid : Tid.t) : Constr.t =
 
 (* FIXME: handle other architectures *)
 let increment_stack_ptr (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
-  let arch = Env.get_arch env in
-  if Env.is_x86 arch then
+  let target = Env.get_target env in
+  if Env.is_x86 target then
     begin
       let sp, env = Env.get_sp env |> Env.get_var env in
-      let width = arch |> Theory.Target.bits in
-      (* let addr_size = arch |> Theory.Target.data_addr_size in *)
-      let addr_size = arch |> Theory.Target.code_addr_size in
-      let addr_size = addr_size / Theory.Target.byte arch in
+      let width = target |> Theory.Target.bits in
+      let addr_size = target |> Theory.Target.code_addr_size in
+      let addr_size = addr_size / Theory.Target.byte target in
       let ctx = Env.get_context env in
       let offset = BV.mk_numeral ctx (Int.to_string addr_size) width in
       let z3_off = BV.mk_add ctx sp offset in
@@ -400,8 +399,8 @@ let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
   Constr.substitute post subs_from subs_to, env
 
 (* FIXME: use built-in BAP roles? *)
-let input_regs (arch : Theory.target) : Var.t list =
-  if (Theory.Target.matches arch "amd64") then
+let input_regs (target : Theory.target) : Var.t list =
+  if (Theory.Target.matches target "amd64") then
     begin
       let open X86_cpu.AMD64 in
       (* r.(0) and r.(1) refer to registers R8 and R9 respectively.
@@ -411,12 +410,12 @@ let input_regs (arch : Theory.target) : Var.t list =
       info "[mem] is not included as an input to the function call.%!";
       [rdi; rsi; rdx; rcx; r.(0); r.(1)]
     end
-  else if (Theory.Target.matches arch "i386") then
+  else if (Theory.Target.matches target "i386") then
     begin
       warning "In 32-bit x86, arguments are passed through the stack.%!";
       []
     end
-  else if (Theory.Target.matches arch "arm") then
+  else if (Theory.Target.matches target "arm") then
     begin
       let open ARM.CPU in
       [r0; r1; r2; r3; r12]
@@ -424,24 +423,24 @@ let input_regs (arch : Theory.target) : Var.t list =
   else
     begin
       warning "caller_saved_regs: input registers have not \
-               been implemented for %s." (Theory.Target.to_string arch);
+               been implemented for %s." (Theory.Target.to_string target);
       []
     end
 
-let caller_saved_regs (arch : Theory.target) : Var.t list =
-  if (Theory.Target.matches arch "amd64") then
+let caller_saved_regs (target : Theory.target) : Var.t list =
+  if (Theory.Target.matches target "amd64") then
     begin
       let open X86_cpu.AMD64 in
       (* Obtains registers r8 - r11 from X86_cpu.AMD64.r. *)
       let r = Array.to_list (Array.sub r ~pos:0 ~len:4) in
       [rax; rcx; rdx; rsi; rdi] @ r
     end
-  else if (Theory.Target.matches arch "i386") then
+  else if (Theory.Target.matches target "i386") then
     begin
       let open X86_cpu.IA32 in
       [rax; rcx; rdx]
     end
-  else if (Theory.Target.matches arch "arm") then
+  else if (Theory.Target.matches target "arm") then
     begin
       let open ARM.CPU in
       [r0; r1; r2; r3; r12]
@@ -449,24 +448,24 @@ let caller_saved_regs (arch : Theory.target) : Var.t list =
   else
     begin
       warning "caller_saved_regs: Caller-saved registers have not \
-               been implemented for %s." (Theory.Target.to_string arch);
+               been implemented for %s." (Theory.Target.to_string target);
       []
     end
 
-let callee_saved_regs (arch : Theory.target) : Var.t list =
-  if Theory.Target.matches arch "amd64" then
+let callee_saved_regs (target : Theory.target) : Var.t list =
+  if Theory.Target.matches target "amd64" then
     begin
       let open X86_cpu.AMD64 in
       (* Obtains registers r12 - r15 from X86_cpu.AMD64.r. *)
       let r = Array.to_list (Array.sub r ~pos:4 ~len:4) in
       [rbx; rsp; rbp] @ r
     end
-  else if Theory.Target.matches arch "i386" then
+  else if Theory.Target.matches target "i386" then
     begin
       let open X86_cpu.IA32 in
       [rbx; rdi; rsi; rsp; rbp]
     end
-  else if Theory.Target.matches arch "arm" then
+  else if Theory.Target.matches target "arm" then
     begin
       let open ARM.CPU in
       [r4; r5; r6; r7; r8; r9; r10; r11]
@@ -474,14 +473,14 @@ let callee_saved_regs (arch : Theory.target) : Var.t list =
   else
     begin
       warning "callee_saved_regs: Callee-saved registers have not \
-               been implemented for %s." (Theory.Target.to_string arch);
+               been implemented for %s." (Theory.Target.to_string target);
       []
     end
 
 let rec vars_from_sub (env : Env.t) (t : Sub.t) : Var.Set.t =
   let vars =
     if Env.use_input_regs env then
-      env |> Env.get_arch |> input_regs |> Var.Set.of_list
+      env |> Env.get_target |> input_regs |> Var.Set.of_list
     else
       Var.Set.empty
   in
@@ -643,7 +642,7 @@ let spec_arg_terms (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
   else
     None
 
-let spec_rax_out (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
+let spec_rax_out (sub : Sub.t) (target : Theory.target) : Env.fun_spec option =
   (* Calling convention for x86 uses EAX as output register. x86_64 uses RAX. *)
   let defs sub =
     Term.enum blk_t sub
@@ -662,50 +661,50 @@ let spec_rax_out (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             let inputs = if Env.use_input_regs env then input_regs arch else [] in
+             let inputs = if Env.use_input_regs env then input_regs target else [] in
              let rax = Seq.find_exn (defs sub) ~f:is_rax |> Def.lhs in
              subst_fun_outputs env sub post ~inputs ~outputs:[rax])
     }
   else
     None
 
-let spec_chaos_rax (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
-  if Theory.Target.matches arch "amd64" then
+let spec_chaos_rax (sub : Sub.t) (target : Theory.target) : Env.fun_spec option =
+  if Theory.Target.matches target "amd64" then
     Some {
       spec_name = "spec_chaos_rax";
       spec = Summary
           (fun env post tid ->
              let post = set_fun_called post env tid in
              let post, env = increment_stack_ptr post env in
-             let inputs = if Env.use_input_regs env then input_regs arch else [] in
+             let inputs = if Env.use_input_regs env then input_regs target else [] in
              subst_fun_outputs env sub post ~inputs ~outputs:[X86_cpu.AMD64.rax])
     }
   else
     None
 
-let spec_chaos_caller_saved (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
+let spec_chaos_caller_saved (sub : Sub.t) (target : Theory.target) : Env.fun_spec option =
   Some {
     spec_name = "spec_chaos_caller_saved";
     spec = Summary
         (fun env post tid ->
            let post = set_fun_called post env tid in
            let post, env = increment_stack_ptr post env in
-           let inputs = if Env.use_input_regs env then input_regs arch else [] in
-           let regs = caller_saved_regs arch in
+           let inputs = if Env.use_input_regs env then input_regs target else [] in
+           let regs = caller_saved_regs target in
            subst_fun_outputs env sub post ~inputs ~outputs:regs)
   }
 
-let spec_afl_maybe_log (sub : Sub.t) (arch : Theory.target) : Env.fun_spec option =
+let spec_afl_maybe_log (sub : Sub.t) (target : Theory.target) : Env.fun_spec option =
   if String.equal (Sub.name sub) "__afl_maybe_log" then
     begin
-      if Theory.Target.matches arch "amd64" then
+      if Theory.Target.matches target "amd64" then
         Some {
           spec_name = "spec_afl_maybe_log";
           spec = Summary
               (fun env post tid ->
                  let post = set_fun_called post env tid in
                  let post, env = increment_stack_ptr post env in
-                 let inputs = if Env.use_input_regs env then input_regs arch else [] in
+                 let inputs = if Env.use_input_regs env then input_regs target else [] in
                  let outputs =
                    let open X86_cpu.AMD64 in
                    [rax; rcx; rdx]
@@ -782,7 +781,7 @@ let mk_env
     ?data_section_range:(data_section_range = default_data_section_range)
     ?func_name_map:(func_name_map = String.Map.empty)
     ?smtlib_compat:(smtlib_compat = false)
-    ~arch:(arch : Theory.target)
+    ~target:(target : Theory.target)
     (ctx : Z3.context)
     (var_gen : Env.var_gen)
   : Env.t =
@@ -795,7 +794,7 @@ let mk_env
     ~int_spec
     ~exp_conds
     ~num_loop_unroll
-    ~arch
+    ~target
     ~freshen_vars
     ~use_fun_input_regs
     ~stack_range

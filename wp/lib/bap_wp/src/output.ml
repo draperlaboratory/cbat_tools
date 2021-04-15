@@ -200,7 +200,7 @@ let output_gdb (solver : Solver.solver) (status : Solver.status)
     let model = Constr.get_model_exn solver in
     let mem_model = get_mem model env in
     let varmap = Env.get_var_map env in
-    let target = (Env.get_arch env) in
+    let target = (Env.get_target env) in
     let to_core v = Theory.Var.create (Var.sort v) (Var.ident v) in
     (* FIXME: does this return [mem] by accident? *)
     let is_reg v = Theory.Target.has_roles target [Theory.Role.Register.general] (to_core v) in
@@ -228,7 +228,7 @@ let output_bildb (solver : Solver.solver) (status : Solver.status) (env : Env.t)
     let model = Constr.get_model_exn solver in
     let mem_model = get_mem model env in
     let var_map = Env.get_var_map env in
-    let target = (Env.get_arch env) in
+    let target = (Env.get_target env) in
     let to_core v = Theory.Var.create (Var.sort v) (Var.ident v) in
     (* FIXME: does this return [mem] by accident? *)
     let is_reg v = Theory.Target.has_roles target [Theory.Role.Register.general] (to_core v) in

@@ -102,7 +102,7 @@ type mem_range = {
     - an {!int_spec} for handling interrupts
     - a list of {!exp_cond}s to satisfy
     - the number of times to unroll a loop
-    - the architecture of the binary
+    - the target architecture of the binary
     - the option to freshen variable names
     - the option to use all input registers when generating function symbols at a call site
     - the concrete range of addresses of the stack
@@ -118,7 +118,7 @@ val mk_env
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
   -> num_loop_unroll:int
-  -> arch:Theory.target
+  -> target:Theory.target
   -> freshen_vars:bool
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
@@ -232,10 +232,10 @@ val get_int_handler : t -> int_spec
 val get_loop_handler :
   t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t)
 
-(** Obtains the architecture of the program. *)
-val get_arch : t -> Theory.target
+(** Obtains the target architecture of the program. *)
+val get_target : t -> Theory.target
 
-(** Obtains the general purpose registers of the architecture of the program. *)
+(** Obtains the general purpose registers of the target architecture of the program. *)
 val get_gprs : t -> Bap.Std.Var.Set.t
 
 (** Obtains the name of the program's stack pointer *)
@@ -253,7 +253,7 @@ val get_call_preds : t -> ExprSet.t
 val fold_fun_tids :
   t -> init:'a -> f:(key:string -> data:Bap.Std.Tid.t -> 'a -> 'a) -> 'a
 
-(** Checks if the architecture is part of the x86 family. *)
+(** Checks if the target is part of the x86 family. *)
 val is_x86 : Theory.target -> bool
 
 (** Checks to see if the environment supports using all possible input registers

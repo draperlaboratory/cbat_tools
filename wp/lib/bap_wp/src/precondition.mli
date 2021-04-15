@@ -124,13 +124,13 @@ val word_to_z3 : Z3.context -> Bap.Std.Word.t -> Constr.z3_expr
 val exp_to_z3 : Bap.Std.exp -> Env.t -> Constr.z3_expr * hooks * Env.t
 
 (** Obtains all possible registers that can be used to hold input values to a function
-    call for a given architecture. *)
+    call for a given target. *)
 val input_regs : Theory.target -> Bap.Std.Var.t list
 
-(** Obtains the caller saved-registers for a given architecture. *)
+(** Obtains the caller saved-registers for a given target. *)
 val caller_saved_regs : Theory.target -> Bap.Std.Var.t list
 
-(** Obtains the callee-saved registers for a given architecture. *)
+(** Obtains the callee-saved registers for a given target. *)
 val callee_saved_regs : Theory.target -> Bap.Std.Var.t list
 
 (** This spec is used to handle user-specified subroutine specs
@@ -265,7 +265,7 @@ val default_data_section_range : Env.mem_range
     - an empty list of {!Environment.exp_cond}s which adds assumptions and VCs to
       the precondition as hooks on certain instructions
     - a loop unroll count of 5 for use when reaching a back edge during analysis
-    - an architecture of x86_64 for architecture specific constraints and specs
+    - a target architecture for specific constraints and specs
     - freshening variables set to false. Should be set to true in order to represent the
       variables in the modified binary
     - the option to use all function input registers when generating function symbols
@@ -292,7 +292,7 @@ val mk_env
   -> ?data_section_range:Env.mem_range
   -> ?func_name_map:string Core_kernel.String.Map.t
   -> ?smtlib_compat:bool
-  -> arch:Theory.target
+  -> target:Theory.target
   -> Z3.context
   -> Env.var_gen
   -> Env.t
