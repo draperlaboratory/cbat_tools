@@ -14,6 +14,7 @@
 open !Core_kernel
 open Bap.Std
 open Graphlib.Std
+open Bap_core_theory
 
 include Self()
 
@@ -62,7 +63,7 @@ type t = {
   int_handler : int_spec;
   loop_handler : loop_handler;
   exp_conds : exp_cond list;
-  arch : Arch.t;
+  target : Theory.target;
   use_fun_input_regs : bool;
   stack : mem_range;
   data_section : mem_range;
@@ -157,13 +158,13 @@ let init_call_map (var_gen : var_gen) (subs : Sub.t Seq.t)
         let is_called = get_fresh ~name:("called_" ^ name) var_gen in
         TidMap.set map ~key:(Term.tid sub) ~data:is_called)
 
-let init_sub_handler (subs : Sub.t Seq.t) (arch : Arch.t)
-    ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
-    ~default_spec:(default_spec : Sub.t -> Arch.t -> fun_spec) : fun_spec TidMap.t =
+let init_sub_handler (subs : Sub.t Seq.t) (target : Theory.target)
+    ~specs:(specs : (Sub.t -> Theory.target -> fun_spec option) list)
+    ~default_spec:(default_spec : Sub.t -> Theory.target -> fun_spec) : fun_spec TidMap.t =
   Seq.fold subs ~init:TidMap.empty
     ~f:(fun map sub ->
-        let spec = List.find_map specs ~f:(fun creator -> creator sub arch)
-                   |> Option.value ~default:(default_spec sub arch) in
+        let spec = List.find_map specs ~f:(fun creator -> creator sub target)
+                   |> Option.value ~default:(default_spec sub target) in
         debug "%s: %s%!" (Sub.name sub) spec.spec_name;
         TidMap.set map ~key:(Term.tid sub) ~data:spec)
 
@@ -272,7 +273,7 @@ let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll 
    - an {!int_spec} for handling interrupts
    - a list of {!exp_cond}s to satisfy
    - the number of times to unroll a loop
-   - the architecture of the binary
+   - the target architecture of the binary
    - the option to freshen variable names
    - the option to use all input registers when generating function symbols at a call site
    - the range of addresses of the stack
@@ -281,14 +282,14 @@ let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll 
    - and a variable generator. *)
 let mk_env
     ~subs:(subs : Sub.t Seq.t)
-    ~specs:(specs : (Sub.t -> Arch.t -> fun_spec option) list)
-    ~default_spec:(default_spec : Sub.t -> Arch.t -> fun_spec)
+    ~specs:(specs : (Sub.t -> Theory.target -> fun_spec option) list)
+    ~default_spec:(default_spec : Sub.t -> Theory.target -> fun_spec)
     ~indirect_spec:(indirect_spec : indirect_spec)
     ~jmp_spec:(jmp_spec : jmp_spec)
     ~int_spec:(int_spec : int_spec)
     ~exp_conds:(exp_conds : exp_cond list)
     ~num_loop_unroll:(num_loop_unroll : int)
-    ~arch:(arch : Arch.t)
+    ~target:(target : Theory.target)
     ~freshen_vars:(freshen_vars : bool)
     ~use_fun_input_regs:(fun_input_regs : bool)
     ~stack_range:(stack_range : mem_range)
@@ -307,13 +308,13 @@ let mk_env
     precond_map = TidMap.empty;
     fun_name_tid = init_fun_name subs func_name_map;
     call_map = init_call_map var_gen subs func_name_map;
-    sub_handler = init_sub_handler subs arch ~specs:specs ~default_spec:default_spec;
+    sub_handler = init_sub_handler subs target ~specs:specs ~default_spec:default_spec;
     indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
     loop_handler = init_loop_unfold num_loop_unroll;
     exp_conds = exp_conds;
-    arch = arch;
+    target = target;
     use_fun_input_regs = fun_input_regs;
     stack = stack_range;
     data_section = data_section_range;
@@ -418,29 +419,39 @@ let get_loop_handler (env : t) :
 let get_call_preds (env : t) : ExprSet.t =
   env.call_preds
 
-let get_arch (env : t) : Arch.t =
-  env.arch
+let get_target (env : t) : Theory.target =
+  env.target
+
+(* The comparator value for Var.t sets. We use this to convert a
+   [Theory.Var.Top.Set.t] to a [Var.Set.t] *)
+let var_comp : (_, _) Set.comparator = (module Var.Set.Elt)
 
 let get_gprs (env : t) : Bap.Std.Var.Set.t =
-  let module Target = (val target_of_arch (get_arch env)) in
-  Target.CPU.gpr
+  Theory.Target.regs
+    ~roles:[Theory.Role.Register.general]
+    (get_target env) |>
+  Set.map var_comp ~f:Var.reify
 
 let get_sp (env : t) : Var.t =
-  let module Target = (val target_of_arch (get_arch env)) in
-  Target.CPU.sp
+  let target = get_target env in
+  let error =
+    Format.asprintf "Stack pointer not found for target: %a"
+      Theory.Target.pp target
+  in
+  let sp = Theory.Target.reg (get_target env)
+      Theory.Role.Register.stack_pointer
+  in
+  Option.value_exn ~message:error sp |> Var.reify
 
 let get_mem (env : t) : Var.t =
-  let module Target = (val target_of_arch (get_arch env)) in
-  Target.CPU.mem
+  Theory.Target.data (get_target env) |> Var.reify
 
 let fold_fun_tids (env : t) ~init:(init : 'a)
     ~f:(f : key:string -> data:Tid.t -> 'a -> 'a) : 'a =
   StringMap.fold env.fun_name_tid ~init:init ~f:f
 
-let is_x86 (a : Arch.t) : bool =
-  match a with
-  | #Arch.x86 -> true
-  | _ -> false
+let is_x86 (a : Theory.target) : bool =
+  Theory.Target.matches a "x86"
 
 let use_input_regs (env : t) : bool =
   env.use_fun_input_regs
@@ -454,8 +465,8 @@ let get_smtlib_compat (env : t) : bool = env.smtlib_compat
    defining for the hypothesis. *)
 let init_stack_ptr (env : t) : Constr.z3_expr -> Constr.z3_expr =
   let ctx = get_context env in
-  let arch = get_arch env in
-  let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
+  let target = get_target env in
+  let sort = target |> Theory.Target.data_addr_size |> BV.mk_sort ctx in
   let size = Expr.mk_numeral_int ctx env.stack.size sort in
   let max = Expr.mk_numeral_int ctx env.stack.base_addr sort in
   let min = BV.mk_add ctx (BV.mk_sub ctx max size) (Expr.mk_numeral_int ctx 128 sort) in
@@ -467,8 +478,8 @@ let init_stack_ptr (env : t) : Constr.z3_expr -> Constr.z3_expr =
    z3_expr that checks if that address is within the stack. *)
 let in_stack (env : t) : Constr.z3_expr -> Constr.z3_expr =
   let ctx = get_context env in
-  let arch = get_arch env in
-  let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
+  let target = get_target env in
+  let sort = target |> Theory.Target.data_addr_size |> BV.mk_sort ctx in
   let size = Expr.mk_numeral_int ctx env.stack.size sort in
   let max = Expr.mk_numeral_int ctx env.stack.base_addr sort in
   let min = BV.mk_sub ctx max size in
@@ -483,8 +494,8 @@ let get_stack_end (env : t) : int =
    z3_expr that checks if that address is within the data section. *)
 let in_data_section (env : t) : Constr.z3_expr -> Constr.z3_expr =
   let ctx = get_context env in
-  let arch = get_arch env in
-  let sort = arch |> Arch.addr_size |> Size.in_bits |> BV.mk_sort ctx in
+  let target = get_target env in
+  let sort = target |> Theory.Target.data_addr_size |> BV.mk_sort ctx in
   let size = Expr.mk_numeral_int ctx env.data_section.size sort in
   let min = Expr.mk_numeral_int ctx env.data_section.base_addr sort in
   let max = BV.mk_add ctx min size in

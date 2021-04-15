@@ -25,6 +25,8 @@ module Expr = Z3.Expr
 module BV = Z3.BitVector
 module Solver = Z3.Solver
 
+let test_tgt = X86_target.amd64
+
 (* To run these tests: `make test.performance` in bap_wp directory *)
 
 let mk_z3_expr e env = let e_val, _, _ = Pre.exp_to_z3 e env in e_val
@@ -130,7 +132,7 @@ let test_nested_ifs (threshold : float) (test_ctx : test_ctxt) : unit =
             else
               None)
     in
-    let env = Pre.mk_env ctx var_gen ~jmp_spec ~subs:(Seq.singleton sub) in
+    let env = Pre.mk_env ctx var_gen ~target:test_tgt ~jmp_spec ~subs:(Seq.singleton sub) in
     let post  = Bool.mk_true ctx
                 |> Constr.mk_goal "true"
                 |> Constr.mk_constr
@@ -144,7 +146,7 @@ let test_nested_ifs (threshold : float) (test_ctx : test_ctxt) : unit =
     let var_gen = Env.mk_var_gen () in
     let assert_sub, assert_expr = Bil_to_bir.mk_assert_fail () in
     let sub = nest_ifs var_gen depth [Bil.jmp assert_expr] |> bil_to_sub in
-    let env = Pre.mk_env ctx var_gen ~subs:(Seq.of_list [sub; assert_sub])
+    let env = Pre.mk_env ctx var_gen ~target:test_tgt ~subs:(Seq.of_list [sub; assert_sub])
         ~specs:[Pre.spec_verifier_error] in
     let post  = Bool.mk_true ctx
                 |> Constr.mk_goal "true"
