@@ -166,7 +166,8 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
             model_val
           | Sexp.List _  ->  (* Function model *)
             Sexp.List [Sexp.Atom "lambda" ; args; model_val] (* Sexp.Atom varname *)
-          | Sexp.Atom _ -> failwith "Unexpected atom"
+          | Sexp.Atom a -> failwith (sprintf "Unexpected atom %s in external model %s"
+                                     a model_string)
         in
         Sexp.List [Sexp.Atom "assert" ;
                    Sexp.List [Sexp.Atom "=" ; Sexp.Atom varname ; model_val]]
@@ -175,13 +176,15 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
           warning "Warning: %s not instantiated in Z3 query\n" varname;
           Sexp.List [Sexp.Atom "assert" ; Sexp.Atom "true"]
         end
-    | _ -> failwith "Error: Unexpected form in external smt model"
+    | _ -> failwith (sprintf "Error: Unexpected form in external smt model: %s\n"
+                     model_string)
   in
   let model_sexp = Sexp.of_string model_string in
   match model_sexp with
-  | Sexp.List (Sexp.Atom "model" :: t) ->
+  | Sexp.List (Sexp.Atom "model" :: t) | Sexp.List t ->
     List.map ~f:process_decl t
-  | _ -> failwith "Error: Unexpected form in external smt model"
+  | _ -> failwith (sprintf "Error: Unexpected form in external smt model: %s\n"
+                   model_string)
 
 (* We are still missing some funcdecls, particularly function return values *)
 (** [check_external] invokes an external smt solver as a process. It communicates to the
