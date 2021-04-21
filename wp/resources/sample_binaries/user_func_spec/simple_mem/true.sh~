@@ -1,0 +1,20 @@
+# Says that
+# mem at (RSI + 0) equals 3
+# mem at (RSI + 0) equals RDI
+# RAX = 3
+
+# wp should deduce RAX = 3 sinse we call (mov rax, rdi) right after subroutine is called in main  
+
+run () {
+  bap wp \
+      --func=main \
+      --show="precond-internal,colorful"\
+      --postcond="(assert (= RAX #x0000000000000003))" \
+    --user-func-spec="subroutine, (assert true), (assert and
+(= (select mem init_RSI) #x0000000000000003)
+(= (select mem init_RSI) RAX)" \
+    -- ./main
+}
+
+
+run

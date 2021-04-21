@@ -1,0 +1,42 @@
+00000956: program
+00000946: sub main(main_argc, main_argv, main_result)
+00000962: main_argc :: in u32 = RDI
+00000963: main_argv :: in out u64 = RSI
+00000964: main_result :: out u32 = RAX
+
+00000425:
+00000431: #48 := RSP
+00000434: RSP := RSP - 0x10
+00000437: CF := #48 < 0x10
+0000043a: OF := high:1[(#48 ^ 0x10) & (#48 ^ RSP)]
+0000043d: AF := 0x10 = (0x10 & (RSP ^ #48 ^ 0x10))
+00000440: PF :=
+          ~low:1[let $1 = RSP >> 4 ^ RSP in
+                 let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+00000443: SF := high:1[RSP]
+00000446: ZF := 0 = RSP
+0000044e: RAX := mem[RSI, el]:u64
+00000456: mem := mem with [RAX] <- 0x61
+0000045e: RDI := low:64[RSP + 0xD]
+00000466: RDX := 3
+0000046e: RSI := mem[RSI, el]:u64
+00000478: RSP := RSP - 8
+0000047b: mem := mem with [RSP, el]:u64 <- 0x63A
+0000047e: call @greg_memcpy with return %00000481
+
+00000481:
+00000486: RAX := pad:64[extend:32[mem[RSP + 0xD]]]
+00000495: #51 := RSP
+00000498: RSP := RSP + 0x10
+0000049b: CF := RSP < #51
+0000049e: OF := ~high:1[#51] & (high:1[#51] | high:1[RSP]) &
+          ~(high:1[#51] & high:1[RSP])
+000004a1: AF := 0x10 = (0x10 & (RSP ^ #51 ^ 0x10))
+000004a4: PF :=
+          ~low:1[let $1 = RSP >> 4 ^ RSP in
+                 let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+000004a7: SF := high:1[RSP]
+000004aa: ZF := 0 = RSP
+000004b4: #54 := mem[RSP, el]:u64
+000004b7: RSP := RSP + 8
+000004ba: call #54 with noreturn
