@@ -171,7 +171,8 @@ let compare_subs
 
 let compare_subs_empty : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_,env2) ~rename_set:_ =
-    let post = Env.trivial_constr env1 in
+    let ctx = Env.get_context env1 in
+    let post = Constr.trivial ctx in
     post, env1, env2
   in
   let hyps = postcond in
@@ -179,7 +180,8 @@ let compare_subs_empty : comparator * comparator =
 
 let compare_subs_empty_post : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let post = Env.trivial_constr env1 in
+    let ctx = Env.get_context env1 in
+    let post = Constr.trivial ctx in
     post, env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
@@ -190,7 +192,8 @@ let compare_subs_empty_post : comparator * comparator =
 
 let compare_subs_sp : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let post = Env.trivial_constr env1 in
+    let ctx = Env.get_context env1 in
+    let post = Constr.trivial ctx in
     post, env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =
@@ -296,7 +299,8 @@ let compare_subs_fun : comparator * comparator =
 
 let compare_subs_mem_eq : comparator * comparator =
   let postcond ~original:(_, env1) ~modified:(_, env2) ~rename_set:_ =
-    let post = Env.trivial_constr env1 in
+    let ctx = Env.get_context env1 in
+    let post = Constr.trivial ctx in
     post, env1, env2
   in
   let hyps ~original:(_, env1) ~modified:(_, env2) ~rename_set =

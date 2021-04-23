@@ -397,6 +397,17 @@ let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
       Env.add_call_pred env sub_to) in
   Constr.substitute post subs_from subs_to, env
 
+(* Creates fresh names for [vars] found in the constraint. Optionally takes in
+   a function that maps the original variable name to the fresh name. Defaults
+   to [fresh_var]. *)
+let freshen ?(name = Format.sprintf "fresh_%s") (constr : Constr.t)
+    (env : Env.t) (vars : Var.Set.t) : Constr.t * Env.t =
+  Var.Set.fold vars ~init:(constr, env) ~f:(fun (constr, env) v ->
+      let z3_v, env = Env.get_var env v in
+      let name = name (Expr.to_string z3_v) in
+      let fresh = Env.new_z3_expr ~name env (Var.typ v) in
+      Constr.substitute_one constr z3_v fresh, Env.add_call_pred env fresh)
+
 let input_regs (arch : Arch.t) : Var.t list =
   match arch with
   | `x86_64 ->
@@ -578,11 +589,8 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
                | Some o -> o
                | None -> failwith "Verifier headerfile must be specified with --api-path" in
              let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
-             let v = Var.Set.choose_exn vars in
-             let z3_v, env = Env.get_var env v in
-             let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string z3_v) in
-             let fresh = Env.new_z3_expr env ~name:name (Var.typ v) in
-             Constr.substitute_one post z3_v fresh, Env.add_call_pred env fresh)
+             let name = Format.sprintf "%s_ret_%s" (Sub.name sub) in
+             freshen ~name post env vars)
     }
   else
     None
@@ -744,45 +752,6 @@ let default_data_section_range : Env.mem_range = {
   size = 0x800000
 }
 
-let mk_env
-    ?subs:(subs = Seq.empty)
-    ?specs:(specs = [])
-    ?default_spec:(default_spec = spec_default)
-    ?indirect_spec:(indirect_spec = indirect_spec_default)
-    ?jmp_spec:(jmp_spec = jmp_spec_default)
-    ?int_spec:(int_spec = int_spec_default)
-    ?exp_conds:(exp_conds = [])
-    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
-    ?loop_invariant:(loop_invariant = Tid.Map.empty)
-    ?arch:(arch = `x86_64)
-    ?freshen_vars:(freshen_vars = false)
-    ?use_fun_input_regs:(use_fun_input_regs = true)
-    ?stack_range:(stack_range = default_stack_range)
-    ?data_section_range:(data_section_range = default_data_section_range)
-    ?func_name_map:(func_name_map = String.Map.empty)
-    ?smtlib_compat:(smtlib_compat = false)
-    (ctx : Z3.context)
-    (var_gen : Env.var_gen)
-  : Env.t =
-  Env.mk_env
-    ~subs
-    ~specs
-    ~default_spec
-    ~indirect_spec
-    ~jmp_spec
-    ~int_spec
-    ~exp_conds
-    ~num_loop_unroll
-    ~loop_invariant
-    ~arch
-    ~freshen_vars
-    ~use_fun_input_regs
-    ~stack_range
-    ~data_section_range
-    ~func_name_map
-    ~smtlib_compat
-    ctx var_gen
-
 (* Determines the condition for taking a jump, and uses it to generate the jump
    expression's precondition based off of the postcondition and the
    precondition of the jump's target. *)
@@ -914,8 +883,7 @@ let visit_graph (env : Env.t) (post : Constr.t)
         let dst = G.Edge.dst e in
         debug "Entering back edge from\n%sto\n%s\n%!"
           (G.Node.to_string src) (G.Node.to_string dst);
-        let tid = dst |> G.Node.label |> Term.tid in
-        let handler = Env.get_loop_handler env tid in
+        let handler = Env.get_loop_handler env in
         post, handler env post ~start:dst g
       end
     | _ -> post, env
@@ -923,12 +891,6 @@ let visit_graph (env : Env.t) (post : Constr.t)
   Graphlib.depth_first_search (module Filtered_graph)
     ~enter_edge:enter_edge ~start:start ~leave_node:leave_node ~init:(post, env)
     g
-
-(* Now that we've defined [visit_graph], we can replace it in the
-   [wp_rec_call] placeholder. *)
-let _ = Env.wp_rec_call :=
-    fun env post ~start g ->
-      visit_graph env post ~start ~skip_node:(unreachable_from_start g start) g |> snd
 
 (* BAP currently doesn't have a way to determine that exit does not return.
    This function removes the backedge after the call to exit. *)
@@ -1258,10 +1220,10 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
 
-(* Builds a spec of the form (sub_pre /\ (sub_post => post) where post 
+(* Builds a spec of the form (sub_pre /\ (sub_post => post) where post
    is the spec right before the subroutine call. All physical registers and mem
-   in post and sub_post are replaced with fresh Z3 functions, and init- physical 
-   registers/init-mem in sub_post are replaced with regular registers/mem. 
+   in post and sub_post are replaced with fresh Z3 functions, and init- physical
+   registers/init-mem in sub_post are replaced with regular registers/mem.
    This is only applied for subroutines with the name sub_name. *)
 let user_func_spec ~sub_name:(sub_name : string) ~sub_pre:(sub_pre : string)
     ~sub_post:(sub_post : string) (sub : Sub.t) (_ : Arch.t) : Env.fun_spec option =
@@ -1396,6 +1358,70 @@ let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
   let expr = List.fold l ~init:(Bool.mk_true ctx) ~f:gen_constr in
   Constr.mk_goal "pointer_precond" expr |> Constr.mk_constr
 
+(* Looks up the exit node of a loop by:
+   - obtaining the post dominator tree
+   - for each node in the SCC, find its parent in the dominator tree
+   - if the parent node is not in the original SCC, it is an exit node *)
+let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+  : Graphs.Ir.Node.t option =
+  let module Node = Graphs.Ir.Node in
+  let scc = Graphlib.strong_components (module Graphs.Ir) graph in
+  let* group = Partition.group scc node in
+  let* leaf = Seq.find (Graphlib.postorder_traverse (module Graphs.Ir) graph)
+      ~f:(fun n -> Seq.is_empty (Node.succs n graph)) in
+  let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph leaf in
+  Seq.find_map (Group.enum group) ~f:(fun n ->
+      let* parent = Tree.parent dom_tree n in
+      if Group.mem group parent then
+        None
+      else
+        Some parent)
+
+(* This is the default handler for loops, which unrolls a loop by:
+   - Looking at the target node for a backjump
+   - If the node has been visited more than [num_unroll] times, use the [loop_exit_pre] precondition
+   - Otherwise, decrement the [depth] map which tracks the unrollings for that node, and
+     recursively call [Precondition.visit_graph]. Because this function is defined in another
+     (later) module, we use open recursion via the [wp_rec_call] function reference. *)
+let loop_unroll (num_unroll : int)
+  : Env.t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> Env.t =
+  let module Node = Graphs.Ir.Node in
+  let find_depth depth node = Env.Unroll_depth.find depth (Node.label node)
+                              |> Option.value ~default:num_unroll
+  in
+  let decr_depth depth node =
+    Env.Unroll_depth.update depth (Node.label node)
+      ~f:(function None -> num_unroll - 1 | Some n -> n - 1)
+  in
+  let unroll env pre ~start:node g =
+    let depth = Env.get_unroll_depth env in
+    if find_depth depth node <= 0 then
+      let tid = node |> Node.label |> Term.tid in
+      let pre =
+        List.find_map [loop_exit] ~f:(fun spec ->
+            let* exit = spec node g in
+            let tid = exit |> Node.label |> Term.tid in
+            Env.get_precondition env tid)
+      in
+      let pre = match pre with
+        | Some p -> p
+        | None ->
+          warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
+          let ctx = Env.get_context env in
+          Constr.trivial ctx
+      in
+      Env.add_precond env tid pre
+    else
+      begin
+        let updated_depth = decr_depth depth node in
+        let updated_env = Env.set_unroll_depth env updated_depth in
+        let _, env = visit_graph updated_env pre
+            ~start:node ~skip_node:(unreachable_from_start g node) g in
+        env
+      end
+  in
+  unroll
+
 (* Gets the target destination of a jump. We do not handle indirect jumps. *)
 let target (jmp : Jmp.t) : Tid.t option =
   match Jmp.kind jmp with
@@ -1512,20 +1538,11 @@ let loop_vars (sub : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub sub Var.Set.empty
 
-(* Creates fresh names for [vars] found in the constraint. *)
-let freshen (constr : Constr.t) (env : Env.t) (vars : Var.Set.t)
-  : Constr.t * Env.t =
-  Var.Set.fold vars ~init:(constr, env) ~f:(fun (constr, env) v ->
-      let z3_v, env = Env.get_var env v in
-      let name = Format.sprintf "fresh_%s" (Expr.to_string z3_v) in
-      let fresh = Env.new_z3_expr ~name env (Var.typ v) in
-      Constr.substitute_one constr z3_v fresh, Env.add_call_pred env fresh)
-
 (* Gets the precondition of the exit node of a loop. *)
 let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
     (g : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) : Constr.t =
   let p =
-    List.find_map [Env.loop_exit] ~f:(fun spec ->
+    List.find_map [loop_exit] ~f:(fun spec ->
         let* exit = spec node g in
         let tid = exit |> Graphs.Ir.Node.label |> Term.tid in
         let skip_node n =
@@ -1544,43 +1561,98 @@ let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
     warning "Trivial precondition is being used for node %s\n%!" (Tid.to_string tid);
     post
 
-let init_loop_invariant_checker (loop_invariant : string) : Env.loop_handler =
-  let module Node = Graphs.Ir.Node in
-  let checker env post ~start:node g : Env.t =
-    (* WP(while E do S done, R) *)
-    let ctx = Env.get_context env in
-    let tid = node |> Node.label |> Term.tid in
-    (* I *)
-    let name = Format.sprintf "Loop invariant (%s)%!" (Tid.to_string tid) in
-    let invariant = Z3_utils.mk_smtlib2_single ~name:(Some name)
-        env loop_invariant in
-    debug "Loop invariant: %s%!" (Constr.to_string invariant);
-    let scc = Graphlib.strong_components (module Graphs.Ir) g in
-    let loop = Option.value_exn (Partition.group scc node) in
-    let cond, body = Option.value_exn (split_loop loop g env) in
-    let vars = loop_vars body in
-    (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
-    let iteration, env =
-      let body_wp, env = visit_sub env invariant body in
-      freshen (Constr.mk_clause [cond; invariant] [body_wp]) env vars
-    in
-    (* forall y, ((~E ^ I) => R)[x <- y] *)
-    let exit, env =
-      let exit_cond =
-        let false_cond =
-          Bool.mk_false ctx
-          |> Constr.mk_goal "false"
-          |> Constr.mk_constr
-        in
-        Constr.mk_clause [cond] [false_cond]
-      in
-      let post = exit_pre env post node g loop in
-      freshen (Constr.mk_clause [exit_cond; invariant] [post]) env vars
-    in
-    let pre = Constr.mk_clause [] [invariant; iteration; exit] in
-    Env.add_precond env tid pre
+let loop_invariant_checker (env : Env.t) (post : Constr.t)
+    ~start:(node : Graphs.Ir.Node.t) (g : Graphs.Ir.t) (loop_invariant : string)
+  : Env.t =
+  (* WP(while E do S done, R) *)
+  let ctx = Env.get_context env in
+  let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+  (* I *)
+  let name = Format.sprintf "Loop invariant (%s)%!" (Tid.to_string tid) in
+  let invariant = Z3_utils.mk_smtlib2_single ~name:(Some name)
+      env loop_invariant in
+  debug "Loop invariant: %s%!" (Constr.to_string invariant);
+  let scc = Graphlib.strong_components (module Graphs.Ir) g in
+  let loop = Option.value_exn (Partition.group scc node) in
+  let cond, body = Option.value_exn (split_loop loop g env) in
+  let vars = loop_vars body in
+  (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
+  let iteration, env =
+    let body_wp, env = visit_sub env invariant body in
+    let name = Format.sprintf "loop_%s" in
+    freshen ~name (Constr.mk_clause [cond; invariant] [body_wp]) env vars
   in
-  checker
+  (* forall y, ((~E ^ I) => R)[x <- y] *)
+  let exit, env =
+    let exit_cond =
+      let false_cond =
+        Bool.mk_false ctx
+        |> Constr.mk_goal "false"
+        |> Constr.mk_constr
+      in
+      Constr.mk_clause [cond] [false_cond]
+    in
+    let post = exit_pre env post node g loop in
+    let name = Format.sprintf "loop_%s" in
+    freshen ~name (Constr.mk_clause [exit_cond; invariant] [post]) env vars
+  in
+  let pre = Constr.mk_clause [] [invariant; iteration; exit] in
+  Env.add_precond env tid pre
 
-let _ = Env.loop_invariant_checker_rec_call :=
-    fun invariant -> init_loop_invariant_checker invariant
+(* Defaults to loop unrolling. If a user passes in a loop invariant, turns off
+   the loop unroller and verifies the invariant instead. *)
+let init_loop_handler (num_unroll : int) (loop_invariants : string Tid.Map.t)
+  : Env.loop_handler =
+  {
+    handle =
+      fun env post ~start:node g ->
+        let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+        match Tid.Map.find loop_invariants tid with
+        | Some loop_invariant ->
+          debug "Checking loop invariant for %s%!" (Tid.to_string tid);
+          loop_invariant_checker env post ~start:node g loop_invariant
+        | None ->
+          debug "Unrolling loop for %s%!" (Tid.to_string tid);
+          loop_unroll num_unroll env post ~start:node g
+  }
+
+let default_loop_handler : Env.loop_handler =
+  init_loop_handler !num_unroll Tid.Map.empty
+
+let mk_env
+    ?subs:(subs = Seq.empty)
+    ?specs:(specs = [])
+    ?default_spec:(default_spec = spec_default)
+    ?indirect_spec:(indirect_spec = indirect_spec_default)
+    ?jmp_spec:(jmp_spec = jmp_spec_default)
+    ?int_spec:(int_spec = int_spec_default)
+    ?exp_conds:(exp_conds = [])
+    ?loop_handler:(loop_handler = default_loop_handler)
+    ?arch:(arch = `x86_64)
+    ?freshen_vars:(freshen_vars = false)
+    ?use_fun_input_regs:(use_fun_input_regs = true)
+    ?stack_range:(stack_range = default_stack_range)
+    ?data_section_range:(data_section_range = default_data_section_range)
+    ?func_name_map:(func_name_map = String.Map.empty)
+    ?smtlib_compat:(smtlib_compat = false)
+    (ctx : Z3.context)
+    (var_gen : Env.var_gen)
+  : Env.t =
+  Env.mk_env
+    ~subs
+    ~specs
+    ~default_spec
+    ~indirect_spec
+    ~jmp_spec
+    ~int_spec
+    ~exp_conds
+    ~loop_handler
+    ~arch
+    ~freshen_vars
+    ~use_fun_input_regs
+    ~stack_range
+    ~data_section_range
+    ~func_name_map
+    ~smtlib_compat
+    ctx var_gen
+

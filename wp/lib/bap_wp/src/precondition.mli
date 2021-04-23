@@ -284,8 +284,7 @@ val mk_env
   -> ?jmp_spec:Env.jmp_spec
   -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
-  -> ?num_loop_unroll:int
-  -> ?loop_invariant:string Bap.Std.Tid.Map.t
+  -> ?loop_handler:Env.loop_handler
   -> ?arch:Bap.Std.Arch.t
   -> ?freshen_vars:bool
   -> ?use_fun_input_regs:bool
@@ -363,3 +362,10 @@ val set_sp_range : Env.t -> Constr.t
     They must be either below the bottom of the stack or above the initial
     stack pointer. *)
 val construct_pointer_constraint : Constr.z3_expr list -> Env.t -> (Constr.z3_expr list) option -> Env.t option -> Constr.t
+
+(** Looks up the exit node of a loop which is the first node outside of a loop's
+    execution. *)
+val loop_exit :
+  Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> Bap.Std.Graphs.Ir.Node.t option
+
+val init_loop_handler : int -> string Bap.Std.Tid.Map.t -> Env.loop_handler

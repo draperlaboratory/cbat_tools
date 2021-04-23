@@ -13,8 +13,6 @@
 
 open !Core_kernel
 open Bap.Std
-open Graphlib.Std
-open Utils.Option_let
 
 include Self()
 
@@ -37,6 +35,10 @@ module ExprSet = Set.Make(
     let sexp_of_t _ = raise (Not_implemented "sexp_of_t for z3_expr not implemented")
     let t_of_sexp _ = raise (Not_implemented "t_of_sexp for z3_expr not implemented")
   end)
+
+module Unroll_depth = Blk.Map
+
+type unroll_depth = int Unroll_depth.t
 
 type var_gen = int ref
 
@@ -61,7 +63,8 @@ type t = {
   indirect_handler : indirect_spec;
   jmp_handler : jmp_spec;
   int_handler : int_spec;
-  loop_handler : loop_handle;
+  loop_handler : loop_handler;
+  unroll_depth : unroll_depth;
   exp_conds : exp_cond list;
   arch : Arch.t;
   use_fun_input_regs : bool;
@@ -88,13 +91,10 @@ and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option
 
 and int_spec = t -> Constr.t -> int -> Constr.t * t
 
-and loop_handler = t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
-
-and loop_handle = {
+and loop_handler = {
   (* Updates the environment with the preconditions computed by
      the loop handling procedure for the appropriate blocks *)
-  unroller : loop_handler;
-  invariant_checker : loop_handler TidMap.t
+  handle: t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
 }
 
 and cond = BeforeExec of Constr.goal | AfterExec of Constr.goal
@@ -171,104 +171,6 @@ let init_sub_handler (subs : Sub.t Seq.t) (arch : Arch.t)
         debug "%s: %s%!" (Sub.name sub) spec.spec_name;
         TidMap.set map ~key:(Term.tid sub) ~data:spec)
 
-(* FIXME: this is something of a hack: we use a function ref as a
-   place holder for the WP transform for subroutines, which itself is
-   needed in the loop handler defined in the environment.
-
-   It will be substituted by the actual visit_sub function at the
-   point of definition. This is used to simulate "open recursion".  *)
-let wp_rec_call :
-  (t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t) ref =
-  ref (fun _ _ ~start:_ _ -> assert false)
-
-let loop_invariant_checker_rec_call : (string -> loop_handler) ref =
-  ref (fun _ -> assert false)
-
-let trivial_constr (env : t) : Constr.t =
-  get_context env
-  |> Z3.Boolean.mk_true
-  |> Constr.mk_goal "true"
-  |> Constr.mk_constr
-
-(* Looks up the exit node of a loop by:
-   - obtaining the post dominator tree
-   - for each node in the SCC, find its parent in the dominator tree
-   - if the parent node is not in the original SCC, it is an exit node *)
-let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
-  : Graphs.Ir.Node.t option =
-  let module Node = Graphs.Ir.Node in
-  let scc = Graphlib.strong_components (module Graphs.Ir) graph in
-  let* group = Partition.group scc node in
-  let* leaf = Seq.find (Graphlib.postorder_traverse (module Graphs.Ir) graph)
-      ~f:(fun n -> Seq.is_empty (Node.succs n graph)) in
-  let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph leaf in
-  Seq.find_map (Group.enum group) ~f:(fun n ->
-      let* parent = Tree.parent dom_tree n in
-      if Group.mem group parent then
-        None
-      else
-        Some parent)
-
-
-module Unfold_depth = Blk.Map
-
-type unfold_depth = int Unfold_depth.t
-
-(* This is the default handler for loops, which unfolds a loop by:
-   - Looking at the target node for a backjump
-   - If the node has been visited more than [num_unroll] times, use the [loop_exit_pre] precondition
-   - Otherwise, decrement the [depth] map which tracks the unfoldings for that node, and
-     recursively call [Precondition.visit_graph]. Because this function is defined in another
-     (later) module, we use open recursion via the [wp_rec_call] function reference. *)
-let rec loop_unfold (num_unroll : int) (depth : unfold_depth) : loop_handler =
-  let module Node = Graphs.Ir.Node in
-  let find_depth node = Unfold_depth.find depth (Node.label node)
-                        |> Option.value ~default:num_unroll
-  in
-  let decr_depth node =
-    Unfold_depth.update depth (Node.label node)
-      ~f:(function None -> num_unroll - 1 | Some n -> n - 1)
-  in
-  let unroll env pre ~start:node g =
-    if find_depth node <= 0 then
-      let tid = node |> Node.label |> Term.tid in
-      let pre =
-        List.find_map [loop_exit] ~f:(fun spec ->
-            let* exit = spec node g in
-            let tid = exit |> Node.label |> Term.tid in
-            get_precondition env tid)
-      in
-      let pre = match pre with
-        | Some p -> p
-        | None ->
-          warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
-          trivial_constr env
-      in
-      add_precond env tid pre
-    else
-      begin
-        let updated_depth = decr_depth node in
-        let updated_handle = loop_unfold num_unroll updated_depth in
-        let updated_env =
-          { env with loop_handler =
-                       { env.loop_handler with unroller = updated_handle } } in
-        !wp_rec_call updated_env pre ~start:node g
-      end
-  in
-  unroll
-
-let init_loop_unfold (num_unroll : int) : loop_handler = loop_unfold num_unroll Unfold_depth.empty
-
-(* Defaults to loop unfolding. If a user passes in a loop invariant, turns off
-   the loop unfolder and verifies the invariant instead. *)
-let init_loop_handler (num_unfold : int) (loop_invariant : string TidMap.t)
-  : loop_handle =
-  {
-    unroller = init_loop_unfold num_unfold;
-    invariant_checker = TidMap.map loop_invariant ~f:(fun invariant ->
-        !loop_invariant_checker_rec_call invariant)
-  }
-
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
    - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -277,8 +179,7 @@ let init_loop_handler (num_unfold : int) (loop_invariant : string TidMap.t)
    - a {!jmp_spec} for handling branches
    - an {!int_spec} for handling interrupts
    - a list of {!exp_cond}s to satisfy
-   - the number of times to unroll a loop
-   - a loop invariant to verify
+   - a loop handler that can unroll a loop or check a loop invariant
    - the architecture of the binary
    - the option to freshen variable names
    - the option to use all input registers when generating function symbols at a call site
@@ -294,8 +195,7 @@ let mk_env
     ~jmp_spec:(jmp_spec : jmp_spec)
     ~int_spec:(int_spec : int_spec)
     ~exp_conds:(exp_conds : exp_cond list)
-    ~num_loop_unroll:(num_loop_unroll : int)
-    ~loop_invariant:(loop_invariant : string TidMap.t)
+    ~loop_handler:(loop_handler : loop_handler)
     ~arch:(arch : Arch.t)
     ~freshen_vars:(freshen_vars : bool)
     ~use_fun_input_regs:(fun_input_regs : bool)
@@ -319,7 +219,8 @@ let mk_env
     indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
-    loop_handler = init_loop_handler num_loop_unroll loop_invariant;
+    loop_handler = loop_handler;
+    unroll_depth = Unroll_depth.empty;
     exp_conds = exp_conds;
     arch = arch;
     use_fun_input_regs = fun_input_regs;
@@ -419,14 +320,12 @@ let get_jmp_handler (env : t) : jmp_spec =
 let get_int_handler (env : t) : int_spec =
   env.int_handler
 
-let get_loop_handler (env : t) (tid : Tid.t) : loop_handler =
-  match TidMap.find env.loop_handler.invariant_checker tid with
-  | Some handle ->
-    debug "Checking loop invariant for %s%!" (Tid.to_string tid);
-    handle
-  | None ->
-    debug "Unrolling loop %s%!" (Tid.to_string tid);
-    env.loop_handler.unroller
+let get_loop_handler (env : t)
+  : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
+  env.loop_handler.handle
+
+let update_loop_handler (env : t) (updated_handle : loop_handler) : t =
+  { env with loop_handler = updated_handle }
 
 let get_call_preds (env : t) : ExprSet.t =
   env.call_preds
@@ -525,3 +424,9 @@ let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
 
 let map_sub_name (env : t) (name_mod : string) : string =
   get_mapped_name name_mod env.func_name_map
+
+let get_unroll_depth (env : t) : unroll_depth =
+  env.unroll_depth
+
+let set_unroll_depth (env : t) (depth : unroll_depth) : t =
+  { env with unroll_depth = depth }

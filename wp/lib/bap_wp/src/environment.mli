@@ -29,6 +29,8 @@ module Constr = Constraint
 
 module ExprSet : Core_kernel.Set.S with type Elt.t = Constr.z3_expr
 
+module Unroll_depth = Bap.Std.Blk.Map
+
 (** The state type which is maintained when creating preconditions. It contains, among
     other things, summaries for subroutines, the associations between BIR variables
     and Z3 constants, and preconditions for already visited blocks, if relevant. *)
@@ -63,8 +65,9 @@ type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> (Constr.t * t
 type int_spec = t -> Constr.t -> int -> Constr.t * t
 
 (** The loop handling procedure for the appropriate blocks. *)
-type loop_handler =
-  t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
+type loop_handler = {
+  handle : t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
+}
 
 (** Condition generated when exploring an expression: [BeforeExec] will generate a
     {! Constr.goal} to be added to the postcondition before any substitution is made,
@@ -88,6 +91,8 @@ type mem_range = {
   base_addr : int;
   size : int
 }
+
+type unroll_depth = int Unroll_depth.t
 
 (** Creates a new environment with
     - a sequence of subroutines in the program used to initialize function specs
@@ -115,8 +120,7 @@ val mk_env
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
-  -> num_loop_unroll:int
-  -> loop_invariant:string Bap.Std.Tid.Map.t
+  -> loop_handler:loop_handler
   -> arch:Bap.Std.Arch.t
   -> freshen_vars:bool
   -> use_fun_input_regs:bool
@@ -154,20 +158,6 @@ val add_call_pred : t -> Constr.z3_expr -> t
     environment. This is used because the initial pass through a binary
     generates predicates that are not used during precondition computation. *)
 val clear_call_preds : t -> t
-
-(** A reference to {!Precondition.visit_sub} that is needed in the
-    loop handler of the environment simulating "open recursion". *)
-val wp_rec_call :
-  (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t) ref
-
-(** A reference to {!Precondition.init_loop_invariant_checker} that is needed in
-    the loop handler of the environment. *)
-val loop_invariant_checker_rec_call : (string -> loop_handler) ref
-
-(** Looks up the exit node of a loop which is the first node outside of a loop's
-    execution. *)
-val loop_exit :
-  Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> Bap.Std.Graphs.Ir.Node.t option
 
 (** Add a new binding to the environment for a bap variable to a Z3 expression,
     typically a constant. *)
@@ -227,7 +217,6 @@ val get_sub_handler : t -> Bap.Std.Tid.t -> fun_spec_type option
     of an indirect call. *)
 val get_indirect_handler : t -> Bap.Std.Exp.t -> indirect_spec
 
-
 (** Looks up the list of jmp_specs that is used to calculate the precondition of
     jumps in a BIR program. *)
 val get_jmp_handler : t -> jmp_spec
@@ -237,7 +226,11 @@ val get_int_handler : t -> int_spec
 
 (** Finds the {!loop_handler} that is used to unroll loops when it is visited in
     the BIR program. *)
-val get_loop_handler : t -> Bap.Std.Tid.t -> loop_handler
+val get_loop_handler
+  : t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t)
+
+(** Adds the updated handler to the environment. *)
+val update_loop_handler : t -> loop_handler -> t
 
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t
@@ -311,14 +304,15 @@ val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
     of a bap variable [var]. *)
 val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
-(** [trivial_constr] generates a trivial constraint of just [true]. *)
-val trivial_constr : t -> Constr.t
-
 (** [map_sub_name env name_mod] obtains the name of the subroutine in the
     original binary based off its name in the modified binary. In the case
     there is no mapping for the subroutine, [get_sub_name] will return
     [name_mod] (when calling this function from the original binary. *)
 val map_sub_name : t -> string -> string
+
+val get_unroll_depth : t -> unroll_depth
+
+val set_unroll_depth : t -> unroll_depth -> t
 
 (*-------- Z3 constant creation utilities ----------*)
 
