@@ -18,11 +18,12 @@
 
 *)
 
-
 module Option_let : sig
 
+  (** Let binding for [Option.bind]. *)
   val (let*) : 'a option -> ('a -> 'b option) -> 'b option
 
+  (** Let binding for [Option.map]. *)
   val (let+) : 'a option -> ('a -> 'b) -> 'b option
 
 end

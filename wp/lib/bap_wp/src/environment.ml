@@ -94,7 +94,7 @@ and int_spec = t -> Constr.t -> int -> Constr.t * t
 and loop_handler = {
   (* Updates the environment with the preconditions computed by
      the loop handling procedure for the appropriate blocks *)
-  handle: t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
+  handle : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
 }
 
 and cond = BeforeExec of Constr.goal | AfterExec of Constr.goal
@@ -323,9 +323,6 @@ let get_int_handler (env : t) : int_spec =
 let get_loop_handler (env : t)
   : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
   env.loop_handler.handle
-
-let update_loop_handler (env : t) (updated_handle : loop_handler) : t =
-  { env with loop_handler = updated_handle }
 
 let get_call_preds (env : t) : ExprSet.t =
   env.call_preds

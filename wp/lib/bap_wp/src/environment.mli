@@ -92,6 +92,7 @@ type mem_range = {
   size : int
 }
 
+(** A map containing the current depth for a block when unrolling a loop. *)
 type unroll_depth = int Unroll_depth.t
 
 (** Creates a new environment with
@@ -226,11 +227,8 @@ val get_int_handler : t -> int_spec
 
 (** Finds the {!loop_handler} that is used to unroll loops when it is visited in
     the BIR program. *)
-val get_loop_handler
-  : t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t)
-
-(** Adds the updated handler to the environment. *)
-val update_loop_handler : t -> loop_handler -> t
+val get_loop_handler :
+  t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t)
 
 (** Obtains the architecture of the program. *)
 val get_arch : t -> Bap.Std.Arch.t
@@ -310,8 +308,12 @@ val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
     [name_mod] (when calling this function from the original binary. *)
 val map_sub_name : t -> string -> string
 
+(** [get_unroll_depth env] obtains the map containing the depths for each block
+    when unrolling a loop. *)
 val get_unroll_depth : t -> unroll_depth
 
+(** [set_unroll_depth env depth] updates the map with the new unroll depths for
+    each block. *)
 val set_unroll_depth : t -> unroll_depth -> t
 
 (*-------- Z3 constant creation utilities ----------*)

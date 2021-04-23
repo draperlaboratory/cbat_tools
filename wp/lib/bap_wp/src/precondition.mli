@@ -363,9 +363,7 @@ val set_sp_range : Env.t -> Constr.t
     stack pointer. *)
 val construct_pointer_constraint : Constr.z3_expr list -> Env.t -> (Constr.z3_expr list) option -> Env.t option -> Constr.t
 
-(** Looks up the exit node of a loop which is the first node outside of a loop's
-    execution. *)
-val loop_exit :
-  Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> Bap.Std.Graphs.Ir.Node.t option
-
+(** [init_loop_handler num_unroll loop_invariants] creates a handler which
+    checks a loop invariant for a loop whose header is at the corresponding tid.
+    If no invariant is provided for a tid, defaults to loop unrolling. *)
 val init_loop_handler : int -> string Bap.Std.Tid.Map.t -> Env.loop_handler
