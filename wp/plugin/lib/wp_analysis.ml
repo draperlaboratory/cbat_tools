@@ -15,6 +15,7 @@ open !Core_kernel
 open Bap_main
 open Bap.Std
 open Bap_wp
+open Bap_core_theory
 
 include Self()
 
@@ -101,14 +102,14 @@ let exp_conds_mod (p : Params.t) : Env.exp_cond list =
 
 (* Determine if the user added a user_func_spec. If so, parse the string and
    apply the components to make a func_spec *)
-let parse_user_func_spec (p : Params.t) : (Sub.t -> Arch.t -> Env.fun_spec option) =
+let parse_user_func_spec (p : Params.t) : (Sub.t -> Theory.target -> Env.fun_spec option) =
   match p.user_func_spec with
     Some (name,pre,post) -> Pre.user_func_spec ~sub_name:name ~sub_pre:pre ~sub_post:post
   | _ -> Pre.user_func_spec ~sub_name:"" ~sub_pre:"" ~sub_post:""
 
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : Params.t) (to_inline : Sub.t Seq.t)
-  : (Sub.t -> Arch.t -> Env.fun_spec option) list =
+  : (Sub.t -> Theory.target -> Env.fun_spec option) list =
   let default = [
     Pre.spec_verifier_assume;
     Pre.spec_verifier_nondet;
@@ -240,7 +241,7 @@ let comparators_of_flags
 (* Runs a single binary analysis. *)
 let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file : string) : combined_pre =
-  let prog, arch = Utils.read_program bap_ctx
+  let prog, target = Utils.read_program bap_ctx
       ~loader:Utils.loader ~filepath:file in
   let subs = Term.enum sub_t prog in
   let main_sub = Utils.find_func_err subs p.func in
@@ -252,7 +253,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let loop_handler = Pre.init_loop_handler !Pre.num_unroll loop_invariant in
   let env = Pre.mk_env z3_ctx var_gen
       ~subs
-      ~arch
+      ~target
       ~specs
       ~smtlib_compat:(Option.is_some p.ext_solver_path)
       ~use_fun_input_regs:p.use_fun_input_regs
@@ -290,9 +291,9 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
 (* Runs a comparative analysis. *)
 let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     (p : Params.t) (file1 : string) (file2 : string) : combined_pre =
-  let prog1, arch1 = Utils.read_program bap_ctx
+  let prog1, target1 = Utils.read_program bap_ctx
       ~loader:Utils.loader ~filepath:file1 in
-  let prog2, arch2 = Utils.read_program bap_ctx
+  let prog2, target2 = Utils.read_program bap_ctx
       ~loader:Utils.loader ~filepath:file2 in
   let syms1 = Symbol.get_symbols file1 in
   let syms2 = Symbol.get_symbols file2 in
@@ -314,7 +315,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       Utils.mk_func_name_map ~orig:subs1 ~modif:subs2 p.func_name_map in
     let env2 = Pre.mk_env z3_ctx var_gen
         ~subs:subs2
-        ~arch:arch2
+        ~target:target2
         ~specs:specs2
         ~smtlib_compat:(Option.is_some p.ext_solver_path)
         ~use_fun_input_regs:p.use_fun_input_regs
@@ -334,7 +335,7 @@ let comparative (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
     let exp_conds1 = exp_conds_orig p env2 syms1 syms2 in
     let env1 = Pre.mk_env z3_ctx var_gen
         ~subs:subs1
-        ~arch:arch1
+        ~target:target1
         ~specs:specs1
         ~smtlib_compat:(Option.is_some p.ext_solver_path)
         ~use_fun_input_regs:p.use_fun_input_regs

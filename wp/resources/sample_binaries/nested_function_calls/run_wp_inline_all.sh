@@ -8,6 +8,7 @@
 run () {
   bap wp \
     --func=main \
+    --show=precond-internal \
     --inline=.* \
     --trip-asserts \
     -- ./bin/main

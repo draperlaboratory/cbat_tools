@@ -27,8 +27,6 @@ module Constr = Constraint
    fresh variables, we want to keep those same fresh names in the analysis *)
 let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list * Env.t * Env.t =
   let ctx = Env.get_context env1 in
-  let arch = Env.get_arch env1 in
-  let module Target = (val target_of_arch arch) in
   (* We keep only the physical variables, since the virtual ones may
      have arbitrary values unrelated to the concrete exectution
      (and in particular be of different types!)
@@ -38,7 +36,7 @@ let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list 
     ~f:(fun (eqs, env1, env2) v ->
         let var1, env1 = Env.get_var env1 v in
         let var2, env2 = Env.get_var env2 v in
-        if Target.CPU.is_mem v then
+        if Var.(Env.get_mem env1 = v) then
           eqs, env1, env2
         else
           let eq = Bool.mk_eq ctx var1 var2

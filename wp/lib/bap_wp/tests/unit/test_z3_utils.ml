@@ -24,10 +24,12 @@ module BV = Z3.BitVector
 
 (* To run these tests: `make test.unit` in bap_wp directory *)
 
+let test_tgt = Test_utils.test_tgt
+
 let test_mk_smtlib2_single_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_env ctx var_gen in
+  let env = Pre.mk_env ~target:test_tgt ctx var_gen in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
   let z3_x, env = Env.get_var env x in
@@ -51,7 +53,7 @@ let test_mk_smtlib2_single_1 (test_ctx : test_ctxt) : unit =
 let test_mk_smtlib2_single_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_env ctx var_gen in
+  let env = Pre.mk_env ~target:test_tgt ctx var_gen in
   let x = Var.create "x" reg32_t in
   let x123 = BV.mk_const_s ctx "x123" 32 in
   let z3_x, env = Env.get_var env x in

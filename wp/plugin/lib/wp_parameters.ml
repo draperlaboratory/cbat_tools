@@ -101,7 +101,8 @@ let validate_show (show : string list) : (unit, error) result =
     "refuted-goals";
     "paths";
     "precond-internal";
-    "precond-smtlib"
+    "precond-smtlib";
+    "colorful"
   ] in
   match find_unsupported_option show supported with
   | Some s ->

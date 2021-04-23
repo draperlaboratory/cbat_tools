@@ -28,6 +28,8 @@
 
 *)
 
+open Bap_core_theory
+
 module Bool = Z3.Boolean
 
 module Env = Environment
@@ -122,14 +124,14 @@ val word_to_z3 : Z3.context -> Bap.Std.Word.t -> Constr.z3_expr
 val exp_to_z3 : Bap.Std.exp -> Env.t -> Constr.z3_expr * hooks * Env.t
 
 (** Obtains all possible registers that can be used to hold input values to a function
-    call for a given architecture. *)
-val input_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
+    call for a given target. *)
+val input_regs : Theory.target -> Bap.Std.Var.t list
 
-(** Obtains the caller saved-registers for a given architecture. *)
-val caller_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
+(** Obtains the caller saved-registers for a given target. *)
+val caller_saved_regs : Theory.target -> Bap.Std.Var.t list
 
-(** Obtains the callee-saved registers for a given architecture. *)
-val callee_saved_regs : Bap.Std.Arch.t -> Bap.Std.Var.t list
+(** Obtains the callee-saved registers for a given target. *)
+val callee_saved_regs : Theory.target -> Bap.Std.Var.t list
 
 (** This spec is used to handle user-specified subroutine specs
     via the --user-func-spec flag, using the user-specified
@@ -139,60 +141,60 @@ val user_func_spec
   -> sub_pre:string
   -> sub_post:string
   -> Bap.Std.Sub.t
-  -> Bap.Std.Arch.t
+  -> Theory.target
   -> Env.fun_spec option
 
 (** This spec is used for the functions [__assert_fail] or [__VERIFIER_error]. It
     returns the precondition [false]. *)
-val spec_verifier_error : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_verifier_error : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used for assumptions made with [__VERIFIER_assume(assumption)].
     It returns a precondition of [assumption => post]. *)
-val spec_verifier_assume : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_verifier_assume : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used for functions of [__VERIFIER_nondet_type], which returns a
     nondeterministic value for the type. This spec chaoses the register that holds
     the output value from the function call. *)
-val spec_verifier_nondet : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_verifier_nondet : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used for empty subroutines that have no blocks. This spec is a
     nop, returning the postcondition as the precondition. *)
-val spec_empty : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_empty : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used when BAP is able to generate [arg term]s for the subroutine
     in the case when an API is specified. It creates a function symbol for
     each output register given the input registers in the form
     [func_out_reg(in_reg1, in_reg2, ...)]. *)
-val spec_arg_terms : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_arg_terms : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used when RAX or EAX is used on the left-hand side of the subroutine.
     It creates a function symbol for RAX/EAX with the input registers as arguments. *)
-val spec_rax_out : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_rax_out : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is similar to {! spec_rax_out}, but will create a function symbol
     for RAX regardless if it was used in the left-hand side of the subroutine or not.
     This spec only works for x86_64 architectures. *)
-val spec_chaos_rax : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_chaos_rax : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used for x86 architectures and will create a function symbol
     for all caller-saved registers given with the input registers as arguments. *)
-val spec_chaos_caller_saved : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_chaos_caller_saved : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used for the function [__afl_maybe_log]. It chaoses the registers
     RAX, RCX, and RDX. In retrowrite, these registers are stored on the stack,
     [__afl_maybe_log] is called, and then the registers are restored. *)
-val spec_afl_maybe_log : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+val spec_afl_maybe_log : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used to inline a function call. It calls {! visit_sub} on the
     target function being called. *)
 val spec_inline :
-  Bap.Std.Sub.t Bap.Std.Seq.t -> Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option
+  Bap.Std.Sub.t Bap.Std.Seq.t -> Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** The default spec used when mapping subroutines to their preconditions. This
     spec sets the constraint representing the subroutine being called to true, and
     in x86 architectures, increments the value of the stack pointer on return
     by the address size. *)
-val spec_default : Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec
+val spec_default : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec
 
 (** The default jmp spec for handling branches in a BIR program. *)
 val jmp_spec_default : Env.jmp_spec
@@ -263,8 +265,8 @@ val default_data_section_range : Env.mem_range
     - an empty list of {!Environment.exp_cond}s which adds assumptions and VCs to
       the precondition as hooks on certain instructions
     - a loop unroll count of 5 for use when reaching a back edge during analysis
-    - a loop invariant to verify. Defaults to none
-    - an architecture of x86_64 for architecture specific constraints and specs
+    - a loop handler that can unroll a loop or check a loop invariant
+    - a target architecture for specific constraints and specs
     - freshening variables set to false. Should be set to true in order to represent the
       variables in the modified binary
     - the option to use all function input registers when generating function symbols
@@ -278,20 +280,20 @@ val default_data_section_range : Env.mem_range
     expressions and create fresh variables. *)
 val mk_env
   :  ?subs:Bap.Std.Sub.t Bap.Std.Seq.t
-  -> ?specs:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec option) list
-  -> ?default_spec:(Bap.Std.Sub.t -> Bap.Std.Arch.t -> Env.fun_spec)
+  -> ?specs:(Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option) list
+  -> ?default_spec:(Bap.Std.Sub.t -> Theory.target -> Env.fun_spec)
   -> ?indirect_spec:Env.indirect_spec
   -> ?jmp_spec:Env.jmp_spec
   -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
   -> ?loop_handler:Env.loop_handler
-  -> ?arch:Bap.Std.Arch.t
   -> ?freshen_vars:bool
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
   -> ?data_section_range:Env.mem_range
   -> ?func_name_map:string Core_kernel.String.Map.t
   -> ?smtlib_compat:bool
+  -> target:Theory.target
   -> Z3.context
   -> Env.var_gen
   -> Env.t
@@ -335,6 +337,7 @@ val check
   -> ?print_constr: (string list)
   -> ?debug: (bool)
   -> ?ext_solver : (string * ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list))
+  -> ?fmt:Stdlib__format.formatter
   -> Z3.Solver.solver
   -> Z3.context
   -> Constr.t
@@ -346,7 +349,8 @@ val check
     This has a side effect that updates the state of the solver. The solver's state
     can be reverted back with [Z3.Solver.pop]. *)
 val exclude
-  :  Z3.Solver.solver
+  : ?fmt:Stdlib__format.formatter
+  -> Z3.Solver.solver
   -> Z3.context
   -> var:Constr.z3_expr
   -> pre:Constr.t

@@ -171,7 +171,9 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
             model_val
           | Sexp.List _  ->  (* Function model *)
             Sexp.List [Sexp.Atom "lambda" ; args; model_val] (* Sexp.Atom varname *)
-          | Sexp.Atom _ -> failwith "Unexpected atom"
+          | Sexp.Atom a -> failwith (sprintf "model_string: %s\n
+                  function asserts_of_model: Unexpected atom %s in external model\n"
+                                       model_string a)
         in
         Sexp.List [Sexp.Atom "assert" ;
                    Sexp.List [Sexp.Atom "=" ; Sexp.Atom varname ; model_val]]
@@ -180,13 +182,19 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
           warning "Warning: %s not instantiated in Z3 query\n" varname;
           Sexp.List [Sexp.Atom "assert" ; Sexp.Atom "true"]
         end
-    | _ -> failwith "Error: Unexpected form in external smt model"
+    | bad_sexp -> failwith (sprintf "model_string: %s\n
+                     function asserts_of_model: Unexpected form %s in external smt model\n"
+                              model_string (Sexp.to_string bad_sexp))
   in
   let model_sexp = Sexp.of_string model_string in
   match model_sexp with
-  | Sexp.List (Sexp.Atom "model" :: t) ->
+  | Sexp.List (Sexp.Atom "model" :: t) | Sexp.List t ->
     List.map ~f:process_decl t
-  | _ -> failwith "Error: Unexpected form in external smt model"
+  | Atom a -> failwith
+                (sprintf
+                   "model_string: %s\n
+          function asserts_of_model: Unexpected outer atom %s in external smt model\n"
+                   model_string a)
 
 (* We are still missing some funcdecls, particularly function return values *)
 (** [check_external] invokes an external smt solver as a process. It communicates to the
@@ -227,10 +235,10 @@ let check_external
     let model_string = remove_pound model_string in
     let decls, syms = (* get_decls_and_symbols env*) declsyms |> List.unzip in
     let sym_strings = List.map ~f:(fun sym ->
-      let sym_string = Z3.Symbol.to_string sym in
-      if (String.contains sym_string '#')
-      then "|" ^ (remove_pound sym_string) ^ "|" (* SMTlib escaping using | *)
-      else sym_string) syms
+        let sym_string = Z3.Symbol.to_string sym in
+        if (String.contains sym_string '#')
+        then "|" ^ (remove_pound sym_string) ^ "|" (* SMTlib escaping using | *)
+        else sym_string) syms
     in
     let smt_asserts = asserts_of_model model_string sym_strings in
     let smt_asserts = List.map smt_asserts ~f:(fun assert_ ->

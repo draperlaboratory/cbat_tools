@@ -95,9 +95,9 @@ end
 module Program = struct
 
   (* Creates a program cache. *)
-  let program_cache () : (Program.t * Arch.t) Data.Cache.t =
+  let program_cache () : (Program.t * Theory.Target.t) Data.Cache.t =
     let module Prog = struct
-      type t = Program.t * Arch.t [@@deriving bin_io]
+      type t = Program.t * Theory.Target.t [@@deriving bin_io]
     end in
     let of_bigstring = Binable.of_bigstring (module Prog) in
     let to_bigstring = Binable.to_bigstring (module Prog) in
@@ -106,13 +106,13 @@ module Program = struct
     Data.Cache.Service.request reader writer
 
   (* Loads a program and its architecture (if any) from the cache. *)
-  let load (digest : digest) : (Program.t * Arch.t) option =
+  let load (digest : digest) : (Program.t * Theory.Target.t) option =
     let cache = program_cache () in
     Data.Cache.load cache digest
 
   (* Saves a program and its architecture in the cache. *)
-  let save (digest : digest) (program : Program.t) (arch : Arch.t) : unit =
+  let save (digest : digest) (program : Program.t) (tgt : Theory.Target.t) : unit =
     let cache = program_cache () in
-    Data.Cache.save cache digest (program, arch)
+    Data.Cache.save cache digest (program, tgt)
 
 end
