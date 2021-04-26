@@ -15,6 +15,7 @@ open !Core_kernel
 open Bap.Std
 open Bap_core_theory
 
+(* FIXME: can we remove this include? *)
 include Self()
 
 module Comp = Compare
@@ -26,64 +27,6 @@ module Params = Run_parameters
 (** The available options to be set. Each flag corresponds to a parameter in
     the set with the BAP custom command line. *)
 type params = Params.t
-
-
-(* Updates the number of times to unroll a loop based on the user's input. *)
-let update_default_num_unroll (num_unroll : int option) : unit =
-  match num_unroll with
-  | Some n -> Pre.num_unroll := n
-  | None -> ()
-
-(* Converts a set of variables to a string for printing debug logs. *)
-let varset_to_string (vs : Var.Set.t) : string =
-  vs
-  |> Var.Set.to_sequence
-  |> Seq.to_list
-  |> List.to_string ~f:Var.to_string
-
-(* Finds a function in the binary. *)
-let find_func_err (subs : Sub.t Seq.t) (func : string) : Sub.t =
-  match Seq.find ~f:(fun s -> String.equal (Sub.name s) func) subs with
-  | None ->
-    let msg = Printf.sprintf "Missing function: %s is not in binary.%!" func in
-    failwith msg
-  | Some f -> f
-
-(* Determines the name of the modified subroutine based off of the original
-   subroutine's name and the regex from the user. We raise an exception if we
-   can't find a subroutine that matches the regex. *)
-let get_mod_func_name (name_orig : string) (re : (string * string) list)
-  : string option =
-  if List.is_empty re then
-    Some name_orig
-  else
-    List.find_map (List.rev re) ~f:(fun (orig, modif) ->
-        let regexp = Str.regexp orig in
-        if Str.string_match regexp name_orig 0 then
-          Some (Str.replace_first regexp modif name_orig)
-        else
-          None)
-
-(* Finds a sequence of subroutines to inline based on the regex from the
-   user. *)
-let match_inline (to_inline : string option) (subs : Sub.t Seq.t)
-  : Sub.t Seq.t =
-  match to_inline with
-  | None -> Seq.empty
-  | Some to_inline ->
-    let inline_pat = Re.Posix.re to_inline |> Re.Posix.compile in
-    let filter_subs =
-      Seq.filter ~f:(fun s -> Re.execp inline_pat (Sub.name s)) subs
-    in
-    let () =
-      if Seq.is_empty filter_subs then
-        warning "No matches on inlining. Regex: %s\n%!%!" to_inline
-      else
-        info "Inlining functions: %s%!\n"
-          (filter_subs |> Seq.to_list |> List.to_string ~f:Sub.name)
-    in
-    filter_subs
-
 
 let spec_of_name (name : string) : Sub.t -> Theory.target -> Env.fun_spec option =
   match name with
@@ -276,8 +219,8 @@ let post_reg_values
     let post_regs = Var.Set.union
         (Pre.set_of_reg_names env1 sub1 reg_names)
         (Pre.set_of_reg_names env2 sub2 reg_names) in
-    debug "Pre register vals: %s%!" (varset_to_string all_regs);
-    debug "Post register vals: %s%!" (varset_to_string post_regs);
+    debug "Pre register vals: %s%!" (Utils.varset_to_string all_regs);
+    debug "Post register vals: %s%!" (Utils.varset_to_string post_regs);
     Some (Comp.compare_subs_eq ~pre_regs:all_regs ~post_regs:post_regs)
   end
 
@@ -368,16 +311,26 @@ let single
     (p : params)
     (prog : program term)
     (target : Theory.target)
-    (file : string)
+    (_file : string)
   : combined_pre =
   let subs = Term.enum sub_t prog in
-  let main_sub = find_func_err subs p.func in
-  let to_inline = match_inline p.inline subs in
+  let main_sub = Utils.find_func_err subs p.func in
+  let to_inline = Utils.match_inline p.inline subs in
   let specs = fun_specs p to_inline in
   let exp_conds = exp_conds_mod p in
   let stack_range = update_stack ~base:p.stack_base ~size:p.stack_size in
-  let env = Pre.mk_env z3_ctx var_gen ~subs ~target ~specs ~smtlib_compat:(Option.is_some p.ext_solver_path)
-      ~use_fun_input_regs:p.use_fun_input_regs ~exp_conds ~stack_range in
+  let env =
+    Pre.mk_env
+      z3_ctx
+      var_gen
+      ~subs
+      ~target
+      ~specs
+      ~smtlib_compat:(Option.is_some p.ext_solver_path)
+      ~use_fun_input_regs:p.use_fun_input_regs
+      ~exp_conds
+      ~stack_range
+  in
   let true_constr = Env.trivial_constr env in
   let vars = Pre.get_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
@@ -421,16 +374,16 @@ let comparative
   let syms2 = Symbol.get_symbols file2 in
   let subs1 = Term.enum sub_t prog1 in
   let subs2 = Term.enum sub_t prog2 in
-  let main_sub1 = find_func_err subs1 p.func in
+  let main_sub1 = Utils.find_func_err subs1 p.func in
   let main_sub2 =
-    get_mod_func_name p.func p.func_name_map
+    Utils.get_mod_func_name p.func_name_map p.func
     |> Option.value ~default:p.func
-    |> find_func_err subs2
+    |> Utils.find_func_err subs2
     |> rewrite_addresses p syms1 syms2
   in
   let stack_range = update_stack ~base:p.stack_base ~size:p.stack_size in
   let env2, pointer_vars_2 =
-    let to_inline2 = match_inline p.inline subs2 in
+    let to_inline2 = Utils.match_inline p.inline subs2 in
     let specs2 = fun_specs p to_inline2 in
     let exp_conds2 = exp_conds_mod p in
     let func_name_map =
@@ -452,7 +405,7 @@ let comparative
     env2, vars_pointer_reg
   in
   let env1, pointer_vars_1 =
-    let to_inline1 = match_inline p.inline subs1 in
+    let to_inline1 = Utils.match_inline p.inline subs1 in
     let specs1 = fun_specs p to_inline1 in
     let exp_conds1 = exp_conds_orig p env2 syms1 syms2 in
     let env1 = Pre.mk_env z3_ctx var_gen
@@ -543,7 +496,7 @@ let run
     Z3.set_global_param "verbose" "10";
   let z3_ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  update_default_num_unroll p.num_unroll;
+  Utils.update_default_num_unroll p.num_unroll;
   (* Determine whether to perform a single or comparative analysis. *)
   match files with
   | [(prog, tgt, file)] ->

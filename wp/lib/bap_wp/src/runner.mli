@@ -28,6 +28,7 @@ module Params = Run_parameters
     of [files], it will run either a single or comparative analysis. If 0 or
     more than 2 files are given, an error is returned. [params] sets the
     properties WP will check and update default options. *)
-val run : Params.t
+val run :
+  Params.t
   -> (program term * Theory.target * string) list
   -> (Z3.Solver.status, error) result
