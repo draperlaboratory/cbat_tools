@@ -24,12 +24,12 @@ let test_update_num_unroll
     ?length:(length = Immediate)
     (new_unroll : int option)
   : test =
-  let original = !Pre.num_unroll in
-  Utils.update_default_num_unroll new_unroll;
-  let updated = !Pre.num_unroll in
-  (* Undo the state change for further tests. *)
-  Utils.update_default_num_unroll @@ Some original;
+  let set_up _ = !Pre.num_unroll in
+  let tear_down original _ = Utils.update_default_num_unroll @@ Some original in
   let test ctxt =
+    let original = bracket set_up tear_down ctxt in
+    Utils.update_default_num_unroll new_unroll;
+    let updated = !Pre.num_unroll in
     match new_unroll with
     | Some n ->
       let fail_msg =
