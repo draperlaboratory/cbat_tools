@@ -97,6 +97,23 @@ type mem_range = {
 (** A map containing the current depth for a block when unrolling a loop. *)
 type unroll_depth = int Unroll_depth.t
 
+(** [init_loop_handler default handlers] takes in a list of handlers that will
+    be used when visiting a loop in the subroutine. The handler used is based
+    off of the loop's tid. *)
+val init_loop_handler
+  : default:(t
+             -> Constr.t
+             -> start:Bap.Std.Graphs.Ir.Node.t
+             -> Bap.Std.Graphs.Ir.t
+             -> t)
+  -> ((Bap.Std.Tid.t
+       -> (t
+           -> Constr.t
+           -> start:Bap.Std.Graphs.Ir.Node.t
+           -> Bap.Std.Graphs.Ir.t
+           -> t) option) list)
+  -> loop_handler
+
 (** Creates a new environment with
     - a sequence of subroutines in the program used to initialize function specs
     - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -123,7 +140,10 @@ val mk_env
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
-  -> loop_handler:loop_handler
+  -> loop_handlers:((Bap.Std.Tid.t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t ->
+                                       Bap.Std.Graphs.Ir.t -> t) option) list)
+  -> default_loop_handler:(t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t ->
+                           Bap.Std.Graphs.Ir.t -> t)
   -> target:Theory.target
   -> freshen_vars:bool
   -> use_fun_input_regs:bool

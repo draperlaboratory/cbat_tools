@@ -1429,9 +1429,10 @@ let loop_unroll (num_unroll : int)
       ~f:(function None -> num_unroll - 1 | Some n -> n - 1)
   in
   let unroll env pre ~start:node g =
+    let tid = node |> Node.label |> Term.tid in
+    debug "Unrolling loop for %s%!" (Tid.to_string tid);
     let depth = Env.get_unroll_depth env in
     if find_depth depth node <= 0 then
-      let tid = node |> Node.label |> Term.tid in
       let pre =
         List.find_map [loop_exit] ~f:(fun spec ->
             let* exit = spec node g in
@@ -1596,63 +1597,46 @@ let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
     warning "Trivial precondition is being used for node %s\n%!" (Tid.to_string tid);
     post
 
-let loop_invariant_checker (env : Env.t) (post : Constr.t)
-    ~start:(node : Graphs.Ir.Node.t) (g : Graphs.Ir.t) (loop_invariant : string)
-  : Env.t =
-  (* WP(while E do S done, R) *)
-  let ctx = Env.get_context env in
-  let tid = node |> Graphs.Ir.Node.label |> Term.tid in
-  (* I *)
-  let name = Format.sprintf "Loop invariant (%s)%!" (Tid.to_string tid) in
-  let invariant = Z3_utils.mk_smtlib2_single ~name:(Some name)
-      env loop_invariant in
-  debug "Loop invariant: %s%!" (Constr.to_string invariant);
-  let scc = Graphlib.strong_components (module Graphs.Ir) g in
-  let loop = Option.value_exn (Partition.group scc node) in
-  let cond, body = Option.value_exn (split_loop loop g env) in
-  let vars = loop_vars body in
-  (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
-  let iteration, env =
-    let body_wp, env = visit_sub env invariant body in
-    let name = Format.sprintf "loop_%s" in
-    freshen ~name (Constr.mk_clause [cond; invariant] [body_wp]) env vars
-  in
-  (* forall y, ((~E ^ I) => R)[x <- y] *)
-  let exit, env =
-    let exit_cond =
-      let false_cond =
-        Bool.mk_false ctx
-        |> Constr.mk_goal "false"
-        |> Constr.mk_constr
+let loop_invariant_checker (loop_invariants : string Tid.Map.t) (tid : Tid.t)
+  : (Env.t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> Env.t) option =
+  let* loop_invariant = Tid.Map.find loop_invariants tid in
+  Some (fun env post ~start:node g ->
+      (* WP(while E do S done, R) *)
+      let ctx = Env.get_context env in
+      let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+      debug "Checking loop invariant for %s%!" (Tid.to_string tid);
+      (* I *)
+      let name = Format.sprintf "Loop invariant (%s)%!" (Tid.to_string tid) in
+      let invariant = Z3_utils.mk_smtlib2_single ~name:(Some name)
+          env loop_invariant in
+      debug "Loop invariant: %s%!" (Constr.to_string invariant);
+      let scc = Graphlib.strong_components (module Graphs.Ir) g in
+      let loop = Option.value_exn (Partition.group scc node) in
+      let cond, body = Option.value_exn (split_loop loop g env) in
+      let vars = loop_vars body in
+      (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
+      let iteration, env =
+        let body_wp, env = visit_sub env invariant body in
+        let name = Format.sprintf "loop_%s" in
+        freshen ~name (Constr.mk_clause [cond; invariant] [body_wp]) env vars
       in
-      Constr.mk_clause [cond] [false_cond]
-    in
-    let post = exit_pre env post node g loop in
-    let name = Format.sprintf "loop_%s" in
-    freshen ~name (Constr.mk_clause [exit_cond; invariant] [post]) env vars
-  in
-  let pre = Constr.mk_clause [] [invariant; iteration; exit] in
-  Env.add_precond env tid pre
+      (* forall y, ((~E ^ I) => R)[x <- y] *)
+      let exit, env =
+        let exit_cond =
+          let false_cond =
+            Bool.mk_false ctx
+            |> Constr.mk_goal "false"
+            |> Constr.mk_constr
+          in
+          Constr.mk_clause [cond] [false_cond]
+        in
+        let post = exit_pre env post node g loop in
+        let name = Format.sprintf "loop_%s" in
+        freshen ~name (Constr.mk_clause [exit_cond; invariant] [post]) env vars
+      in
+      let pre = Constr.mk_clause [] [invariant; iteration; exit] in
+      Env.add_precond env tid pre)
 
-(* Defaults to loop unrolling. If a user passes in a loop invariant, turns off
-   the loop unroller and verifies the invariant instead. *)
-let init_loop_handler (num_unroll : int) (loop_invariants : string Tid.Map.t)
-  : Env.loop_handler =
-  {
-    handle =
-      fun env post ~start:node g ->
-        let tid = node |> Graphs.Ir.Node.label |> Term.tid in
-        match Tid.Map.find loop_invariants tid with
-        | Some loop_invariant ->
-          debug "Checking loop invariant for %s%!" (Tid.to_string tid);
-          loop_invariant_checker env post ~start:node g loop_invariant
-        | None ->
-          debug "Unrolling loop for %s%!" (Tid.to_string tid);
-          loop_unroll num_unroll env post ~start:node g
-  }
-
-let default_loop_handler : Env.loop_handler =
-  init_loop_handler !num_unroll Tid.Map.empty
 
 let mk_env
     ?subs:(subs = Seq.empty)
@@ -1662,7 +1646,8 @@ let mk_env
     ?jmp_spec:(jmp_spec = jmp_spec_default)
     ?int_spec:(int_spec = int_spec_default)
     ?exp_conds:(exp_conds = [])
-    ?loop_handler:(loop_handler = default_loop_handler)
+    ?loop_handlers:(loop_handlers = [])
+    ?default_loop_handler:(default_loop_handler = loop_unroll !num_unroll)
     ?freshen_vars:(freshen_vars = false)
     ?use_fun_input_regs:(use_fun_input_regs = true)
     ?stack_range:(stack_range = default_stack_range)
@@ -1681,7 +1666,8 @@ let mk_env
     ~jmp_spec
     ~int_spec
     ~exp_conds
-    ~loop_handler
+    ~loop_handlers
+    ~default_loop_handler
     ~target
     ~freshen_vars
     ~use_fun_input_regs

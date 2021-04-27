@@ -249,8 +249,10 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
   let specs = fun_specs p to_inline in
   let exp_conds = exp_conds_mod p in
   let stack_range = Utils.update_stack ~base:p.stack_base ~size:p.stack_size in
-  let loop_invariant = Params.parse_loop_invariant p.loop_invariant main_sub in
-  let loop_handler = Pre.init_loop_handler !Pre.num_unroll loop_invariant in
+  let loop_invariant =
+    Params.parse_loop_invariant p.loop_invariant main_sub
+    |> Pre.loop_invariant_checker
+  in
   let env = Pre.mk_env z3_ctx var_gen
       ~subs
       ~target
@@ -259,7 +261,7 @@ let single (bap_ctx : ctxt) (z3_ctx : Z3.context) (var_gen : Env.var_gen)
       ~use_fun_input_regs:p.use_fun_input_regs
       ~exp_conds
       ~stack_range
-      ~loop_handler
+      ~loop_handlers:[loop_invariant]
   in
   let true_constr = Constr.trivial z3_ctx in
   let vars = Pre.get_vars env main_sub in

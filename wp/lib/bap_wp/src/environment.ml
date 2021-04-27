@@ -172,6 +172,20 @@ let init_sub_handler (subs : Sub.t Seq.t) (target : Theory.target)
         debug "%s: %s%!" (Sub.name sub) spec.spec_name;
         TidMap.set map ~key:(Term.tid sub) ~data:spec)
 
+let init_loop_handler
+    ~(default : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t)
+    (handlers : (Tid.t -> (t -> Constr.t -> start:Graphs.Ir.Node.t ->
+                           Graphs.Ir.t -> t) option) list)
+  : loop_handler =
+  {
+    handle =
+      fun env post ~start:node g ->
+        let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+        let handler = List.find_map handlers ~f:(fun handler -> handler tid)
+                      |> Option.value ~default in
+        handler env post ~start:node g
+  }
+
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
    - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -189,21 +203,23 @@ let init_sub_handler (subs : Sub.t Seq.t) (target : Theory.target)
    - a Z3 context
    - and a variable generator. *)
 let mk_env
-    ~subs:(subs : Sub.t Seq.t)
-    ~specs:(specs : (Sub.t -> Theory.target -> fun_spec option) list)
-    ~default_spec:(default_spec : Sub.t -> Theory.target -> fun_spec)
-    ~indirect_spec:(indirect_spec : indirect_spec)
-    ~jmp_spec:(jmp_spec : jmp_spec)
-    ~int_spec:(int_spec : int_spec)
-    ~exp_conds:(exp_conds : exp_cond list)
-    ~loop_handler:(loop_handler : loop_handler)
-    ~target:(target : Theory.target)
-    ~freshen_vars:(freshen_vars : bool)
-    ~use_fun_input_regs:(fun_input_regs : bool)
-    ~stack_range:(stack_range : mem_range)
-    ~data_section_range:(data_section_range : mem_range)
-    ~func_name_map:(func_name_map : string StringMap.t)
-    ~smtlib_compat:(smtlib_compat : bool)
+    ~(subs : Sub.t Seq.t)
+    ~(specs : (Sub.t -> Theory.target -> fun_spec option) list)
+    ~(default_spec : Sub.t -> Theory.target -> fun_spec)
+    ~(indirect_spec : indirect_spec)
+    ~(jmp_spec : jmp_spec)
+    ~(int_spec : int_spec)
+    ~(exp_conds : exp_cond list)
+    ~(loop_handlers : (Tid.t -> (t -> Constr.t -> start:Graphs.Ir.Node.t ->
+                                 Graphs.Ir.t -> t) option) list)
+    ~(default_loop_handler : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t)
+    ~(target : Theory.target)
+    ~(freshen_vars : bool)
+    ~(use_fun_input_regs : bool)
+    ~(stack_range : mem_range)
+    ~(data_section_range : mem_range)
+    ~(func_name_map : string StringMap.t)
+    ~(smtlib_compat : bool)
     (ctx : Z3.context)
     (var_gen : var_gen)
   : t =
@@ -220,11 +236,11 @@ let mk_env
     indirect_handler = indirect_spec;
     jmp_handler = jmp_spec;
     int_handler = int_spec;
-    loop_handler = loop_handler;
+    loop_handler = init_loop_handler ~default:default_loop_handler loop_handlers;
     unroll_depth = Unroll_depth.empty;
     exp_conds = exp_conds;
     target = target;
-    use_fun_input_regs = fun_input_regs;
+    use_fun_input_regs = use_fun_input_regs;
     stack = stack_range;
     data_section = data_section_range;
     init_vars = EnvMap.empty;

@@ -286,7 +286,10 @@ val mk_env
   -> ?jmp_spec:Env.jmp_spec
   -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
-  -> ?loop_handler:Env.loop_handler
+  -> ?loop_handlers:((Bap.Std.Tid.t -> (Env.t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t ->
+                                        Bap.Std.Graphs.Ir.t -> Env.t) option) list)
+  -> ?default_loop_handler:(Env.t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t ->
+                            Bap.Std.Graphs.Ir.t -> Env.t)
   -> ?freshen_vars:bool
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
@@ -367,7 +370,18 @@ val set_sp_range : Env.t -> Constr.t
     stack pointer. *)
 val construct_pointer_constraint : Constr.z3_expr list -> Env.t -> (Constr.z3_expr list) option -> Env.t option -> Constr.t
 
-(** [init_loop_handler num_unroll loop_invariants] creates a handler which
-    checks a loop invariant for a loop whose header is at the corresponding tid.
-    If no invariant is provided for a tid, defaults to loop unrolling. *)
-val init_loop_handler : int -> string Bap.Std.Tid.Map.t -> Env.loop_handler
+(** [loop_unroll num_unroll] returns a function that will unroll loops
+    [num_unroll] times. This is the default loop handler. *)
+val loop_unroll
+  : int ->
+  (Env.t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t
+   -> Bap.Std.Graphs.Ir.t -> Env.t)
+
+(** [loop_invariant_checker invariants tid] returns a function that will check
+    the loop invariant for the loop that starts at [tid] given that the
+    invariant exists in [invariants]. *)
+val loop_invariant_checker
+  : string Bap.Std.Tid.Map.t
+  -> Bap.Std.Tid.t
+  -> ((Env.t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t
+       -> Bap.Std.Graphs.Ir.t -> Env.t) option)
