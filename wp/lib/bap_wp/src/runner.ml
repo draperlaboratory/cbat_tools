@@ -487,10 +487,19 @@ let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
 (* Error for when the user specifies 0 or more than 2 files to analyze. *)
 type Bap_main.Extension.Error.t += Unsupported_file_count of string
 
+
+type input =
+  {
+    program : program term;
+    target : Theory.target;
+    filename : string;
+  }
+
+
 (* Entrypoint for the WP analysis. *)
 let run
     (p : params)
-    (files : (program term * Theory.target * string) list)
+    (files : input list)
   : (Z3.Solver.status, Bap_main.error) result =
   if (List.mem p.debug "z3-verbose"  ~equal:(String.equal)) then
     Z3.set_global_param "verbose" "10";
@@ -499,10 +508,13 @@ let run
   Utils.update_default_num_unroll p.num_unroll;
   (* Determine whether to perform a single or comparative analysis. *)
   match files with
-  | [(prog, tgt, file)] ->
+  | [input] ->
+    let {program = prog ; target = tgt; filename = file} = input in
     single z3_ctx var_gen p prog tgt file
     |> check_pre p z3_ctx
-  | [(prog1, tgt1, file1); (prog2, tgt2, file2)] ->
+  | [input1; input2] ->
+    let { program = prog1; target = tgt1; filename = file1} = input1 in
+    let { program = prog2; target = tgt2; filename = file2} = input2 in
     comparative
       z3_ctx var_gen p
       prog1 tgt1 file1

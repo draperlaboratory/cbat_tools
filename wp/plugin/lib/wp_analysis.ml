@@ -25,12 +25,16 @@ let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
   (* Unbundle the input file into its loaded program *)
   let mk_input file =
     let prog, tgt =
-            Utils.read_program
-              bap_ctx
-              ~loader:Utils.loader
-              ~filepath:file
-          in
-          (prog, tgt, file)
+      Utils.read_program
+        bap_ctx
+        ~loader:Utils.loader
+        ~filepath:file
+    in
+    Runner.{
+      program = prog;
+      target = tgt;
+      filename = file;
+    }
   in
   let input_list = List.map files ~f:mk_input in
   Runner.run p input_list |> Result.map ~f:(fun _ -> ())
