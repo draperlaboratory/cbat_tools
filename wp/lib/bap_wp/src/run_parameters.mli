@@ -96,3 +96,6 @@ val validate_mem_flags : bool -> bool -> string list -> (unit, error) result
 (** [validate_check_invalid_derefs flag files] checks that the flag is only set
     when there are two files to compare. Returns an error otherwise. *)
 val validate_check_invalid_derefs : bool -> string list -> (unit, error) result
+
+(** Creates the default parameters for easy invocation *)
+val default : func:string -> t

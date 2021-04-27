@@ -24,7 +24,7 @@ module BV = Z3.BitVector
 
 (* To run these tests: `make test.unit` in bap_wp directory *)
 
-let test_tgt = Test_utils.test_tgt
+let test_tgt = Testing_utilities.test_tgt
 
 let test_mk_smtlib2_single_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in

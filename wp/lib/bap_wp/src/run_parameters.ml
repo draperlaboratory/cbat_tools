@@ -152,3 +152,31 @@ let validate (f : t) (files : string list) : (unit, error) result =
   validate_debug f.debug >>= fun () ->
   validate_show f.show >>= fun () ->
   Ok ()
+
+let default ~func:(func : string) : t =
+  {
+    func = func;
+    precond = "";
+    postcond = "";
+    trip_asserts = false;
+    check_null_derefs = false;
+    check_invalid_derefs = false;
+    compare_func_calls = false;
+    compare_post_reg_values = [];
+    pointer_reg_list = [];
+    inline = None;
+    num_unroll = None;
+    gdb_output = None;
+    bildb_output = None;
+    use_fun_input_regs = false;
+    mem_offset = false;
+    rewrite_addresses = false;
+    debug = [];
+    stack_base = None;
+    stack_size = None;
+    show = [];
+    func_name_map = [];
+    user_func_spec = None;
+    fun_specs = [];
+    ext_solver_path = None
+  }

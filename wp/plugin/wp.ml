@@ -13,7 +13,7 @@
 
 open Bap_main
 
-module Parameters = Wp_parameters
+module Parameters = Bap_wp.Run_parameters
 module Analysis = Wp_analysis
 module Cmd = Extension.Command
 module Typ = Extension.Type
@@ -191,7 +191,7 @@ let show = Cmd.parameter Typ.(list string) "show"
            making the output easier to read. Warning: Coloring will change
            the syntax, so don't use this flag if you wish to pass the printed
            output as an input elsewhere.|}
-         
+
 let stack_base = Cmd.parameter Typ.(some int) "stack-base"
     ~doc:{|Sets the location of the stack frame for the function under
            analysis. By default, WP assumes the stack frame for the current

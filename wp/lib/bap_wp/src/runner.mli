@@ -11,30 +11,31 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open !Core_kernel
+(**
+
+   This module is the runner for WP. It will run either a single or comparative
+   analysis based on the number of files inputted by the user.
+
+*)
+
 open Bap_main
-open Bap_wp
+open Bap.Std
+open Bap_core_theory
 
 module Params = Run_parameters
-module Utils = Wp_utils
 
+type input =
+  {
+    program : program term;
+    target : Theory.target;
+    filename : string;
+  }
 
-(* Entrypoint for the WP analysis. *)
-let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
-  : (unit, error) result =
-  (* Unbundle the input file into its loaded program *)
-  let mk_input file =
-    let prog, tgt =
-      Utils.read_program
-        bap_ctx
-        ~loader:Utils.loader
-        ~filepath:file
-    in
-    Runner.{
-      program = prog;
-      target = tgt;
-      filename = file;
-    }
-  in
-  let input_list = List.map files ~f:mk_input in
-  Runner.run p input_list |> Result.map ~f:(fun _ -> ())
+(** [run params files ctxt] is the main entrypoint for WP. Based on the length
+    of [files], it will run either a single or comparative analysis. If 0 or
+    more than 2 files are given, an error is returned. [params] sets the
+    properties WP will check and update default options. *)
+val run :
+  Params.t
+  -> input list
+  -> (Z3.Solver.status, error) result
