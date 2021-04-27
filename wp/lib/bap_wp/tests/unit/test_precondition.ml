@@ -16,7 +16,7 @@ open Bap.Std
 open OUnit2
 open Bap_wp
 open Bil_to_bir
-open Test_utils
+open Testing_utilities
 
 module Pre = Precondition
 module Constr = Constraint
@@ -28,7 +28,7 @@ module BV = Z3.BitVector
 
 (* To run these tests: `make test.unit` in bap_wp directory *)
 
-let test_tgt = Test_utils.test_tgt
+let test_tgt = Testing_utilities.test_tgt
 
 let assert_z3_result (test_ctx : test_ctxt) (env : Env.t) (body : string)
     (post : Constr.t) (pre : Constr.t) (expected : Z3.Solver.status) : unit =
