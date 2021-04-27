@@ -153,7 +153,7 @@ let validate (f : t) (files : string list) : (unit, error) result =
   validate_show f.show >>= fun () ->
   Ok ()
 
-let default ~func:(func : string) =
+let default ~func:(func : string) : t =
   {
     func = func;
     precond = "";
