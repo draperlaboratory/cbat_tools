@@ -16,7 +16,7 @@ open Bap.Std
 open OUnit2
 open Bap_wp
 open Bil_to_bir
-open Test_utils
+open Testing_utilities
 
 module Pre = Precondition
 module Constr = Constraint

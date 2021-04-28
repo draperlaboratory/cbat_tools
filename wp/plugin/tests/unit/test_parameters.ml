@@ -16,7 +16,7 @@ open OUnitTest
 open !Core_kernel
 open Bap_main
 
-module Params = Wp_parameters
+module Params = Bap_wp.Run_parameters
 
 (* To run these tests: `make test` in wp directory *)
 
@@ -24,7 +24,7 @@ let test_validate_input
     ?length:(length = Immediate)
     ~valid:(valid : bool)
     (res : (unit, error) result)
-   : test =
+  : test =
   let test _ = match res with
     | Error _ -> assert_bool "Returned an error when params are valid" (not valid)
     | Ok () -> assert_bool "Should have returned an error for an invalid param" valid

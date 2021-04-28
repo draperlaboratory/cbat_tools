@@ -13,7 +13,7 @@
 
 open Bap_main
 
-module Parameters = Wp_parameters
+module Parameters = Bap_wp.Run_parameters
 module Analysis = Wp_analysis
 module Cmd = Extension.Command
 module Typ = Extension.Type

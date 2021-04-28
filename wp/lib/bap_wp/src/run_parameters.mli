@@ -104,3 +104,6 @@ val validate_check_invalid_derefs : bool -> string list -> (unit, error) result
      corresponding loop invariant, and returns a format accepted by the
      environment. *)
 val parse_loop_invariant : string -> Sub.t -> string Tid.Map.t
+
+(** Creates the default parameters for easy invocation *)
+val default : func:string -> t

@@ -15,7 +15,6 @@ open OUnit2
 
 let suite =
   "Unit suite" >::: [
-    "Utils"           >::: Test_utils.suite;
     "Parameters"      >::: Test_parameters.suite;
     "WP.unit"         >::: Test_wp_unit.unit_tests;
   ]

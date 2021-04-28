@@ -20,7 +20,7 @@
 
 open Bap_main
 
-module Params = Wp_parameters
+module Params = Bap_wp.Run_parameters
 
 (** [run params files ctxt] is the main entrypoint for WP. Based on the length
     of [files], it will run either a single or comparative analysis. If 0 or

@@ -14,9 +14,9 @@
 open !Core_kernel
 open Bap.Std
 open OUnit2
+open Testing_utilities
 open Bap_wp
 open Bil_to_bir
-open Test_utils
 
 module Pre = Precondition
 module Comp = Compare
