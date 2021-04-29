@@ -92,11 +92,9 @@ and jmp_spec = t -> Constr.t -> Tid.t -> Jmp.t -> (Constr.t * t) option
 
 and int_spec = t -> Constr.t -> int -> Constr.t * t
 
-and loop_handler = {
-  (* Updates the environment with the preconditions computed by
-     the loop handling procedure for the appropriate blocks *)
-  handle : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
-}
+(* Updates the environment with the preconditions computed by
+   the loop handling procedure for the appropriate blocks *)
+and loop_handler = t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t
 
 and cond = BeforeExec of Constr.goal | AfterExec of Constr.goal
 
@@ -173,18 +171,14 @@ let init_sub_handler (subs : Sub.t Seq.t) (target : Theory.target)
         TidMap.set map ~key:(Term.tid sub) ~data:spec)
 
 let init_loop_handler
-    ~(default : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t)
-    (handlers : (Tid.t -> (t -> Constr.t -> start:Graphs.Ir.Node.t ->
-                           Graphs.Ir.t -> t) option) list)
+    ~(default : loop_handler)
+    (handlers : (Tid.t -> loop_handler option) list)
   : loop_handler =
-  {
-    handle =
-      fun env post ~start:node g ->
-        let tid = node |> Graphs.Ir.Node.label |> Term.tid in
-        let handler = List.find_map handlers ~f:(fun handler -> handler tid)
-                      |> Option.value ~default in
-        handler env post ~start:node g
-  }
+  fun env post ~start:node g ->
+  let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+  let handler = List.find_map handlers ~f:(fun handler -> handler tid)
+                |> Option.value ~default in
+  handler env post ~start:node g
 
 (* Creates a new environment with
    - a sequence of subroutines in the program used to initialize function specs
@@ -210,9 +204,8 @@ let mk_env
     ~(jmp_spec : jmp_spec)
     ~(int_spec : int_spec)
     ~(exp_conds : exp_cond list)
-    ~(loop_handlers : (Tid.t -> (t -> Constr.t -> start:Graphs.Ir.Node.t ->
-                                 Graphs.Ir.t -> t) option) list)
-    ~(default_loop_handler : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t)
+    ~(loop_handlers : (Tid.t -> loop_handler option) list)
+    ~(default_loop_handler : loop_handler)
     ~(target : Theory.target)
     ~(freshen_vars : bool)
     ~(use_fun_input_regs : bool)
@@ -337,9 +330,8 @@ let get_jmp_handler (env : t) : jmp_spec =
 let get_int_handler (env : t) : int_spec =
   env.int_handler
 
-let get_loop_handler (env : t)
-  : t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> t =
-  env.loop_handler.handle
+let get_loop_handler (env : t) : loop_handler =
+  env.loop_handler
 
 let get_call_preds (env : t) : ExprSet.t =
   env.call_preds

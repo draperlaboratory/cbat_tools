@@ -67,9 +67,8 @@ type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> (Constr.t * t
 type int_spec = t -> Constr.t -> int -> Constr.t * t
 
 (** The loop handling procedure for the appropriate blocks. *)
-type loop_handler = {
-  handle : t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
-}
+type loop_handler =
+  t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
 
 (** Condition generated when exploring an expression: [BeforeExec] will generate a
     {! Constr.goal} to be added to the postcondition before any substitution is made,
@@ -101,17 +100,8 @@ type unroll_depth = int Unroll_depth.t
     be used when visiting a loop in the subroutine. The handler used is based
     off of the loop's tid. *)
 val init_loop_handler
-  : default:(t
-             -> Constr.t
-             -> start:Bap.Std.Graphs.Ir.Node.t
-             -> Bap.Std.Graphs.Ir.t
-             -> t)
-  -> ((Bap.Std.Tid.t
-       -> (t
-           -> Constr.t
-           -> start:Bap.Std.Graphs.Ir.Node.t
-           -> Bap.Std.Graphs.Ir.t
-           -> t) option) list)
+  : default:loop_handler
+  -> (Bap.Std.Tid.t -> loop_handler option) list
   -> loop_handler
 
 (** Creates a new environment with
@@ -140,10 +130,8 @@ val mk_env
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
-  -> loop_handlers:((Bap.Std.Tid.t -> (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t ->
-                                       Bap.Std.Graphs.Ir.t -> t) option) list)
-  -> default_loop_handler:(t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t ->
-                           Bap.Std.Graphs.Ir.t -> t)
+  -> loop_handlers:(Bap.Std.Tid.t -> loop_handler option) list
+  -> default_loop_handler:loop_handler
   -> target:Theory.target
   -> freshen_vars:bool
   -> use_fun_input_regs:bool

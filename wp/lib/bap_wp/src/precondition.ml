@@ -1418,8 +1418,7 @@ let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
    - Otherwise, decrement the [depth] map which tracks the unrollings for that node, and
      recursively call [Precondition.visit_graph]. Because this function is defined in another
      (later) module, we use open recursion via the [wp_rec_call] function reference. *)
-let loop_unroll (num_unroll : int)
-  : Env.t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> Env.t =
+let loop_unroll (num_unroll : int) : Env.loop_handler =
   let module Node = Graphs.Ir.Node in
   let find_depth depth node = Env.Unroll_depth.find depth (Node.label node)
                               |> Option.value ~default:num_unroll
@@ -1598,7 +1597,7 @@ let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
     post
 
 let loop_invariant_checker (loop_invariants : string Tid.Map.t) (tid : Tid.t)
-  : (Env.t -> Constr.t -> start:Graphs.Ir.Node.t -> Graphs.Ir.t -> Env.t) option =
+  : Env.loop_handler option =
   let* loop_invariant = Tid.Map.find loop_invariants tid in
   Some (fun env post ~start:node g ->
       (* WP(while E do S done, R) *)
