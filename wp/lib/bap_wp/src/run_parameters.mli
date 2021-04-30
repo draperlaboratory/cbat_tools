@@ -23,6 +23,8 @@ open Bap_main
 open Bap.Std
 open Monads.Std
 
+module Env = Environment
+
 (** A result monad that includes Extension.Error.t as the error type. This
     error is returned when a user passes in an invalid parameter. *)
 module Err : Monad.Result.S with
@@ -103,7 +105,7 @@ val validate_check_invalid_derefs : bool -> string list -> (unit, error) result
      S-expression representing the address of a loop header and its
      corresponding loop invariant, and returns a format accepted by the
      environment. *)
-val parse_loop_invariant : string -> Sub.t -> string Tid.Map.t
+val parse_loop_invariant : string -> Sub.t -> Env.loop_invariants
 
 (** Creates the default parameters for easy invocation *)
 val default : func:string -> t

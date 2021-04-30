@@ -369,12 +369,13 @@ val set_sp_range : Env.t -> Constr.t
 
 val construct_pointer_constraint : Constr.z3_expr list -> Env.t -> (Constr.z3_expr list) option -> Env.t option -> Constr.t
 
-(** [loop_unroll num_unroll] returns a function that will unroll loops
-    [num_unroll] times. This is the default loop handler. *)
+(** [loop_unroll num_unroll] returns a function that will compute the
+    precondition of nodes within loops by assuming that the loop was traversed
+    at most [num_unroll] times. This is the default loop handler. *)
 val loop_unroll : int -> Env.loop_handler
 
 (** [loop_invariant_checker invariants tid] returns a function that will check
     the loop invariant for the loop that starts at [tid] given that the
     invariant exists in [invariants]. *)
 val loop_invariant_checker
-  : string Bap.Std.Tid.Map.t -> Bap.Std.Tid.t -> Env.loop_handler option
+  : Env.loop_invariants -> Bap.Std.Tid.t -> Env.loop_handler option

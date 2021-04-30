@@ -96,6 +96,8 @@ type mem_range = {
 (** A map containing the current depth for a block when unrolling a loop. *)
 type unroll_depth = int Unroll_depth.t
 
+type loop_invariants = string Bap.Std.Tid.Map.t
+
 (** [init_loop_handler default handlers] takes in a list of handlers that will
     be used when visiting a loop in the subroutine. The handler used is based
     off of the loop's tid. *)

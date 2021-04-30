@@ -16,6 +16,8 @@ open Bap_main
 open Bap.Std
 open Monads.Std
 
+module Env = Environment
+
 (* Error for when a user does not specify a function to analyze. *)
 type Extension.Error.t += Missing_function of string
 
@@ -165,7 +167,7 @@ let validate (f : t) (files : string list) : (unit, error) result =
 (* Parses the loop invariant and address from the user into the format accepted
    by the environment. *)
 let parse_loop_invariant (invariants : string) (sub : Sub.t)
-  : string Tid.Map.t =
+  : Env.loop_invariants =
   if String.is_empty invariants then
     Tid.Map.empty
   else

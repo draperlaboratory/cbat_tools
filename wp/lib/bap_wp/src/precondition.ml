@@ -881,6 +881,8 @@ let unreachable_from_start (graph : Graphs.Ir.t) (start : Graphs.Ir.Node.t)
     (node : Graphs.Ir.Node.t) : bool =
   not (Graphlib.is_reachable (module Graphs.Ir) graph start node)
 
+(* If you skip a node for which another node needs the prcondition, this
+   function may fail. *)
 let visit_graph (env : Env.t) (post : Constr.t)
     ~(start : Graphs.Ir.Node.t) ~(skip_node : Graphs.Ir.Node.t -> bool)
     (g : Graphs.Ir.t) : Constr.t * Env.t =
@@ -902,7 +904,10 @@ let visit_graph (env : Env.t) (post : Constr.t)
         let handler = Env.get_loop_handler env in
         post, handler env post ~start:dst g
       end
-    | _ -> post, env
+    | _ ->
+      (* We return postcondition for the entire graph rather than the
+         postcondition for a single block. *)
+      post, env
   in
   Graphlib.depth_first_search (module Filtered_graph)
     ~enter_edge:enter_edge ~start:start ~leave_node:leave_node ~init:(post, env)
@@ -1404,9 +1409,7 @@ let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
 (* This is the default handler for loops, which unrolls a loop by:
    - Looking at the target node for a backjump
    - If the node has been visited more than [num_unroll] times, use the [loop_exit_pre] precondition
-   - Otherwise, decrement the [depth] map which tracks the unrollings for that node, and
-     recursively call [Precondition.visit_graph]. Because this function is defined in another
-     (later) module, we use open recursion via the [wp_rec_call] function reference. *)
+   - Otherwise, decrement the [depth] map which tracks the unrollings for that node *)
 let loop_unroll (num_unroll : int) : Env.loop_handler =
   let module Node = Graphs.Ir.Node in
   let find_depth env node =
@@ -1581,7 +1584,9 @@ let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
     warning "Trivial precondition is being used for node %s\n%!" (Tid.to_string tid);
     post
 
-let loop_invariant_checker (loop_invariants : string Tid.Map.t) (tid : Tid.t)
+(* From the predicate transformer semantics from:
+   https://en.wikipedia.org/wiki/Predicate_transformer_semantics#While_loop *)
+let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
   : Env.loop_handler option =
   let* loop_invariant = Tid.Map.find loop_invariants tid in
   Some (fun env post ~start:node g ->

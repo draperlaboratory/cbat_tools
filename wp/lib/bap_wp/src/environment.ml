@@ -41,6 +41,8 @@ module Unroll_depth = Blk.Map
 
 type unroll_depth = int Unroll_depth.t
 
+type loop_invariants = string Tid.Map.t
+
 type var_gen = int ref
 
 type mem_range = {
