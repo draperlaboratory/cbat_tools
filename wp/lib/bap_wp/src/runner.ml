@@ -324,7 +324,7 @@ let single
   let exp_conds = exp_conds_mod p in
   let stack_range = update_stack ~base:p.stack_base ~size:p.stack_size in
   let loop_invariant =
-    Params.parse_loop_invariant p.loop_invariant main_sub
+    Params.parse_loop_invariant p.loop_invariant target main_sub
     |> Pre.loop_invariant_checker
   in
   let env =

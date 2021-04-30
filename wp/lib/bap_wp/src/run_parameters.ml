@@ -13,6 +13,7 @@
 
 open !Core_kernel
 open Bap_main
+open Bap_core_theory
 open Bap.Std
 open Monads.Std
 
@@ -166,8 +167,8 @@ let validate (f : t) (files : string list) : (unit, error) result =
 
 (* Parses the loop invariant and address from the user into the format accepted
    by the environment. *)
-let parse_loop_invariant (invariants : string) (sub : Sub.t)
-  : Env.loop_invariants =
+let parse_loop_invariant (invariants : string) (target : Theory.target)
+    (sub : Sub.t) : Env.loop_invariants =
   if String.is_empty invariants then
     Tid.Map.empty
   else
@@ -178,7 +179,8 @@ let parse_loop_invariant (invariants : string) (sub : Sub.t)
         | Some address ->
           let invs = invariant_list_of_sexp (Sexp.of_string invariants) in
           List.fold invs ~init:map ~f:(fun m inv ->
-              let addr = Addr.of_string inv.address in
+              let bitvec = Bitvec.of_string inv.address in
+              let addr = Addr.code_addr target bitvec in
               if Addr.equal address addr then
                 let tid = Term.tid blk in
                 Tid.Map.set m ~key:tid ~data:inv.invariant

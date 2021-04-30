@@ -1,4 +1,4 @@
-(((address 0x1E:64u)
+(((address 0x1E)
  (invariant
    "(assert
       (let ((x!1 ((_ zero_extend 32) ((_ extract 31 0) RDI)))

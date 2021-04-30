@@ -1,4 +1,4 @@
-(((address 0x12:64u)
+(((address 0x12)
  (invariant
    "(assert
       (let ((x!1 (concat (select mem (bvadd #xffffffffffffffff RBP))
