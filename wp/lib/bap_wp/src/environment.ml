@@ -441,8 +441,9 @@ let get_init_var (env : t) (var : Var.t) : Constr.z3_expr option =
 let map_sub_name (env : t) (name_mod : string) : string =
   get_mapped_name name_mod env.func_name_map
 
-let get_unroll_depth (env : t) : unroll_depth =
-  env.unroll_depth
+let get_unroll_depth (env : t) (node : Blk.t) : int option =
+  Unroll_depth.find env.unroll_depth node
 
-let set_unroll_depth (env : t) (depth : unroll_depth) : t =
-  { env with unroll_depth = depth }
+let set_unroll_depth (env : t) (node : Blk.t) ~(f : int option -> int) : t =
+  let updated_depth = Unroll_depth.update env.unroll_depth node ~f in
+  { env with unroll_depth = updated_depth }

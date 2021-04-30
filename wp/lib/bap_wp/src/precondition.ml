@@ -1420,18 +1420,15 @@ let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
      (later) module, we use open recursion via the [wp_rec_call] function reference. *)
 let loop_unroll (num_unroll : int) : Env.loop_handler =
   let module Node = Graphs.Ir.Node in
-  let find_depth depth node = Env.Unroll_depth.find depth (Node.label node)
-                              |> Option.value ~default:num_unroll
+  let find_depth env node =
+    Env.get_unroll_depth env (Node.label node)
+    |> Option.value ~default:num_unroll
   in
-  let decr_depth depth node =
-    Env.Unroll_depth.update depth (Node.label node)
-      ~f:(function None -> num_unroll - 1 | Some n -> n - 1)
-  in
+  let decr_depth = function None -> num_unroll - 1 | Some n -> n - 1 in
   let unroll env pre ~start:node g =
     let tid = node |> Node.label |> Term.tid in
     debug "Unrolling loop for %s%!" (Tid.to_string tid);
-    let depth = Env.get_unroll_depth env in
-    if find_depth depth node <= 0 then
+    if find_depth env node <= 0 then
       let pre =
         List.find_map [loop_exit] ~f:(fun spec ->
             let* exit = spec node g in
@@ -1448,8 +1445,7 @@ let loop_unroll (num_unroll : int) : Env.loop_handler =
       Env.add_precond env tid pre
     else
       begin
-        let updated_depth = decr_depth depth node in
-        let updated_env = Env.set_unroll_depth env updated_depth in
+        let updated_env = Env.set_unroll_depth env (Node.label node) ~f:decr_depth in
         let _, env = visit_graph updated_env pre
             ~start:node ~skip_node:(unreachable_from_start g node) g in
         env

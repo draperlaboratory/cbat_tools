@@ -318,13 +318,13 @@ val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
     [name_mod] (when calling this function from the original binary. *)
 val map_sub_name : t -> string -> string
 
-(** [get_unroll_depth env] obtains the map containing the depths for each block
-    when unrolling a loop. *)
-val get_unroll_depth : t -> unroll_depth
+(** [get_unroll_depth env node] obtains the unroll depth for [node] when
+    unrolling a loop. *)
+val get_unroll_depth : t -> Bap.Std.Blk.t -> int option
 
-(** [set_unroll_depth env depth] updates the map with the new unroll depths for
-    each block. *)
-val set_unroll_depth : t -> unroll_depth -> t
+(** [set_unroll_depth env node depth] updates the map with the new unroll depth
+    for [node]. *)
+val set_unroll_depth : t -> Bap.Std.Blk.t -> f:(int option -> int) -> t
 
 (*-------- Z3 constant creation utilities ----------*)
 
