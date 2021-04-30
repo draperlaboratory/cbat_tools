@@ -399,17 +399,6 @@ let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
       Env.add_call_pred env sub_to) in
   Constr.substitute post subs_from subs_to, env
 
-(* Creates fresh names for [vars] found in the constraint. Optionally takes in
-   a function that maps the original variable name to the fresh name. Defaults
-   to [fresh_var]. *)
-let freshen ?(name = Format.sprintf "fresh_%s") (constr : Constr.t)
-    (env : Env.t) (vars : Var.Set.t) : Constr.t * Env.t =
-  Var.Set.fold vars ~init:(constr, env) ~f:(fun (constr, env) v ->
-      let z3_v, env = Env.get_var env v in
-      let name = name (Expr.to_string z3_v) in
-      let fresh = Env.new_z3_expr ~name env (Var.typ v) in
-      Constr.substitute_one constr z3_v fresh, Env.add_call_pred env fresh)
-
 let is_amd64 tgt = Theory.Target.matches tgt "amd64"
 let is_i386 tgt = Theory.Target.matches tgt "i386"
 let is_arm tgt = Theory.Target.matches tgt "arm"
@@ -618,7 +607,7 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option
                | None -> failwith "Verifier headerfile must be specified with --api-path" in
              let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
              let name = Format.sprintf "%s_ret_%s" (Sub.name sub) in
-             freshen ~name post env vars)
+             Env.freshen ~name post env vars)
     }
   else
     None
@@ -1613,7 +1602,7 @@ let loop_invariant_checker (loop_invariants : string Tid.Map.t) (tid : Tid.t)
       let iteration, env =
         let body_wp, env = visit_sub env invariant body in
         let name = Format.sprintf "loop_%s" in
-        freshen ~name (Constr.mk_clause [cond; invariant] [body_wp]) env vars
+        Env.freshen ~name (Constr.mk_clause [cond; invariant] [body_wp]) env vars
       in
       (* forall y, ((~E ^ I) => R)[x <- y] *)
       let exit, env =
@@ -1627,7 +1616,7 @@ let loop_invariant_checker (loop_invariants : string Tid.Map.t) (tid : Tid.t)
         in
         let post = exit_pre env post node g loop in
         let name = Format.sprintf "loop_%s" in
-        freshen ~name (Constr.mk_clause [exit_cond; invariant] [post]) env vars
+        Env.freshen ~name (Constr.mk_clause [exit_cond; invariant] [post]) env vars
       in
       let pre = Constr.mk_clause [] [invariant; iteration; exit] in
       Env.add_precond env tid pre)

@@ -161,6 +161,12 @@ val get_fresh : ?name:string -> var_gen -> string
     create fresh variables. *)
 val set_freshen : t -> bool -> t
 
+(** [freshen ~name constr env vars] creates fresh names for [vars] found in
+    [constr]. Optionally takes in [name], which is a function that maps the
+    original variable name to the fresh name. Defaults to [fresh_var]. *)
+val freshen :
+  ?name:(string -> string) -> Constr.t -> t -> Bap.Std.Var.Set.t -> Constr.t * t
+
 (** Add a z3 expression representing a function call predicate generated during
     the analysis to the environment. *)
 val add_call_pred : t -> Constr.z3_expr -> t

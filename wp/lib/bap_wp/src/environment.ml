@@ -447,3 +447,17 @@ let get_unroll_depth (env : t) (node : Blk.t) : int option =
 let set_unroll_depth (env : t) (node : Blk.t) ~(f : int option -> int) : t =
   let updated_depth = Unroll_depth.update env.unroll_depth node ~f in
   { env with unroll_depth = updated_depth }
+
+let freshen ?(name = Format.sprintf "fresh_%s") (constr : Constr.t)
+    (env : t) (vars : Var.Set.t) : Constr.t * t =
+  let substitutions =
+    List.map (Var.Set.to_list vars) ~f:(fun v ->
+        let z3_v, env = get_var env v in
+        let name = name (Expr.to_string z3_v) in
+        let fresh = new_z3_expr ~name env (Var.typ v) in
+        (z3_v, fresh))
+  in
+  let subs_from, subs_to = List.unzip substitutions in
+  let env = List.fold subs_to ~init:env ~f:(fun env sub_to ->
+      add_call_pred env sub_to) in
+  Constr.substitute constr subs_from subs_to, env
