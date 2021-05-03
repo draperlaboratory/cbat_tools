@@ -240,6 +240,10 @@ val get_indirect_handler : t -> Bap.Std.Exp.t -> indirect_spec
     jumps in a BIR program. *)
 val get_jmp_handler : t -> jmp_spec
 
+(** Updates the list of jmp_specs used to calculate the precondition of
+    jumps in a BIR program. *)
+val set_jmp_handler : t -> jmp_spec -> t
+
 (** Looks up the specification of calculating the precondition of an interrupt. *)
 val get_int_handler : t -> int_spec
 

@@ -329,6 +329,9 @@ let get_indirect_handler (env : t) (_exp : Exp.t) : indirect_spec =
 let get_jmp_handler (env : t) : jmp_spec =
   env.jmp_handler
 
+let set_jmp_handler (env : t) (spec : jmp_spec) : t =
+  { env with jmp_handler = spec }
+
 let get_int_handler (env : t) : int_spec =
   env.int_handler
 

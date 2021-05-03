@@ -1390,7 +1390,12 @@ let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
 (* Looks up the exit node of a loop by:
    - obtaining the post dominator tree
    - for each node in the SCC, find its parent in the dominator tree
-   - if the parent node is not in the original SCC, it is an exit node *)
+   - if the parent node is not in the original SCC, it is an exit node.
+
+   The exit node of a loop is the first node outside of the SCC in the control
+   flow graph. This should be the node the loop header points to that isn't a
+   part of the loop.
+*)
 let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
   : Graphs.Ir.Node.t option =
   let module Node = Graphs.Ir.Node in
@@ -1468,48 +1473,45 @@ let get_branch (blk : Blk.t) : (Jmp.t * Jmp.t) option =
   | [jmp1; jmp2] -> Some (jmp1, jmp2)
   | _ -> None
 
-(* Gets the BAP expression that represents the condition for going into the
-   loop. *)
-let get_branch_condition (loop : Graphs.Ir.Node.t group) (jmp1 : Jmp.t)
-    (jmp2 : Jmp.t) : Exp.t option =
-  match target jmp1, target jmp2 with
-  | Some target1, Some target2 ->
-    if in_loop loop target1 then
-      (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
-      Some (Jmp.cond jmp1)
-    else if in_loop loop target2 then
-      (* jmp1 exits, jmp2 goes to loop. while(E) is the negation of jmp1's
-         condition. *)
-      Some Bil.(unop not (Jmp.cond jmp1))
-    else
-      None
-  | _, _ -> None
-
 (* Gets a constraint representing the condition for a loop. *)
 let get_cond (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
   : Constr.t option =
   let ctx = Env.get_context env in
   let* jmp1, jmp2 = get_branch blk in
-  let* branch_cond = get_branch_condition loop jmp1 jmp2 in
-  let cond_val, _, env = exp_to_z3 branch_cond env in
-  let cond_size = BV.get_size (Expr.get_sort cond_val) in
-  let loop_guard =
+  let mk_loop_guard branch_cond =
+    let cond_val, _, _ = exp_to_z3 branch_cond env in
+    let cond_size = BV.get_size (Expr.get_sort cond_val) in
     Bool.mk_not ctx (Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size))
     |> Constr.mk_goal "Loop guard"
     |> Constr.mk_constr
   in
-  (* Compute to get the constraint at the top of the block. *)
-  let compute elts =
-    Seq.fold elts ~init:(loop_guard, env) ~f:(fun (pre, env) elt ->
-        match elt with
-        | `Def _ | `Phi _ -> visit_elt env pre elt
-        | `Jmp jmp ->
-          if (Jmp.equal jmp jmp1) || (Jmp.equal jmp jmp2) then
-            pre, env
+  let skip_jmps =
+    fun env post _ jmp : (Constr.t * Env.t) option ->
+      if Jmp.equal jmp jmp2 then
+        Some (post, env)
+      else if Jmp.equal jmp jmp1 then
+        (* Gets the constraint that represents the condition for going into the
+           loop. *)
+        match target jmp1, target jmp2 with
+        | Some target1, Some target2 ->
+          if in_loop loop target1 then
+            (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
+            let cond = Jmp.cond jmp1 in
+            Some (mk_loop_guard cond, env)
+          else if in_loop loop target2 then
+            (* jmp1 exits, jmp2 goes to loop. while(E) is the negation of jmp1's
+               condition. *)
+            let cond = Bil.(unop not (Jmp.cond jmp1)) in
+            Some (mk_loop_guard cond, env)
           else
-            visit_elt env pre elt)
+            None
+        | _, _ ->
+          None
+      else
+        None
   in
-  let pre, _ = blk |> Blk.elts ~rev:true |> compute in
+  let updated_env = Env.set_jmp_handler env skip_jmps in
+  let pre, _ = visit_block updated_env (Constr.trivial ctx) blk in
   Some pre
 
 (* Gets the body of a loop without the header node containing the loop
@@ -1545,11 +1547,12 @@ let split_loop (loop : Graphs.Ir.Node.t group) (graph : Graphs.Ir.t) (env : Env.
   : (Constr.t * Sub.t) option =
   let sub = Sub.of_cfg graph in
   Seq.find_map (Term.enum blk_t sub) ~f:(fun blk ->
-      match get_cond loop blk env with
-      | Some cond ->
+      if in_loop loop (Term.tid blk) then
+        let* cond = get_cond loop blk env in
         let body = Sub.of_cfg (get_body graph loop blk) in
         Some (cond, body)
-      | None -> None)
+      else
+        None)
 
 (* Gets a set of vars that get updated in the body of a loop. *)
 let loop_vars (sub : Sub.t) : Var.Set.t =
