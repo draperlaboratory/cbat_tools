@@ -1473,54 +1473,71 @@ let get_branch (blk : Blk.t) : (Jmp.t * Jmp.t) option =
   | [jmp1; jmp2] -> Some (jmp1, jmp2)
   | _ -> None
 
-(* Gets a constraint representing the condition for a loop. *)
-let get_cond (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
-  : Constr.t option =
+(* Creates a constraint that represents the loop guard out from a BAP
+   expression. *)
+let mk_loop_guard (env : Env.t) (branch_cond : Exp.t) : Constr.t =
   let ctx = Env.get_context env in
+  let cond_val, _, _ = exp_to_z3 branch_cond env in
+  let cond_size = BV.get_size (Expr.get_sort cond_val) in
+  Bool.mk_not ctx (Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size))
+  |> Constr.mk_goal "Loop guard"
+  |> Constr.mk_constr
+
+(* If [blk] is a loop header, gets the constraint that represents the condition
+   for a loop. Returns None if [blk] is not the loop header. *)
+let loop_condition (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
+  : Constr.t option =
   let* jmp1, jmp2 = get_branch blk in
-  let mk_loop_guard branch_cond =
-    let cond_val, _, _ = exp_to_z3 branch_cond env in
-    let cond_size = BV.get_size (Expr.get_sort cond_val) in
-    Bool.mk_not ctx (Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size))
-    |> Constr.mk_goal "Loop guard"
-    |> Constr.mk_constr
-  in
-  let skip_jmps =
-    fun env post _ jmp : (Constr.t * Env.t) option ->
+  let* target1 = target jmp1 in
+  let* target2 = target jmp2 in
+  let target_in_loop1 = in_loop loop target1 in
+  let target_in_loop2 = in_loop loop target2 in
+  let jmp_condition =
+    fun env post _ jmp ->
       if Jmp.equal jmp jmp2 then
         Some (post, env)
-      else if Jmp.equal jmp jmp1 then
+      else if Jmp.equal jmp jmp1 then begin
         (* Gets the constraint that represents the condition for going into the
            loop. *)
-        match target jmp1, target jmp2 with
-        | Some target1, Some target2 ->
-          if in_loop loop target1 then
-            (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
-            let cond = Jmp.cond jmp1 in
-            Some (mk_loop_guard cond, env)
-          else if in_loop loop target2 then
-            (* jmp1 exits, jmp2 goes to loop. while(E) is the negation of jmp1's
-               condition. *)
-            let cond = Bil.(unop not (Jmp.cond jmp1)) in
-            Some (mk_loop_guard cond, env)
-          else
-            None
-        | _, _ ->
+        if target_in_loop1 then
+          (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
+          let cond = Jmp.cond jmp1 in
+          Some (mk_loop_guard env cond, env)
+        else if target_in_loop2 then
+          (* jmp1 exits, jmp2 goes to loop. while(E) is the negation of jmp1's
+             condition. *)
+          let cond = Bil.(unop not (Jmp.cond jmp1)) in
+          Some (mk_loop_guard env cond, env)
+        else
           None
-      else
+      end else
         None
   in
-  let updated_env = Env.set_jmp_handler env skip_jmps in
-  let pre, _ = visit_block updated_env (Constr.trivial ctx) blk in
-  Some pre
+  (* If the block is the loop header. *)
+  if Core_kernel.Bool.(target_in_loop1 <> target_in_loop2) then
+    let ctx = Env.get_context env in
+    let updated_env = Env.set_jmp_handler env jmp_condition in
+    let pre, _ = visit_block updated_env (Constr.trivial ctx) blk in
+    Some pre
+  else
+    None
 
-(* Gets the body of a loop without the header node containing the loop
-   condition. *)
-let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) (blk : Blk.t)
+(* Returns a constraint that represents the condition for entering a loop. *)
+let get_cond (loop : Graphs.Ir.Node.t group) (graph : Graphs.Ir.t) (env : Env.t)
+  : Constr.t option =
+  let sub = Sub.of_cfg graph in
+  Seq.find_map (Term.enum blk_t sub) ~f:(fun blk ->
+      if in_loop loop (Term.tid blk) then
+        loop_condition loop blk env
+      else
+        None)
+
+(* Gets the body of a loop without any edges pointing to outside of the loop. *)
+let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group)
   : Graphs.Ir.t =
   let outside_loop node =
     let label = Graphs.Ir.Node.label node in
-    (Blk.equal label blk) || (not @@ in_loop loop (Term.tid label))
+    not @@ in_loop loop (Term.tid label)
   in
   (* Removes the block that represents the loop header which determines
      whether to jump to the loop or exit. *)
@@ -1531,28 +1548,18 @@ let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) (blk : Blk.t)
       g
   in
   (* Removes edges that exit the loop. *)
-  let enter_edge _ edge g =
-    let dst = Graphs.Ir.Edge.dst edge in
-    if outside_loop dst then
-      Graphs.Ir.Edge.remove edge g
-    else
-      g
+  let enter_edge kind edge g =
+    match kind with
+    | `Back -> Graphs.Ir.Edge.remove edge g
+    | _ ->
+      let dst = Graphs.Ir.Edge.dst edge in
+      if outside_loop dst then
+        Graphs.Ir.Edge.remove edge g
+      else
+        g
   in
   Graphlib.depth_first_search (module Graphs.Ir)
     ~enter_node ~enter_edge ~init:graph graph
-
-(* Splits the loop into the condition and the body of the loop. Assumes there
-   are no breaks in the loop. *)
-let split_loop (loop : Graphs.Ir.Node.t group) (graph : Graphs.Ir.t) (env : Env.t)
-  : (Constr.t * Sub.t) option =
-  let sub = Sub.of_cfg graph in
-  Seq.find_map (Term.enum blk_t sub) ~f:(fun blk ->
-      if in_loop loop (Term.tid blk) then
-        let* cond = get_cond loop blk env in
-        let body = Sub.of_cfg (get_body graph loop blk) in
-        Some (cond, body)
-      else
-        None)
 
 (* Gets a set of vars that get updated in the body of a loop. *)
 let loop_vars (sub : Sub.t) : Var.Set.t =
@@ -1604,7 +1611,8 @@ let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
       debug "Loop invariant: %s%!" (Constr.to_string invariant);
       let scc = Graphlib.strong_components (module Graphs.Ir) g in
       let loop = Option.value_exn (Partition.group scc node) in
-      let cond, body = Option.value_exn (split_loop loop g env) in
+      let cond = Option.value_exn (get_cond loop g env) in
+      let body = Sub.of_cfg (get_body g loop) in
       let vars = loop_vars body in
       (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
       let iteration, env =
