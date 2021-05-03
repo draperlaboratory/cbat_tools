@@ -16,6 +16,7 @@ open Bap_main
 open Bap_core_theory
 open Bap.Std
 open Monads.Std
+open Utils.Option_let
 
 module Env = Environment
 
@@ -172,20 +173,23 @@ let parse_loop_invariant (invariants : string) (target : Theory.target)
   if String.is_empty invariants then
     Tid.Map.empty
   else
-    Term.enum blk_t sub
-    |> Seq.fold ~init:Tid.Map.empty ~f:(fun map blk ->
-        match Term.get_attr blk address with
-        | None -> map
-        | Some address ->
-          let invs = invariant_list_of_sexp (Sexp.of_string invariants) in
-          List.fold invs ~init:map ~f:(fun m inv ->
-              let bitvec = Bitvec.of_string inv.address in
-              let addr = Addr.code_addr target bitvec in
-              if Addr.equal address addr then
-                let tid = Term.tid blk in
-                Tid.Map.set m ~key:tid ~data:inv.invariant
-              else
-                m))
+    let invs = invariant_list_of_sexp (Sexp.of_string invariants) in
+    let blks = Term.enum blk_t sub in
+    List.fold invs ~init:Tid.Map.empty ~f:(fun m inv ->
+        let tid = Seq.find_map blks ~f:(fun blk ->
+            let* address = Term.get_attr blk address in
+            let bitvec = Bitvec.of_string inv.address in
+            let addr = Addr.code_addr target bitvec in
+            if Addr.equal address addr then
+              Some (Term.tid blk)
+            else
+              None) in
+        match tid with
+        | Some tid -> Tid.Map.set m ~key:tid ~data:inv.invariant
+        | None ->
+          let msg = Format.sprintf "Address %s for loop invariant not found.%!"
+              inv.address in
+          failwith msg)
 
 let default ~func:(func : string) : t =
   {

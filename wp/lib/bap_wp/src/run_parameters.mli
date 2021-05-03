@@ -102,10 +102,13 @@ val validate_mem_flags : bool -> bool -> string list -> (unit, error) result
     when there are two files to compare. Returns an error otherwise. *)
 val validate_check_invalid_derefs : bool -> string list -> (unit, error) result
 
-(** [parse_loop_environment invariant sub] parses the [invariant] which is an
-     S-expression representing the address of a loop header and its
+(** [parse_loop_environment invariant target sub] parses the [invariant] which
+     is an S-expression representing the address of a loop header and its
      corresponding loop invariant, and returns a format accepted by the
-     environment. *)
+     environment.
+
+     i.e., [parse_loop_environment "(((address 0x12) (invariant
+     "(assert (= foo bar))")))" x86 sub]. *)
 val parse_loop_invariant :
   string -> Theory.target -> Sub.t -> Env.loop_invariants
 
