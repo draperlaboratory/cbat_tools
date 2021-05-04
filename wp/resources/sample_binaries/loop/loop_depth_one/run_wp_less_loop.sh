@@ -1,7 +1,7 @@
 # in the case we do not unroll the loop all the way and terminate early
 # expected behavior is to not be affected by the loop. See issue #236
 
-# Should return SAT but currently returns UNSAT; bug
+# Should return SAT
 
 run() {
   bap wp \
