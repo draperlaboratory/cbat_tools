@@ -1387,6 +1387,11 @@ let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
   let expr = List.fold l ~init:(Bool.mk_true ctx) ~f:gen_constr in
   Constr.mk_goal "pointer_precond" expr |> Constr.mk_constr
 
+(* Checks if [tid] corresponds to the tid of a block in a loop. *)
+let in_loop (loop : Graphs.Ir.Node.t group) (tid : Tid.t) : bool =
+  Seq.exists (Group.enum loop) ~f:(fun n ->
+      Tid.equal (n |> Graphs.Ir.Node.label |> Term.tid) tid)
+
 (* Looks up the exit node of a loop by:
    - obtaining the post dominator tree
    - for each node in the SCC, find its parent in the dominator tree
@@ -1411,6 +1416,29 @@ let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
       else
         Some parent)
 
+(* Gets the precondition of the exit node of a loop. *)
+let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
+    (g : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) : Constr.t =
+  let p =
+    List.find_map [loop_exit] ~f:(fun spec ->
+        let* exit = spec node g in
+        let tid = exit |> Graphs.Ir.Node.label |> Term.tid in
+        let skip_node n =
+          let label = Graphs.Ir.Node.label n in
+          let in_loop = in_loop loop (Term.tid label) in
+          let unreachable = unreachable_from_start g exit n in
+          in_loop || unreachable
+        in
+        let _, env = visit_graph env post ~start:exit ~skip_node g in
+        Env.get_precondition env tid)
+  in
+  match p with
+  | Some p -> p
+  | None ->
+    let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+    warning "Trivial precondition is being used for node %s\n%!" (Tid.to_string tid);
+    post
+
 (* This is the default handler for loops, which unrolls a loop by:
    - Looking at the target node for a backjump
    - If the node has been visited more than [num_unroll] times, use the [loop_exit_pre] precondition
@@ -1426,19 +1454,9 @@ let loop_unroll (num_unroll : int) : Env.loop_handler =
     let tid = node |> Node.label |> Term.tid in
     debug "Unrolling loop for %s%!" (Tid.to_string tid);
     if find_depth env node <= 0 then
-      let pre =
-        List.find_map [loop_exit] ~f:(fun spec ->
-            let* exit = spec node g in
-            let tid = exit |> Node.label |> Term.tid in
-            Env.get_precondition env tid)
-      in
-      let pre = match pre with
-        | Some p -> p
-        | None ->
-          warning "Trivial precondition is being used for node %s%!" (Tid.to_string tid);
-          let ctx = Env.get_context env in
-          Constr.trivial ctx
-      in
+      let scc = Graphlib.strong_components (module Graphs.Ir) g in
+      let loop = Option.value_exn (Partition.group scc node) in
+      let pre = exit_pre env pre node g loop in
       Env.add_precond env tid pre
     else
       begin
@@ -1461,11 +1479,6 @@ let target (jmp : Jmp.t) : Tid.t option =
       | Some (Indirect _) | None -> None
     end
   | Goto (Indirect _) | Ret _ -> None
-
-(* Checks if [tid] corresponds to the tid of a block in a loop. *)
-let in_loop (loop : Graphs.Ir.Node.t group) (tid : Tid.t) : bool =
-  Seq.exists (Group.enum loop) ~f:(fun n ->
-      Tid.equal (n |> Graphs.Ir.Node.label |> Term.tid) tid)
 
 (* Assumes the loop header branches into two blocks. *)
 let get_branch (blk : Blk.t) : (Jmp.t * Jmp.t) option =
@@ -1570,29 +1583,6 @@ let loop_vars (sub : Sub.t) : Var.Set.t =
     end)
   in
   visitor#visit_sub sub Var.Set.empty
-
-(* Gets the precondition of the exit node of a loop. *)
-let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
-    (g : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) : Constr.t =
-  let p =
-    List.find_map [loop_exit] ~f:(fun spec ->
-        let* exit = spec node g in
-        let tid = exit |> Graphs.Ir.Node.label |> Term.tid in
-        let skip_node n =
-          let label = Graphs.Ir.Node.label n in
-          let in_loop = in_loop loop (Term.tid label) in
-          let unreachable = unreachable_from_start g exit n in
-          in_loop || unreachable
-        in
-        let _, env = visit_graph env post ~start:exit ~skip_node g in
-        Env.get_precondition env tid)
-  in
-  match p with
-  | Some p -> p
-  | None ->
-    let tid = node |> Graphs.Ir.Node.label |> Term.tid in
-    warning "Trivial precondition is being used for node %s\n%!" (Tid.to_string tid);
-    post
 
 (* From the predicate transformer semantics from:
    https://en.wikipedia.org/wiki/Predicate_transformer_semantics#While_loop *)

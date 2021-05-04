@@ -199,9 +199,8 @@ let unit_tests = [
   "Loop invariant stack: SAT"      >: test_plugin "loop_invariant/on_stack" sat
     ~script:"run_wp_no_invariant.sh";
   "Loop invariant regs: UNSAT:"    >: test_plugin "loop_invariant/in_registers" unsat;
-  "Loop invariant stack: SAT"      >:: test_skip fail_msg
-    (test_plugin "loop_invariant/in_registers" sat ~script:"run_wp_no_invariant.sh");
-
+  "Loop invariant regs: SAT"       >: test_plugin "loop_invariant/in_registers" sat
+    ~script:"run_wp_no_invariant.sh";
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
 
