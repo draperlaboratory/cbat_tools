@@ -1486,8 +1486,7 @@ let get_branch (blk : Blk.t) : (Jmp.t * Jmp.t) option =
   | [jmp1; jmp2] -> Some (jmp1, jmp2)
   | _ -> None
 
-(* Creates a constraint that represents the loop guard out from a BAP
-   expression. *)
+(* Creates a constraint that represents the loop guard from a BAP expression. *)
 let mk_loop_guard (env : Env.t) (branch_cond : Exp.t) : Constr.t =
   let ctx = Env.get_context env in
   let cond_val, _, _ = exp_to_z3 branch_cond env in
