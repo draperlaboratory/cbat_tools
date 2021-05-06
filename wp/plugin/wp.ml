@@ -265,9 +265,9 @@ let ext_solver_path = Cmd.parameter Typ.(some string) "ext-solver-path"
 
 let loop_invariant = Cmd.parameter Typ.string "loop-invariant"
     ~doc:{|Usage: `(((address <addr>) (invariant <smtlib>)) (...))'. Assumes the
-           subroutine contains unnested loops with one entrance and one exit
-           each. Checks the loop invariant written in smt-lib2 format for the
-           loop with its header at the given address. The address should be
+           subroutine contains unnested while loops with one entry point and one
+           exit each. Checks the loop invariant written in smt-lib2 format for
+           the loop with its header at the given address. The address should be
            written in BAP's bitvector string format. Only supported for a single
            binary analysis.|}
 

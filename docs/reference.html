@@ -117,7 +117,7 @@ The following options select or adjust the property that will be checked for the
 
 <li><code>--postcond=&lt;smt-lib-string&gt;</code> &mdash; Allows you to specify an assertion that WP will assume is true at the end of the function it is analyzing, using the <a href="#smt-lib">smt-lib2 format</a>. If no postcondition is specified, a trivial postcondition of <code>true</code> will be used. This flag can also be used in comparative analysis; see <a href="#comparative">below</a>.</li>
 
-<li><code>--loop-invariant=&lt;s-expression&gt;</code> &mdash; Usage: <code>(((address &lt;addr&gt;) (invariant &lt;smtlib&gt;)) (...))</code>. Assumes the subroutine contains unnested loops with one entrance and one exit each. Checks the loop invariant written in smt-lib2 format for the loop with its header at the given address. The address should be written in BAP's bitvector string format. Only supported for a single binary analysis.</li>
+<li><code>--loop-invariant=&lt;s-expression&gt;</code> &mdash; Usage: <code>(((address &lt;addr&gt;) (invariant &lt;smtlib&gt;)) (...))</code>. Assumes the subroutine contains unnested while loops with one entry point and one exit each. Checks the loop invariant written in smt-lib2 format for the loop with its header at the given address. The address should be written in BAP's bitvector string format. Only supported for a single binary analysis.</li>
 </ul>
 </section>
 

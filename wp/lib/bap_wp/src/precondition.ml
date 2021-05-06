@@ -1508,6 +1508,7 @@ let loop_condition (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
   let jmp_condition =
     fun env post _ jmp ->
       if Jmp.equal jmp jmp2 then
+        (* This is a dummy precondition and should be overwritten at jmp1. *)
         Some (post, env)
       else if Jmp.equal jmp jmp1 then begin
         (* Gets the constraint that represents the condition for going into the
@@ -1522,7 +1523,7 @@ let loop_condition (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
           let cond = Bil.(unop not (Jmp.cond jmp1)) in
           Some (mk_loop_guard env cond, env)
         else
-          None
+          failwith "At least one of the jump targets must point to the loop.%!"
       end else
         None
   in
@@ -1530,20 +1531,17 @@ let loop_condition (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
   if Core_kernel.Bool.(target_in_loop1 <> target_in_loop2) then
     let ctx = Env.get_context env in
     let updated_env = Env.set_jmp_handler env jmp_condition in
+    (* Trivial is the same dummy postcondition found at jmp2. *)
     let pre, _ = visit_block updated_env (Constr.trivial ctx) blk in
     Some pre
   else
     None
 
 (* Returns a constraint that represents the condition for entering a loop. *)
-let get_cond (loop : Graphs.Ir.Node.t group) (graph : Graphs.Ir.t) (env : Env.t)
-  : Constr.t option =
-  let sub = Sub.of_cfg graph in
-  Seq.find_map (Term.enum blk_t sub) ~f:(fun blk ->
-      if in_loop loop (Term.tid blk) then
-        loop_condition loop blk env
-      else
-        None)
+let get_cond (loop : Graphs.Ir.Node.t group) (env : Env.t) : Constr.t option =
+  Seq.find_map (Group.enum loop) ~f:(fun node ->
+      let blk = Graphs.Ir.Node.label node in
+      loop_condition loop blk env)
 
 (* Gets the body of a loop without any edges pointing to outside of the loop. *)
 let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group)
@@ -1601,7 +1599,7 @@ let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
       debug "Loop invariant: %s%!" (Constr.to_string invariant);
       let scc = Graphlib.strong_components (module Graphs.Ir) g in
       let loop = Option.value_exn (Partition.group scc node) in
-      let cond = Option.value_exn (get_cond loop g env) in
+      let cond = Option.value_exn (get_cond loop env) in
       let body = Sub.of_cfg (get_body g loop) in
       let vars = loop_vars body in
       (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
