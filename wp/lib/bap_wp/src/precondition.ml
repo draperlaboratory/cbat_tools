@@ -1468,6 +1468,15 @@ let loop_unroll (num_unroll : int) : Env.loop_handler =
   in
   unroll
 
+(* Assuming that the loop header node ends with a branch. The first jump is
+   conditional, while the second jump is unconditional. *)
+type loop_branch = {
+  jmp1 : Jmp.t;
+  jmp2 : Jmp.t;
+  target_in_loop1 : bool;
+  target_in_loop2 : bool;
+}
+
 (* Gets the target destination of a jump. We do not handle indirect jumps. *)
 let target (jmp : Jmp.t) : Tid.t option =
   match Jmp.kind jmp with
@@ -1480,12 +1489,6 @@ let target (jmp : Jmp.t) : Tid.t option =
     end
   | Goto (Indirect _) | Ret _ -> None
 
-(* Assumes the loop header branches into two blocks. *)
-let get_branch (blk : Blk.t) : (Jmp.t * Jmp.t) option =
-  match Seq.to_list (Term.enum jmp_t blk) with
-  | [jmp1; jmp2] -> Some (jmp1, jmp2)
-  | _ -> None
-
 (* Creates a constraint that represents the loop guard from a BAP expression. *)
 let mk_loop_guard (env : Env.t) (branch_cond : Exp.t) : Constr.t =
   let ctx = Env.get_context env in
@@ -1495,52 +1498,86 @@ let mk_loop_guard (env : Env.t) (branch_cond : Exp.t) : Constr.t =
   |> Constr.mk_goal "Loop guard"
   |> Constr.mk_constr
 
+let is_loop_header (branch : loop_branch) : bool =
+  (* Exactly one target has to point to the loop. *)
+  Core_kernel.Bool.(branch.target_in_loop1 <> branch.target_in_loop2)
+
 (* If [blk] is a loop header, gets the constraint that represents the condition
    for a loop. Returns None if [blk] is not the loop header. *)
-let loop_condition (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
+let break_condition (branch : loop_branch) (blk : Blk.t) (env : Env.t)
   : Constr.t option =
-  let* jmp1, jmp2 = get_branch blk in
-  let* target1 = target jmp1 in
-  let* target2 = target jmp2 in
-  let target_in_loop1 = in_loop loop target1 in
-  let target_in_loop2 = in_loop loop target2 in
-  let jmp_condition =
+  let break =
     fun env post _ jmp ->
-      if Jmp.equal jmp jmp2 then
+      if Jmp.equal jmp branch.jmp2 then
         (* This is a dummy precondition and should be overwritten at jmp1. *)
         Some (post, env)
-      else if Jmp.equal jmp jmp1 then begin
+      else if Jmp.equal jmp branch.jmp1 then begin
         (* Gets the constraint that represents the condition for going into the
            loop. *)
-        if target_in_loop1 then
-          (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
-          let cond = Jmp.cond jmp1 in
+        if branch.target_in_loop1 then
+          (* jmp1 goes to loop, jmp2 exits. !jmp1 breaks from the loop. *)
+          let cond = Bil.(unop not (Jmp.cond branch.jmp1)) in
           Some (mk_loop_guard env cond, env)
-        else if target_in_loop2 then
-          (* jmp1 exits, jmp2 goes to loop. while(E) is the negation of jmp1's
-             condition. *)
-          let cond = Bil.(unop not (Jmp.cond jmp1)) in
+        else if branch.target_in_loop2 then
+          (* jmp1 exits, jmp2 goes to loop. jmp1 breaks from the loop. *)
+          let cond = Jmp.cond branch.jmp1 in
           Some (mk_loop_guard env cond, env)
         else
           failwith "At least one of the jump targets must point to the loop.%!"
       end else
         None
   in
-  (* If the block is the loop header. *)
-  if Core_kernel.Bool.(target_in_loop1 <> target_in_loop2) then
-    let ctx = Env.get_context env in
-    let updated_env = Env.set_jmp_handler env jmp_condition in
-    (* Trivial is the same dummy postcondition found at jmp2. *)
-    let pre, _ = visit_block updated_env (Constr.trivial ctx) blk in
-    Some pre
+  let ctx = Env.get_context env in
+  let updated_env = Env.set_jmp_handler env break in
+  (* Trivial is the same dummy postcondition found at jmp2. *)
+  let pre, _ = visit_block updated_env (Constr.trivial ctx) blk in
+  Some pre
+
+(* Returns information about the target of the jumps at the end of the block if
+   the block contains information about breaking out of a loop. Otherwise
+   returns None. *)
+let get_loop_branch (loop : Graphs.Ir.Node.t group) (blk : Blk.t)
+  : loop_branch option =
+  let* jmp1, jmp2 =
+    (* Assumes the loop header branches into two blocks. *)
+    match Seq.to_list (Term.enum jmp_t blk) with
+    | [jmp1; jmp2] -> Some (jmp1, jmp2)
+    | _ -> None
+  in
+  let* target1 = target jmp1 in
+  let* target2 = target jmp2 in
+  let target_in_loop1 = in_loop loop target1 in
+  let target_in_loop2 = in_loop loop target2 in
+  Some {
+    jmp1 = jmp1;
+    jmp2 = jmp2;
+    target_in_loop1 = target_in_loop1;
+    target_in_loop2 = target_in_loop2
+  }
+
+(* Gets the jump that points to the first node outside the loop. *)
+let get_break_jmp (branch : loop_branch) : Jmp.t =
+  if branch.target_in_loop1 then
+    branch.jmp2
+  else if branch.target_in_loop2 then
+    branch.jmp1
   else
-    None
+    failwith "Only one of the jumps should exit the loop.%!"
 
 (* Returns a constraint that represents the condition for entering a loop. *)
-let get_cond (loop : Graphs.Ir.Node.t group) (env : Env.t) : Constr.t option =
+let get_loop_break (loop : Graphs.Ir.Node.t group) (env : Env.t)
+  : (Constr.z3_expr * Jmp.t) option =
   Seq.find_map (Group.enum loop) ~f:(fun node ->
       let blk = Graphs.Ir.Node.label node in
-      loop_condition loop blk env)
+      let* loop_branch = get_loop_branch loop blk in
+      if is_loop_header loop_branch then
+        let ctx = Env.get_context env in
+        let* cond = break_condition loop_branch blk env in
+        let break_cond = Constr.eval cond ctx in
+        let break_jmp = get_break_jmp loop_branch in
+        Some (break_cond, break_jmp)
+      else
+        None)
 
 (* Gets the body of a loop without any edges pointing to outside of the loop. *)
 let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group)
@@ -1581,14 +1618,11 @@ let loop_vars (sub : Sub.t) : Var.Set.t =
   in
   visitor#visit_sub sub Var.Set.empty
 
-(* From the predicate transformer semantics from:
-   https://en.wikipedia.org/wiki/Predicate_transformer_semantics#While_loop *)
 let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
   : Env.loop_handler option =
   let* loop_invariant = Tid.Map.find loop_invariants tid in
   Some (fun env post ~start:node g ->
       (* WP(while E do S done, R) *)
-      let ctx = Env.get_context env in
       let tid = node |> Graphs.Ir.Node.label |> Term.tid in
       debug "Checking loop invariant for %s%!" (Tid.to_string tid);
       (* I *)
@@ -1598,32 +1632,19 @@ let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
       debug "Loop invariant: %s%!" (Constr.to_string invariant);
       let scc = Graphlib.strong_components (module Graphs.Ir) g in
       let loop = Option.value_exn (Partition.group scc node) in
-      let cond = Option.value_exn (get_cond loop env) in
+      let break_cond, break_jmp = Option.value_exn (get_loop_break loop env) in
       let body = Sub.of_cfg (get_body g loop) in
       let vars = loop_vars body in
-      (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
-      let iteration, env =
+      (* forall y, (I => if(~E, R, WP(S, I)))[x <- y] *)
+      let loop_body, env =
         let body_wp, env = visit_sub env invariant body in
-        let name = Format.sprintf "loop_%s" in
-        Env.freshen ~name (Constr.mk_clause [cond; invariant] [body_wp]) env vars
-      in
-      (* forall y, ((~E ^ I) => R)[x <- y] *)
-      let exit, env =
-        let exit_cond =
-          let false_cond =
-            Bool.mk_false ctx
-            |> Constr.mk_goal "false"
-            |> Constr.mk_constr
-          in
-          Constr.mk_clause [cond] [false_cond]
-        in
         let post = exit_pre env post node g loop in
+        let ite = Constr.mk_ite break_jmp break_cond post body_wp in
         let name = Format.sprintf "loop_%s" in
-        Env.freshen ~name (Constr.mk_clause [exit_cond; invariant] [post]) env vars
+        Env.freshen ~name (Constr.mk_clause [invariant] [ite]) env vars
       in
-      let pre = Constr.mk_clause [] [invariant; iteration; exit] in
+      let pre = Constr.mk_clause [] [invariant; loop_body] in
       Env.add_precond env tid pre)
-
 
 let mk_env
     ?subs:(subs = Seq.empty)
@@ -1663,4 +1684,3 @@ let mk_env
     ~func_name_map
     ~smtlib_compat
     ctx var_gen
-
