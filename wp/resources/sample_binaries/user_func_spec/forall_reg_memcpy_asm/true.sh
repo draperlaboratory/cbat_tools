@@ -8,16 +8,21 @@
 # This spec is the same as full_reg_memcpy_asm/true.sh except that we use a forall
 #   statement over the register indexes in RDI and RSI
 
-# STATUS: Working <<-- REMOVE THIS LINE BEFORE MERGING
- 
+# STATUS: not working <<-- REMOVE THIS LINE BEFORE MERGING
+
+#precond: --precond="(assert (bvuge RSP #x0000000000000000))" \
+# postcond: 
+
 run () {
   bap wp \
       --func=main \
-      --precond="(assert (= RSP (bvadd RSI #x00000000000000FF)))"\
+      --show="refuted-goals" \
       --postcond="(assert (= RAX #x0000000000000003))" \
-      --user-func-spec="subroutine, (assert true), (assert (forall ((new_var (_ BitVec 64))) (and 
-(bvule #x0000000000000000 new_var)
-(bvule new_var #x0000000000000007)
+      --user-func-spec="subroutine, (assert true), 
+(assert (forall ((new_var (_ BitVec 64))) 
+(=> 
+ (and (bvule #x0000000000000000 new_var)
+ (bvule new_var #x0000000000000007))
 (= (select init_mem (bvadd init_RSI new_var)) (select mem (bvadd RDI new_var))
 ))))" \
     -- ./main
