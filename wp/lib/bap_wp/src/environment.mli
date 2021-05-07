@@ -31,6 +31,8 @@ module Constr = Constraint
 
 module ExprSet : Core_kernel.Set.S with type Elt.t = Constr.z3_expr
 
+module Unroll_depth = Bap.Std.Blk.Map
+
 (** The state type which is maintained when creating preconditions. It contains, among
     other things, summaries for subroutines, the associations between BIR variables
     and Z3 constants, and preconditions for already visited blocks, if relevant. *)
@@ -65,9 +67,8 @@ type jmp_spec = t -> Constr.t -> Bap.Std.Tid.t -> Bap.Std.Jmp.t -> (Constr.t * t
 type int_spec = t -> Constr.t -> int -> Constr.t * t
 
 (** The loop handling procedure for the appropriate blocks. *)
-type loop_handler = {
-  handle : t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
-}
+type loop_handler =
+  t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t
 
 (** Condition generated when exploring an expression: [BeforeExec] will generate a
     {! Constr.goal} to be added to the postcondition before any substitution is made,
@@ -92,6 +93,19 @@ type mem_range = {
   size : int
 }
 
+(** A map containing the current depth for a block when unrolling a loop. *)
+type unroll_depth = int Unroll_depth.t
+
+type loop_invariants = string Bap.Std.Tid.Map.t
+
+(** [init_loop_handler default handlers] takes in a list of handlers that will
+    be used when visiting a loop in the subroutine. The handler used is based
+    off of the loop's tid. *)
+val init_loop_handler
+  : default:loop_handler
+  -> (Bap.Std.Tid.t -> loop_handler option) list
+  -> loop_handler
+
 (** Creates a new environment with
     - a sequence of subroutines in the program used to initialize function specs
     - a list of {!fun_spec}s that each summarize the precondition for its mapped function
@@ -102,6 +116,7 @@ type mem_range = {
     - an {!int_spec} for handling interrupts
     - a list of {!exp_cond}s to satisfy
     - the number of times to unroll a loop
+    - a loop handler that can unroll a loop or check a loop invariant
     - the target architecture of the binary
     - the option to freshen variable names
     - the option to use all input registers when generating function symbols at a call site
@@ -117,7 +132,8 @@ val mk_env
   -> jmp_spec:jmp_spec
   -> int_spec:int_spec
   -> exp_conds:exp_cond list
-  -> num_loop_unroll:int
+  -> loop_handlers:(Bap.Std.Tid.t -> loop_handler option) list
+  -> default_loop_handler:loop_handler
   -> target:Theory.target
   -> freshen_vars:bool
   -> use_fun_input_regs:bool
@@ -147,6 +163,12 @@ val get_fresh : ?name:string -> var_gen -> string
     create fresh variables. *)
 val set_freshen : t -> bool -> t
 
+(** [freshen ~name constr env vars] creates fresh names for [vars] found in
+    [constr]. Optionally takes in [name], which is a function that maps the
+    original variable name to the fresh name. Defaults to [fresh_var]. *)
+val freshen :
+  ?name:(string -> string) -> Constr.t -> t -> Bap.Std.Var.Set.t -> Constr.t * t
+
 (** Add a z3 expression representing a function call predicate generated during
     the analysis to the environment. *)
 val add_call_pred : t -> Constr.z3_expr -> t
@@ -155,11 +177,6 @@ val add_call_pred : t -> Constr.z3_expr -> t
     environment. This is used because the initial pass through a binary
     generates predicates that are not used during precondition computation. *)
 val clear_call_preds : t -> t
-
-(** A reference to {!Precondition.visit_sub} that is needed in the
-    loop handler of the environment simulating "open recursion". *)
-val wp_rec_call :
-  (t -> Constr.t -> start:Bap.Std.Graphs.Ir.Node.t -> Bap.Std.Graphs.Ir.t -> t) ref
 
 (** Add a new binding to the environment for a bap variable to a Z3 expression,
     typically a constant. *)
@@ -219,10 +236,13 @@ val get_sub_handler : t -> Bap.Std.Tid.t -> fun_spec_type option
     of an indirect call. *)
 val get_indirect_handler : t -> Bap.Std.Exp.t -> indirect_spec
 
-
 (** Looks up the list of jmp_specs that is used to calculate the precondition of
     jumps in a BIR program. *)
 val get_jmp_handler : t -> jmp_spec
+
+(** Updates the list of jmp_specs used to calculate the precondition of
+    jumps in a BIR program. *)
+val set_jmp_handler : t -> jmp_spec -> t
 
 (** Looks up the specification of calculating the precondition of an interrupt. *)
 val get_int_handler : t -> int_spec
@@ -304,14 +324,19 @@ val mk_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr * t
     of a bap variable [var]. *)
 val get_init_var : t -> Bap.Std.Var.t -> Constr.z3_expr option
 
-(** [trivial_constr] generates a trivial constraint of just [true]. *)
-val trivial_constr : t -> Constr.t
-
 (** [map_sub_name env name_mod] obtains the name of the subroutine in the
     original binary based off its name in the modified binary. In the case
     there is no mapping for the subroutine, [get_sub_name] will return
     [name_mod] (when calling this function from the original binary. *)
 val map_sub_name : t -> string -> string
+
+(** [get_unroll_depth env node] obtains the unroll depth for [node] when
+    unrolling a loop. *)
+val get_unroll_depth : t -> Bap.Std.Blk.t -> int option
+
+(** [set_unroll_depth env node depth] updates the map with the new unroll depth
+    for [node]. *)
+val set_unroll_depth : t -> Bap.Std.Blk.t -> f:(int option -> int) -> t
 
 (*-------- Z3 constant creation utilities ----------*)
 

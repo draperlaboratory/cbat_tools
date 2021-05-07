@@ -38,10 +38,10 @@ language. Our strategy for unrolling loops is the following:
     2. Compute preconditions for loop body:
        Taking the precondition for the exit node (or a trivial one if
        there are no exit nodes), we compute the precondition of
-       targets of back edges, going through them n times if we unfold
+       targets of back edges, going through them n times if we unroll
        n times.
 
-We use the environment hooks to implement this loop unfolding
+We use the environment hooks to implement this loop unrolling
 mechanism, which makes it easy to swap out different implementations
 (e.g. assuming that the loop executes *exactly* n times, or excluding
 more than n iterations).

@@ -18,7 +18,6 @@ open Bap_wp
 module Params = Run_parameters
 module Utils = Wp_utils
 
-
 (* Entrypoint for the WP analysis. *)
 let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
   : (unit, error) result =

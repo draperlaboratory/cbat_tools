@@ -32,14 +32,14 @@ module Constr = Constraint
     a list of goals that have been refuted, and if specified, the paths that lead to
     the refuted goals. *)
 val print_result
-    : ?fmt:Format.formatter
-      -> Z3.Solver.solver
-      -> Z3.Solver.status
-      -> Constr.t
-      -> show:string list
-      -> orig:Env.t * Bap.Std.Sub.t
-      -> modif:Env.t * Bap.Std.Sub.t
-      -> unit
+  : ?fmt:Format.formatter
+  -> Z3.Solver.solver
+  -> Z3.Solver.status
+  -> Constr.t
+  -> show:string list
+  -> orig:Env.t * Bap.Std.Sub.t
+  -> modif:Env.t * Bap.Std.Sub.t
+  -> unit
 
 (** Prints to file a gdb script that will fill the appropriate registers with the countermodel *)
 val output_gdb :

@@ -130,7 +130,7 @@ let unit_tests = [
   "Loop unrolling comparative" >: test_plugin "loop/loop_depth_one" unsat ~script:"run_wp_compare.sh";
 
   "User defined sub specs comparative 1" >: test_plugin "user_func_spec/sub_spec_3"
-    unsat ~script:"run_wp_comp.sh";  
+    unsat ~script:"run_wp_comp.sh";
   "User defined sub specs comparative 2" >: test_plugin "user_func_spec/sub_spec_4"
     unsat ~script:"run_wp_1.sh";
 
@@ -184,16 +184,26 @@ let unit_tests = [
       ~checker:(Some (check_list models));
   );
 
-  "Loop incomplete unroll"         >:: test_skip fail_msg
-    (
-      let models = [ [("RDI", "0x0000000000000005")]; ] in
-      test_plugin "loop/loop_depth_one" sat ~script:"run_wp_less_loop.sh"
-        ~reg_list:(lift_out_regs models)
-        ~checker:(Some (check_list models))
-    );
+  "Loop incomplete unroll"         >: (
+    let models = [ [("RDI", "0x0000000000000005")]; ] in
+    test_plugin "loop/loop_depth_one" sat ~script:"run_wp_less_loop.sh"
+      ~reg_list:(lift_out_regs models)
+      ~checker:(Some (check_list models))
+  );
 
   "Loop incomplete unroll"         >:: test_skip fail_msg
-    (test_plugin "loop/loop_depth_one" sat);
+    (test_plugin "loop/loop_depth_two" sat);
+
+  "Loop invariant stack: UNSAT"    >: test_plugin "loop_invariant/on_stack" unsat;
+  "Loop invariant stack: SAT"      >: test_plugin "loop_invariant/on_stack" sat
+    ~script:"run_wp_no_invariant.sh";
+  "Loop unroll stack: UNSAT"       >: test_plugin "loop_invariant/on_stack" unsat
+    ~script:"run_wp_unroll.sh";
+  "Loop invariant regs: UNSAT:"    >: test_plugin "loop_invariant/in_registers" unsat;
+  "Loop invariant regs: SAT"       >: test_plugin "loop_invariant/in_registers" sat
+    ~script:"run_wp_no_invariant.sh";
+  "Loop unroll regs: UNSAT"        >: test_plugin "loop_invariant/in_registers" unsat
+    ~script:"run_wp_unroll.sh";
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
 

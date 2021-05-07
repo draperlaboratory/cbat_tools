@@ -20,15 +20,19 @@
 *)
 
 open Bap_main
+open Bap_core_theory
+open Bap.Std
 open Monads.Std
+
+module Env = Environment
 
 (** A result monad that includes Extension.Error.t as the error type. This
     error is returned when a user passes in an invalid parameter. *)
 module Err : Monad.Result.S with
   type 'a t := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).t and
-  type 'a m := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).m and
-  type 'a e := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).e and
-  type err := Extension.Error.t
+type 'a m := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).m and
+type 'a e := 'a Monad.Result.T1(Extension.Error)(Monad.Ident).e and
+type err := Extension.Error.t
 
 (** The available options to be set. Each flag corresponds to a parameter in
     the set with the BAP custom command line. *)
@@ -44,6 +48,7 @@ type t = {
   pointer_reg_list : string list;
   inline : string option;
   num_unroll : int option;
+  loop_invariant : string;
   gdb_output : string option;
   bildb_output : string option;
   use_fun_input_regs : bool;
@@ -96,6 +101,16 @@ val validate_mem_flags : bool -> bool -> string list -> (unit, error) result
 (** [validate_check_invalid_derefs flag files] checks that the flag is only set
     when there are two files to compare. Returns an error otherwise. *)
 val validate_check_invalid_derefs : bool -> string list -> (unit, error) result
+
+(** [parse_loop_environment invariant target sub] parses the [invariant] which
+     is an S-expression representing the address of a loop header and its
+     corresponding loop invariant, and returns a format accepted by the
+     environment.
+
+     i.e., [parse_loop_environment "(((address 0x12) (invariant
+     "(assert (= foo bar))")))" x86 sub]. *)
+val parse_loop_invariant :
+  string -> Theory.target -> Sub.t -> Env.loop_invariants
 
 (** Creates the default parameters for easy invocation *)
 val default : func:string -> t

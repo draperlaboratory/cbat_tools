@@ -265,6 +265,7 @@ val default_data_section_range : Env.mem_range
     - an empty list of {!Environment.exp_cond}s which adds assumptions and VCs to
       the precondition as hooks on certain instructions
     - a loop unroll count of 5 for use when reaching a back edge during analysis
+    - a loop handler that can unroll a loop or check a loop invariant
     - a target architecture for specific constraints and specs
     - freshening variables set to false. Should be set to true in order to represent the
       variables in the modified binary
@@ -285,7 +286,8 @@ val mk_env
   -> ?jmp_spec:Env.jmp_spec
   -> ?int_spec:Env.int_spec
   -> ?exp_conds:Env.exp_cond list
-  -> ?num_loop_unroll:int
+  -> ?loop_handlers:(Bap.Std.Tid.t -> Env.loop_handler option) list
+  -> ?default_loop_handler:Env.loop_handler
   -> ?freshen_vars:bool
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
@@ -348,7 +350,7 @@ val check
     This has a side effect that updates the state of the solver. The solver's state
     can be reverted back with [Z3.Solver.pop]. *)
 val exclude
-    : ?fmt:Stdlib__format.formatter
+  : ?fmt:Stdlib__format.formatter
   -> Z3.Solver.solver
   -> Z3.context
   -> var:Constr.z3_expr
@@ -364,4 +366,16 @@ val set_sp_range : Env.t -> Constr.t
     all specified registers cannot point to the uninitalized stack region.
     They must be either below the bottom of the stack or above the initial
     stack pointer. *)
+
 val construct_pointer_constraint : Constr.z3_expr list -> Env.t -> (Constr.z3_expr list) option -> Env.t option -> Constr.t
+
+(** [loop_unroll num_unroll] returns a function that will compute the
+    precondition of nodes within loops by assuming that the loop was traversed
+    at most [num_unroll] times. This is the default loop handler. *)
+val loop_unroll : int -> Env.loop_handler
+
+(** [loop_invariant_checker invariants tid] returns a function that will check
+    the loop invariant for the loop that starts at [tid] given that the
+    invariant exists in [invariants]. *)
+val loop_invariant_checker
+  : Env.loop_invariants -> Bap.Std.Tid.t -> Env.loop_handler option

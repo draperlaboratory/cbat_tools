@@ -12,6 +12,7 @@
 (***************************************************************************)
 
 open !Core_kernel
+open Bap.Std
 open OUnit2
 open OUnitTest
 
@@ -20,32 +21,33 @@ module Utils = Bap_wp.Utils
 
 (* To run these tests: `make test` in wp directory *)
 
-let test_update_num_unroll
-    ?length:(length = Immediate)
-    (new_unroll : int option)
-  : test =
-  let set_up _ = !Pre.num_unroll in
-  let tear_down original _ = Utils.update_default_num_unroll @@ Some original in
-  let test ctxt =
-    let original = bracket set_up tear_down ctxt in
-    Utils.update_default_num_unroll new_unroll;
-    let updated = !Pre.num_unroll in
-    match new_unroll with
-    | Some n ->
-      let fail_msg =
-        Format.sprintf "num_unroll was not updated from %d to %d" original n in
-      assert_bool fail_msg (original <> updated)
-    | None ->
-      let fail_msg =
-        Format.sprintf "Num unroll was updated from %d but should have been \
-                        unchanged" original in
-      assert_equal ~ctxt:ctxt ~cmp:Int.equal ~msg:fail_msg updated original
+let test_get_mod_func_name
+    (re : (string * string) list)
+    (name_orig : string)
+    (expected : string option)
+    (ctxt : test_ctxt)
+  : unit =
+  let cmp x y =
+    match x, y with
+    | Some x, Some y -> String.equal x y
+    | None, None -> true
+    | Some _, None | None, Some _ -> false
   in
-  test_case ~length test
+  let result = Utils.get_mod_func_name re name_orig in
+  assert_equal ~ctxt ~cmp expected result
+
+let test_match_inline (_ : test_ctxt) : unit =
+  let foo = Sub.create ~name:"foo" () in
+  let bar = Sub.create ~name:"bar" () in
+  let subs = Seq.of_list [foo; bar] in
+  let result = Utils.match_inline (Some "foo") subs in
+  let fail_msg = "match_inline could not find the subroutine to inline%!" in
+  assert_bool fail_msg (Seq.exists result ~f:(Sub.equal foo))
 
 let suite = [
 
-  "Update Number of Unrolls"       >: test_update_num_unroll (Some 3);
-  "Original Number of Unrolls"     >: test_update_num_unroll None;
+  "test_get_mod_func_name" >:: test_get_mod_func_name [("\\(.*\\)", "\\1_mod")]
+    "foo" (Some "foo_mod");
+  "test_match_inline"      >:: test_match_inline
 
 ]

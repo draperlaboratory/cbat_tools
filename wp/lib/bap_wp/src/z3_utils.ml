@@ -42,7 +42,7 @@ let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) 
   let var_decls = Env.EnvMap.fold var_map ~init:[] ~f:var_to_decl in
   Env.EnvMap.fold init_var_map ~init:var_decls ~f:var_to_decl
 
-let mk_smtlib2 (ctx : Z3.context) (smtlib_str : string)
+let mk_smtlib2 ?(name = None) (ctx : Z3.context) (smtlib_str : string)
     (decl_syms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : Constr.t =
   let fun_decls, fun_symbols = List.unzip decl_syms in
   let sort_symbols = [] in
@@ -55,8 +55,13 @@ let mk_smtlib2 (ctx : Z3.context) (smtlib_str : string)
   in
   let goals = List.map (Z3.AST.ASTVector.to_expr_list asts)
       ~f:(fun e ->
+          let goal_name =
+            match name with
+            | Some name -> name
+            | None -> Expr.to_string e
+          in
           e
-          |> Constr.mk_goal (Expr.to_string e)
+          |> Constr.mk_goal goal_name
           |> Constr.mk_constr)
   in
   Constr.mk_clause [] goals
@@ -89,7 +94,7 @@ let get_z3_name (map : Constr.z3_expr Var.Map.t) (name : string) (fmt : Var.t ->
         else
           None)
 
-let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
+let mk_smtlib2_single ?(name = None) (env : Env.t) (smt_post : string) : Constr.t =
   let var_map = Env.get_var_map env in
   let init_var_map = Env.get_init_var_map env in
   let smt_post =
@@ -109,7 +114,7 @@ let mk_smtlib2_single (env : Env.t) (smt_post : string) : Constr.t =
   info "New smt-lib string : %s\n" smt_post;
   let decl_syms = get_decls_and_symbols env in
   let ctx = Env.get_context env in
-  mk_smtlib2 ctx smt_post decl_syms
+  mk_smtlib2 ~name ctx smt_post decl_syms
 
 
 (** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an
@@ -168,7 +173,7 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
             Sexp.List [Sexp.Atom "lambda" ; args; model_val] (* Sexp.Atom varname *)
           | Sexp.Atom a -> failwith (sprintf "model_string: %s\n
                   function asserts_of_model: Unexpected atom %s in external model\n"
-                                     model_string a)
+                                       model_string a)
         in
         Sexp.List [Sexp.Atom "assert" ;
                    Sexp.List [Sexp.Atom "=" ; Sexp.Atom varname ; model_val]]
@@ -179,17 +184,17 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
         end
     | bad_sexp -> failwith (sprintf "model_string: %s\n
                      function asserts_of_model: Unexpected form %s in external smt model\n"
-                     model_string (Sexp.to_string bad_sexp))
+                              model_string (Sexp.to_string bad_sexp))
   in
   let model_sexp = Sexp.of_string model_string in
   match model_sexp with
   | Sexp.List (Sexp.Atom "model" :: t) | Sexp.List t ->
     List.map ~f:process_decl t
   | Atom a -> failwith
-        (sprintf
-          "model_string: %s\n
+                (sprintf
+                   "model_string: %s\n
           function asserts_of_model: Unexpected outer atom %s in external smt model\n"
-          model_string a)
+                   model_string a)
 
 (* We are still missing some funcdecls, particularly function return values *)
 (** [check_external] invokes an external smt solver as a process. It communicates to the
@@ -230,10 +235,10 @@ let check_external
     let model_string = remove_pound model_string in
     let decls, syms = (* get_decls_and_symbols env*) declsyms |> List.unzip in
     let sym_strings = List.map ~f:(fun sym ->
-      let sym_string = Z3.Symbol.to_string sym in
-      if (String.contains sym_string '#')
-      then "|" ^ (remove_pound sym_string) ^ "|" (* SMTlib escaping using | *)
-      else sym_string) syms
+        let sym_string = Z3.Symbol.to_string sym in
+        if (String.contains sym_string '#')
+        then "|" ^ (remove_pound sym_string) ^ "|" (* SMTlib escaping using | *)
+        else sym_string) syms
     in
     let smt_asserts = asserts_of_model model_string sym_strings in
     let smt_asserts = List.map smt_asserts ~f:(fun assert_ ->
@@ -272,6 +277,3 @@ let check_external
       failwith (sprintf "Unidentified external solver %s output : %s\n%s "
                   solver_path result unknown_output)
     end
-
-
-

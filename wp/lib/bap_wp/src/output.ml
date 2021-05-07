@@ -162,9 +162,9 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model =
   extract_array (Constr.eval_model_exn m mem)
 
 let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
-      (status : Solver.status) (goals: Constr.t) ~show:(show : string list)
-      ~orig:(env1, sub1 : Env.t * Sub.t) ~modif:(env2, sub2 : Env.t * Sub.t)
-    : unit =
+    (status : Solver.status) (goals: Constr.t) ~show:(show : string list)
+    ~orig:(env1, sub1 : Env.t * Sub.t) ~modif:(env2, sub2 : Env.t * Sub.t)
+  : unit =
   match status with
   | Solver.UNSATISFIABLE -> Format.fprintf fmt "%s%!" "\nUNSAT!\n"
   | Solver.UNKNOWN -> Format.fprintf fmt "%s%!" "\nUNKNOWN!\n"

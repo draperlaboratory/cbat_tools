@@ -15,6 +15,7 @@ open !Core_kernel
 open Bap.Std
 open Graphlib.Std
 open Bap_core_theory
+open Utils.Option_let
 
 include Self()
 
@@ -398,11 +399,9 @@ let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
       Env.add_call_pred env sub_to) in
   Constr.substitute post subs_from subs_to, env
 
-
 let is_amd64 tgt = Theory.Target.matches tgt "amd64"
 let is_i386 tgt = Theory.Target.matches tgt "i386"
 let is_arm tgt = Theory.Target.matches tgt "arm"
-
 
 (* FIXME: use built-in BAP roles? *)
 let input_regs (target : Theory.target) : Var.t list =
@@ -607,11 +606,8 @@ let spec_verifier_nondet (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option
                | Some o -> o
                | None -> failwith "Verifier headerfile must be specified with --api-path" in
              let vars = output |> Bap.Std.Arg.rhs |> Exp.free_vars in
-             let v = Var.Set.choose_exn vars in
-             let z3_v, env = Env.get_var env v in
-             let name = Format.sprintf "%s_ret_%s" (Sub.name sub) (Expr.to_string z3_v) in
-             let fresh = Env.new_z3_expr env ~name:name (Var.typ v) in
-             Constr.substitute_one post z3_v fresh, Env.add_call_pred env fresh)
+             let name = Format.sprintf "%s_ret_%s" (Sub.name sub) in
+             Env.freshen ~name post env vars)
     }
   else
     None
@@ -772,43 +768,6 @@ let default_data_section_range : Env.mem_range = {
   size = 0x800000
 }
 
-let mk_env
-    ?subs:(subs = Seq.empty)
-    ?specs:(specs = [])
-    ?default_spec:(default_spec = spec_default)
-    ?indirect_spec:(indirect_spec = indirect_spec_default)
-    ?jmp_spec:(jmp_spec = jmp_spec_default)
-    ?int_spec:(int_spec = int_spec_default)
-    ?exp_conds:(exp_conds = [])
-    ?num_loop_unroll:(num_loop_unroll = !num_unroll)
-    ?freshen_vars:(freshen_vars = false)
-    ?use_fun_input_regs:(use_fun_input_regs = true)
-    ?stack_range:(stack_range = default_stack_range)
-    ?data_section_range:(data_section_range = default_data_section_range)
-    ?func_name_map:(func_name_map = String.Map.empty)
-    ?smtlib_compat:(smtlib_compat = false)
-    ~target:(target : Theory.target)
-    (ctx : Z3.context)
-    (var_gen : Env.var_gen)
-  : Env.t =
-  Env.mk_env
-    ~subs
-    ~specs
-    ~default_spec
-    ~indirect_spec
-    ~jmp_spec
-    ~int_spec
-    ~exp_conds
-    ~num_loop_unroll
-    ~target
-    ~freshen_vars
-    ~use_fun_input_regs
-    ~stack_range
-    ~data_section_range
-    ~func_name_map
-    ~smtlib_compat
-    ctx var_gen
-
 (* Determines the condition for taking a jump, and uses it to generate the jump
    expression's precondition based off of the postcondition and the
    precondition of the jump's target. *)
@@ -916,21 +875,25 @@ let visit_block (env : Env.t) (post : Constr.t) (blk : Blk.t) : Constr.t * Env.t
   let pre, env = blk |> Blk.elts ~rev:true |> compute_pre in
   (pre, Env.add_precond env (Term.tid blk) pre)
 
+(* Returns [true] if the node is not reachable from the start of the graph.
+   This is used to prune non-reachable subgraphs from the DFS. *)
+let unreachable_from_start (graph : Graphs.Ir.t) (start : Graphs.Ir.Node.t)
+    (node : Graphs.Ir.Node.t) : bool =
+  not (Graphlib.is_reachable (module Graphs.Ir) graph start node)
+
+(* If you skip a node for which another node needs the prcondition, this
+   function may fail. *)
 let visit_graph (env : Env.t) (post : Constr.t)
-    ~start:start (g : Graphs.Ir.t) : Constr.t * Env.t =
+    ~(start : Graphs.Ir.Node.t) ~(skip_node : Graphs.Ir.Node.t -> bool)
+    (g : Graphs.Ir.t) : Constr.t * Env.t =
   let module G = Graphs.Ir in
-  (* Prune non-reachable sub-graphs from the DFS *)
-  let module Reachable_from_start =
-    (val
-      Graphlib.filtered (module G)
-        ~skip_node:(fun n -> not (Graphlib.is_reachable (module G) g start n)) ())
-  in
+  let module Filtered_graph = (val Graphlib.filtered (module G) ~skip_node ()) in
   let leave_node _ n (_, env) =
     let b = G.Node.label n in
     visit_block env post b in
   (* This function is the identity on forward & cross edges, and
      invokes loop handling code on back edges *)
-  let enter_edge kind e ((post, env) as p) : Constr.t * Env.t =
+  let enter_edge kind e (_, env) : Constr.t * Env.t =
     match kind with
     | `Back ->
       begin
@@ -941,16 +904,14 @@ let visit_graph (env : Env.t) (post : Constr.t)
         let handler = Env.get_loop_handler env in
         post, handler env post ~start:dst g
       end
-    | _ -> p
+    | _ ->
+      (* We return postcondition for the entire graph rather than the
+         postcondition for a single block. *)
+      post, env
   in
-  Graphlib.depth_first_search (module Reachable_from_start)
+  Graphlib.depth_first_search (module Filtered_graph)
     ~enter_edge:enter_edge ~start:start ~leave_node:leave_node ~init:(post, env)
     g
-
-(* Now that we've defined [visit_graph], we can replace it in the
-   [wp_rec_call] placeholder. *)
-let _ = Env.wp_rec_call :=
-    fun env post ~start g -> visit_graph env post ~start g |> snd
 
 (* BAP currently doesn't have a way to determine that exit does not return.
    This function removes the backedge after the call to exit. *)
@@ -1005,7 +966,7 @@ let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
       let start = Term.first blk_t sub
                   |> Option.value_exn ?here:None ?error:None ?message:None
                   |> Graphs.Ir.Node.create in
-      visit_graph ~start:start env post cfg
+      visit_graph ~start ~skip_node:(unreachable_from_start cfg start) env post cfg
   in (pre, Env.add_precond env' (Term.tid sub) pre)
 
 (* Replace the [inline_func] placeholder with [visit_sub]. *)
@@ -1281,10 +1242,10 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
 
-(* Builds a spec of the form (sub_pre /\ (sub_post => post) where post 
+(* Builds a spec of the form (sub_pre /\ (sub_post => post) where post
    is the spec right before the subroutine call. All physical registers and mem
-   in post and sub_post are replaced with fresh Z3 functions, and init- physical 
-   registers/init-mem in sub_post are replaced with regular registers/mem. 
+   in post and sub_post are replaced with fresh Z3 functions, and init- physical
+   registers/init-mem in sub_post are replaced with regular registers/mem.
    This is only applied for subroutines with the name sub_name. *)
 let user_func_spec
     ~sub_name:(sub_name : string)
@@ -1347,12 +1308,12 @@ let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
     Some (Assume (AfterExec (Constr.mk_goal name (Z3_utils.mk_and ctx conds))))
 
 let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
-      ?(fmt = Format.err_formatter) (solver : Solver.solver)
-      (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
+    ?(fmt = Format.err_formatter) (solver : Solver.solver)
+    (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
   Format.fprintf fmt "Evaluating precondition.\n%!";
 
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
-    let colorful = List.mem print_constr "colorful" ~equal:String.equal in  
+    let colorful = List.mem print_constr "colorful" ~equal:String.equal in
     Printf.printf "Internal : %s \n %!" (Constr.to_string ~colorful:colorful pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
   Format.fprintf fmt "Checking precondition with Z3.\n%!";
@@ -1371,8 +1332,8 @@ let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
     Z3_utils.check_external solver solver_path ctx declsyms
 
 let exclude ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
-      (ctx : Z3.context) ~var:(var : Constr.z3_expr) ~pre:(pre : Constr.t)
-    : Solver.status =
+    (ctx : Z3.context) ~var:(var : Constr.z3_expr) ~pre:(pre : Constr.t)
+  : Solver.status =
   let model = Constr.get_model_exn solver in
   let value = Constr.eval_model_exn model var in
   let cond = Bool.mk_not ctx (Bool.mk_eq ctx var value) in
@@ -1425,3 +1386,281 @@ let construct_pointer_constraint (l_orig : Constr.z3_expr list) (env1 : Env.t)
   in
   let expr = List.fold l ~init:(Bool.mk_true ctx) ~f:gen_constr in
   Constr.mk_goal "pointer_precond" expr |> Constr.mk_constr
+
+(* Checks if [tid] corresponds to the tid of a block in a loop. *)
+let in_loop (loop : Graphs.Ir.Node.t group) (tid : Tid.t) : bool =
+  Seq.exists (Group.enum loop) ~f:(fun n ->
+      Tid.equal (n |> Graphs.Ir.Node.label |> Term.tid) tid)
+
+(* Looks up the exit node of a loop by:
+   - obtaining the post dominator tree
+   - for each node in the SCC, find its parent in the dominator tree
+   - if the parent node is not in the original SCC, it is an exit node.
+
+   The exit node of a loop is the first node outside of the SCC in the control
+   flow graph. This should be the node the loop header points to that isn't a
+   part of the loop.
+*)
+let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+  : Graphs.Ir.Node.t option =
+  let module Node = Graphs.Ir.Node in
+  let scc = Graphlib.strong_components (module Graphs.Ir) graph in
+  let* group = Partition.group scc node in
+  let* leaf = Seq.find (Graphlib.postorder_traverse (module Graphs.Ir) graph)
+      ~f:(fun n -> Seq.is_empty (Node.succs n graph)) in
+  let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph leaf in
+  Seq.find_map (Group.enum group) ~f:(fun n ->
+      let* parent = Tree.parent dom_tree n in
+      if Group.mem group parent then
+        None
+      else
+        Some parent)
+
+(* Gets the precondition of the exit node of a loop. *)
+let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
+    (g : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) : Constr.t =
+  let p =
+    List.find_map [loop_exit] ~f:(fun spec ->
+        let* exit = spec node g in
+        let tid = exit |> Graphs.Ir.Node.label |> Term.tid in
+        let skip_node n =
+          let label = Graphs.Ir.Node.label n in
+          let in_loop = in_loop loop (Term.tid label) in
+          let unreachable = unreachable_from_start g exit n in
+          in_loop || unreachable
+        in
+        let _, env = visit_graph env post ~start:exit ~skip_node g in
+        Env.get_precondition env tid)
+  in
+  match p with
+  | Some p -> p
+  | None ->
+    let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+    warning "Trivial precondition is being used for node %s\n%!" (Tid.to_string tid);
+    post
+
+(* This is the default handler for loops, which unrolls a loop by:
+   - Looking at the target node for a backjump
+   - If the node has been visited more than [num_unroll] times, use the [loop_exit_pre] precondition
+   - Otherwise, decrement the [depth] map which tracks the unrollings for that node *)
+let loop_unroll (num_unroll : int) : Env.loop_handler =
+  let module Node = Graphs.Ir.Node in
+  let find_depth env node =
+    Env.get_unroll_depth env (Node.label node)
+    |> Option.value ~default:num_unroll
+  in
+  let decr_depth = function None -> num_unroll - 1 | Some n -> n - 1 in
+  let unroll env pre ~start:node g =
+    let tid = node |> Node.label |> Term.tid in
+    debug "Unrolling loop for %s%!" (Tid.to_string tid);
+    if find_depth env node <= 0 then
+      let scc = Graphlib.strong_components (module Graphs.Ir) g in
+      let loop = Option.value_exn (Partition.group scc node) in
+      let pre = exit_pre env pre node g loop in
+      Env.add_precond env tid pre
+    else
+      begin
+        let updated_env = Env.set_unroll_depth env (Node.label node) ~f:decr_depth in
+        let _, env = visit_graph updated_env pre
+            ~start:node ~skip_node:(unreachable_from_start g node) g in
+        env
+      end
+  in
+  unroll
+
+(* Gets the target destination of a jump. We do not handle indirect jumps. *)
+let target (jmp : Jmp.t) : Tid.t option =
+  match Jmp.kind jmp with
+  | Goto (Direct tid) -> Some tid
+  | Int (_, tid) -> Some tid
+  | Call t -> begin
+      match Call.return t with
+      | Some (Direct tid) -> Some tid
+      | Some (Indirect _) | None -> None
+    end
+  | Goto (Indirect _) | Ret _ -> None
+
+(* Assumes the loop header branches into two blocks. *)
+let get_branch (blk : Blk.t) : (Jmp.t * Jmp.t) option =
+  match Seq.to_list (Term.enum jmp_t blk) with
+  | [jmp1; jmp2] -> Some (jmp1, jmp2)
+  | _ -> None
+
+(* Creates a constraint that represents the loop guard from a BAP expression. *)
+let mk_loop_guard (env : Env.t) (branch_cond : Exp.t) : Constr.t =
+  let ctx = Env.get_context env in
+  let cond_val, _, _ = exp_to_z3 branch_cond env in
+  let cond_size = BV.get_size (Expr.get_sort cond_val) in
+  Bool.mk_not ctx (Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size))
+  |> Constr.mk_goal "Loop guard"
+  |> Constr.mk_constr
+
+(* If [blk] is a loop header, gets the constraint that represents the condition
+   for a loop. Returns None if [blk] is not the loop header. *)
+let loop_condition (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
+  : Constr.t option =
+  let* jmp1, jmp2 = get_branch blk in
+  let* target1 = target jmp1 in
+  let* target2 = target jmp2 in
+  let target_in_loop1 = in_loop loop target1 in
+  let target_in_loop2 = in_loop loop target2 in
+  let jmp_condition =
+    fun env post _ jmp ->
+      if Jmp.equal jmp jmp2 then
+        (* This is a dummy precondition and should be overwritten at jmp1. *)
+        Some (post, env)
+      else if Jmp.equal jmp jmp1 then begin
+        (* Gets the constraint that represents the condition for going into the
+           loop. *)
+        if target_in_loop1 then
+          (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
+          let cond = Jmp.cond jmp1 in
+          Some (mk_loop_guard env cond, env)
+        else if target_in_loop2 then
+          (* jmp1 exits, jmp2 goes to loop. while(E) is the negation of jmp1's
+             condition. *)
+          let cond = Bil.(unop not (Jmp.cond jmp1)) in
+          Some (mk_loop_guard env cond, env)
+        else
+          failwith "At least one of the jump targets must point to the loop.%!"
+      end else
+        None
+  in
+  (* If the block is the loop header. *)
+  if Core_kernel.Bool.(target_in_loop1 <> target_in_loop2) then
+    let ctx = Env.get_context env in
+    let updated_env = Env.set_jmp_handler env jmp_condition in
+    (* Trivial is the same dummy postcondition found at jmp2. *)
+    let pre, _ = visit_block updated_env (Constr.trivial ctx) blk in
+    Some pre
+  else
+    None
+
+(* Returns a constraint that represents the condition for entering a loop. *)
+let get_cond (loop : Graphs.Ir.Node.t group) (env : Env.t) : Constr.t option =
+  Seq.find_map (Group.enum loop) ~f:(fun node ->
+      let blk = Graphs.Ir.Node.label node in
+      loop_condition loop blk env)
+
+(* Gets the body of a loop without any edges pointing to outside of the loop. *)
+let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group)
+  : Graphs.Ir.t =
+  let outside_loop node =
+    let label = Graphs.Ir.Node.label node in
+    not @@ in_loop loop (Term.tid label)
+  in
+  (* Removes the block that represents the loop header which determines
+     whether to jump to the loop or exit. *)
+  let enter_node _ node g =
+    if outside_loop node then
+      Graphs.Ir.Node.remove node g
+    else
+      g
+  in
+  (* Removes edges that exit the loop. *)
+  let enter_edge kind edge g =
+    match kind with
+    | `Back -> Graphs.Ir.Edge.remove edge g
+    | _ ->
+      let dst = Graphs.Ir.Edge.dst edge in
+      if outside_loop dst then
+        Graphs.Ir.Edge.remove edge g
+      else
+        g
+  in
+  Graphlib.depth_first_search (module Graphs.Ir)
+    ~enter_node ~enter_edge ~init:graph graph
+
+(* Gets a set of vars that get updated in the body of a loop. *)
+let loop_vars (sub : Sub.t) : Var.Set.t =
+  let visitor =
+    (object inherit [Var.Set.t] Term.visitor
+      method! visit_def def vars =
+        Var.Set.add vars (Def.lhs def)
+    end)
+  in
+  visitor#visit_sub sub Var.Set.empty
+
+(* From the predicate transformer semantics from:
+   https://en.wikipedia.org/wiki/Predicate_transformer_semantics#While_loop *)
+let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
+  : Env.loop_handler option =
+  let* loop_invariant = Tid.Map.find loop_invariants tid in
+  Some (fun env post ~start:node g ->
+      (* WP(while E do S done, R) *)
+      let ctx = Env.get_context env in
+      let tid = node |> Graphs.Ir.Node.label |> Term.tid in
+      debug "Checking loop invariant for %s%!" (Tid.to_string tid);
+      (* I *)
+      let name = Format.sprintf "Loop invariant (%s)%!" (Tid.to_string tid) in
+      let invariant = Z3_utils.mk_smtlib2_single ~name:(Some name)
+          env loop_invariant in
+      debug "Loop invariant: %s%!" (Constr.to_string invariant);
+      let scc = Graphlib.strong_components (module Graphs.Ir) g in
+      let loop = Option.value_exn (Partition.group scc node) in
+      let cond = Option.value_exn (get_cond loop env) in
+      let body = Sub.of_cfg (get_body g loop) in
+      let vars = loop_vars body in
+      (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
+      let iteration, env =
+        let body_wp, env = visit_sub env invariant body in
+        let name = Format.sprintf "loop_%s" in
+        Env.freshen ~name (Constr.mk_clause [cond; invariant] [body_wp]) env vars
+      in
+      (* forall y, ((~E ^ I) => R)[x <- y] *)
+      let exit, env =
+        let exit_cond =
+          let false_cond =
+            Bool.mk_false ctx
+            |> Constr.mk_goal "false"
+            |> Constr.mk_constr
+          in
+          Constr.mk_clause [cond] [false_cond]
+        in
+        let post = exit_pre env post node g loop in
+        let name = Format.sprintf "loop_%s" in
+        Env.freshen ~name (Constr.mk_clause [exit_cond; invariant] [post]) env vars
+      in
+      let pre = Constr.mk_clause [] [invariant; iteration; exit] in
+      Env.add_precond env tid pre)
+
+
+let mk_env
+    ?subs:(subs = Seq.empty)
+    ?specs:(specs = [])
+    ?default_spec:(default_spec = spec_default)
+    ?indirect_spec:(indirect_spec = indirect_spec_default)
+    ?jmp_spec:(jmp_spec = jmp_spec_default)
+    ?int_spec:(int_spec = int_spec_default)
+    ?exp_conds:(exp_conds = [])
+    ?loop_handlers:(loop_handlers = [])
+    ?default_loop_handler:(default_loop_handler = loop_unroll !num_unroll)
+    ?freshen_vars:(freshen_vars = false)
+    ?use_fun_input_regs:(use_fun_input_regs = true)
+    ?stack_range:(stack_range = default_stack_range)
+    ?data_section_range:(data_section_range = default_data_section_range)
+    ?func_name_map:(func_name_map = String.Map.empty)
+    ?smtlib_compat:(smtlib_compat = false)
+    ~target:(target : Theory.target)
+    (ctx : Z3.context)
+    (var_gen : Env.var_gen)
+  : Env.t =
+  Env.mk_env
+    ~subs
+    ~specs
+    ~default_spec
+    ~indirect_spec
+    ~jmp_spec
+    ~int_spec
+    ~exp_conds
+    ~loop_handlers
+    ~default_loop_handler
+    ~target
+    ~freshen_vars
+    ~use_fun_input_regs
+    ~stack_range
+    ~data_section_range
+    ~func_name_map
+    ~smtlib_compat
+    ctx var_gen
+

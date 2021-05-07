@@ -60,6 +60,11 @@ let update_stack ~(base : int option) ~(size : int option) : Env.mem_range =
   |> update_base base
   |> update_size size
 
+let update_default_num_unroll (num : int option) : unit =
+  match num with
+  | Some n -> Pre.num_unroll := n
+  | None -> ()
+
 (* Creates a map of modified subroutine names to original subroutine names
    based off the regex from the user. *)
 let mk_func_name_map
@@ -81,7 +86,6 @@ let mk_func_name_map
           else
             m))
 
-
 (* Checks the user's input for outputting a gdb script. *)
 let output_to_gdb ~(filename : string option) ~(func : string)
     (solver : Z3.Solver.solver) (status : Z3.Solver.status) (env : Env.t)
@@ -97,19 +101,18 @@ let output_to_bildb ~(filename : string option) (solver : Z3.Solver.solver)
   | None -> ()
   | Some name -> Output.output_bildb solver status env name
 
-
 (* Contains information about the precondition and the subroutines from
    the analysis to be printed out. *)
 type combined_pre =
-| Single of {
-  pre : Constr.t;
-  orig : Env.t * Sub.t
-  }
-| Comparative of {
-  pre : Constr.t;
-  orig : Env.t * Sub.t;
-  modif : Env.t * Sub.t
-}
+  | Single of {
+      pre : Constr.t;
+      orig : Env.t * Sub.t
+    }
+  | Comparative of {
+      pre : Constr.t;
+      orig : Env.t * Sub.t;
+      modif : Env.t * Sub.t
+    }
 
 (* If an offset is specified, generates a function of the address of a memory
    read in the original binary to the address plus an offset in the modified
@@ -266,7 +269,8 @@ let gen_pointer_flag_comparators
     let regs_mod = List.filter_map pointer_env2_vars ~f:(fun var -> Env.get_init_var env2 var) in
     let pre_conds = Pre.construct_pointer_constraint regs_orig env1
         (Some regs_mod) (Some env2) in
-    let post_conds = Env.trivial_constr env1 in
+    let ctx = Env.get_context env1 in
+    let post_conds = Constr.trivial ctx in
     Some (Comp.compare_subs_constraints ~pre_conds ~post_conds)
 
 (* If we are rewriting addresses, we can equate the two memory arrays. *)
@@ -319,6 +323,10 @@ let single
   let specs = fun_specs p to_inline in
   let exp_conds = exp_conds_mod p in
   let stack_range = update_stack ~base:p.stack_base ~size:p.stack_size in
+  let loop_invariant =
+    Params.parse_loop_invariant p.loop_invariant target main_sub
+    |> Pre.loop_invariant_checker
+  in
   let env =
     Pre.mk_env
       z3_ctx
@@ -330,8 +338,9 @@ let single
       ~use_fun_input_regs:p.use_fun_input_regs
       ~exp_conds
       ~stack_range
+      ~loop_handlers:[loop_invariant]
   in
-  let true_constr = Env.trivial_constr env in
+  let true_constr = Constr.trivial z3_ctx in
   let vars = Pre.get_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
   let hyps, env = Pre.init_vars (Var.Set.union vars vars_pointer_reg) env in
@@ -449,8 +458,8 @@ let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
   let debug_eval =
     (List.mem p.debug "eval-constraint-stats" ~equal:(String.equal)) in
   let result = match p.ext_solver_path with
-  | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx pre
-  | Some ext_solver_path ->
+    | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx pre
+    | Some ext_solver_path ->
       let declsyms = match cp with
         | Single cp -> Z3_utils.get_decls_and_symbols (fst cp.orig)
         | Comparative cp ->
@@ -462,7 +471,7 @@ let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
         ~print_constr:p.show
         ~debug:debug_eval
         ~ext_solver:(ext_solver_path, declsyms)
-      solver ctx pre
+        solver ctx pre
   in
   if (List.mem p.debug "z3-solver-stats" ~equal:(String.equal)) then
     Printf.printf "Showing solver statistics : \n %s \n %!"
@@ -505,7 +514,7 @@ let run
     Z3.set_global_param "verbose" "10";
   let z3_ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  Utils.update_default_num_unroll p.num_unroll;
+  update_default_num_unroll p.num_unroll;
   (* Determine whether to perform a single or comparative analysis. *)
   match files with
   | [input] ->

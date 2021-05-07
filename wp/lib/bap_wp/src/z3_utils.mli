@@ -39,32 +39,35 @@ val get_z3_name :
     [mk_smtlib2] *)
 val get_decls_and_symbols : Env.t -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)
 
-(** [mk_smtlib2_single env smtlib_str] takes in a string representing a
-    valid SMT-Lib-2 statement.
+(** [mk_smtlib2_single name env smtlib_str] takes in a string representing a
+    valid SMT-Lib-2 statement and returns a WP constraint tagged with [name].
     The variables in the SMT-Lib statements need to appear in the
     environment. The intended purpose of this function is generating hypothesis
-     and postconditions for single binary analysis *)
-val mk_smtlib2_single : Env.t -> string -> Constr.t
+    and postconditions for single binary analysis *)
+val mk_smtlib2_single : ?name:string option -> Env.t -> string -> Constr.t
 
 (** [mk_smtlib2] parses a smtlib2 string in the context that has a mapping of func_decl
     to symbols and returns a constraint [Constr.t] corresponding to the smtlib2 string.
     The [func_decl * symbol] mapping can be constructed from an [Env.t] using the
     [get_decls_and_symbols] function. *)
-val mk_smtlib2 : Z3.context -> string -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)  -> Constr.t
+val mk_smtlib2
+  :  ?name:string option
+  -> Z3.context
+  -> string
+  -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list)
+  -> Constr.t
 
-(** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an 
+(** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an
     [and] node if the number of operands is less than 2. This may improve sharing,
     but also improves compatibility of smtlib2 expressions with other solvers.  *)
-
 val mk_and : Z3.context -> Constr.z3_expr list -> Constr.z3_expr
 
-(** [check_external] invokes an external smt solver as a process. It communicates to the 
-    process via a fairly rigid interpretation of the smtlib2 protocol. It extracts the 
-    smtlib2 query string from the given z3_solver, queries the external solver, receives 
+(** [check_external] invokes an external smt solver as a process. It communicates to the
+    process via a fairly rigid interpretation of the smtlib2 protocol. It extracts the
+    smtlib2 query string from the given z3_solver, queries the external solver, receives
     a counter model if SAT. It then asserts this model back to the z3_solver, which should
-    check quickly. This solver can then be used with the regular cbat z3 model 
+    check quickly. This solver can then be used with the regular cbat z3 model
     interpretation machinery. Tested with boolector, results with other solvers may vary.*)
-
 val check_external : Z3.Solver.solver
   -> string
   -> Z3.context

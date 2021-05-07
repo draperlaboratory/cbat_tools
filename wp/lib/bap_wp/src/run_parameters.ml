@@ -13,7 +13,12 @@
 
 open !Core_kernel
 open Bap_main
+open Bap_core_theory
+open Bap.Std
 open Monads.Std
+open Utils.Option_let
+
+module Env = Environment
 
 (* Error for when a user does not specify a function to analyze. *)
 type Extension.Error.t += Missing_function of string
@@ -41,6 +46,7 @@ type t = {
   pointer_reg_list : string list;
   inline : string option;
   num_unroll : int option;
+  loop_invariant : string;
   gdb_output : string option;
   bildb_output : string option;
   use_fun_input_regs : bool;
@@ -55,6 +61,13 @@ type t = {
   fun_specs : string list;
   ext_solver_path : string option
 }
+
+type loop_invariant = {
+  address : string;
+  invariant : string
+} [@@deriving sexp]
+
+type invariant_list = loop_invariant list [@@deriving sexp]
 
 (* Ensures the user inputted a function for analysis. *)
 let validate_func (func : string) : (unit, error) result =
@@ -153,6 +166,31 @@ let validate (f : t) (files : string list) : (unit, error) result =
   validate_show f.show >>= fun () ->
   Ok ()
 
+(* Parses the loop invariant and address from the user into the format accepted
+   by the environment. *)
+let parse_loop_invariant (invariants : string) (target : Theory.target)
+    (sub : Sub.t) : Env.loop_invariants =
+  if String.is_empty invariants then
+    Tid.Map.empty
+  else
+    let invs = invariant_list_of_sexp (Sexp.of_string invariants) in
+    let blks = Term.enum blk_t sub in
+    List.fold invs ~init:Tid.Map.empty ~f:(fun m inv ->
+        let tid = Seq.find_map blks ~f:(fun blk ->
+            let* address = Term.get_attr blk address in
+            let bitvec = Bitvec.of_string inv.address in
+            let addr = Addr.code_addr target bitvec in
+            if Addr.equal address addr then
+              Some (Term.tid blk)
+            else
+              None) in
+        match tid with
+        | Some tid -> Tid.Map.set m ~key:tid ~data:inv.invariant
+        | None ->
+          let msg = Format.sprintf "Address %s for loop invariant not found.%!"
+              inv.address in
+          failwith msg)
+
 let default ~func:(func : string) : t =
   {
     func = func;
@@ -166,6 +204,7 @@ let default ~func:(func : string) : t =
     pointer_reg_list = [];
     inline = None;
     num_unroll = None;
+    loop_invariant = "";
     gdb_output = None;
     bildb_output = None;
     use_fun_input_regs = false;

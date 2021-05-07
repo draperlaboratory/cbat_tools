@@ -17,12 +17,15 @@ open Bap.Std
 (* FIXME: can we remove this include? *)
 include Self()
 
-module Pre = Precondition
+module Option_let = struct
 
-let update_default_num_unroll (num_unroll : int option) : unit =
-  match num_unroll with
-  | Some n -> Pre.num_unroll := n
-  | None -> ()
+  let (let*) (x : 'a option) (f : 'a -> 'b option) : 'b option =
+    Option.bind x ~f
+
+  let (let+) (x : 'a option) (f : 'a -> 'b) : 'b option =
+    Option.map x ~f
+
+end
 
 let varset_to_string (vs : Var.Set.t) : string =
   vs

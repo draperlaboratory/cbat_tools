@@ -128,13 +128,13 @@ let check_list (expected_reg_models : ((string * string) list) list )
                 (* if register not observed, then fail *)
                 | None ->
                   Some (Printf.sprintf
-                    "\n\tRegister %s not found in returned model.\n" reg)
+                          "\n\tRegister %s not found in returned model.\n" reg)
                 | Some observed_value ->
                   if String.equal observed_value value then None
                   else
                     Some (Printf.sprintf
-                      "\tRegister mismatch: %s expected to be %s but was %s\n"
-                      reg value observed_value)
+                            "\tRegister mismatch: %s expected to be %s but was %s\n"
+                            reg value observed_value)
               end in
             Option.merge ~f:(^) acc err
           ) in
@@ -285,7 +285,7 @@ let check_bad_hash_function (registers : string list) : ((string StringMap.t) ->
       None
     else
       Some (Printf.sprintf "\n Expected the hash %s but got hash %s"
-        (Bitvector.to_string result) (Bitvector.to_string result_index))
+              (Bitvector.to_string result) (Bitvector.to_string result_index))
 
 (* The length of a test_case is in seconds.
    OUnit has predefined test lengths of:

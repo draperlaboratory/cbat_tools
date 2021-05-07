@@ -8,5 +8,6 @@ PKG z3
 PKG ounit2
 PKG bap_wp
 PKG re
+PKG ppx_jane
 
 B _build/**
