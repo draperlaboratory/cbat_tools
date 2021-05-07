@@ -17,8 +17,11 @@ sub2:
 	sub rdx, 1		;n--
 	
 main:
-	mov r8, 3 
-	mov QWORD [rsi], 3 
+	mov rsi, 0x42
+	mov rdi, 0x67
+	mov QWORD [rsi + 1], 3 
 	call subroutine
-	mov rax, [rdi]
+	mov rax, [rdi + 1]
 	ret
+
+	;; 
