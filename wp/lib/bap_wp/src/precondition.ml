@@ -1635,7 +1635,7 @@ let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
       let break_cond, break_jmp = Option.value_exn (get_loop_break loop env) in
       let body = Sub.of_cfg (get_body g loop) in
       let vars = loop_vars body in
-      (* forall y, (I => if(~E, R, WP(S, I)))[x <- y] *)
+      (* forall y, (I => ite(~E, R, WP(S, I)))[x <- y] *)
       let loop_body, env =
         let body_wp, env = visit_sub env invariant body in
         let post = exit_pre env post node g loop in

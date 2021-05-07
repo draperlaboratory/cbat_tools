@@ -19,7 +19,7 @@ int loop(void) {
 
 ## No Loop Invariant/Unrolling
 
-Without a unrolling the loop or checking a loop invariant, WP does not know how
+Without unrolling the loop or checking a loop invariant, WP does not know how
 many times we should iterate over the while loop. Because of this, it is unable
 to determine that `x` is `5` at the end of the function. This test should return
 `SAT`.
