@@ -1,0 +1,15 @@
+(((address 0x12)
+ (invariant
+   "(define-fun read ((addr (_ BitVec 64))) (_ BitVec 8)
+      (select mem (bvadd addr RBP)))
+    (define-fun stack_read ((addr (_ BitVec 64))) (_ BitVec 32)
+      (concat (read addr)
+              (read (bvsub addr #x0000000000000001))
+              (read (bvsub addr #x0000000000000002))
+              (read (bvsub addr #x0000000000000003))))
+    (assert
+      (let ((x (stack_read #xffffffffffffffff))
+            (y (stack_read #xfffffffffffffffb)))
+      (and (= (bvadd x y) #x00000005)
+           (bvult x #x00000005)
+           (bvuge y #x00000000))))")))
