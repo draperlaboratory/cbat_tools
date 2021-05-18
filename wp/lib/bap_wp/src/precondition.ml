@@ -1401,20 +1401,17 @@ let in_loop (loop : Graphs.Ir.Node.t group) (tid : Tid.t) : bool =
    - for each node in the SCC, find its parent in the dominator tree
    - if the parent node is not in the original SCC, it is an exit node.
 
-   The exit node of a loop is the first node outside of the SCC in the control
-   flow graph. This should be the node the loop header points to that isn't a
-   part of the loop.
+   The exit node of a loop is a node outside of the SCC in the control flow
+   graph. This node will always be visited when exiting a loop.
 *)
-let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+let loop_exit (loop : Graphs.Ir.Node.t group) (graph : Graphs.Ir.t)
   : Graphs.Ir.Node.t option =
-  let scc = Graphlib.strong_components (module Graphs.Ir) graph in
-  let* group = Partition.group scc node in
   let* leaf = Seq.find (Graphlib.postorder_traverse (module Graphs.Ir) graph)
       ~f:(fun n -> Seq.is_empty (Graphs.Ir.Node.succs n graph)) in
   let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph leaf in
-  Seq.find_map (Group.enum group) ~f:(fun n ->
+  Seq.find_map (Group.enum loop) ~f:(fun n ->
       let* parent = Tree.parent dom_tree n in
-      if Group.mem group parent then
+      if Group.mem loop parent then
         None
       else
         Some parent)
@@ -1423,13 +1420,13 @@ let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
 let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
     (g : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) : Env.t =
   List.fold [loop_exit] ~init:env ~f:(fun e spec ->
-      match spec node g with
+      match spec loop g with
       | None -> e
       | Some exit ->
         let skip_node n =
           let label = Graphs.Ir.Node.label n in
           let in_loop = in_loop loop (Term.tid label) in
-          let unreachable = unreachable_from_start g exit n in
+          let unreachable = unreachable_from_start g node n in
           in_loop || unreachable
         in
         let _, env = visit_graph env post ~start:exit ~skip_node g in
