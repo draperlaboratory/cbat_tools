@@ -205,6 +205,7 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
     interpretation machinery. Tested with Boolector, results with other solvers may vary.*)
 
 let check_external
+    ~(print_smtlib:bool)
     (solver : Z3.Solver.solver)
     (solver_path : string)
     (ctx : Z3.context)
@@ -220,6 +221,8 @@ let check_external
   Out_channel.output_string solver_stdin smt_postamble;
   Out_channel.flush solver_stdin;
   printf "Running external solver %s\n%!" solver_path;
+  if print_smtlib then
+    Printf.printf "smtlib : \n%s%s%s%!" smt_preamble smt_string smt_postamble;
 
   (* SexpLib unfortunately uses # as an comment delimitter.
      We replace it with a special token and revert this after parsing. *)

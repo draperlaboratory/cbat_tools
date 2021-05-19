@@ -68,7 +68,9 @@ val mk_and : Z3.context -> Constr.z3_expr list -> Constr.z3_expr
     a counter model if SAT. It then asserts this model back to the z3_solver, which should
     check quickly. This solver can then be used with the regular cbat z3 model
     interpretation machinery. Tested with boolector, results with other solvers may vary.*)
-val check_external : Z3.Solver.solver
+val check_external :
+     print_smtlib:bool 
+  -> Z3.Solver.solver
   -> string
   -> Z3.context
   -> (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list

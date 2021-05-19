@@ -1324,12 +1324,14 @@ let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
       pre'
   in
   Z3.Solver.add solver [is_correct];
-  if (List.mem print_constr "precond-smtlib" ~equal:(String.equal)) then (
-    Printf.printf "Z3 : \n %s \n %!" (Z3.Solver.to_string solver) );
+  let print_smtlib = List.mem print_constr "precond-smtlib" ~equal:(String.equal) in
   match ext_solver with
-  | None -> Z3.Solver.check solver []
+  | None -> 
+    if print_smtlib then
+    Printf.printf "Z3 : \n %s \n %!" (Z3.Solver.to_string solver);
+    Z3.Solver.check solver []
   | Some (solver_path, declsyms) ->
-    Z3_utils.check_external solver solver_path ctx declsyms
+    Z3_utils.check_external ~print_smtlib solver solver_path ctx declsyms
 
 let exclude ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
     (ctx : Z3.context) ~var:(var : Constr.z3_expr) ~pre:(pre : Constr.t)
