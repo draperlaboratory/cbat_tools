@@ -214,6 +214,14 @@ let unit_tests = [
     ~script:"run_wp_no_invariant.sh";
   "Loop unroll do while: UNSAT"    >: test_plugin "loop_invariant/do_while" unsat
     ~script:"run_wp_unroll.sh";
+  "Loop invariant break: UNSAT" >: test_plugin "loop_invariant/break" unsat;
+  "Loop invariant break: SAT"   >: test_plugin "loop_invariant/break" sat
+    ~script:"run_wp_no_invariant.sh";
+  "Loop unroll break: UNSAT"    >: test_plugin "loop_invariant/break" unsat
+    ~script:"run_wp_unroll.sh";
+  "Loop invariant while(true): UNSAT" >: test_plugin "loop_invariant/non_terminating" unsat;
+  "Loop invariant while(true): SAT"   >: test_plugin "loop_invariant/non_terminating" sat
+    ~script:"run_wp_no_invariant.sh";
 
   "Nested function calls"               >: test_plugin "nested_function_calls" unsat;
 

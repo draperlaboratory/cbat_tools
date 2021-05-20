@@ -7,7 +7,7 @@ $(BIN_DIR):
 	mkdir -p $@
 
 $(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
-	clang -Wall -g -o $@ $<
+	gcc -Wall -g -o $@ -c $<
 
 clean:
 	rm -rf $(BIN_DIR)
