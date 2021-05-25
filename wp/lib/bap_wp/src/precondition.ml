@@ -901,8 +901,12 @@ let visit_graph (env : Env.t) (post : Constr.t)
         let dst = G.Edge.dst e in
         debug "Entering back edge from\n%sto\n%s\n%!"
           (G.Node.to_string src) (G.Node.to_string dst);
-        let handler = Env.get_loop_handler env in
-        post, handler env post ~start:dst g
+        let tid = dst |> G.Node.label |> Term.tid in
+        match Env.get_precondition env tid with
+        | Some pre -> pre, env
+        | None ->
+          let handler = Env.get_loop_handler env in
+          post, handler env post ~start:dst g
       end
     | _ ->
       (* We return postcondition for the entire graph rather than the
@@ -1397,47 +1401,36 @@ let in_loop (loop : Graphs.Ir.Node.t group) (tid : Tid.t) : bool =
    - for each node in the SCC, find its parent in the dominator tree
    - if the parent node is not in the original SCC, it is an exit node.
 
-   The exit node of a loop is the first node outside of the SCC in the control
-   flow graph. This should be the node the loop header points to that isn't a
-   part of the loop.
+   The exit node of a loop is a node outside of the SCC in the control flow
+   graph. This node will always be visited when exiting a loop.
 *)
-let loop_exit (node : Graphs.Ir.Node.t) (graph : Graphs.Ir.t)
+let loop_exit (loop : Graphs.Ir.Node.t group) (graph : Graphs.Ir.t)
   : Graphs.Ir.Node.t option =
-  let module Node = Graphs.Ir.Node in
-  let scc = Graphlib.strong_components (module Graphs.Ir) graph in
-  let* group = Partition.group scc node in
   let* leaf = Seq.find (Graphlib.postorder_traverse (module Graphs.Ir) graph)
-      ~f:(fun n -> Seq.is_empty (Node.succs n graph)) in
+      ~f:(fun n -> Seq.is_empty (Graphs.Ir.Node.succs n graph)) in
   let dom_tree = Graphlib.dominators (module Graphs.Ir) ~rev:true graph leaf in
-  Seq.find_map (Group.enum group) ~f:(fun n ->
+  Seq.find_map (Group.enum loop) ~f:(fun n ->
       let* parent = Tree.parent dom_tree n in
-      if Group.mem group parent then
+      if Group.mem loop parent then
         None
       else
         Some parent)
 
 (* Gets the precondition of the exit node of a loop. *)
 let exit_pre (env : Env.t) (post : Constr.t) (node : Graphs.Ir.Node.t)
-    (g : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) : Constr.t =
-  let p =
-    List.find_map [loop_exit] ~f:(fun spec ->
-        let* exit = spec node g in
-        let tid = exit |> Graphs.Ir.Node.label |> Term.tid in
+    (g : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group) : Env.t =
+  List.fold [loop_exit] ~init:env ~f:(fun e spec ->
+      match spec loop g with
+      | None -> e
+      | Some exit ->
         let skip_node n =
           let label = Graphs.Ir.Node.label n in
           let in_loop = in_loop loop (Term.tid label) in
-          let unreachable = unreachable_from_start g exit n in
+          let unreachable = unreachable_from_start g node n in
           in_loop || unreachable
         in
         let _, env = visit_graph env post ~start:exit ~skip_node g in
-        Env.get_precondition env tid)
-  in
-  match p with
-  | Some p -> p
-  | None ->
-    let tid = node |> Graphs.Ir.Node.label |> Term.tid in
-    warning "Trivial precondition is being used for node %s\n%!" (Tid.to_string tid);
-    post
+        env)
 
 (* This is the default handler for loops, which unrolls a loop by:
    - Looking at the target node for a backjump
@@ -1456,8 +1449,13 @@ let loop_unroll (num_unroll : int) : Env.loop_handler =
     if find_depth env node <= 0 then
       let scc = Graphlib.strong_components (module Graphs.Ir) g in
       let loop = Option.value_exn (Partition.group scc node) in
-      let pre = exit_pre env pre node g loop in
-      Env.add_precond env tid pre
+      let env = exit_pre env pre node g loop in
+      match Env.get_precondition env tid with
+      | Some _ -> env
+      | None ->
+        warning "Trivial precondition is being used for node %s\n%!"
+          (Tid.to_string tid);
+        Env.add_precond env tid pre
     else
       begin
         let updated_env = Env.set_unroll_depth env (Node.label node) ~f:decr_depth in
@@ -1468,127 +1466,27 @@ let loop_unroll (num_unroll : int) : Env.loop_handler =
   in
   unroll
 
-(* Gets the target destination of a jump. We do not handle indirect jumps. *)
-let target (jmp : Jmp.t) : Tid.t option =
-  match Jmp.kind jmp with
-  | Goto (Direct tid) -> Some tid
-  | Int (_, tid) -> Some tid
-  | Call t -> begin
-      match Call.return t with
-      | Some (Direct tid) -> Some tid
-      | Some (Indirect _) | None -> None
-    end
-  | Goto (Indirect _) | Ret _ -> None
-
-(* Assumes the loop header branches into two blocks. *)
-let get_branch (blk : Blk.t) : (Jmp.t * Jmp.t) option =
-  match Seq.to_list (Term.enum jmp_t blk) with
-  | [jmp1; jmp2] -> Some (jmp1, jmp2)
-  | _ -> None
-
-(* Creates a constraint that represents the loop guard from a BAP expression. *)
-let mk_loop_guard (env : Env.t) (branch_cond : Exp.t) : Constr.t =
-  let ctx = Env.get_context env in
-  let cond_val, _, _ = exp_to_z3 branch_cond env in
-  let cond_size = BV.get_size (Expr.get_sort cond_val) in
-  Bool.mk_not ctx (Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size))
-  |> Constr.mk_goal "Loop guard"
-  |> Constr.mk_constr
-
-(* If [blk] is a loop header, gets the constraint that represents the condition
-   for a loop. Returns None if [blk] is not the loop header. *)
-let loop_condition (loop : Graphs.Ir.Node.t group) (blk : Blk.t) (env : Env.t)
-  : Constr.t option =
-  let* jmp1, jmp2 = get_branch blk in
-  let* target1 = target jmp1 in
-  let* target2 = target jmp2 in
-  let target_in_loop1 = in_loop loop target1 in
-  let target_in_loop2 = in_loop loop target2 in
-  let jmp_condition =
-    fun env post _ jmp ->
-      if Jmp.equal jmp jmp2 then
-        (* This is a dummy precondition and should be overwritten at jmp1. *)
-        Some (post, env)
-      else if Jmp.equal jmp jmp1 then begin
-        (* Gets the constraint that represents the condition for going into the
-           loop. *)
-        if target_in_loop1 then
-          (* jmp1 goes to loop, jmp2 exits. while(E) is jmp1's condition. *)
-          let cond = Jmp.cond jmp1 in
-          Some (mk_loop_guard env cond, env)
-        else if target_in_loop2 then
-          (* jmp1 exits, jmp2 goes to loop. while(E) is the negation of jmp1's
-             condition. *)
-          let cond = Bil.(unop not (Jmp.cond jmp1)) in
-          Some (mk_loop_guard env cond, env)
-        else
-          failwith "At least one of the jump targets must point to the loop.%!"
-      end else
-        None
+let loop_vars
+    ~(start : Graphs.Ir.Node.t)
+    ~(skip_node : Graphs.Ir.Node.t -> bool)
+    (graph : Graphs.Ir.t)
+  : Var.Set.t =
+  let module Filtered_graph =
+    (val Graphlib.filtered (module Graphs.Ir) ~skip_node ()) in
+  let enter_node _ node vars =
+    let blk = Graphs.Ir.Node.label node in
+    let defs = Term.enum def_t blk in
+    Seq.fold defs ~init:vars ~f:(fun vs def ->
+        Var.Set.add vs (Def.lhs def))
   in
-  (* If the block is the loop header. *)
-  if Core_kernel.Bool.(target_in_loop1 <> target_in_loop2) then
-    let ctx = Env.get_context env in
-    let updated_env = Env.set_jmp_handler env jmp_condition in
-    (* Trivial is the same dummy postcondition found at jmp2. *)
-    let pre, _ = visit_block updated_env (Constr.trivial ctx) blk in
-    Some pre
-  else
-    None
+  Graphlib.depth_first_search (module Filtered_graph)
+    ~start ~enter_node ~init:Var.Set.empty graph
 
-(* Returns a constraint that represents the condition for entering a loop. *)
-let get_cond (loop : Graphs.Ir.Node.t group) (env : Env.t) : Constr.t option =
-  Seq.find_map (Group.enum loop) ~f:(fun node ->
-      let blk = Graphs.Ir.Node.label node in
-      loop_condition loop blk env)
-
-(* Gets the body of a loop without any edges pointing to outside of the loop. *)
-let get_body (graph : Graphs.Ir.t) (loop : Graphs.Ir.Node.t group)
-  : Graphs.Ir.t =
-  let outside_loop node =
-    let label = Graphs.Ir.Node.label node in
-    not @@ in_loop loop (Term.tid label)
-  in
-  (* Removes the block that represents the loop header which determines
-     whether to jump to the loop or exit. *)
-  let enter_node _ node g =
-    if outside_loop node then
-      Graphs.Ir.Node.remove node g
-    else
-      g
-  in
-  (* Removes edges that exit the loop. *)
-  let enter_edge kind edge g =
-    match kind with
-    | `Back -> Graphs.Ir.Edge.remove edge g
-    | _ ->
-      let dst = Graphs.Ir.Edge.dst edge in
-      if outside_loop dst then
-        Graphs.Ir.Edge.remove edge g
-      else
-        g
-  in
-  Graphlib.depth_first_search (module Graphs.Ir)
-    ~enter_node ~enter_edge ~init:graph graph
-
-(* Gets a set of vars that get updated in the body of a loop. *)
-let loop_vars (sub : Sub.t) : Var.Set.t =
-  let visitor =
-    (object inherit [Var.Set.t] Term.visitor
-      method! visit_def def vars =
-        Var.Set.add vars (Def.lhs def)
-    end)
-  in
-  visitor#visit_sub sub Var.Set.empty
-
-(* From the predicate transformer semantics from:
-   https://en.wikipedia.org/wiki/Predicate_transformer_semantics#While_loop *)
 let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
   : Env.loop_handler option =
   let* loop_invariant = Tid.Map.find loop_invariants tid in
   Some (fun env post ~start:node g ->
       (* WP(while E do S done, R) *)
-      let ctx = Env.get_context env in
       let tid = node |> Graphs.Ir.Node.label |> Term.tid in
       debug "Checking loop invariant for %s%!" (Tid.to_string tid);
       (* I *)
@@ -1598,32 +1496,23 @@ let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
       debug "Loop invariant: %s%!" (Constr.to_string invariant);
       let scc = Graphlib.strong_components (module Graphs.Ir) g in
       let loop = Option.value_exn (Partition.group scc node) in
-      let cond = Option.value_exn (get_cond loop env) in
-      let body = Sub.of_cfg (get_body g loop) in
-      let vars = loop_vars body in
-      (* forall y, ((E ^ I) => WP(S, I))[x <- y] *)
-      let iteration, env =
-        let body_wp, env = visit_sub env invariant body in
-        let name = Format.sprintf "loop_%s" in
-        Env.freshen ~name (Constr.mk_clause [cond; invariant] [body_wp]) env vars
-      in
-      (* forall y, ((~E ^ I) => R)[x <- y] *)
-      let exit, env =
-        let exit_cond =
-          let false_cond =
-            Bool.mk_false ctx
-            |> Constr.mk_goal "false"
-            |> Constr.mk_constr
-          in
-          Constr.mk_clause [cond] [false_cond]
+      let env = Env.add_precond env tid invariant in
+      (* forall y, (I => ite(~E, R, WP(S, I)))[x <- y] *)
+      let loop_body, env =
+        let skip_node n =
+          let unreachable = unreachable_from_start g node n in
+          let tid = n |> Graphs.Ir.Node.label |> Term.tid in
+          let outside_loop = not @@ in_loop loop tid in
+          unreachable || outside_loop
         in
-        let post = exit_pre env post node g loop in
+        let env = exit_pre env post node g loop in
+        let body_wp, env = visit_graph ~start:node ~skip_node env post g in
+        let vars = loop_vars ~start:node ~skip_node g in
         let name = Format.sprintf "loop_%s" in
-        Env.freshen ~name (Constr.mk_clause [exit_cond; invariant] [post]) env vars
+        Env.freshen ~name (Constr.mk_clause [invariant] [body_wp]) env vars
       in
-      let pre = Constr.mk_clause [] [invariant; iteration; exit] in
+      let pre = Constr.mk_clause [] [invariant; loop_body] in
       Env.add_precond env tid pre)
-
 
 let mk_env
     ?subs:(subs = Seq.empty)
@@ -1663,4 +1552,3 @@ let mk_env
     ~func_name_map
     ~smtlib_compat
     ctx var_gen
-

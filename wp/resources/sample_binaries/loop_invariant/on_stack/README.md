@@ -18,7 +18,7 @@ int loop(void) {
 
 ## No Loop Invariant/Unrolling
 
-Without a unrolling the loop or checking a loop invariant, WP does not know how
+Without unrolling the loop or checking a loop invariant, WP does not know how
 many times we should iterate over the while loop. Because of this, it is unable
 to determine that `x` is `5` at the end of the function. This test should return
 `SAT`.
@@ -36,16 +36,14 @@ The loop invariant we are checking is:
 ```lisp
 (((address 0x12)
  (invariant
-   "(define-fun read ((addr (_ BitVec 64))) (_ BitVec 8)
-      (select mem (bvadd addr RBP)))
-    (define-fun stack_read ((addr (_ BitVec 64))) (_ BitVec 32)
-      (concat (read addr)
-              (read (bvsub addr #x0000000000000001))
-              (read (bvsub addr #x0000000000000002))
-              (read (bvsub addr #x0000000000000003))))
+   "(define-fun read ((addr (_ BitVec 64))) (_ BitVec 32)
+      (concat (select mem (bvadd addr #x0000000000000003))
+              (select mem (bvadd addr #x0000000000000002))
+              (select mem (bvadd addr #x0000000000000001))
+              (select mem addr)))
     (assert
-      (let ((x (stack_read #xffffffffffffffff))
-            (y (stack_read #xfffffffffffffffb)))
+      (let ((x (read (bvsub RBP #x0000000000000004)))
+            (y (read (bvsub RBP #x0000000000000008))))
       (and (= (bvadd x y) #x00000005)
            (bvule x #x00000005)
            (bvuge y #x00000000))))")))

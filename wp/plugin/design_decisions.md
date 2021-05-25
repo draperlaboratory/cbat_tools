@@ -69,3 +69,22 @@ This is unsound in that:
        of each corresponding pair of symbols actually have the same values.
     2. We are updating values in the modified binary. We are not performing
        the equivalence check on the exact binaries given by the user.
+
+
+## Loop Invariant Checking ##
+
+When we visit a back edge in the control flow graph, we check to see if the user
+specified a loop invariant for the destination. If a loop invariant exists, we
+perform the following steps:
+
+  1. Determine the strongly connected components containing the target node of
+     the back edge.
+  2. Determine the exit nodes of the loop in the same way we do in loop
+     unrolling.
+  3. Compute the preconditions of the exit nodes found in the previous step.
+  4. Visit the nodes in the scc using the loop invariant as the postcondition,
+     skipping nodes that are not reachable by the back edge's target node.
+     Whenever we reach a back edge, use the invariant as the precondition of the
+     target.
+  5. Generate a constraint of the form
+     `invariant /\ forall y, (invariant => WP(loop, post))[x <- y]`.

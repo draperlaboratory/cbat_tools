@@ -1282,6 +1282,107 @@ let test_loop_invariant_6 (test_ctx : test_ctxt) : unit =
   assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
 
 
+let test_loop_invariant_7 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let start = Blk.create () in
+  let loop_body = Blk.create () in
+  let exit = Blk.create () in
+  let start = start
+              |> mk_def x zero
+              |> mk_def y (i32 5)
+              |> mk_jmp loop_body
+  in
+  let loop_body = loop_body
+                  |> mk_def x Bil.(var x + one)
+                  |> mk_def y Bil.(var y - one)
+                  |> mk_cond Bil.(var x < i32 5) loop_body exit
+  in
+  let sub = mk_sub [start; loop_body; exit] in
+  let tid = Term.tid loop_body in
+  let invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvult x #x00000005)))" in
+  let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
+  let invariant_checker = [Pre.loop_invariant_checker loop_invariant] in
+  let env = Pre.mk_env ~target:test_tgt ~loop_handlers:invariant_checker ctx var_gen in
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
+             |> Constr.mk_goal "x = 5"
+             |> Constr.mk_constr
+  in
+  let _, env = Pre.init_vars (Var.Set.of_list [x; y]) env in
+  let pre, env = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+
+
+let test_loop_invariant_8 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let start = Blk.create () in
+  let loop_body = Blk.create () in
+  let exit = Blk.create () in
+  let start = start
+              |> mk_def x zero
+              |> mk_def y (i32 5)
+              |> mk_jmp loop_body
+  in
+  let loop_body = loop_body
+                  |> mk_def x Bil.(var x + one)
+                  |> mk_def y Bil.(var y - one)
+                  |> mk_cond Bil.(var x < i32 5) loop_body exit
+  in
+  let sub = mk_sub [start; loop_body; exit] in
+  let tid = Term.tid loop_body in
+  let invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvule x #x00000005)))" in
+  let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
+  let invariant_checker = [Pre.loop_invariant_checker loop_invariant] in
+  let env = Pre.mk_env ~target:test_tgt ~loop_handlers:invariant_checker ctx var_gen in
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
+             |> Constr.mk_goal "x = 5"
+             |> Constr.mk_constr
+  in
+  let _, env = Pre.init_vars (Var.Set.of_list [x; y]) env in
+  let pre, env = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.SATISFIABLE
+
+
+let test_loop_invariant_9 (test_ctx : test_ctxt) : unit =
+  let ctx = Env.mk_ctx () in
+  let var_gen = Env.mk_var_gen () in
+  let x = Var.create "x" reg32_t in
+  let y = Var.create "y" reg32_t in
+  let tmp = Var.create ~is_virtual:true "tmp" bool_t in
+  let start = Blk.create () in
+  let loop_body = Blk.create () in
+  let exit = Blk.create () in
+  let start = start
+              |> mk_def x zero
+              |> mk_def y (i32 5)
+              |> mk_jmp loop_body
+  in
+  let loop_body = loop_body
+                  |> mk_def x Bil.(var x + one)
+                  |> mk_def y Bil.(var y - one)
+                  |> mk_def tmp Bil.(var x < i32 5)
+                  |> mk_cond Bil.(var tmp) loop_body exit
+  in
+  let sub = mk_sub [start; loop_body; exit] in
+  let tid = Term.tid loop_body in
+  let invariant = "(assert (and (= (bvadd x y) #x00000005) (bvuge y #x00000000) (bvult x #x00000005)))" in
+  let loop_invariant = Tid.Map.of_alist_exn [(tid, invariant)] in
+  let invariant_checker = [Pre.loop_invariant_checker loop_invariant] in
+  let env = Pre.mk_env ~target:test_tgt ~loop_handlers:invariant_checker ctx var_gen in
+  let post = Bool.mk_eq ctx (mk_z3_var env x) (BV.mk_numeral ctx "5" 32)
+             |> Constr.mk_goal "x = 5"
+             |> Constr.mk_constr
+  in
+  let _, env = Pre.init_vars (Var.Set.of_list [x; y]) env in
+  let pre, env = Pre.visit_sub env post sub in
+  assert_z3_result test_ctx env (Sub.to_string sub) post pre Z3.Solver.UNSATISFIABLE
+
+
 (* Currently only testing expressions that evaluate to immediates. *)
 let eval_to_int (exp : exp) : int =
   match Exp.eval exp with
@@ -1851,6 +1952,18 @@ let suite = [
    b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
    b3: y = y + 1; x = x - 1; when y < 3 goto b3; goto b4; \n\
    b4:" >:: test_loop_invariant_6;
+  "Loop invariant: Do while UNSAT: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
+   b3:" >:: test_loop_invariant_7;
+  "Loop invariant: Do while SAT: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; when x < 5 goto b2; goto b3; \n\
+   b3:" >:: test_loop_invariant_8;
+  "Loop invariant: Do while UNSAT: \n\
+   b1: x = 0; y = 5; goto b2; \n\
+   b2: x = x + 1; y = y - 1; tmp = x < 5; when tmp goto b2; goto b3; \n\
+   b3:" >:: test_loop_invariant_9;
 
   "Read NULL; SAT:\n\
    x = mem[addr];" >:: test_exp_cond_1;

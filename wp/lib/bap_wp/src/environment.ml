@@ -431,11 +431,16 @@ let update_stack_base (range : mem_range) (base : int) : mem_range =
 let update_stack_size (range : mem_range) (size : int) : mem_range =
   { range with size = size }
 
+(* Remove the '|' from a constraint for printing purposes and for support for
+   other smt solvers. *)
+let clean_name (name : string) : string =
+  String.strip ~drop:(fun c -> Char.equal c '|') name
+
 let mk_init_var (env : t) (var : Var.t) : Constr.z3_expr * t =
   let ctx = get_context env in
   let z3_var, _ = get_var env var in
   let sort = Expr.get_sort z3_var in
-  let name = Format.sprintf "init_%s" (String.strip ~drop:(fun c -> Char.(c = '|')) (Expr.to_string z3_var)) in
+  let name = Format.sprintf "init_%s" (clean_name (Expr.to_string z3_var)) in
   let init_var = Expr.mk_const_s ctx name sort in
   let env = { env with init_vars = EnvMap.set env.init_vars ~key:var ~data:init_var } in
   init_var, env
@@ -458,7 +463,7 @@ let freshen ?(name = Format.sprintf "fresh_%s") (constr : Constr.t)
   let substitutions =
     List.map (Var.Set.to_list vars) ~f:(fun v ->
         let z3_v, env = get_var env v in
-        let name = name (Expr.to_string z3_v) in
+        let name = name (clean_name (Expr.to_string z3_v)) in
         let fresh = new_z3_expr ~name env (Var.typ v) in
         (z3_v, fresh))
   in

@@ -9,5 +9,5 @@
       (let ((x (read (bvsub RBP #x0000000000000004)))
             (y (read (bvsub RBP #x0000000000000008))))
       (and (= (bvadd x y) #x00000005)
-           (bvule x #x00000005)
+           (bvult x #x00000005)
            (bvuge y #x00000000))))")))
