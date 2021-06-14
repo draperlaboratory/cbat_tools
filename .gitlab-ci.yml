@@ -1,28 +1,23 @@
-# This specifies the docker image to run CI jobs in.
+# The docker image to use to run the CI jobs.
+# NOTE: Jobs must be tagged as `docker` to get picked up
+#       by the CI docker runners.
 image: "binaryanalysisplatform/bap:latest"
 
-# This is a CI job: it will run the tests for WP. 
+# JOB: run the tests for WP.
 run_wp_tests:
 
   tags:
-    - docker # This must be tagged like this, so docker CI runners pick it up.
+    - docker
 
   script:
-
-    # Install some dependencies.
-    - sudo -E apt install -y curl vim
-    
-    # Run the tests in the `wp` sudirectory.
     - make test -C wp
     
-# This is another CI job: it will build `bildb`.
+# JOB: build BilDB.
 build_bildb:
 
   tags:
-    - docker # Must be tagged lik this for the docker CI runners to see it.
+    - docker
 
   script:
-
-    # Build `bildb` in the `bildb` subdirectory.
     - make -C bildb
 
