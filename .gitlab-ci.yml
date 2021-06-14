@@ -1,0 +1,23 @@
+# The docker image to use to run the CI jobs.
+# NOTE: Jobs must be tagged as `docker` to get picked up
+#       by the CI docker runners.
+image: "binaryanalysisplatform/bap:latest"
+
+# JOB: run the tests for WP.
+run_wp_tests:
+
+  tags:
+    - docker
+
+  script:
+    - make test -C wp
+    
+# JOB: build BilDB.
+build_bildb:
+
+  tags:
+    - docker
+
+  script:
+    - make -C bildb
+
