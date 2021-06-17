@@ -265,4 +265,9 @@ let unit_tests = [
     sat ~script:"run_wp_single_2.sh";
   "User defined sub specs single 9" >: test_plugin "user_func_spec/sub_spec_3"
     unsat ~script:"run_wp_single_3.sh";
+
+  "Memcpy example 1" >: test_plugin "memcpy/memcpy_example"
+    unsat ~script:"run_wp.sh";
+  "Memcpy example 2 (mem preservation)" >: test_plugin "memcpy/memcpy_example_2"
+    unsat ~script:"run_wp.sh";
 ]
