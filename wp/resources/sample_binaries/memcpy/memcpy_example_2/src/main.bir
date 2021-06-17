@@ -1,0 +1,75 @@
+
+Sub:
+000009e8: sub main(main_argc, main_argv, main_result)
+000009fa: main_argc :: in u32 = RDI
+000009fb: main_argv :: in out u64 = RSI
+000009fc: main_result :: out u32 = RAX
+
+00000394:
+0000039c: #35 := RBP
+000003a0: RSP := RSP - 8
+000003a4: mem := mem with [RSP, el]:u64 <- #35
+000003ad: RBP := RSP
+000003bd: #36 := RSP
+000003c1: RSP := RSP - 0x10
+000003c5: CF := #36 < 0x10
+000003c9: OF := high:1[(#36 ^ 0x10) & (#36 ^ RSP)]
+000003cd: AF := 0x10 = (0x10 & (RSP ^ #36 ^ 0x10))
+000003d1: PF :=
+          ~low:1[let $1 = RSP >> 4 ^ RSP in
+                 let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+000003d5: SF := high:1[RSP]
+000003d9: ZF := 0 = RSP
+000003e2: RAX := 0x601038
+000003eb: RCX := 0x601034
+000003f4: mem := mem with [RBP - 4, el]:u32 <- 0
+000003fd: mem := mem with [RBP - 8, el]:u32 <- low:32[RDI]
+00000406: mem := mem with [RBP - 0x10, el]:u64 <- RSI
+0000040f: mem := mem with [0x601034, el]:u32 <- 0x800
+00000418: RDX := extend:64[mem[RBP - 8, el]:u32]
+00000421: RDI := RAX
+0000042a: RSI := RCX
+00000436: RSP := RSP - 8
+0000043a: mem := mem with [RSP, el]:u64 <- 0x400534
+0000043d: call @memcpy with return %00000440
+
+00000440:
+0000044c: #39 := mem[0x601038, el]:u32
+00000450: CF := mem[0x601038, el]:u32 < 0
+00000454: OF := high:1[mem[0x601038, el]:u32 & (mem[0x601038, el]:u32 ^ #39)]
+00000458: AF := 0x10 = (0x10 & (#39 ^ mem[0x601038, el]:u32))
+0000045c: PF :=
+          ~low:1[let $1 = #39 >> 4 ^ #39 in
+                 let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+00000460: SF := high:1[#39]
+00000464: ZF := 0 = #39
+0000046f: when ZF goto %00000469
+000009e9: goto %000007ad
+
+00000469:
+0000047b: mem := mem with [RBP - 4, el]:u32 <- 1
+000009ea: goto %0000047e
+
+000007ad:
+000007b3: mem := mem with [RBP - 4, el]:u32 <- 0
+000007bb: goto %0000047e
+
+0000047e:
+00000484: RAX := pad:64[mem[RBP - 4, el]:u32]
+00000494: #41 := RSP
+00000498: RSP := RSP + 0x10
+0000049c: CF := RSP < #41
+000004a0: OF := ~high:1[#41] & (high:1[#41] | high:1[RSP]) &
+          ~(high:1[#41] & high:1[RSP])
+000004a4: AF := 0x10 = (0x10 & (RSP ^ #41 ^ 0x10))
+000004a8: PF :=
+          ~low:1[let $1 = RSP >> 4 ^ RSP in
+                 let $2 = $1 >> 2 ^ $1 in $2 >> 1 ^ $2]
+000004ac: SF := high:1[RSP]
+000004b0: ZF := 0 = RSP
+000004ba: RBP := mem[RSP, el]:u64
+000004be: RSP := RSP + 8
+000004c9: #44 := mem[RSP, el]:u64
+000004cd: RSP := RSP + 8
+000004d0: call #44 with noreturn
+
