@@ -24,7 +24,7 @@ run () {
 	(bvule (_ bv0 64) index)
 	(bvult index init_RDX))
 (= (select init_mem (bvadd init_RSI index)) (select mem (bvadd RDI index)))))))" \
-    ./src/main
+    ./bin/main
 }
 
 
