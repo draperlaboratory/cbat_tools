@@ -388,6 +388,8 @@ let denote_jump (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
 *)
 let denote_block (denote_call : sub:tid -> AI.t -> target:tid -> AI.t)
     (ctx : program term) ~(source : tid) (env : AI.t) : target:tid -> AI.t =
+ let source_str = Tid.name source in
+ if (String.compare source_str "@start-pseudo-node") = 0 || (String.compare source_str "@exit-pseudo-node") = 0 then fun ~target->AI.bottom else
  match (Program.lookup blk_t ctx source) with
    | Some b ->
      let postcond = denote_defs b env in
