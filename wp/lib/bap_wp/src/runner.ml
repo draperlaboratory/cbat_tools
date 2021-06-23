@@ -357,10 +357,12 @@ let single
     if String.is_empty p.postcond then
       true_constr
     else
-      Z3_utils.mk_smtlib2_single env p.postcond
+      Z3_utils.mk_smtlib2_single
+        ~name:(Some "Custom postcondition") env p.postcond
   in
   let pre, env = Pre.visit_sub env post main_sub in
-  let precond_from_flag = Z3_utils.mk_smtlib2_single env p.precond in
+  let precond_from_flag = Z3_utils.mk_smtlib2_single
+      ~name:(Some "Custom precondition") env p.precond in
   let pre = Constr.mk_clause [precond_from_flag;] [pre] in
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem p.show "bir" ~equal:String.equal then
