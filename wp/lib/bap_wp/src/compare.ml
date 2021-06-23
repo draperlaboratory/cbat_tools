@@ -56,7 +56,7 @@ let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t)
 
 (** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
     as a comparison predicate between an original and modified binary. *)
-let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
+let mk_smtlib2_compare ?(name = None) (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
   let var_map1 = Env.get_var_map env1 in
   let var_map2 = Env.get_var_map env2 in
   let init_var_map1 = Env.get_init_var_map env1 in
@@ -83,7 +83,7 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let declsym2 = Z3_utils.get_decls_and_symbols env2 in
   let declsym = declsym1 @ declsym2 in
   let ctx = Env.get_context env1 in
-  Z3_utils.mk_smtlib2 ctx smtlib_str declsym
+  Z3_utils.mk_smtlib2 ~name ctx smtlib_str declsym
 
 let compare_blocks
     ~pre_regs:(pre_regs : Var.Set.t)
@@ -97,10 +97,14 @@ let compare_blocks
      their original names. *)
   let env2 = Env.set_freshen env2 true in
   let post_eq_list, env1, env2 = set_to_eqs env1 env2 post_regs in
-  let smtlib_post = mk_smtlib2_compare env1 env2 smtlib_post in
+  let smtlib_post =
+    mk_smtlib2_compare ~name:(Some "Custom postcondition")
+      env1 env2 smtlib_post in
   let output_eq = Constr.mk_clause [] (smtlib_post :: post_eq_list) in
   let pre_eq_list, env1, env2 = set_to_eqs env1 env2 pre_regs in
-  let smtlib_hyp = mk_smtlib2_compare env1 env2 smtlib_hyp in
+  let smtlib_hyp =
+    mk_smtlib2_compare ~name:(Some "Custom precondition")
+      env1 env2 smtlib_hyp in
   let pre1, _ = Pre.visit_block env1 output_eq blk1 in
   let pre2, _ = Pre.visit_block env2 pre1 blk2 in
   let goal = Constr.mk_clause (smtlib_hyp :: pre_eq_list) [pre2] in

@@ -115,16 +115,20 @@ let print_memory (fmt : Format.formatter) (model : Model.model)
    during the analysis. *)
 let print_call_preds (fmt : Format.formatter) (model : Model.model)
     (preds : Env.ExprSet.t) : unit =
-  let pred_vals =
-    Env.ExprSet.fold preds ~init:[] ~f:(fun pairs c ->
-        if Z3Array.is_array c then
-          pairs
-        else
-          let name = Expr.to_string c in
-          let value = Constr.eval_model_exn model c in
-          (name, value) :: pairs)
-  in
   Format.fprintf fmt "\n%!";
+  let arrays, consts =
+    Env.ExprSet.partition_tf preds ~f:Z3Array.is_array
+  in
+  Env.ExprSet.iter arrays ~f:(fun a ->
+      Format.fprintf fmt "\t%s |-> [\n" (Expr.to_string a);
+      let value = Constr.eval_model_exn model a in
+      format_mem_model fmt (extract_array value));
+  let pred_vals =
+    Env.ExprSet.fold consts ~init:[] ~f:(fun pairs c ->
+        let name = Expr.to_string c in
+        let value = Constr.eval_model_exn model c in
+        (name, value) :: pairs)
+  in
   Constr.format_values fmt pred_vals
 
 let print_fun_decls (fmt : Format.formatter) (model : Model.model) : unit =
