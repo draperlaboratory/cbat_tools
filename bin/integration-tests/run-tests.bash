@@ -55,7 +55,6 @@ done
 #Todo: exit 1
 #Todo: Try running ls -la /tmp
 
-
 # Call `clean up` before the script ends
 # When OS throws signal, one is exit.
 # When throws exits, catch it, then call cleanup,

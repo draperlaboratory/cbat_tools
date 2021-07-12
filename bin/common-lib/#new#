@@ -1,1 +1,0 @@
-0COMMIT="$(sed -z -e 's/\n/\\n/g' -e 's/\"/\\"/g' "${GIT_COMMIT_FILE}")" DATA="$(sed -z \ -e 's/\n/\\n/g' \ -e 's/\"/\\"/g' \ -e 's/'\''/\'\''/g' \ -e 's/'\`'/'\`'/g' \
