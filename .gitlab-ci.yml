@@ -11,7 +11,8 @@ run_wp_tests:
 
   script:
     - make test -C wp
-    
+    - bash -x bin/integration-tests/run-tests.bash --report-results
+
 # JOB: build BilDB.
 build_bildb:
 
