@@ -83,6 +83,6 @@ post_to_slack () {
 # OUTPUT:
 report_to_slack () {
     build_slack_payload
-    report_to_slack
+    post_to_slack
 }
 
