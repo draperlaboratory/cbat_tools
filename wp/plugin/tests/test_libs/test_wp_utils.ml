@@ -293,9 +293,9 @@ let check_bad_hash_function (registers : string list) : ((string StringMap.t) ->
    - Short (60.0 s)
    - Long (600.0 s)
    - Huge (1800.0 s)
-     but by default, CBAT uses a custom length of 20.0 seconds. *)
+     but by default, CBAT uses a custom length of 30.0 seconds. *)
 let test_plugin
-    ?length:(length = Custom_length 20.0)
+    ?length:(length = Custom_length 30.0)
     ?script:(script = "run_wp.sh")
     ?args:(args = [])
     ?reg_list:(reg_list = StringSet.empty)
