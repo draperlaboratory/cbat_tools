@@ -72,9 +72,9 @@ post_to_slack () {
     	  -H "Content type: application/json" \
     	  -d @"${SLACK_FILE}" \
     	  "${SLACK_URL}")"
-    RESULT="${?}"
+    RESULT=${?}
     echo "${OUTPUT}"
-    return "${RESULT}"
+    return ${RESULT}
 }
 
 
