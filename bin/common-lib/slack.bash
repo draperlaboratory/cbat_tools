@@ -60,13 +60,22 @@ build_slack_payload () {
     }" > "${SLACK_FILE}"
 }
 
-# DESC: Post a message to slack
-# INPUT: - 
-# OUTPUT: The exit code of the curl/POST status
+# The print_payload function is for debugging purposes:
+print_payload () {
+    echo "printing payload:"
+    echo "MESSAGE: ${MESSAGE}"
+    echo "BAP: ${BAP}"
+    echo "BRANCH: ${BRANCH}"
+    echo "COMMIT: ${COMMIT}"
+    echo "DATA: ${DATA}"
+    echo "TEXT: ${TEXT}"
+}
+
+# DESC: Posts a message to slack
+# OUTPUT: The exit code of the curl/POST command
 post_to_slack () {
     local OUTPUT
-    local RESULT #------what's the difference between an output and result?
-    #------ curl (client url) allows you to communicate with a server
+    local RESULT 
     OUTPUT="$(curl \
     	  -X POST \
     	  -H "Content type: application/json" \
@@ -77,12 +86,12 @@ post_to_slack () {
     return ${RESULT}
 }
 
-
 # DESC:
 # INPUT:
 # OUTPUT:
 report_to_slack () {
     build_slack_payload
+    print_payload
     post_to_slack
 }
 

@@ -116,3 +116,7 @@ else
 	report_to_slack
     fi
 fi
+
+echo "curl version:"
+curl --version
+print_payload
