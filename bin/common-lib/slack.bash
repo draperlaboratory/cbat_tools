@@ -4,15 +4,8 @@
 #
 # -------------------------------
 
-# Food for thought: how to check if var is und
-# Idea: is it empty string?
-# -z asks env to see if proceeding is empty string
-# will return 1 if so, o.t. 0 (aka good)
-
-
-# DESC:
-# INPUT:
-# OUTPUT:
+# DESC: Checks if SLACK_USERNAME is defined
+# OUTPUT: 0 if SLACK_USERNAME is defined, 1 otherwise
 there_is_a_SLACK_USERNAME () {
     if [ -z "${SLACK_USERNAME}" ];
     then return 1;
@@ -20,9 +13,8 @@ there_is_a_SLACK_USERNAME () {
     fi
 }
 
-# DESC:
-# INPUT:
-# OUTPUT:
+# DESC: Checks if SLACK_URL is defined
+# OUTPUT: 0 if SLACK_URL is defined, 1 otherwise
 there_is_a_SLACK_URL () {
     if [ -z "${SLACK_URL}" ];
     then return 1;
@@ -30,9 +22,8 @@ there_is_a_SLACK_URL () {
     fi
 }
 
-# DESC:
-# INPUT:
-# OUTPUT:
+# DESC: Creates a payload JSON file.
+# OUTPUT: The exit code of the attempt to write the file.
 build_slack_payload () {
     local MESSAGE
     local BAP
@@ -60,7 +51,7 @@ build_slack_payload () {
     }" > "${SLACK_FILE}"
 }
 
-# The print_payload function is for debugging purposes:
+#DESC: Prints the payload created in build_slack_payload 
 print_payload () {
     echo "printing payload:"
     echo "MESSAGE: ${MESSAGE}"
@@ -87,9 +78,8 @@ post_to_slack () {
     return ${RESULT}
 }
 
-# DESC:
-# INPUT:
-# OUTPUT:
+# DESC: Reports the current status to slack
+# OUTPUT: Exit code of the attempt to send status to slack
 report_to_slack () {
     build_slack_payload
     print_payload
