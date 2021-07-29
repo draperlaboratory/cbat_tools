@@ -77,7 +77,7 @@ post_to_slack () {
     local OUTPUT
     local RESULT 
     OUTPUT="$(curl \
-       	  --http1.1
+       	  --http1.1 \
     	  -X POST \
     	  -H "Content type: application/json" \
     	  -d @"${SLACK_FILE}" \
