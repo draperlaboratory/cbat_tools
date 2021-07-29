@@ -10,6 +10,7 @@ run_wp_tests:
     - docker
 
   script:
+    - apk add --update curl && rm -rf /var/cache/apk/*
     - make test -C wp
     - bash -x bin/integration-tests/run-tests.bash --report-results
 
