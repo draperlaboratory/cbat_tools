@@ -78,6 +78,7 @@ REPORT="$(report_file "${REPORT_RESULTS}")"
 
 # Record some useful info
 bap_version
+git_branch
 git_commit
 
 echo ""
@@ -93,15 +94,15 @@ TEST_RESULT="${?}"
 echo "REPORT:"
 cat "${REPORT_FILE}"
 if [[ "${TEST_RESULT}" != "0" ]]; then
-    echo "Integration tests failed" > "${MSG_FILE}"
+    echo "Integration tests failed" > "${MSG_FILE}" #summary
     if [[ "${REPORT_RESULTS}" == "true" ]]; then
-        report_to_slack
+        report_to_slack "true"
     fi
     fail
     exit 1
 else
     echo "Integration tests passed" > "${MSG_FILE}"
     if [[ "${REPORT_RESULTS}" == "true" ]]; then
-        report_to_slack
+        report_to_slack "false"
     fi
 fi

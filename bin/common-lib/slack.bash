@@ -23,6 +23,8 @@ there_is_a_SLACK_URL () {
 }
 
 # DESC: Creates a payload JSON file.
+# ARGS: Takes in ${1} argument that must be "true" in order
+  # to print full report.
 # OUTPUT: The exit code of the attempt to write the file.
 build_slack_payload () {
     local MESSAGE
@@ -31,8 +33,11 @@ build_slack_payload () {
     local COMMIT
     local DATA
     local TEXT
+    local VERBOSE
+    VERBOSE="${1}"
     MESSAGE="$(cat "${MSG_FILE}")"
     BAP="$(cat "${BAP_VERSION_FILE}")"
+    BRANCH="$(cat "${GIT_BRANCH_FILE}")"
     COMMIT="$(sed -z -e 's/\n/\\n/g' -e 's/\"/\\"/g' "${GIT_COMMIT_FILE}")"
     DATA="$(sed -z \
         -e 's/\n/\\n/g' \
@@ -42,8 +47,11 @@ build_slack_payload () {
         "${REPORT_FILE}")"
     TEXT="STATUS: ${MESSAGE}"
     TEXT="${TEXT}\nBAP: ${BAP}"
+    TEXT="${TEXT}\nBRANCH: ${BRANCH}"
     TEXT="${TEXT}\nCOMMIT:\n\`\`\`\n${COMMIT}\n\`\`\`"
-    TEXT="${TEXT}\nOUTPUT:\n\`\`\`\n${DATA}\n\`\`\`"
+    if [["${VERBOSE}" == "true"]]; then
+	TEXT="${TEXT}\nOUTPUT:\n\`\`\`\n${DATA}\n\`\`\`"
+    fi 
     echo "{
         \"username\":\"${SLACK_USERNAME}\",
         \"text\":\"${TEXT}\"
@@ -53,12 +61,11 @@ build_slack_payload () {
 #DESC: Prints the payload created in build_slack_payload
 print_payload () {
     echo "printing payload:"
-    echo "MESSAGE: $MESSAGE"
-    echo "BAP: $BAP"
-    echo "BRANCH: $BRANCH"
-    echo "COMMIT: $COMMIT"
-    echo "DATA: $DATA"
-    echo "TEXT: $TEXT"
+    echo "MESSAGE: $(cat "${MSG_FILE}")"
+    echo "BAP: $(cat "${BAP_VERSION_FILE}")"
+    echo "BRANCH: $(cat "${GIT_BRANCH_FILE}")"
+    echo "COMMIT: $(cat "${GIT_COMMIT_FILE}")"
+    echo "DATA: $(cat "${REPORT_FILE}")"
 }
 
 # DESC: Posts a message to slack
@@ -78,9 +85,11 @@ post_to_slack () {
 }
 
 # DESC: Reports the current status to slack
+# ARGS: Takes in ${1} argument that must be "true" in order
+      # to print full report. 
 # OUTPUT: Exit code of the attempt to send status to slack
-report_to_slack () {
-    build_slack_payload
+report_to_slack () { 
+    build_slack_payload "${1}"
     print_payload
     post_to_slack
 }
