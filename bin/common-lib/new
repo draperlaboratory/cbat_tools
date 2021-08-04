@@ -1,32 +1,33 @@
-# -------------------------
+# --------------------------------------------------------------
 #
-# Run the integration tests
+# Run the integration tests.
 #
-# -------------------------
+# --------------------------------------------------------------
 
-# Define useful paths
+# Define some paths.
 THIS_SCRIPT="${BASH_SOURCE[0]}"
 THIS_DIR="$(cd "$(dirname "${THIS_SCRIPT}")" && pwd)"
 COMMON_LIB_DIR="$(cd "${THIS_DIR}/../common-lib" && pwd)"
 
-# Include needed libraries
+# Include the relevant libraries.
 . "${COMMON_LIB_DIR}/utils.bash"
 . "${COMMON_LIB_DIR}/slack.bash"
 
 # Report progress to slack?
-REPORT_PROGRESS="false"
+REPORT_RESULTS="false"
 
+# Usage message
 usage () {
-    echo "USAGE: bash  [OPTIONS]"
+    echo "USAGE: bash $(get_me) [OPTIONS]"
     echo ""
     echo "  Run the integration tests."
     echo ""
     echo "OPTIONS"
-    echo "  -h | --help       Print this help and exit" 
+    echo "  -h | --help       Print this help and exit"
     echo "  --report-results  Report the results to slack"
 }
 
-# Parse command line arguments
+# Parse the command line arguments.
 while (( "${#}" )); do
     case "${1}" in
 
@@ -49,13 +50,10 @@ while (( "${#}" )); do
     shift
 done
 
-# Call `clean up` before the script ends
-# When OS throws signal, one is exit.
-# When throws exits, catch it, then call cleanup,
-# Then rethrow exit 
-trap clean_up EXIT 
+# Call `clean_up` before the script exits.
+trap clean_up EXIT
 
-# Ensures we have a slack URL to post with
+# Ensure we have a slack username and URL to post with.
 if [[ "${REPORT_RESULTS}" == "true" ]]; then
     there_is_a_SLACK_USERNAME
     if [ ${?} -ne 0 ]; then
@@ -73,19 +71,17 @@ if [[ "${REPORT_RESULTS}" == "true" ]]; then
     fi
 fi
 
-# Where to record progress
+# Where to record progress.
 REPORT="$(report_file "${REPORT_RESULTS}")"
 
-# Record some useful info
+# Record some useful info.
 bap_version
 git_commit
 
 echo ""
 
-# Prep for the test runs.
-make clean "${REPO_ROOT}"/cbat_tools 2>&1 | tee "${REPORT_FILE}"
-
-# Todo: test global/context stuff with vars ??? 
+# Prep for test runs.
+make clean -C "${REPO_ROOT}"/bap-vibes 2>&1 | tee "${REPORT_FILE}"
 
 # Run the integration tests.
 make test.integration -C "${REPO_ROOT}" 2>&1 | tee -a "${REPORT_FILE}"

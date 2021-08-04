@@ -1,11 +1,12 @@
-# -------------------------------
+# --------------------------------------------------------------
 #
-# Utilities for slack integration
 #
-# -------------------------------
+# --------------------------------------------------------------
 
-# DESC: Checks if SLACK_USERNAME is defined
-# OUTPUT: 0 if SLACK_USERNAME is defined, 1 otherwise
+# DESC
+# RETURNS
+#   - 0 if it is defined/non-empty
+#   - 1 otherwise
 there_is_a_SLACK_USERNAME () {
     if [ -z "${SLACK_USERNAME+x}" ];
     then return 1;
@@ -13,8 +14,11 @@ there_is_a_SLACK_USERNAME () {
     fi
 }
 
-# DESC: Checks if SLACK_URL is defined
-# OUTPUT: 0 if SLACK_URL is defined, 1 otherwise
+# DESC
+#   Check if a SLACK_URL environment variable is defined/non-empty.
+# RETURNS
+#   - 0 if it is defined/non-empty
+#   - 1 otherwise
 there_is_a_SLACK_URL () {
     if [ -z "${SLACK_URL}" ];
     then return 1;
@@ -22,8 +26,11 @@ there_is_a_SLACK_URL () {
     fi
 }
 
-# DESC: Creates a payload JSON file.
-# OUTPUT: The exit code of the attempt to write the file.
+# DESC
+#   Build a slack payload (a JSON file) to send.
+#   The contents are constructed from ${MSG_FILE} and ${REPORT_FILE}.
+# RETURNS
+#   The exit code of the attempt to write the file.
 build_slack_payload () {
     local MESSAGE
     local BAP
@@ -50,24 +57,14 @@ build_slack_payload () {
     }" > "${SLACK_FILE}"
 }
 
-#DESC: Prints the payload created in build_slack_payload
-print_payload () {
-    echo "printing payload:"
-    echo "MESSAGE: $MESSAGE"
-    echo "BAP: $BAP"
-    echo "BRANCH: $BRANCH"
-    echo "COMMIT: $COMMIT"
-    echo "DATA: $DATA"
-    echo "TEXT: $TEXT"
-}
-
-# DESC: Posts a message to slack
-# OUTPUT: The exit code of the curl/POST command
+# DESC
+#   Post a message to slack
+# RETURNS
+#   The exit code of the curl/POST command
 post_to_slack () {
     local OUTPUT
     local RESULT
     OUTPUT="$(curl \
-	--http1.1 \
         -X POST \
         -H "Content-Type: application/json" \
         -d @"${SLACK_FILE}" \
@@ -77,11 +74,11 @@ post_to_slack () {
     return ${RESULT}
 }
 
-# DESC: Reports the current status to slack
-# OUTPUT: Exit code of the attempt to send status to slack
+# DESC
+#   Report the current status of things to slack.
+# RETURNS
+#   The exit code of the attempt to send the message to slack.
 report_to_slack () {
     build_slack_payload
-    print_payload
     post_to_slack
 }
-
