@@ -84,12 +84,12 @@ git_commit
 echo ""
 
 # Prep for the test runs.
-make clean "${REPO_ROOT}"/cbat_tools 2>&1 | tee "${REPORT_FILE}"
+make -C "${REPO_ROOT}"/wp clean 2>&1 | tee "${REPORT_FILE}"
 
 # Todo: test global/context stuff with vars ??? 
 
 # Run the integration tests.
-make test.integration -C "${REPO_ROOT}" 2>&1 | tee -a "${REPORT_FILE}"
+make -C "${REPO_ROOT}"/wp test.plugin.integration 2>&1 | tee -a "${REPORT_FILE}"
 TEST_RESULT="${?}"
 echo "REPORT:"
 cat "${REPORT_FILE}"
