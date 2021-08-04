@@ -54,6 +54,28 @@
 
 <p>The recommended way to install Ocaml is with OPAM. Instructions on downloading OPAM, and using OPAM to download Ocaml can be found <a href="https://ocaml.org/docs/install.html#OPAM">here</a>.
 
+<p>The following dependencies are needed to install Z3:
+
+<ul>
+  <li>gcc-8</li>
+  <li>g++-8</li>
+  <li>libgmp-dev</li>
+  <li>python2.7</li>
+  <li>m4</li>
+</ul>
+
+<p>You can install the latest Z3 Ocaml bindings from the dev repo with:
+
+<pre>
+  opam pin add z3 --dev-repo
+</pre>
+
+<p>If you want to install the most recent stable release of Z3 from OPAM instead, you can run:
+
+<pre>
+  opam install z3
+</pre>
+
 <p>Next, there is the alpha release of BAP:
 
 <ul>
@@ -74,7 +96,7 @@
 <p>All of these can be installed with:
 
 <pre>
-  opam install core_kernel ounit2 z3 re dune
+  opam install core_kernel ounit2 re dune
 </pre>
 
 Optionally, you may install Boolector 3.2.1 from <a href="https://github.com/boolector/boolector">here</a> to use with the <code>--ext-solver-path</code> option. For some queries, Boolector may be more performant than the standard Z3.
