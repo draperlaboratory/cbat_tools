@@ -44,8 +44,6 @@
 <a name="manual"></a>
 <h2>Manual Installation</h2>
 
-<p>CBAT's <code>--loop-invariant</code> feature is currently not supported by the Docker image and needs to be installed manually.
-
 <h3>Prerequisites</h3>
 
 <p>Before installing, make sure you have the appropriate dependencies installed. First, there is OCaml:
@@ -56,7 +54,7 @@
 
 <p>The recommended way to install Ocaml is with OPAM. Instructions on downloading OPAM, and using OPAM to download Ocaml can be found <a href="https://ocaml.org/docs/install.html#OPAM">here</a>.
 
-<p>Using CBAT's <code>--loop-invariant</code> feature requires the latest Z3 version. To install the latest Z3 Ocaml bindings, ensure you have the following dependencies:
+<p>The following dependencies are needed to install Z3:
 
 <ul>
   <li>gcc-8</li>
@@ -66,10 +64,16 @@
   <li>m4</li>
 </ul>
 
-Then install Z3 with:
+<p>You can install the latest Z3 Ocaml bindings from the dev repo with:
 
 <pre>
   opam pin add z3 --dev-repo
+</pre>
+
+<p>If you want to install the most recent stable release of Z3 from OPAM instead, you can run:
+
+<pre>
+  opam install z3
 </pre>
 
 <p>Next, there is the alpha release of BAP:
