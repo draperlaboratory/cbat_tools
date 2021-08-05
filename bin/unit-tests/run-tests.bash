@@ -92,14 +92,14 @@ TEST_RESULT="${?}"
 echo "REPORT:"
 cat "${REPORT_FILE}"
 if [[ "${TEST_RESULT}" != "0" ]]; then
-    echo "Integration tests failed" > "${MSG_FILE}" #summary
+    echo "Unit tests failed" > "${MSG_FILE}" #summary
     if [[ "${REPORT_RESULTS}" == "true" ]]; then
         report_to_slack "true"
     fi
     fail
     exit 1
 else
-    echo "Integration tests passed" > "${MSG_FILE}"
+    echo "Unit tests passed" > "${MSG_FILE}"
     if [[ "${REPORT_RESULTS}" == "true" ]]; then
         report_to_slack "false"
     fi
