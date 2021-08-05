@@ -11,6 +11,7 @@ stages:
 
 # JOB: build BilDB.
 build_bildb:
+  stage: build_bildb
 
   tags:
     - docker
@@ -20,6 +21,7 @@ build_bildb:
 
 # JOB: run unit tests for WP.
 run_unit_tests:
+  stage: run_unit_tests
 
   tags:
     - docker
@@ -30,6 +32,7 @@ run_unit_tests:
 
 # JOB: run integration tests for WP.
 run_integration_tests:
+  stage: run_integration_tests
 
   tags:
     - docker
