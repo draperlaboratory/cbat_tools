@@ -3,15 +3,11 @@
 #       by the CI docker runners.
 image: "binaryanalysisplatform/bap:latest"
 
-# JOB: run the tests for WP.
-run_wp_tests:
-
-  tags:
-    - docker
-
-  script:
-    - make test -C wp
-    - bash -x bin/integration-tests/run-tests.bash --report-results
+# Order of job-executions (prevents jobs from running in parallel):
+stages:
+  - build_bildb
+  - run_unit_tests
+  - run_integration_tests
 
 # JOB: build BilDB.
 build_bildb:
@@ -21,4 +17,27 @@ build_bildb:
 
   script:
     - make -C bildb
+
+# JOB: run unit tests for WP.
+run_unit_tests:
+
+  tags:
+    - docker
+
+  script:
+    - make test -C wp
+    - bash -x bin/unit-tests/run-tests.bash --report-results
+
+# JOB: run integration tests for WP.
+run_integration_tests:
+
+  tags:
+    - docker
+
+  script:
+  # Install other dependencies (non-sudo).
+    - bash -x bin/setup/install-dependencies.bash --report-results
+   
+    - make test -C wp
+    - bash -x bin/integration-tests/run-tests.bash --report-results
 

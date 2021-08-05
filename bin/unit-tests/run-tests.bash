@@ -1,6 +1,6 @@
 # -------------------------
 #
-# Run the integration tests
+# Run the unit tests
 #
 # -------------------------
 
@@ -19,7 +19,7 @@ REPORT_PROGRESS="false"
 usage () {
     echo "USAGE: bash  [OPTIONS]"
     echo ""
-    echo "  Run the integration tests."
+    echo "  Run the unit tests."
     echo ""
     echo "OPTIONS"
     echo "  -h | --help       Print this help and exit" 
@@ -86,8 +86,8 @@ echo ""
 # Prep for the test runs.
 make -C "${REPO_ROOT}"/wp clean 2>&1 | tee "${REPORT_FILE}"
 
-# Run the integration tests.
-make -C "${REPO_ROOT}"/wp test.plugin.integration 2>&1 | tee -a "${REPORT_FILE}"
+# Run the unit tests.
+make -C "${REPO_ROOT}"/wp test 2>&1 | tee -a "${REPORT_FILE}"
 TEST_RESULT="${?}"
 echo "REPORT:"
 cat "${REPORT_FILE}"

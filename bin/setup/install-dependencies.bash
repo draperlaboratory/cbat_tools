@@ -1,6 +1,6 @@
 # --------------------------------------------------------------
 #
-# Run the integration tests.
+# Install dependencies used by the tools.
 #
 # --------------------------------------------------------------
 
@@ -12,6 +12,7 @@ COMMON_LIB_DIR="$(cd "${THIS_DIR}/../common-lib" && pwd)"
 # Include the relevant libraries.
 . "${COMMON_LIB_DIR}/utils.bash"
 . "${COMMON_LIB_DIR}/slack.bash"
+. "${COMMON_LIB_DIR}/env.bash"
 
 # Report progress to slack?
 REPORT_RESULTS="false"
@@ -20,7 +21,7 @@ REPORT_RESULTS="false"
 usage () {
     echo "USAGE: bash $(get_me) [OPTIONS]"
     echo ""
-    echo "  Run the integration tests."
+    echo "  Install dependencies for the tools."
     echo ""
     echo "OPTIONS"
     echo "  -h | --help       Print this help and exit"
@@ -80,24 +81,51 @@ git_commit
 
 echo ""
 
-# Prep for test runs.
-make clean -C "${REPO_ROOT}"/bap-vibes 2>&1 | tee "${REPORT_FILE}"
+# If boolector isn't already installed, install it.
+which boolector > /dev/null 2>&1
+if [[ "${?}" != "0" ]]; then
+    CURRENT_DIR="$(pwd)"
+    cd "${HOME}"
+    if [ -d "${BOOLECTOR_DIR}" ]; then
+        echo "Can't git pull the boolector repo" > "${MSG_FILE}"
+	echo "Halting." >> "${REPORT_FILE}"
+	echo "Want to pull the boolector repo, but can't." >> "${REPORT_FILE}"
+	echo "${BOOLECTOR_DIR} already exists." >> "${REPORT_FILE}"
+	echo "$(cat "${MSG_FILE}")"
+	echo "$(cat "${REPORT_FILE}")"
+	if [[ "${REPORT_RESULTS}" == "true" ]]; then
+            report_to_slack
+        fi
+	exit 1
+    fi
+    git clone "${BOOLECTOR_URL}"
+    cd boolector
+    ./contrib/setup-lingeling.sh
+    ./contrib/setup-btor2tools.sh
+    ./configure.sh && cd build && make
+    cd "${CURRENT_DIR}"
+fi
 
-# Run the integration tests.
-make test.integration -C "${REPO_ROOT}" 2>&1 | tee -a "${REPORT_FILE}"
-TEST_RESULT="${?}"
-echo "REPORT:"
-cat "${REPORT_FILE}"
-if [[ "${TEST_RESULT}" != "0" ]]; then
-    echo "Integration tests failed" > "${MSG_FILE}"
+# Make sure boolector got installed.
+which boolector > /dev/null 2>&1
+if [[ "${?}" != "0" ]]; then
+    echo "Unable to find boolector" > "${MSG_FILE}"
+    echo "Halting." > "${REPORT_FILE}"
+    echo "Boolector does not seem to be installed.." >> "${REPORT_FILE}"
+    echo "Tried 'which boolector' but got nothing." >> "${REPORT_FILE}"
+    echo "$(cat "${MSG_FILE}")"
+    echo "$(cat "${REPORT_FILE}")"
     if [[ "${REPORT_RESULTS}" == "true" ]]; then
         report_to_slack
     fi
-    fail
     exit 1
 else
-    echo "Integration tests passed" > "${MSG_FILE}"
-    if [[ "${REPORT_RESULTS}" == "true" ]]; then
-        report_to_slack
-    fi
+    echo "- Boolector is installed." | tee -a "${REPORT_FILE}"
+fi
+
+# Finish up.
+echo "Done." | tee -a "${REPORT_FILE}"
+if [[ "${REPORT_RESULTS}" == "true" ]]; then
+    echo "Installed dependencies" > "${MSG_FILE}"
+    report_to_slack
 fi
