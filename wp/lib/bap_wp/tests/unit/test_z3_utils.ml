@@ -29,8 +29,8 @@ let test_tgt = Testing_utilities.test_tgt
 let test_mk_smtlib2_compare_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen in
-  let env2 = Pre.mk_env ctx var_gen in
+  let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
+  let env2 = Pre.mk_env ~target:test_tgt ctx var_gen in
   let env2 = Env.set_freshen env2 true in
   let x = Var.create "x" reg32_t in
   let y = Var.create "y" reg32_t in
@@ -56,11 +56,12 @@ let test_mk_smtlib2_compare_1 (test_ctx : test_ctxt) : unit =
     ~printer:Constr.to_string
     expected result
 
+
 let test_mk_smtlib2_compare_2 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ctx var_gen in
-  let env2 = Pre.mk_env ctx var_gen in
+  let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
+  let env2 = Pre.mk_env ~target:test_tgt ctx var_gen in
   let env2 = Env.set_freshen env2 true in
   let x = Var.create "x" reg32_t in
   let x1, env1 = Env.get_var env1 x in
