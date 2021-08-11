@@ -37,8 +37,8 @@ val print_result
   -> Z3.Solver.status
   -> Constr.t
   -> show:string list
-  -> orig:Env.t * Bap.Std.Sub.t
-  -> modif:Env.t * Bap.Std.Sub.t
+  -> orig:(Bap.Std.sub Compare.code)
+  -> modif:(Bap.Std.sub Compare.code)
   -> unit
 
 (** Prints to file a gdb script that will fill the appropriate registers with the countermodel *)

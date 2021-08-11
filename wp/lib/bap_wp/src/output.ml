@@ -26,6 +26,7 @@ module Z3Array = Z3.Z3Array
 module FInterp = Model.FuncInterp
 module Env = Environment
 module Constr = Constraint
+module Comp = Compare
 
 module VarMap = Var.Map
 
@@ -163,7 +164,7 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model =
 
 let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
     (status : Solver.status) (goals: Constr.t) ~show:(show : string list)
-    ~orig:(env1, sub1 : Env.t * Sub.t) ~modif:(env2, sub2 : Env.t * Sub.t)
+    ~orig:(Comp.{env=env1; prog=sub1; _}) ~modif:(Comp.{env=env2; prog=sub2; _})
   : unit =
   match status with
   | Solver.UNSATISFIABLE -> Format.fprintf fmt "%s%!" "\nUNSAT!\n"

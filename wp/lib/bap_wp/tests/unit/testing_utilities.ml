@@ -84,14 +84,18 @@ let no_model (s1 : Solver.status) (s2 : Solver.status) : bool =
   | Solver.UNSATISFIABLE, _ -> true
   | _, _ -> false
 
+let env_code env =
+  let empty_sub = mk_sub [] in
+  let empty_mem = Memmap.empty in
+  Compare.{env = env; prog = empty_sub; mem = empty_mem}
+
 let print_z3_model
     ~orig:(env1 : Env.t) ~modif:(env2 : Env.t)
     (solver : Solver.solver) (exp : Solver.status)
     (real : Solver.status) (goals : Constr.t) : unit =
-  let empty_sub = mk_sub [] in
   if no_model real exp then () else
     Output.print_result solver real goals ~show:[]
-      ~orig:(env1, empty_sub) ~modif:(env2, empty_sub)
+      ~orig:(env_code env1) ~modif:(env_code env2)
 
 (* Finds a jump in a subroutine given its jump condition. *)
 let find_jump (sub : Sub.t) (cond : Exp.t) : Jmp.t =

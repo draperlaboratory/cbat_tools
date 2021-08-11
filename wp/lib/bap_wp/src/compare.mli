@@ -29,10 +29,22 @@
    module utilities.
 
 *)
+open Bap.Std
 
 module Env = Environment
 
 module Constr = Constraint
+
+
+(** The data which encodes a piece of code, along with additional
+   things associated with it, e.g. the CBAT environment and static
+    memory data. *)
+type 'a code =
+  {
+    prog : 'a term;
+    env : Env.t;
+    mem : value memmap;
+  }
 
 (** The type of functions that generate a postcondition or hypothesis for
     comparative analysis. Also updates the environments as needed. *)
@@ -44,10 +56,10 @@ type comparator
     at post-execution will have equal values given the registers at
     pre-execution have equal values. *)
 val compare_blocks
-  :  pre_regs:Bap.Std.Var.Set.t
-  -> post_regs:Bap.Std.Var.Set.t
-  -> original:(Bap.Std.Blk.t * Env.t)
-  -> modified:(Bap.Std.Blk.t * Env.t)
+  :  pre_regs:Var.Set.t
+  -> post_regs:Var.Set.t
+  -> original:(blk code)
+  -> modified:(blk code)
   -> smtlib_post:string
   -> smtlib_hyp:string
   -> Constr.t * Env.t * Env.t
@@ -57,8 +69,8 @@ val compare_blocks
 val compare_subs
   :  postconds:(comparator list)
   -> hyps:(comparator list)
-  -> original:(Bap.Std.Sub.t * Env.t)
-  -> modified:(Bap.Std.Sub.t * Env.t)
+  -> original:(sub code)
+  -> modified:(sub code)
   -> Constr.t * Env.t * Env.t
 
 (** Compare two subroutines by composition for equality of return
@@ -70,8 +82,8 @@ val compare_subs
     (modulo soundness bugs) the registers at post-execution will have equal
     values given the registers at pre-execution have equal values. *)
 val compare_subs_eq
-  :  pre_regs:Bap.Std.Var.Set.t
-  -> post_regs:Bap.Std.Var.Set.t
+  :  pre_regs:Var.Set.t
+  -> post_regs:Var.Set.t
   -> comparator * comparator
 
 (** Compare two subroutines by composition for an empty postcondition:
@@ -138,3 +150,12 @@ val compare_subs_smtlib
     hypothesis that memory between the two binaries are equal at the
     beginning of the subroutines. *)
 val compare_subs_mem_eq : comparator * comparator
+
+(** Compare two subroutines by composition for an empty postcondition,
+   with the hypothesis that the memory at each offset in the .rodata
+   section is assigned to the value given in the concrete binary. *)
+val compare_subs_mem_init : comparator * comparator
+
+(** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
+    as a comparison predicate between an original and modified binary. *)
+val mk_smtlib2_compare : Env.t -> Env.t -> string -> Constr.t

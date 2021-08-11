@@ -22,7 +22,6 @@
 
 open Bap_main
 open Bap.Std
-open Bap_core_theory
 
 (** The loader WP uses for lifting a binary, defaulting to LLVM. *)
 val loader : string

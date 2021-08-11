@@ -106,12 +106,12 @@ let output_to_bildb ~(filename : string option) (solver : Z3.Solver.solver)
 type combined_pre =
   | Single of {
       pre : Constr.t;
-      orig : Env.t * Sub.t
+      orig : sub Comp.code
     }
   | Comparative of {
       pre : Constr.t;
-      orig : Env.t * Sub.t;
-      modif : Env.t * Sub.t
+      orig : sub Comp.code;
+      modif : sub Comp.code
     }
 
 (* If an offset is specified, generates a function of the address of a memory
@@ -210,8 +210,8 @@ let func_calls (flag : bool) : (Comp.comparator * Comp.comparator) option =
    beginning of a subroutine's execution, the specified registers should have
    the same post values. *)
 let post_reg_values
-    ~orig:(sub1, env1 : Sub.t * Env.t)
-    ~modif:(sub2, env2 : Sub.t * Env.t)
+    ~orig:({prog=sub1; env=env1; _} : sub Comp.code)
+    ~modif:({prog=sub2; env=env2; _} : sub Comp.code)
     (reg_names : string list)
   : (Comp.comparator * Comp.comparator) option =
   if List.is_empty reg_names then
@@ -259,8 +259,10 @@ let create_vars (l : string list) (env : Env.t) : Bap.Std.Var.Set.t =
 (* Returns a set of comparators that provide the constraint that
    the pointer registers are treated as pointers. *)
 let gen_pointer_flag_comparators
-    (l : string list) (env1 : Env.t)
-    (env2 : Env.t) (pointer_env1_vars : Var.t List.t)
+    (l : string list)
+    (env1 : Env.t)
+    (env2 : Env.t)
+    (pointer_env1_vars : Var.t List.t)
     (pointer_env2_vars : Var.t List.t)
   : (Comp.comparator * Comp.comparator) option =
   if List.length l = 0 then None
@@ -280,25 +282,40 @@ let mem_eq (rewrite_addrs : bool) : (Comp.comparator * Comp.comparator) option =
   else
     None
 
+let mem_init (mem_init : bool) : (Comp.comparator * Comp.comparator) option =
+  if mem_init then
+    Some Compare.compare_subs_mem_init
+  else
+    None
+
 (* Returns a list of postconditions and a list of hypotheses based on the
    flags set from the command line. *)
 let comparators_of_flags
-    ~orig:(sub1, env1 : Sub.t * Env.t)
-    ~modif:(sub2, env2 : Sub.t * Env.t)
+    ~orig:(code1 : sub Comp.code)
+    ~modif:(code2 : sub Comp.code)
     (p : params)
     (pointer_env1_vars : Var.t List.t)
     (pointer_env2_vars : Var.t List.t)
   : Comp.comparator list * Comp.comparator list =
-  let comps = [
-    Some Comp.compare_subs_sp;
-    func_calls p.compare_func_calls;
-    post_reg_values p.compare_post_reg_values
-      ~orig:(sub1, env1) ~modif:(sub2, env2);
-    smtlib ~precond:p.precond ~postcond:p.postcond;
-    gen_pointer_flag_comparators p.pointer_reg_list
-      env1 env2 pointer_env1_vars pointer_env2_vars;
-    mem_eq p.rewrite_addresses
-  ] |> List.filter_opt
+  let comps =
+    [
+      Some Comp.compare_subs_sp;
+
+      func_calls p.compare_func_calls;
+
+      post_reg_values p.compare_post_reg_values
+        ~orig:code1 ~modif:code2;
+
+      smtlib ~precond:p.precond ~postcond:p.postcond;
+
+      gen_pointer_flag_comparators p.pointer_reg_list
+        code1.env code2.env pointer_env1_vars pointer_env2_vars;
+
+      mem_eq p.rewrite_addresses;
+
+      mem_init false;
+    ] |>
+    List.filter_opt
   in
   let comps =
     if List.is_empty comps then
@@ -314,6 +331,7 @@ let single
     (var_gen : Env.var_gen)
     (p : params)
     (prog : program term)
+    (mem : value memmap)
     (target : Theory.target)
     (_file : string)
   : combined_pre =
@@ -353,6 +371,14 @@ let single
           ~f:(fun var -> Env.get_init_var env var) in
       (Pre.construct_pointer_constraint z3_exprs env None None) :: hyps
     else hyps in
+  let init_mem_hyps, env =
+    (* FIXME: check p.init_mem here *)
+    if false then
+      Pre.init_mem env mem
+    else
+      [], env
+  in
+  let hyps = init_mem_hyps @ hyps in
   let post =
     if String.is_empty p.postcond then
       true_constr
@@ -365,7 +391,7 @@ let single
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
-  Single { pre = pre; orig = env, main_sub}
+  Single { pre = pre; orig = Comp.{ env=env; prog=main_sub; mem = mem} }
 
 (* Runs a comparative analysis. *)
 let comparative
@@ -373,9 +399,11 @@ let comparative
     (var_gen : Env.var_gen)
     (p : params)
     (prog1 : program term)
+    (mem1 : value memmap)
     (target1 : Theory.target)
     (file1 : string)
     (prog2 : program term)
+    (mem2 : value memmap)
     (target2 : Theory.target)
     (file2 : string)
   : combined_pre =
@@ -432,19 +460,23 @@ let comparative
     (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in*)
     env1, vars_pointer_reg
   in
+  let code1 = Comp.{ prog = main_sub1; env = env1; mem = mem1 } in
+  let code2 = Comp.{ prog = main_sub2; env = env2; mem = mem2 } in
   let posts, hyps =
-    comparators_of_flags ~orig:(main_sub1, env1) ~modif:(main_sub2, env2) p
+    comparators_of_flags ~orig:code1 ~modif:code2 p
       (pointer_vars_1 |> Bap.Std.Var.Set.to_list)
       (pointer_vars_2 |> Bap.Std.Var.Set.to_list)
   in
   let pre, env1, env2 =
     Comp.compare_subs ~postconds:posts ~hyps:hyps
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:code1 ~modified:code2
   in
+  let code1 = {code1 with env=env1} in
+  let code2 = {code2 with env=env2} in
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nComparing\n\n%s\nand\n\n%s\n%!"
       (Sub.to_string main_sub1) (Sub.to_string main_sub2);
-  Comparative { pre = pre; orig = (env1, main_sub1); modif = (env2, main_sub2) }
+  Comparative { pre = pre; orig = code1; modif = code2 }
 
 let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
   : (Z3.Solver.status, 'a) result =
@@ -461,10 +493,10 @@ let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
     | None -> Pre.check ~print_constr:p.show ~debug:debug_eval solver ctx pre
     | Some ext_solver_path ->
       let declsyms = match cp with
-        | Single cp -> Z3_utils.get_decls_and_symbols (fst cp.orig)
+        | Single cp -> Z3_utils.get_decls_and_symbols cp.orig.env
         | Comparative cp ->
-          let declsyms_orig = Z3_utils.get_decls_and_symbols (fst cp.orig) in
-          let declsyms_modif = Z3_utils.get_decls_and_symbols (fst cp.modif) in
+          let declsyms_orig = Z3_utils.get_decls_and_symbols cp.orig.env in
+          let declsyms_modif = Z3_utils.get_decls_and_symbols cp.modif.env in
           List.append declsyms_orig declsyms_modif
       in
       Pre.check
@@ -477,8 +509,8 @@ let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
     Printf.printf "Showing solver statistics : \n %s \n %!"
       (Z3.Statistics.to_string (Z3.Solver.get_statistics solver));
   let env = match cp with
-    | Single cp -> fst cp.orig
-    | Comparative cp -> fst cp.modif
+    | Single cp -> cp.orig.env
+    | Comparative cp -> cp.modif.env
   in
   output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env;
   output_to_bildb ~filename:p.bildb_output solver result env;
@@ -519,15 +551,15 @@ let run
   match files with
   | [input] ->
     let {program = prog ; target = tgt; filename = file} = input in
-    single z3_ctx var_gen p prog tgt file
+    single z3_ctx var_gen p prog mem tgt file
     |> check_pre p z3_ctx
   | [input1; input2] ->
     let { program = prog1; target = tgt1; filename = file1} = input1 in
     let { program = prog2; target = tgt2; filename = file2} = input2 in
     comparative
       z3_ctx var_gen p
-      prog1 tgt1 file1
-      prog2 tgt2 file2
+      prog1 mem1 tgt1 file1
+      prog2 mem2 tgt2 file2
     |> check_pre p z3_ctx
   | _ ->
     let err =
