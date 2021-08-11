@@ -15,7 +15,6 @@ open !Core_kernel
 open Bap_main
 open Bap.Std
 open Regular.Std
-open Bap_core_theory
 
 include Self()
 
@@ -40,7 +39,7 @@ let create_proj (state : Project.state option) (loader : string)
     failwith (Printf.sprintf "Error loading project: %s\n%!" msg)
 
 (* Clears the attributes from the terms to remove unnecessary bloat and
-   slowdown. We rain the addresses for printing paths. *)
+   slowdown. We retain the addresses for printing paths. *)
 let clear_mapper : Term.mapper = object
   inherit Term.mapper as super
   method! map_term cls t =
@@ -53,22 +52,38 @@ let clear_mapper : Term.mapper = object
     super#map_term cls t'
 end
 
-(* Reads in the program_t and its architecture from a file. *)
-let read_program (ctxt : ctxt) ~(loader : string) ~(filepath : string)
-  : Program.t * Theory.target =
-  let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
-  let program_digest = Cache.Digests.program mk_digest in
-  match Cache.Program.load program_digest with
-  | Some prog ->
+(* FIXME: read context to determine whether we need the "fat" project or not. *)
+let is_skinny (_ctxt : ctxt) = false
+
+(* Make a "skinny" project with nothing in it *)
+let mk_skinny (proj : project) : project =
+  let tgt = Project.target proj in
+  let empty = Project.empty tgt in
+  let skinny_prog = proj |> Project.program |> clear_mapper#run in
+  let with_prog = Project.with_program empty skinny_prog in
+  with_prog
+
+(* Reads in the project from a file, creating a cache if none exists. *)
+let read_project (ctxt : ctxt) ~(loader : string) ~(filepath : string)
+  : Project.t =
+  let mk_digest = Cache.Digests.generator ctxt ~filepath ~loader in
+  let project_digest = Cache.Digests.project mk_digest in
+  match Project.Cache.load project_digest with
+  | Some project ->
     info "Program %s (%a) found in cache.%!"
-      filepath Data.Cache.Digest.pp program_digest;
-    prog
+      filepath Data.Cache.Digest.pp project_digest;
+    project
   | None ->
     (* The program_t is not in the cache. Disassemble the binary. *)
     info "Saving program %s (%a) to cache.%!"
-      filepath Data.Cache.Digest.pp program_digest;
+      filepath Data.Cache.Digest.pp project_digest;
     let project = create_proj None loader filepath in
-    let prog = project |> Project.program |> clear_mapper#run in
-    let tgt = Project.target project in
-    let () = Cache.Program.save program_digest prog tgt in
-    prog, tgt
+    (* If needed, replace the project with the "skinny" version *)
+    let project =
+      if is_skinny ctxt then
+        mk_skinny project
+      else
+        project
+    in
+    let () = Project.Cache.save project_digest project in
+    project

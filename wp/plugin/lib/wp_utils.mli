@@ -27,7 +27,7 @@ open Bap_core_theory
 (** The loader WP uses for lifting a binary, defaulting to LLVM. *)
 val loader : string
 
-(** Obtains the program representation and the architecture of the binary at the
-    given filepath using the BAP context and loader for lifting the binary. *)
-val read_program :
-  ctxt -> loader:string -> filepath:string -> Program.t * Theory.target
+(** Obtains the project binary at the given filepath using the BAP
+   context and loader for lifting the binary. *)
+val read_project :
+  ctxt -> loader:string -> filepath:string -> Project.t

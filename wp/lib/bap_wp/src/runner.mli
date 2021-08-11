@@ -14,20 +14,18 @@
 (**
 
    This module is the runner for WP. It will run either a single or comparative
-   analysis based on the number of files inputted by the user.
+   analysis based on the number of files input by the user.
 
 *)
 
 open Bap_main
 open Bap.Std
-open Bap_core_theory
 
 module Params = Run_parameters
 
 type input =
   {
-    program : program term;
-    target : Theory.target;
+    project : project;
     filename : string;
   }
 

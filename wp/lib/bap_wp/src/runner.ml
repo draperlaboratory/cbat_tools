@@ -499,8 +499,7 @@ type Bap_main.Extension.Error.t += Unsupported_file_count of string
 
 type input =
   {
-    program : program term;
-    target : Theory.target;
+    project : project;
     filename : string;
   }
 
@@ -518,12 +517,18 @@ let run
   (* Determine whether to perform a single or comparative analysis. *)
   match files with
   | [input] ->
-    let {program = prog ; target = tgt; filename = file} = input in
+    let {project = proj; filename = file} = input in
+    let prog = Project.program proj in
+    let tgt = Project.target proj in
     single z3_ctx var_gen p prog tgt file
     |> check_pre p z3_ctx
   | [input1; input2] ->
-    let { program = prog1; target = tgt1; filename = file1} = input1 in
-    let { program = prog2; target = tgt2; filename = file2} = input2 in
+    let { project = proj1; filename = file1} = input1 in
+    let { project = proj2; filename = file2} = input2 in
+    let prog1 = Project.program proj1 in
+    let tgt1 = Project.target proj1 in
+    let prog2 = Project.program proj2 in
+    let tgt2 = Project.target proj2 in
     comparative
       z3_ctx var_gen p
       prog1 tgt1 file1

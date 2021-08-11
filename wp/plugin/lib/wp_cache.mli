@@ -21,9 +21,7 @@
 *)
 
 open Bap_main
-open Bap.Std
 open Regular.Std
-open Bap_core_theory
 
 (** This module is used for creating digests, which is a cryptographic key
     for caching. In order to create a digest, the generator must first be
@@ -32,7 +30,7 @@ open Bap_core_theory
 module Digests : sig
 
   (** Returns a function that makes digests. *)
-  val get_generator :
+  val generator :
     ctxt -> filepath:string -> loader:string -> (namespace:string -> digest)
 
   (** Creates a digest for the knowledge cache. *)
@@ -43,40 +41,5 @@ module Digests : sig
 
   (** Creates a digest for the program cache. *)
   val program : (namespace:string -> digest) -> digest
-
-end
-
-(** A cache containing persistent information stored in the Knowledge Base. *)
-module Knowledge : sig
-
-  (** Loads knowledge (if any) from the cache. *)
-  val load : digest -> unit
-
-  (** Saves knowledge in the cache. *)
-  val save : digest -> unit
-
-end
-
-(** A cache containing the initial state of a project for loading in binaries
-    as a {!Project.t}. *)
-module Project : sig
-
-  (** Loads project state (if any) from the cache. *)
-  val load : digest -> Project.state option
-
-  (** Saves project state in the cache. *)
-  val save : digest -> Project.state -> unit
-
-end
-
-(** A cache containing a binary's {!Program.t}, which is BAP's representation of
-    the program in BIR after disassembly, and the architecture of the binary. *)
-module Program : sig
-
-  (** Loads a program and its architecture (if any) from the cache. *)
-  val load : digest -> (Program.t * Theory.target) option
-
-  (** Saves a program and its architecture in the cache. *)
-  val save : digest -> Program.t -> Theory.target -> unit
 
 end

@@ -23,15 +23,14 @@ let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
   : (unit, error) result =
   (* Unbundle the input file into its loaded program *)
   let mk_input file =
-    let prog, tgt =
-      Utils.read_program
+    let proj =
+      Utils.read_project
         bap_ctx
         ~loader:Utils.loader
         ~filepath:file
     in
     Runner.{
-      program = prog;
-      target = tgt;
+      project = proj;
       filename = file;
     }
   in
