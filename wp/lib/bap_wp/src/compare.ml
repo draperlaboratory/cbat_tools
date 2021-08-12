@@ -145,7 +145,7 @@ let compare_subs
     in
     fold_comparators (init_vars :: hyps)
       ~original:{ code1 with env=env1 }
-      ~modified:{code2 with env=env2 }
+      ~modified:{ code2 with env=env2 }
       ~rename_set:vars
   in
   info "\nHypotheses:\n%s\n%!" (Constr.to_string hyps);
