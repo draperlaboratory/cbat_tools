@@ -139,6 +139,11 @@ let mem_offset = Cmd.flag "mem-offset"
            not present, WP assumes that memory between both binaries start at
            the same offset.|}
 
+let init_mem = Cmd.flag "init-mem"
+    ~doc:{|This flag adds a number of hypotheses of the form mem[addr] == val,
+           where the (addr, val) pairs come from the .rodata section of the
+           binar(ies) under scrutiny. |}
+
 let rewrite_addresses = Cmd.flag "rewrite-addresses"
     ~doc:{|This flag is only used in a comparative analysis. Rewrites the
            concrete addresses in the modified binary to the same address in the
@@ -289,6 +294,7 @@ let grammar = Cmd.(
     $ bildb_output
     $ use_fun_input_regs
     $ mem_offset
+    $ init_mem
     $ rewrite_addresses
     $ debug
     $ show
@@ -318,6 +324,7 @@ let callback
     (bildb_output : string option)
     (use_fun_input_regs : bool)
     (mem_offset : bool)
+    (init_mem : bool)
     (rewrite_addresses : bool)
     (debug : string list)
     (show : string list)
@@ -355,7 +362,8 @@ let callback
       func_name_map = func_name_map;
       user_func_spec = user_func_spec;
       fun_specs = fun_specs;
-      ext_solver_path = ext_solver_path
+      ext_solver_path = ext_solver_path;
+      init_mem = init_mem;
     })
   in
   Parameters.validate params files >>= fun () ->
