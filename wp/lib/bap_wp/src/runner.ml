@@ -313,7 +313,7 @@ let comparators_of_flags
 
       mem_eq p.rewrite_addresses;
 
-      mem_init false;
+      mem_init p.init_mem;
     ] |>
     List.filter_opt
   in

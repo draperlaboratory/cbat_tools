@@ -61,7 +61,8 @@ type t = {
   func_name_map : (string * string) list;
   user_func_spec : (string * string * string) option;
   fun_specs : string list;
-  ext_solver_path : string option
+  ext_solver_path : string option;
+  init_mem : bool;
 }
 
 (** [validate flags files] ensures the user inputted the appropriate flags for
