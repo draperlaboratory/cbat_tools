@@ -373,7 +373,7 @@ let single
     else hyps in
   let init_mem_hyps, env =
     (* FIXME: check p.init_mem here *)
-    if false then
+    if p.init_mem then
       Pre.init_mem env mem
     else
       [], env
