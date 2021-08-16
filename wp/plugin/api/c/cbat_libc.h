@@ -13,7 +13,7 @@
 #define memcmp cbat_libc_memcmp
 #define memcpy cbat_libc_memcpy
 
-#define UNROLL_EXCEEDED __VERIFIER_assume(true)
+#define UNROLL_EXCEEDED __VERIFIER_assume(false)
 
 int cbat_libc_strcmp(const char* s1, const char* s2) {
 
