@@ -28,16 +28,4 @@ module Digests = struct
       let d = Data.Cache.Digest.create ~namespace in
       Data.Cache.Digest.add d "%s" subject
 
-  (* Creates a digest for the knowledge cache. *)
-  let knowledge (mk_digest : namespace:string -> digest) : digest =
-    mk_digest ~namespace:"wp-knowledge"
-
-  (* Creates a digest for the project state cache. *)
-  let project (mk_digest : namespace:string -> digest) : digest =
-    mk_digest ~namespace:"wp-project"
-
-  (* Creates a digest for the program state cache. *)
-  let program (mk_digest : namespace:string -> digest) : digest =
-    mk_digest ~namespace:"wp-program"
-
 end

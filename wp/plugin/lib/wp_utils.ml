@@ -15,6 +15,7 @@ open !Core_kernel
 open Bap_main
 open Bap.Std
 open Regular.Std
+open Bap_knowledge
 
 include Self()
 
@@ -38,52 +39,48 @@ let create_proj (state : Project.state option) (loader : string)
     let msg = Error.to_string_hum e in
     failwith (Printf.sprintf "Error loading project: %s\n%!" msg)
 
-(* Clears the attributes from the terms to remove unnecessary bloat and
-   slowdown. We retain the addresses for printing paths. *)
-let clear_mapper : Term.mapper = object
-  inherit Term.mapper as super
-  method! map_term cls t =
-    let new_dict =
-      Option.value_map (Term.get_attr t address)
-        ~default:Dict.empty
-        ~f:(Dict.set Dict.empty address)
-    in
-    let t' = Term.with_attrs t new_dict in
-    super#map_term cls t'
-end
+let knowledge_reader = Data.Read.create
+    ~of_bigstring:Knowledge.of_bigstring ()
 
-(* FIXME: read context to determine whether we need the "fat" project or not. *)
-let is_skinny (_ctxt : ctxt) = false
+let knowledge_writer = Data.Write.create
+    ~to_bigstring:Knowledge.to_bigstring ()
 
-(* Make a "skinny" project with nothing in it *)
-let mk_skinny (proj : project) : project =
-  let tgt = Project.target proj in
-  let empty = Project.empty tgt in
-  let skinny_prog = proj |> Project.program |> clear_mapper#run in
-  let with_prog = Project.with_program empty skinny_prog in
-  with_prog
+let knowledge_cache () =
+  Data.Cache.Service.request
+    knowledge_reader
+    knowledge_writer
+
+let import_knowledge_from_cache digest =
+  let digest = digest ~namespace:"knowledge" in
+  info "looking for knowledge with digest %a"
+    Data.Cache.Digest.pp digest;
+  let cache = knowledge_cache () in
+  match Data.Cache.load cache digest with
+  | None -> false
+  | Some state ->
+    info "importing knowledge from cache";
+    Toplevel.set state;
+    true
+
+let store_knowledge_in_cache digest =
+  let digest = digest ~namespace:"knowledge" in
+  info "caching knowledge with digest %a"
+    Data.Cache.Digest.pp digest;
+  let cache = knowledge_cache () in
+  Toplevel.current () |>
+  Data.Cache.save cache digest
+
+let save_knowledge ~had_knowledge digest =
+  if not had_knowledge
+  then store_knowledge_in_cache digest
+  else ()
+
 
 (* Reads in the project from a file, creating a cache if none exists. *)
 let read_project (ctxt : ctxt) ~(loader : string) ~(filepath : string)
   : Project.t =
-  let mk_digest = Cache.Digests.generator ctxt ~filepath ~loader in
-  let project_digest = Cache.Digests.project mk_digest in
-  match Project.Cache.load project_digest with
-  | Some project ->
-    info "Program %s (%a) found in cache.%!"
-      filepath Data.Cache.Digest.pp project_digest;
-    project
-  | None ->
-    (* The program_t is not in the cache. Disassemble the binary. *)
-    info "Saving program %s (%a) to cache.%!"
-      filepath Data.Cache.Digest.pp project_digest;
-    let project = create_proj None loader filepath in
-    (* If needed, replace the project with the "skinny" version *)
-    let project =
-      if is_skinny ctxt then
-        mk_skinny project
-      else
-        project
-    in
-    let () = Project.Cache.save project_digest project in
-    project
+  let digest = Cache.Digests.generator ctxt ~filepath ~loader in
+  let had_knowledge = import_knowledge_from_cache digest in
+  let proj = create_proj None loader filepath in
+  save_knowledge ~had_knowledge digest;
+  proj

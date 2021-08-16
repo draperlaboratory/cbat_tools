@@ -33,13 +33,4 @@ module Digests : sig
   val generator :
     ctxt -> filepath:string -> loader:string -> (namespace:string -> digest)
 
-  (** Creates a digest for the knowledge cache. *)
-  val knowledge : (namespace:string -> digest) -> digest
-
-  (** Creates a digest for the project state cache. *)
-  val project : (namespace:string -> digest) -> digest
-
-  (** Creates a digest for the program cache. *)
-  val program : (namespace:string -> digest) -> digest
-
 end
