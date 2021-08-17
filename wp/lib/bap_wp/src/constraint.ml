@@ -154,7 +154,7 @@ let format_goal (fmt : Format.formatter) (g : goal) (model : Model.model) : unit
       Format.fprintf fmt "\n\tZ3 Expression: = ";
       List.iter args ~f:(fun arg ->
           let simplified = Expr.simplify arg None in
-          Format.fprintf fmt "%s " (Expr.to_string simplified));
+          Format.fprintf fmt "%s\n\n" (Expr.to_string simplified));
     end
   else
     Format.fprintf fmt "\n\tZ3 Expression: %s"

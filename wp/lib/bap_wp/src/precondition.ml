@@ -1497,6 +1497,7 @@ let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
       let scc = Graphlib.strong_components (module Graphs.Ir) g in
       let loop = Option.value_exn (Partition.group scc node) in
       let env = Env.add_precond env tid invariant in
+      (* FIXME: This comment is outdated *)
       (* forall y, (I => ite(~E, R, WP(S, I)))[x <- y] *)
       let loop_body, env =
         let skip_node n =
@@ -1507,8 +1508,10 @@ let loop_invariant_checker (loop_invariants : Env.loop_invariants) (tid : Tid.t)
         in
         let env = exit_pre env post node g loop in
         let body_wp, env = visit_graph ~start:node ~skip_node env post g in
+        (* TODO: What would happen if I freshened everything? *)
         let vars = loop_vars ~start:node ~skip_node g in
         let name = Format.sprintf "loop_%s" in
+        (* invariant => WP(body, post) *)
         Env.freshen ~name (Constr.mk_clause [invariant] [body_wp]) env vars
       in
       let pre = Constr.mk_clause [] [invariant; loop_body] in
