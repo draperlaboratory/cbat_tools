@@ -229,13 +229,17 @@ let post_reg_values
 
 (* Parses the user's smtlib queries for use in comparative analysis. *)
 let smtlib
+    ~orig:(sub1,env1)
+    ~modif:(sub2,env2)
     ~precond:(precond : string)
     ~postcond:(postcond : string)
   : (Comp.comparator * Comp.comparator) option =
   if String.is_empty precond && String.is_empty postcond then
     None
   else
-    Some (Comp.compare_subs_smtlib ~smtlib_hyp:precond ~smtlib_post:postcond)
+    let prelude = Z3_utils.compare_prelude_smtlib2 sub1 sub2 env1 env2 in
+    info "Injected CBAT smtlib prelude: %s" prelude;
+    Some (Comp.compare_subs_smtlib ~smtlib_hyp:(prelude ^ precond) ~smtlib_post:(prelude ^ postcond))
 
 (* obtain a set of general purpose registers
  * based on their string names and architecture. *)
@@ -294,7 +298,8 @@ let comparators_of_flags
     func_calls p.compare_func_calls;
     post_reg_values p.compare_post_reg_values
       ~orig:(sub1, env1) ~modif:(sub2, env2);
-    smtlib ~precond:p.precond ~postcond:p.postcond;
+    smtlib ~orig:(sub1, env1) ~modif:(sub2, env2)
+      ~precond:p.precond ~postcond:p.postcond;
     gen_pointer_flag_comparators p.pointer_reg_list
       env1 env2 pointer_env1_vars pointer_env2_vars;
     mem_eq p.rewrite_addresses
