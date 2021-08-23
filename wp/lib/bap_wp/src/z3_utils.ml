@@ -100,6 +100,134 @@ let get_z3_name (map : Constr.z3_expr Var.Map.t) (name : string) (fmt : Var.t ->
         else
           None)
 
+(** Sexp.t helper constructors for smtlib constructs *)
+let define_fun name args retsort body =
+  let args = List.map ~f:(fun (v,sort) -> Sexp.List [v; sort]) args in
+  Sexp.List [Sexp.Atom "define-fun"; Sexp.Atom name; Sexp.List args; retsort; body]
+let synonym name ret body = define_fun name [] ret body
+let bv_sort width = Sexp.List [
+  Sexp.Atom "_";
+  Sexp.Atom "BitVec";
+  Sexp.Atom (Int.to_string width);
+  ]
+let mem_sort dom cod = Sexp.List [Sexp.Atom "Array"; dom ; cod ]
+let bv_sort_of_var (v : Var.t) : Sexp.t =
+  let typ = Var.typ v in
+  match typ with
+  | Imm w -> bv_sort w
+  | Type.Mem (i_size, w_size) -> mem_sort
+                      (bv_sort (Size.in_bits i_size))
+                      (bv_sort (Size.in_bits w_size))
+  | Unk -> failwith "bv_sort_of_var: Unrecognized sort type"
+let bv_sort (width : int) : Sexp.t =  Sexp.List
+  [
+    Sexp.Atom "_";
+    Sexp.Atom "BitVec";
+    Sexp.Atom (Int.to_string width);
+  ]
+let define_sort (name : string) s = Sexp.List [
+ Sexp.Atom "define-sort"; Sexp.Atom name; Sexp.List []; s]
+let sexp_of_sort (s : Z3.Sort.sort) : Sexp.t = Sexp.of_string (Z3.Sort.to_string s)
+let sexp_of_expr (x : Expr.expr) : Sexp.t = Sexp.of_string (Expr.to_string x)
+
+(* [make_arg_synonyms] constructs smtlib formula for the arguments of a subroutine.
+   This make synonyms that for high level c-like names ot low level locations *)
+let make_arg_synonyms
+  ?postfix:(postfix = "")
+  (sub : Sub.t)
+  (init_var_map : Expr.expr Var.Map.t)
+  (var_map : Expr.expr Var.Map.t) : Sexp.t list =
+  let args = Term.enum arg_t sub |> Seq.to_list in
+  List.concat_map args ~f:(fun arg ->
+    let cname = Arg.lhs arg in
+    let syn prefix z3_reg =
+      let sort = Sexp.of_string (Z3.Sort.to_string (Z3.Expr.get_sort z3_reg)) in
+      synonym (prefix ^ Var.name cname ^ postfix) sort
+      (Sexp.Atom  (Expr.to_string z3_reg))
+    in
+    let reg = Arg.rhs arg in
+    match reg with
+    | Var reg -> begin
+         match Arg.intent arg with
+           | Some In   -> [syn "init_" (Var.Map.find_exn init_var_map reg)]
+           | Some Out  -> [syn "" (Var.Map.find_exn var_map reg)]
+           | Some Both -> [syn "init_" (Var.Map.find_exn init_var_map reg);
+                           syn "" (Var.Map.find_exn var_map reg)]
+           | None -> []
+    end
+    | _ -> [] (* We don't make synonym unless c variable is just held in a bap variable *)
+    )
+
+(** [args_prelude_compare] builds smtlib synonyms in a comparison for the arguments of
+    two compared subroutines. *)
+let args_prelude_compare
+  (main_sub1 : Sub.t)
+  (main_sub2 : Sub.t)
+  (env1 : Env.t)
+  (env2 : Env.t) : Sexp.t list =
+  let var_map1 = Env.get_var_map env1 in
+  let var_map2 = Env.get_var_map env2 in
+  let init_var_map1 = Env.get_init_var_map env1 in
+  let init_var_map2 = Env.get_init_var_map env2 in
+  let syn1 = make_arg_synonyms ~postfix:"_orig" main_sub1 init_var_map1 var_map1 in
+  let syn2 = make_arg_synonyms ~postfix:"_mod" main_sub2 init_var_map2 var_map2 in
+  syn1 @ syn2
+
+
+
+(** [def_pointer_sort] constructs an smtlib sort synonym of pointer sort.
+    Typically it will be `(define-sort pointer () BV64)` *)
+let def_pointer_sort env =
+  let mem = Env.get_mem env in
+  let var_map = Env.get_var_map env in
+  let z3_mem = Var.Map.find_exn var_map mem in
+  let pointer_sort = Z3.Z3Array.get_domain (Expr.get_sort z3_mem) in
+  define_sort "pointer" (sexp_of_sort pointer_sort)
+
+(** [def_mem_sort] constructs an smtlib sort synonym of the memory array.
+    Typically it will be `(define-sort memsort () (Array (BV64 BV8))` *)
+let def_mem_sort env =
+    let mem = Env.get_mem env in
+    let var_map = Env.get_var_map env in
+    let z3_mem = Var.Map.find_exn var_map mem in
+    define_sort "memsort" (sexp_of_sort (Z3.Expr.get_sort z3_mem))
+
+let compare_prelude_smtlib2  main_sub1 main_sub2 (env1 : Env.t) (env2 : Env.t) : string =
+ let std_prelude = "
+        (
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ; Sort synonyms
+        (define-sort BV8 () (_ BitVec 8))
+        (define-sort BV16 () (_ BitVec 16))
+        (define-sort BV32 () (_ BitVec 32))
+        (define-sort BV64 () (_ BitVec 64))
+        (define-sort char () (_ BitVec 8))
+        (define-sort byte () (_ BitVec 8))
+        (define-sort int16 () (_ BitVec 16))
+        (define-sort int32 () (_ BitVec 32))
+        (define-sort int64 () (_ BitVec 64))
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        ;; Predefined predicates
+        (define-fun init-mem-equal () Bool (= init_mem_orig init_mem_mod))
+        (define-fun mem-equal () Bool (= mem_orig mem_mod))
+        ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        )" in
+  let std_prelude = match Sexp.of_string std_prelude with
+                    | Sexp.List l -> l
+                    | _ ->
+                    failwith "compare_prelude_smtlib2: Improper constant sexp string"
+  in
+  let cvar_defs = args_prelude_compare main_sub1 main_sub2 env1 env2 in
+  let prelude_sexp = [
+    def_pointer_sort env1;
+    def_mem_sort env1;
+    ] @
+    std_prelude @
+    cvar_defs
+  in
+  let prelude_sexp = List.map ~f:Sexp.to_string_hum prelude_sexp in
+  String.concat ~sep:"\n" prelude_sexp
+
 (** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
     as a comparison predicate between an original and modified binary. *)
 let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
@@ -130,7 +258,7 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let declsym = declsym1 @ declsym2 in
   let ctx = Env.get_context env1 in
   mk_smtlib2 ctx smtlib_str declsym
-  
+
 let mk_smtlib2_single ?(name = None) (env : Env.t) (smt_post : string) : Constr.t =
   let var_map = Env.get_var_map env in
   let init_var_map = Env.get_init_var_map env in
