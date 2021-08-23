@@ -105,30 +105,9 @@ let define_fun name args retsort body =
   let args = List.map ~f:(fun (v,sort) -> Sexp.List [v; sort]) args in
   Sexp.List [Sexp.Atom "define-fun"; Sexp.Atom name; Sexp.List args; retsort; body]
 let synonym name ret body = define_fun name [] ret body
-let bv_sort width = Sexp.List [
-  Sexp.Atom "_";
-  Sexp.Atom "BitVec";
-  Sexp.Atom (Int.to_string width);
-  ]
-let mem_sort dom cod = Sexp.List [Sexp.Atom "Array"; dom ; cod ]
-let bv_sort_of_var (v : Var.t) : Sexp.t =
-  let typ = Var.typ v in
-  match typ with
-  | Imm w -> bv_sort w
-  | Type.Mem (i_size, w_size) -> mem_sort
-                      (bv_sort (Size.in_bits i_size))
-                      (bv_sort (Size.in_bits w_size))
-  | Unk -> failwith "bv_sort_of_var: Unrecognized sort type"
-let bv_sort (width : int) : Sexp.t =  Sexp.List
-  [
-    Sexp.Atom "_";
-    Sexp.Atom "BitVec";
-    Sexp.Atom (Int.to_string width);
-  ]
 let define_sort (name : string) s = Sexp.List [
  Sexp.Atom "define-sort"; Sexp.Atom name; Sexp.List []; s]
 let sexp_of_sort (s : Z3.Sort.sort) : Sexp.t = Sexp.of_string (Z3.Sort.to_string s)
-let sexp_of_expr (x : Expr.expr) : Sexp.t = Sexp.of_string (Expr.to_string x)
 
 (* [make_arg_synonyms] constructs smtlib formula for the arguments of a subroutine.
    This make synonyms that for high level c-like names ot low level locations *)
