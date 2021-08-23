@@ -40,6 +40,10 @@ run_integration_tests:
   script:
   # Install other dependencies (non-sudo).
     - bash -x bin/setup/install-dependencies.bash --report-results
+
+  # Source environment variables and install the vibes tool.
+    - . bin/common-lib/env.bash
+    - make
    
     - make test -C wp
     - bash -x bin/integration-tests/run-tests.bash --report-results
