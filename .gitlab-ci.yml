@@ -38,6 +38,12 @@ run_integration_tests:
     - docker
 
   script:
+  # Install APT dependencies.
+    - >-
+      sudo -E apt install -y
+      qemu gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi cmake
+
+
   # Install other dependencies (non-sudo).
     - bash -x bin/setup/install-dependencies.bash --report-results
 
