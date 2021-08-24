@@ -47,7 +47,7 @@ run_integration_tests:
   # Install other dependencies (non-sudo).
     - bash -x bin/setup/install-dependencies.bash --report-results
 
-  # Source environment variables and install the vibes tool.
+  # Source environment variables and install cbat tools.
     - . bin/common-lib/env.bash
     - make
    
