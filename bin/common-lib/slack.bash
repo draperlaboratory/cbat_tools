@@ -49,7 +49,7 @@ build_slack_payload () {
     TEXT="${TEXT}\nBAP: ${BAP}"
     TEXT="${TEXT}\nBRANCH: ${BRANCH}"
     TEXT="${TEXT}\nCOMMIT:\n\`\`\`\n${COMMIT}\n\`\`\`"
-    if ["${VERBOSE}" == "true"]; then
+    if [[ "${VERBOSE}" == "true" ]]; then
 	TEXT="${TEXT}\nOUTPUT:\n\`\`\`\n${DATA}\n\`\`\`"
     fi 
     echo "{
