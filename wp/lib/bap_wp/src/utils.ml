@@ -70,3 +70,11 @@ let match_inline (to_inline : string option) (subs : Sub.t Seq.t)
           (filter_subs |> Seq.to_list |> List.to_string ~f:Sub.name)
     in
     filter_subs
+
+let init_mem ?init_mem:(init_mem = true) filename =
+  if init_mem then
+    let res = Image.create ~backend:"llvm" filename in
+    let img, _errs = Or_error.ok_exn res in
+    Image.memory img
+  else
+    Memmap.empty

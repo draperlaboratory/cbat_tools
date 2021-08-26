@@ -551,11 +551,14 @@ let run
   match files with
   | [input] ->
     let {program = prog ; target = tgt; filename = file} = input in
+    let mem = Utils.init_mem ~init_mem:p.init_mem file in
     single z3_ctx var_gen p prog mem tgt file
     |> check_pre p z3_ctx
   | [input1; input2] ->
     let { program = prog1; target = tgt1; filename = file1} = input1 in
     let { program = prog2; target = tgt2; filename = file2} = input2 in
+    let mem1 = Utils.init_mem file1 in
+    let mem2 = Utils.init_mem file2 in
     comparative
       z3_ctx var_gen p
       prog1 mem1 tgt1 file1
