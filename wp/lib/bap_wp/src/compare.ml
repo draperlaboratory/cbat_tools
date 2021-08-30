@@ -193,10 +193,10 @@ let compare_subs_smtlib
     ~smtlib_hyp:(smtlib_hyp : string)
   : comparator * comparator =
   let postcond ~original:{ env = env1; _ } ~modified:{ env = env2; _ } ~rename_set:_ =
-    mk_smtlib2_compare env1 env2 smtlib_post, env1, env2
+    Z3_utils.mk_smtlib2_compare env1 env2 smtlib_post, env1, env2
   in
   let hyps ~original:{ env = env1; _ } ~modified:{ env = env2; _ } ~rename_set =
-    let smtlib = mk_smtlib2_compare env1 env2 smtlib_hyp in
+    let smtlib = Z3_utils.mk_smtlib2_compare env1 env2 smtlib_hyp in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
     Constr.mk_clause [] (smtlib :: pre_eqs), env1, env2
   in
