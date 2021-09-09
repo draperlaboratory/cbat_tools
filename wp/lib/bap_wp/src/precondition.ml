@@ -1246,6 +1246,34 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
 
+
+let init_mem (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
+  let mem_var = Env.get_mem env in
+  let z3_mem, env = Env.get_var env mem_var in
+  let bitv_pairs =
+    mem |> Memmap.filter ~f:(fun v ->
+        match Value.get Image.section v with
+        | None -> false
+        | Some name -> String.equal name ".rodata") |>
+    Memmap.to_sequence |>
+    Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
+        Memory.foldi mem ~init:pairs
+          ~f:(fun addr content pairs ->
+            (addr, content)::pairs))
+  in
+  let z3_ctxt = Env.get_context env in
+  let mem_assoc (addr, word) =
+    let addr = word_to_z3 z3_ctxt addr in
+    let word = word_to_z3 z3_ctxt word in
+    (* z3_mem[addr] == word *)
+    Bool.mk_eq z3_ctxt (Z3Array.mk_select z3_ctxt z3_mem addr) word
+  in
+  let z3_assoc = List.map ~f:mem_assoc bitv_pairs in
+  let mk_cstr b = b |> Constr.mk_goal ".rodata_init" |> Constr.mk_constr in
+  info "Initializing values in %a\n%!" Var.pp mem_var;
+  (List.map ~f:mk_cstr z3_assoc, env)
+
+
 (* Builds a spec of the form (sub_pre /\ (sub_post => post) where post
    is the spec right before the subroutine call. All physical registers and mem
    in post and sub_post are replaced with fresh Z3 functions, and init- physical

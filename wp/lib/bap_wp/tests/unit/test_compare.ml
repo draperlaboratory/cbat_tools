@@ -41,6 +41,9 @@ let assert_z3_compare (test_ctx : test_ctxt) (body1 : string) (body2 : string)
         print_z3_model solver exp real pre ~orig:env1 ~modif:env2)
     expected result
 
+let code_of_blk blk env = Comp.{env = env; prog = blk; mem = Memmap.empty}
+
+let code_of_sub sub env = Comp.{env = env; prog = sub; mem = Memmap.empty}
 
 let test_block_pair_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
@@ -58,9 +61,10 @@ let test_block_pair_1 (test_ctx : test_ctxt) : unit =
   in
   let pre_regs = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
   let post_regs = Var.Set.singleton z in
-  let compare_prop, env1, env2 = Comp.compare_blocks
+  let compare_prop, env1, env2 =
+    Comp.compare_blocks
       ~pre_regs ~post_regs
-      ~original:(blk1,env1) ~modified:(blk2,env2)
+      ~original:(code_of_blk blk1 env1) ~modified:(code_of_blk blk2 env2)
       ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Blk.to_string blk1) (Blk.to_string blk2)
@@ -84,7 +88,7 @@ let test_block_pair_2 (test_ctx : test_ctxt) : unit =
   let post_regs = Var.Set.singleton z in
   let compare_prop, env1, env2 = Comp.compare_blocks
       ~pre_regs ~post_regs
-      ~original:(blk1,env1) ~modified:(blk2,env2)
+      ~original:(code_of_blk blk1 env1) ~modified:(code_of_blk blk2 env2)
       ~smtlib_post:"" ~smtlib_hyp:"" in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Blk.to_string blk1) (Blk.to_string blk2)
@@ -127,7 +131,7 @@ let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -169,7 +173,7 @@ let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -205,7 +209,7 @@ let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -244,7 +248,7 @@ let test_sub_pair_4 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -283,7 +287,7 @@ let test_sub_pair_5 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -303,7 +307,7 @@ let test_sub_pair_6 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_empty_post in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -324,7 +328,7 @@ let test_sub_pair_7 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_empty_post in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -353,7 +357,7 @@ let test_sub_pair_fun_1 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_fun in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:(code_of_sub main_sub1 env1) ~modified:(code_of_sub main_sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
@@ -381,7 +385,7 @@ let test_sub_pair_fun_2 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_fun in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:(code_of_sub main_sub1 env1) ~modified:(code_of_sub main_sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
@@ -421,7 +425,7 @@ let test_sub_pair_fun_3 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_fun in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:(code_of_sub main_sub1 env1) ~modified:(code_of_sub main_sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
@@ -462,7 +466,7 @@ let test_sub_pair_fun_4 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_fun in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:(code_of_sub main_sub1 env1) ~modified:(code_of_sub main_sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1) (Sub.to_string main_sub2)
@@ -494,7 +498,7 @@ let test_fun_outputs_1 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:(code_of_sub main_sub1 env1) ~modified:(code_of_sub main_sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
@@ -514,7 +518,7 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
   let sub2 = Sub.with_name sub2 "test_call" in
   let main_sub1 =
     Bil.([ rdi := i64 1 ;
-           rsi := i64 2 ; 
+           rsi := i64 2 ;
            Bil_to_bir.call sub1 reg64_t]) |> bil_to_sub in
   let main_sub2 =
     Bil.([ rdi := i64 2 ;
@@ -529,7 +533,7 @@ let test_fun_outputs_2 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:(code_of_sub main_sub1 env1) ~modified:(code_of_sub main_sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
@@ -569,7 +573,7 @@ let test_fun_outputs_3 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:(code_of_sub main_sub1 env1) ~modified:(code_of_sub main_sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
@@ -609,7 +613,7 @@ let test_fun_outputs_4 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(main_sub1, env1) ~modified:(main_sub2, env2)
+      ~original:(code_of_sub main_sub1 env1) ~modified:(code_of_sub main_sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string main_sub1)
@@ -639,7 +643,7 @@ let test_sub_pair_mem_1 (test_ctx : test_ctxt) : unit =
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post] ~hyps:[hyps]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -680,7 +684,7 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -721,7 +725,7 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
@@ -770,72 +774,11 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
   let compare_prop, env1, env2 = Comp.compare_subs
       ~postconds:[post1; post2] ~hyps:[hyps1; hyps2]
-      ~original:(sub1, env1) ~modified:(sub2, env2)
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2)
   in
   assert_z3_compare test_ctx ~orig:env1 ~modif:env2
     (Sub.to_string sub1) (Sub.to_string sub2)
     compare_prop Z3.Solver.UNSATISFIABLE
-
-
-let test_mk_smtlib2_compare_1 (test_ctx : test_ctxt) : unit =
-  let ctx = Env.mk_ctx () in
-  let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
-  let env2 = Pre.mk_env ~target:test_tgt ctx var_gen in
-  let env2 = Env.set_freshen env2 true in
-  let x = Var.create "x" reg32_t in
-  let y = Var.create "y" reg32_t in
-  let x1, env1 = Env.get_var env1 x in
-  let _, env2 = Env.get_var env2 x in
-  let _, env1 = Env.get_var env1 y in
-  let y2, env2 = Env.get_var env2 y in
-  let init_x1, env1 = Env.mk_init_var env1 x in
-  let _, env2 = Env.mk_init_var env2 x in
-  let _, env1 = Env.mk_init_var env1 y in
-  let init_y2, env2 = Env.mk_init_var env2 y in
-  let cond = "(assert (and (= x_orig init_x_orig) (= y_mod init_y_mod)))" in
-  let expected =
-    let constr =
-      Bool.mk_and ctx [Bool.mk_eq ctx x1 init_x1; Bool.mk_eq ctx y2 init_y2]
-      |> Constr.mk_goal "(and (= x0 init_x0) (= y02 init_y02))"
-      |> Constr.mk_constr
-    in
-    Constr.mk_clause [] [constr]
-  in
-  let result = Compare.mk_smtlib2_compare env1 env2 cond in
-  assert_equal ~ctxt:test_ctx
-    ~printer:Constr.to_string
-    expected result
-
-
-let test_mk_smtlib2_compare_2 (test_ctx : test_ctxt) : unit =
-  let ctx = Env.mk_ctx () in
-  let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
-  let env2 = Pre.mk_env ~target:test_tgt ctx var_gen in
-  let env2 = Env.set_freshen env2 true in
-  let x = Var.create "x" reg32_t in
-  let x1, env1 = Env.get_var env1 x in
-  let x2, env2 = Env.get_var env2 x in
-  let _, env1 = Env.mk_init_var env1 x in
-  let init_x2, env2 = Env.mk_init_var env2 x in
-  let x_orig123 = BV.mk_const_s ctx "x_orig123" 32 in
-  let cond =
-    "(declare-const x_orig123 (_ BitVec 32)) \n\
-     (assert (and (= x_orig x_orig123) (= x_mod init_x_mod)))"
-  in
-  let expected =
-    let constr =
-      Bool.mk_and ctx [Bool.mk_eq ctx x1 x_orig123; Bool.mk_eq ctx x2 init_x2]
-      |> Constr.mk_goal "(and (= x0 x_orig123) (= x01 init_x01))"
-      |> Constr.mk_constr
-    in
-    Constr.mk_clause [] [constr]
-  in
-  let result = Compare.mk_smtlib2_compare env1 env2 cond in
-  assert_equal ~ctxt:test_ctx
-    ~printer:Constr.to_string
-    expected result
 
 
 let suite = [
@@ -865,7 +808,4 @@ let suite = [
   "Diff data location: UNSAT"                >:: test_memory_model_1;
   "Diff data location: SAT"                  >:: test_memory_model_2;
   "Diff data location, substitution: UNSAT"  >:: test_memory_model_3;
-
-  "Parsing smtlib compare expression"        >:: test_mk_smtlib2_compare_1;
-  "Should not overwrite x_orig123"           >:: test_mk_smtlib2_compare_2;
 ]

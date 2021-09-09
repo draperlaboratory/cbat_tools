@@ -90,6 +90,9 @@ val set_of_reg_names : Env.t -> Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.
     current state. *)
 val init_vars : Bap.Std.Var.Set.t -> Env.t -> Constr.t list * Env.t
 
+(** Generates a list of constraints: [mem[0xloc] == 0xval] where the [mem] variable is taken from the environment, and the loc/val pairs are taken from the memmap. *)
+val init_mem : Env.t -> Bap.Std.value Bap.Std.memmap -> Constr.t list * Env.t
+
 (** Create a Z3 expression that denotes a load in memory [mem] at address [addr]
     with a word size of [word_size] bits and endianness [endian]. *)
 val load_z3_mem

@@ -49,3 +49,10 @@ val get_mod_func_name : (string * string) list -> string -> string option
 (** Find a sequence of subroutines to inline based on the regex from
     the user. Retunrs the empty sequence if given [None]. *)
 val match_inline : string option -> sub term seq -> sub term seq
+
+(** If [init_mem] is [true] ([true] by default) load the memory image
+    of a binary based on the filepath. Re-raises any encountered
+    (fatal) errors.
+    Returns empty memory if [init_mem = false].
+ *)
+val init_mem : ?init_mem:bool -> Image.path -> value memmap

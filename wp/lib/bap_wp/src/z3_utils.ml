@@ -42,8 +42,14 @@ let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) 
   let var_decls = Env.EnvMap.fold var_map ~init:[] ~f:var_to_decl in
   Env.EnvMap.fold init_var_map ~init:var_decls ~f:var_to_decl
 
+
+
+(** [mk_smtlib2] parses a smtlib2 string in the context that has a mapping of func_decl
+    to symbols and returns a constraint [Constr.t] corresponding to the smtlib2 string.
+    The [func_decl * symbol] mapping can be constructed from an [Env.t] using the
+    [get_decls_and_symbols] function. *)
 let mk_smtlib2 ?(name = None) (ctx : Z3.context) (smtlib_str : string)
-    (decl_syms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : Constr.t =
+      (decl_syms : (Z3.FuncDecl.func_decl * Z3.Symbol.symbol) list) : Constr.t =
   let fun_decls, fun_symbols = List.unzip decl_syms in
   let sort_symbols = [] in
   let sorts = [] in
@@ -94,6 +100,37 @@ let get_z3_name (map : Constr.z3_expr Var.Map.t) (name : string) (fmt : Var.t ->
         else
           None)
 
+(** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
+    as a comparison predicate between an original and modified binary. *)
+let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
+  let var_map1 = Env.get_var_map env1 in
+  let var_map2 = Env.get_var_map env2 in
+  let init_var_map1 = Env.get_init_var_map env1 in
+  let init_var_map2 = Env.get_init_var_map env2 in
+  let var_fmt1 = fun v -> Format.sprintf "%s_orig" (Var.name v) in
+  let var_fmt2 = fun v -> Format.sprintf "%s_mod" (Var.name v) in
+  let init_fmt1 = fun v -> Format.sprintf "init_%s_orig" (Var.name v) in
+  let init_fmt2 = fun v -> Format.sprintf "init_%s_mod" (Var.name v) in
+  let maps = [var_map1; var_map2; init_var_map1; init_var_map2] in
+  let fmts = [var_fmt1; var_fmt2; init_fmt1; init_fmt2] in
+  let names = List.zip_exn maps fmts in
+  let to_z3_name token =
+    List.find_map names ~f:(fun (map, fmt) -> get_z3_name map token fmt)
+    |> Base.Option.map ~f:Expr.to_string |> Option.value ~default:token
+  in
+  let smtlib_str =
+    smtlib_str
+    |> tokenize
+    |> List.map ~f:to_z3_name
+    |> build_str
+  in
+  info "New smtlib string: %s \n" smtlib_str;
+  let declsym1 = get_decls_and_symbols env1 in
+  let declsym2 = get_decls_and_symbols env2 in
+  let declsym = declsym1 @ declsym2 in
+  let ctx = Env.get_context env1 in
+  mk_smtlib2 ctx smtlib_str declsym
+  
 let mk_smtlib2_single ?(name = None) (env : Env.t) (smt_post : string) : Constr.t =
   let var_map = Env.get_var_map env in
   let init_var_map = Env.get_init_var_map env in

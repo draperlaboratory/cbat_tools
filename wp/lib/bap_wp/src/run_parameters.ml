@@ -59,7 +59,8 @@ type t = {
   func_name_map : (string * string) list;
   user_func_spec : (string * string * string) option;
   fun_specs : string list;
-  ext_solver_path : string option
+  ext_solver_path : string option;
+  init_mem : bool;
 }
 
 type loop_invariant = {
@@ -217,5 +218,6 @@ let default ~func:(func : string) : t =
     func_name_map = [];
     user_func_spec = None;
     fun_specs = [];
-    ext_solver_path = None
+    ext_solver_path = None;
+    init_mem = false;
   }

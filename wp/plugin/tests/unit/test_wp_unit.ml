@@ -296,6 +296,7 @@ let unit_tests = [
 
   "Memcpy example 1" >: test_plugin "memcpy/memcpy_example"
     unsat ~script:"run_wp.sh";
-  "Memcpy example 2 (mem preservation)" >: test_plugin "memcpy/memcpy_example_2"
-    unsat ~script:"run_wp.sh";
+  "Memcpy example 2 (mem preservation)" >:: test_skip timeout_msg (test_plugin "memcpy/memcpy_example_2"
+                                                                     unsat ~script:"run_wp.sh");
+  "Constant string .rodata init" >: test_plugin "init_rodata" unsat ~script:"run_wp.sh";
 ]
