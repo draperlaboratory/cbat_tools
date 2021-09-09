@@ -10,8 +10,10 @@
 #define strlen cbat_libc_strlen
 #define strcpy cbat_libc_strcpy
 #define strncpy cbat_libc_strncpy
+#define strcat cbat_libc_strcat
 #define memcmp cbat_libc_memcmp
 #define memcpy cbat_libc_memcpy
+#define memset cbat_libc_memset
 
 #define UNROLL_EXCEEDED __VERIFIER_assume(false)
 
@@ -66,7 +68,6 @@ int cbat_libc_strcmp(const char* s1, const char* s2) {
   if (*s1 == 0 || *s1 != *s2) goto done; s1++; s2++;
 #endif
   
-
   UNROLL_EXCEEDED;
   
  done:
@@ -309,7 +310,6 @@ char * cbat_libc_strncpy(char * dest, const char * src, size_t n){
   if (pad_bytes == 0) goto done; *dest = 0; dest++; pad_bytes--;
 #endif
   
-
 #endif
   
   UNROLL_EXCEEDED;
@@ -438,4 +438,68 @@ void * cbat_libc_memcpy(void *dest, const void *src, size_t n){
   
  done:
   return dest;
+}
+
+void * cbat_libc_memset(void *s, int c, size_t n){
+
+  char * p = (char *) s;
+  char byte = (char) c;
+  
+  if (n > LIBC_UNROLL){
+    UNROLL_EXCEEDED;
+  }
+  
+#if LIBC_UNROLL >= 1
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 2
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 3
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 4
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 5
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 6
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 7
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 8
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 9
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 10
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 11
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 12
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 13
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 14
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 15
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+#if LIBC_UNROLL >= 16
+  if (n == 0) goto done; *p = byte; n--; p++;
+#endif
+
+  UNROLL_EXCEEDED;
+  
+ done:
+  return s;
 }
