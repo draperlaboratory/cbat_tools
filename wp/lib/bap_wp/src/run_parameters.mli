@@ -59,7 +59,7 @@ type t = {
   stack_size : int option;
   show : string list;
   func_name_map : (string * string) list;
-  user_func_spec : (string * string * string) option;
+  user_func_spec : (string * string * string) list;
   fun_specs : string list;
   ext_solver_path : string option;
   init_mem : bool;

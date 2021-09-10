@@ -218,7 +218,7 @@ let func_name_map = Cmd.parameter Typ.(list ~sep:';' (pair ~sep:',' string strin
            "<reg1_orig>,<reg1_mod>;<reg2_orig>,<reg2_mod>"). By default, WP
            assumes subroutines have the same names between the two binaries.|}
 
-let user_func_spec = Cmd.parameter Typ.(some (t3 string string string)) "user-func-spec"
+let user_func_spec = Cmd.parameter Typ.(list ~sep:';' (t3 string string string)) "user-func-spec"
     ~doc:{|Creates the weakest precondition for a subroutine given the
            name of the subroutine and its pre and post-conditions. Usage:
            --user-func-spec="<sub name>,<precondition>,<postcondition>". For example,
@@ -331,7 +331,7 @@ let callback
     (stack_base : int option)
     (stack_size : int option)
     (func_name_map : (string * string) list)
-    (user_func_spec : (string * string * string) option)
+    (user_func_spec : (string * string * string) list)
     (fun_specs : string list)
     (ext_solver_path : string option)
     (files : string list)

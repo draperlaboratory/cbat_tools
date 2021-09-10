@@ -57,7 +57,7 @@ type t = {
   stack_size : int option;
   show : string list;
   func_name_map : (string * string) list;
-  user_func_spec : (string * string * string) option;
+  user_func_spec : (string * string * string) list;
   fun_specs : string list;
   ext_solver_path : string option;
   init_mem : bool;
@@ -216,7 +216,7 @@ let default ~func:(func : string) : t =
     stack_size = None;
     show = [];
     func_name_map = [];
-    user_func_spec = None;
+    user_func_spec = [];
     fun_specs = [];
     ext_solver_path = None;
     init_mem = false;

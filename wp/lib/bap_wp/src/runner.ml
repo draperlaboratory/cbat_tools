@@ -170,12 +170,14 @@ let exp_conds_mod (p : params) : Env.exp_cond list =
   in
   null_derefs @ invalid_derefs
 
-(* Determine if the user added a user_func_spec. If so, parse the string and
-   apply the components to make a func_spec *)
-let parse_user_func_spec (p : params) : (Sub.t -> Theory.target -> Env.fun_spec option) =
-  match p.user_func_spec with
-    Some (name,pre,post) -> Pre.user_func_spec ~sub_name:name ~sub_pre:pre ~sub_post:post
-  | _ -> Pre.user_func_spec ~sub_name:"" ~sub_pre:"" ~sub_post:""
+(* Parse a single user_func_spec string to make a func_spec. *)
+let parse_user_func_spec (user_func_spec: string * string * string) : (Sub.t -> Theory.target -> Env.fun_spec option) =
+  match user_func_spec with
+    (name,pre,post) -> Pre.user_func_spec ~sub_name:name ~sub_pre:pre ~sub_post:post
+
+(* Parse the list of specs provided by the user. *)
+let parse_user_func_specs (p : params) : (Sub.t -> Theory.target -> Env.fun_spec option) list =
+  List.map p.user_func_spec ~f:parse_user_func_spec
 
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : params) (to_inline : Sub.t Seq.t)
@@ -186,7 +188,7 @@ let fun_specs (p : params) (to_inline : Sub.t Seq.t)
     Pre.spec_empty;
     Pre.spec_chaos_caller_saved
   ] in
-  let user_func_spec = [parse_user_func_spec p] in
+  let user_func_spec = parse_user_func_specs p in
   let trip_asserts = if p.trip_asserts then [Pre.spec_verifier_error] else [] in
   let inline = [Pre.spec_inline to_inline] in
   let specs =
