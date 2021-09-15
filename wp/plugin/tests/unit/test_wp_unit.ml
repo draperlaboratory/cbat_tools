@@ -133,7 +133,9 @@ let unit_tests = [
     unsat ~script:"run_wp_comp.sh";
   "User defined sub specs comparative 2" >: test_plugin "user_func_spec/sub_spec_4"
     unsat ~script:"run_wp_1.sh";
-
+  "User defined sub specs multi" >: test_plugin "user_func_spec/sub_spec_5"
+    unsat ~script:"run_wp_2.sh";
+  
   (* Test single elf *)
 
   "Arm: Function spec"             >: test_plugin "arm/function_spec" sat;
