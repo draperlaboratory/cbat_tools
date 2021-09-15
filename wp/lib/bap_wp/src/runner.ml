@@ -173,11 +173,13 @@ let exp_conds_mod (p : params) : Env.exp_cond list =
 (* Parse a single user_func_spec string to make a func_spec. *)
 let parse_user_func_spec (user_func_spec: string * string * string) : (Sub.t -> Theory.target -> Env.fun_spec option) =
   match user_func_spec with
-    (name,pre,post) -> Pre.user_func_spec ~sub_name:name ~sub_pre:pre ~sub_post:post
+    (name,pre,post) ->
+    info "Making spec from %s %s %s" name pre post;
+    Pre.user_func_spec ~sub_name:name ~sub_pre:pre ~sub_post:post
 
 (* Parse the list of specs provided by the user. *)
 let parse_user_func_specs (p : params) : (Sub.t -> Theory.target -> Env.fun_spec option) list =
-  List.map p.user_func_spec ~f:parse_user_func_spec
+  List.map p.user_func_specs ~f:parse_user_func_spec
 
 (* Determine which function specs to use in WP. *)
 let fun_specs (p : params) (to_inline : Sub.t Seq.t)

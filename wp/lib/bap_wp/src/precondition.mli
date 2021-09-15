@@ -137,7 +137,7 @@ val caller_saved_regs : Theory.target -> Bap.Std.Var.t list
 val callee_saved_regs : Theory.target -> Bap.Std.Var.t list
 
 (** This spec is used to handle user-specified subroutine specs
-    via the --user-func-spec flag, using the user-specified
+    via the --user-func-specs flag, using the user-specified
     subroutine name, pre and post-conditions. **)
 val user_func_spec
   : sub_name:string

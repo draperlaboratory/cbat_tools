@@ -7,7 +7,7 @@ run () {
     --func=main \
     --show=paths \
     --precond="(assert (= RAX #x0000000000000061))" \
-    --user-func-spec="g,(assert (= RAX #x0000000000000061)),(assert (= RAX init_RAX))" \
+    --user-func-specs="g,(assert (= RAX #x0000000000000061)),(assert (= RAX init_RAX))" \
     --trip-assert \
     -- ./bin/main_1
 }

@@ -218,13 +218,17 @@ let func_name_map = Cmd.parameter Typ.(list ~sep:';' (pair ~sep:',' string strin
            "<reg1_orig>,<reg1_mod>;<reg2_orig>,<reg2_mod>"). By default, WP
            assumes subroutines have the same names between the two binaries.|}
 
-let user_func_spec = Cmd.parameter Typ.(list ~sep:';' (t3 string string string)) "user-func-spec"
-    ~doc:{|Creates the weakest precondition for a subroutine given the
-           name of the subroutine and its pre and post-conditions. Usage:
-           --user-func-spec="<sub name>,<precondition>,<postcondition>". For example,
-           --user-func-spec="foo,(assert (= RAX RDI)),(assert (= RAX init_RDI)"
+let user_func_specs = Cmd.parameter Typ.(list ~sep:';' (t3 string string string)) "user-func-specs"
+    ~doc:{|List of user-defined subroutine specifications. For each subroutine, it
+           creates the weakest precondition given the name of the subroutine and its
+           pre and post-conditions.
+           Usage: --user-func-specs="<sub name>,<precondition>,<postcondition>". For
+           example, --user-func-specs="foo,(assert (= RAX RDI)),(assert (= RAX init_RDI))"
            means "for subroutine named foo, specify that its precondition is
-           RAX = RDI and its postcondition is RAX = init_RDI".|}
+           RAX = RDI and its postcondition is RAX = init_RDI".
+           Multiple subroutine specifications are delimited with ';'s, i.e.:
+           --user-func-specs="foo,(assert (= RAX RDI)),(assert (= RAX init_RDI));
+           bar,(assert (= RAX RDI)),(assert (= RAX init_RDI))".|}
 
 let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
     ~doc:{|List of built-in function summaries to be used at a function call
@@ -301,7 +305,7 @@ let grammar = Cmd.(
     $ stack_base
     $ stack_size
     $ func_name_map
-    $ user_func_spec
+    $ user_func_specs
     $ fun_specs
     $ ext_solver_path
     $ files)
@@ -331,7 +335,7 @@ let callback
     (stack_base : int option)
     (stack_size : int option)
     (func_name_map : (string * string) list)
-    (user_func_spec : (string * string * string) list)
+    (user_func_specs : (string * string * string) list)
     (fun_specs : string list)
     (ext_solver_path : string option)
     (files : string list)
@@ -360,7 +364,7 @@ let callback
       stack_base = stack_base;
       stack_size = stack_size;
       func_name_map = func_name_map;
-      user_func_spec = user_func_spec;
+      user_func_specs = user_func_specs;
       fun_specs = fun_specs;
       ext_solver_path = ext_solver_path;
       init_mem = init_mem;

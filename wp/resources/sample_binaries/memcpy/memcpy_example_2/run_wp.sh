@@ -10,7 +10,7 @@ run () {
 (= RAX (_ bv0 64))
 (= (select mem #x0000000000701050) (_ bv12 8))
 ))" \
-      --user-func-spec="memcpy, (assert true),
+      --user-func-specs="memcpy, (assert true),
 (assert (and 
 (= RDI init_RDI)
 (forall ((new_var (_ BitVec 64)))
