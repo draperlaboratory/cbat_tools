@@ -6,7 +6,7 @@ run () {
 (bvule RDI #x00000000FFFFFFFF)
 ))" \
       --postcond="(assert (= RAX (_ bv0 64)))" \
-      --user-func-spec="memcpy, (assert true), 
+      --user-func-specs="memcpy, (assert true),
 (assert (and 
 (= RDI init_RDI)
 (forall ((new_var (_ BitVec 64)))
