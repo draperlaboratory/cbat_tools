@@ -10,7 +10,6 @@
 #define strlen cbat_libc_strlen
 #define strcpy cbat_libc_strcpy
 #define strncpy cbat_libc_strncpy
-#define strcat cbat_libc_strcat
 #define memcmp cbat_libc_memcmp
 #define memcpy cbat_libc_memcpy
 #define memset cbat_libc_memset
