@@ -49,7 +49,7 @@ run_integration_tests:
 
   # Source environment variables and install cbat tools.
     - . bin/common-lib/env.bash
-    - make
+    - make -C wp
    
     - make test -C wp
     - bash -x bin/integration-tests/run-tests.bash --report-results
