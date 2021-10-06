@@ -171,18 +171,21 @@ let exp_conds_mod (p : params) : Env.exp_cond list =
   null_derefs @ invalid_derefs
 
 (* Parse a single user_func_spec string to make a func_spec. *)
-let parse_user_func_spec (user_func_spec: string * string * string) : (Sub.t -> Theory.target -> Env.fun_spec option) =
+let parse_user_func_spec (user_func_spec: string * string * string)
+  : (Sub.t -> Theory.target -> Env.fun_spec option) =
   match user_func_spec with
     (name,pre,post) ->
     info "Making spec from %s %s %s" name pre post;
     Pre.user_func_spec ~sub_name:name ~sub_pre:pre ~sub_post:post
 
 (* Parse the list of specs provided by the user. *)
-let parse_user_func_specs (p : params) : (Sub.t -> Theory.target -> Env.fun_spec option) list =
-  List.map p.user_func_specs ~f:parse_user_func_spec
+let parse_user_func_specs (p : params)
+  : ((Sub.t -> Theory.target -> Env.fun_spec option) list) * ((Sub.t -> Theory.target -> Env.fun_spec option) list) =
+  (List.map p.user_func_specs_orig ~f:parse_user_func_spec,
+   List.map p.user_func_specs_mod ~f:parse_user_func_spec)
 
 (* Determine which function specs to use in WP. *)
-let fun_specs (p : params) (to_inline : Sub.t Seq.t)
+let fun_specs ~orig:(orig : bool) (p : params) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Theory.target -> Env.fun_spec option) list =
   let default = [
     Pre.spec_verifier_assume;
@@ -190,7 +193,7 @@ let fun_specs (p : params) (to_inline : Sub.t Seq.t)
     Pre.spec_empty;
     Pre.spec_chaos_caller_saved
   ] in
-  let user_func_spec = parse_user_func_specs p in
+  let user_func_spec = (if orig then fst else snd) @@ parse_user_func_specs p in
   let trip_asserts = if p.trip_asserts then [Pre.spec_verifier_error] else [] in
   let inline = [Pre.spec_inline to_inline] in
   let specs =
@@ -342,7 +345,7 @@ let single
   let subs = Term.enum sub_t prog in
   let main_sub = Utils.find_func_err subs p.func in
   let to_inline = Utils.match_inline p.inline subs in
-  let specs = fun_specs p to_inline in
+  let specs = fun_specs ~orig:true p to_inline in
   let exp_conds = exp_conds_mod p in
   let stack_range = update_stack ~base:p.stack_base ~size:p.stack_size in
   let loop_invariant =
@@ -427,7 +430,7 @@ let comparative
   let stack_range = update_stack ~base:p.stack_base ~size:p.stack_size in
   let env2, pointer_vars_2 =
     let to_inline2 = Utils.match_inline p.inline subs2 in
-    let specs2 = fun_specs p to_inline2 in
+    let specs2 = fun_specs ~orig:false p to_inline2 in
     let exp_conds2 = exp_conds_mod p in
     let func_name_map =
       mk_func_name_map ~orig:subs1 ~modif:subs2 p.func_name_map in
@@ -449,7 +452,7 @@ let comparative
   in
   let env1, pointer_vars_1 =
     let to_inline1 = Utils.match_inline p.inline subs1 in
-    let specs1 = fun_specs p to_inline1 in
+    let specs1 = fun_specs ~orig:true p to_inline1 in
     let exp_conds1 = exp_conds_orig p env2 syms1 syms2 in
     let env1 = Pre.mk_env z3_ctx var_gen
         ~subs:subs1
