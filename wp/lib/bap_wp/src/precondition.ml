@@ -1307,7 +1307,7 @@ let user_func_spec
           match r with
           | Some q -> q
           | None -> let q, _ = Env.mk_init_var env v in q) in
-      let tid_name : string = Tid.name tid in
+      let tid_name : string = Tid.to_string tid in
       let sub_post, env = subst_fun_outputs ~tid_name:tid_name env sub
           sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
       (* replace init-vars with vars inside sub_post *)
