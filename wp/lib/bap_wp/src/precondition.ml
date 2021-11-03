@@ -1289,15 +1289,21 @@ let user_func_spec
   debug "Making user-defined subroutine spec with subroutine-name: %s, pre:
 %s, post: %s \n%!" sub_name sub_pre sub_post;
   if String.equal sub_name (Sub.name sub) then
-    let spec env post tid = (
+    let spec env post _tid = (
       (* turn strings into proper smtlib2 statements; incr stack_ptr *)
       let sub_pre : Constr.t = Z3_utils.mk_smtlib2_single env sub_pre in
       let sub_post : Constr.t = Z3_utils.mk_smtlib2_single env sub_post in
       let sub_post, env = increment_stack_ptr sub_post env in
       (* collect (physical) inputs/outputs of sub *)
+      (* FIXME: this relies on a (somewhat hacky) heuristic to
+         determine which variables might be affected by the
+         subroutine. Often we want to give that info explicietly. One
+         may alternately use all of [Env.get_gpr env] to get *all*
+         possible registers. *)
       let sub_inputs : Var.t list = vars_from_sub env sub |> Var.Set.to_list in
       let sub_inputs =
         List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
+      (* FIXME: we don't always want this... *)
       let sub_outputs : Var.t list = sub_inputs in
       let vars = Set.add (Env.get_gprs env) (Env.get_mem env)
                  |> Var.Set.to_list in
@@ -1307,7 +1313,8 @@ let user_func_spec
           match r with
           | Some q -> q
           | None -> let q, _ = Env.mk_init_var env v in q) in
-      let tid_name : string = Tid.to_string tid in
+      (* Create a fresh name at the call site. *)
+      let tid_name : string = Tid.create () |> Tid.to_string in
       let sub_post, env = subst_fun_outputs ~tid_name:tid_name env sub
           sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
       (* replace init-vars with vars inside sub_post *)
