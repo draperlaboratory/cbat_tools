@@ -1300,7 +1300,8 @@ let user_func_spec
          subroutine. Often we want to give that info explicietly. One
          may alternately use all of [Env.get_gpr env] to get *all*
          possible registers. *)
-      let sub_inputs : Var.t list = vars_from_sub env sub |> Var.Set.to_list in
+      let sub_inputs : Var.t list = [Env.get_mem env] in
+        (* vars_from_sub env sub |> Var.Set.to_list in *)
       let sub_inputs =
         List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
       (* FIXME: we don't always want this... *)
@@ -1309,7 +1310,7 @@ let user_func_spec
                  |> Var.Set.to_list in
       let regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
       let inits = List.map vars ~f:(fun v ->
-          let r  = Env.get_init_var env v in
+          let r = Env.get_init_var env v in
           match r with
           | Some q -> q
           | None -> let q, _ = Env.mk_init_var env v in q) in
