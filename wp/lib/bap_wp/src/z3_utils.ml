@@ -102,7 +102,8 @@ let get_z3_name (map : Constr.z3_expr Var.Map.t) (name : string) (fmt : Var.t ->
 
 (** [mk_smtlib2_compare] builds a constraint out of an smtlib2 string that can be used
     as a comparison predicate between an original and modified binary. *)
-let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Constr.t =
+let mk_smtlib2_compare ?(name = None) (env1 : Env.t) (env2 : Env.t)
+    (smtlib_str : string) : Constr.t =
   let var_map1 = Env.get_var_map env1 in
   let var_map2 = Env.get_var_map env2 in
   let init_var_map1 = Env.get_init_var_map env1 in
@@ -129,8 +130,8 @@ let mk_smtlib2_compare (env1 : Env.t) (env2 : Env.t) (smtlib_str : string) : Con
   let declsym2 = get_decls_and_symbols env2 in
   let declsym = declsym1 @ declsym2 in
   let ctx = Env.get_context env1 in
-  mk_smtlib2 ctx smtlib_str declsym
-  
+  mk_smtlib2 ~name ctx smtlib_str declsym
+
 let mk_smtlib2_single ?(name = None) (env : Env.t) (smt_post : string) : Constr.t =
   let var_map = Env.get_var_map env in
   let init_var_map = Env.get_init_var_map env in

@@ -74,10 +74,14 @@ let compare_blocks
      their original names. *)
   let env2 = Env.set_freshen env2 true in
   let post_eq_list, env1, env2 = set_to_eqs env1 env2 post_regs in
-  let smtlib_post = Z3_utils.mk_smtlib2_compare env1 env2 smtlib_post in
+  let smtlib_post =
+    Z3_utils.mk_smtlib2_compare ~name:(Some "Custom postcondition")
+      env1 env2 smtlib_post in
   let output_eq = Constr.mk_clause [] (smtlib_post :: post_eq_list) in
   let pre_eq_list, env1, env2 = set_to_eqs env1 env2 pre_regs in
-  let smtlib_hyp = Z3_utils.mk_smtlib2_compare env1 env2 smtlib_hyp in
+  let smtlib_hyp =
+    Z3_utils.mk_smtlib2_compare ~name:(Some "Custom precondition")
+      env1 env2 smtlib_hyp in
   let pre1, _ = Pre.visit_block env1 output_eq blk1 in
   let pre2, _ = Pre.visit_block env2 pre1 blk2 in
   let goal = Constr.mk_clause (smtlib_hyp :: pre_eq_list) [pre2] in
