@@ -149,6 +149,12 @@ The following options select or adjust the property that will be checked for the
 
 <li><code>--compare-post-reg-values=&lt;reg-list&gt;</code> &mdash; Compares the values stored in the registers specified in <code>reg-list</code> at the end of the function's execution. For example, <code>RAX,RDI</code> compares the values of RAX and RDI at the end of execution. If unsure about which registers to compare, check the architecture's ABI. x86_64 architectures place their output in RAX and ARM architectures place their output in R0.</li>
 
+<li><code>--user-func-specs-orig=&lt;user-spec-list&gt;</code> &mdash; List of user-defined subroutine specifications to be used only for the original binary in comparative analysis.  Usage: See <code>--user-func-specs</code>.
+</li>
+
+<li><code>--user-func-specs-mod=&lt;user-spec-list&gt;</code> &mdash; List of user-defined subroutine specifications to be used only for the modified binary in comparative analysis.  Usage: See <code>--user-func-specs</code>.
+</li>
+
 <li><code>--mem-offset</code> &mdash; Maps the symbols in the data and bss sections from their addresses in the original binary to their addresses in the modified binary. If this flag is not present, WP assumes that memory between both binaries start at the same offsets.</li>
 
 <li><code>--rewrite-addresses</code> &mdash; This flag is only used in a comparative analysis. Rewrites the concrete addresses in the modified binary to the same address in the original binary if they point to the same symbol. This flag should not be used in conjunction with the <code>--mem-offset</code> flag.</li>
