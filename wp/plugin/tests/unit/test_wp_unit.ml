@@ -135,6 +135,18 @@ let unit_tests = [
     unsat ~script:"run_wp_1.sh";
   "User defined sub specs multi" >: test_plugin "user_func_spec/sub_spec_5"
     unsat ~script:"run_wp_2.sh";
+  "User defined sub specs comparative change 1" >: test_plugin "user_func_spec/sub_spec_6"
+    unsat ~script:"run_wp_1.sh";
+  "User defined sub specs comparative change 2" >: test_plugin "user_func_spec/sub_spec_6"
+    unsat ~script:"run_wp_2.sh";
+  "User defined sub specs comparative change 3" >: test_plugin "user_func_spec/sub_spec_6"
+    sat ~script:"run_wp_3.sh";
+  "User defined sub specs comparative change 4" >: test_plugin "user_func_spec/sub_spec_6"
+    sat ~script:"run_wp_4.sh";
+  "User defined sub specs comparative change 5" >: test_plugin "user_func_spec/sub_spec_6"
+    unsat ~script:"run_wp_5.sh";
+  "User defined sub specs comparative change 6" >: test_plugin "user_func_spec/sub_spec_6"
+    sat ~script:"run_wp_6.sh";
   
   (* Test single elf *)
 
