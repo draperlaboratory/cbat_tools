@@ -58,6 +58,8 @@ type t = {
   show : string list;
   func_name_map : (string * string) list;
   user_func_specs : (string * string * string) list;
+  user_func_specs_orig : (string * string * string) list;
+  user_func_specs_mod : (string * string * string) list;
   fun_specs : string list;
   ext_solver_path : string option;
   init_mem : bool;
@@ -217,6 +219,8 @@ let default ~func:(func : string) : t =
     show = [];
     func_name_map = [];
     user_func_specs = [];
+    user_func_specs_orig = [];
+    user_func_specs_mod = [];
     fun_specs = [];
     ext_solver_path = None;
     init_mem = false;

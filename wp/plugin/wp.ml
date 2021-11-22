@@ -230,6 +230,20 @@ let user_func_specs = Cmd.parameter Typ.(list ~sep:';' (t3 string string string)
            --user-func-specs="foo,(assert (= RAX RDI)),(assert (= RAX init_RDI));
            bar,(assert (= RAX RDI)),(assert (= RAX init_RDI))".|}
 
+let user_func_specs_orig =
+  Cmd.parameter
+    Typ.(list ~sep:';' (t3 string string string)) "user-func-specs-orig"
+    ~doc:{|List of user-defined subroutine specifications to be used only for
+           the original binary in comparative analysis.  Usage: See
+           --user-func-specs.|}
+
+let user_func_specs_mod =
+  Cmd.parameter
+    Typ.(list ~sep:';' (t3 string string string)) "user-func-specs-mod"
+    ~doc:{|List of user-defined subroutine specifications to be used only for
+           the modified binary in comparative analysis.  Usage: See
+           --user-func-specs.|}
+
 let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
     ~doc:{|List of built-in function summaries to be used at a function call
            site in order of precedence. A target function will be mapped to a
@@ -306,6 +320,8 @@ let grammar = Cmd.(
     $ stack_size
     $ func_name_map
     $ user_func_specs
+    $ user_func_specs_orig
+    $ user_func_specs_mod
     $ fun_specs
     $ ext_solver_path
     $ files)
@@ -336,6 +352,8 @@ let callback
     (stack_size : int option)
     (func_name_map : (string * string) list)
     (user_func_specs : (string * string * string) list)
+    (user_func_specs_orig : (string * string * string) list)
+    (user_func_specs_mod : (string * string * string) list)
     (fun_specs : string list)
     (ext_solver_path : string option)
     (files : string list)
@@ -365,6 +383,8 @@ let callback
       stack_size = stack_size;
       func_name_map = func_name_map;
       user_func_specs = user_func_specs;
+      user_func_specs_orig = user_func_specs_orig;
+      user_func_specs_mod = user_func_specs_mod;
       fun_specs = fun_specs;
       ext_solver_path = ext_solver_path;
       init_mem = init_mem;
