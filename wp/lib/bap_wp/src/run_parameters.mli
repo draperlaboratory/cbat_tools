@@ -60,6 +60,8 @@ type t = {
   show : string list;
   func_name_map : (string * string) list;
   user_func_specs : (string * string * string) list;
+  user_func_specs_orig : (string * string * string) list;
+  user_func_specs_mod : (string * string * string) list;
   fun_specs : string list;
   ext_solver_path : string option;
   init_mem : bool;
