@@ -1303,7 +1303,7 @@ let user_func_spec
          kind of empty constr. *)
 
       (* Next, collect inputs/outputs of sub.  We do this by constructing a set
-         of all potential inputs/outputs (all the regsiters and mem), then
+         of all potential inputs/outputs (all the registers and mem), then
          filtering out everything not mentioned by the user-provided specs.
 
          Question: is SP + GPRs really all the registers?  *)

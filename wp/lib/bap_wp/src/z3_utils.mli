@@ -46,7 +46,7 @@ val get_decls_and_symbols : Env.t -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol)
     and postconditions for single binary analysis *)
 val mk_smtlib2_single : ?name:string option -> Env.t -> string -> Constr.t
 
-(** [mk_smtlib2_single_with-vars name env smtlib_str] takes in a string
+(** [mk_smtlib2_single_with_vars name env smtlib_str] takes in a string
    representing a valid SMT-Lib-2 statement and returns a WP constraint tagged
    with [name], as well as lists the "init" and non-"init" variables that appear
    in the constraint.  The variables in the SMT-Lib statements need to appear in
