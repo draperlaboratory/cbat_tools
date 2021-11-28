@@ -52,7 +52,8 @@ val mk_smtlib2_single : ?name:string option -> Env.t -> string -> Constr.t
    in the constraint.  The variables in the SMT-Lib statements need to appear in
    the environment. The intended purpose of this function is generating
    hypothesis and postconditions for single binary analysis *)
-val mk_smtlib2_single_with_vars : ?debug:bool -> ?name:string option -> Env.t -> string -> (Constr.t * string list * string list)
+val mk_smtlib2_single_with_vars : ?name:string option -> Env.t -> string
+  -> (Constr.t * string list * string list)
 
 
 (** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an

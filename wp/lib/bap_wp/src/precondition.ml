@@ -1289,31 +1289,24 @@ let user_func_spec
   debug "Making user-defined subroutine spec with subroutine-name: %s, pre:
 %s, post: %s \n%!" sub_name sub_pre sub_post;
   if String.equal sub_name (Sub.name sub) then
-    let spec env post _tid = (
+    let spec env post _ = (
       (* turn strings into proper smtlib2 statements; incr stack_ptr *)
       let (sub_pre, pre_init_vars, pre_vars)
           : Constr.t  * string list * string list =
-        Z3_utils.mk_smtlib2_single_with_vars ~debug:true env sub_pre in
+        Z3_utils.mk_smtlib2_single_with_vars env sub_pre in
       let (sub_post, post_init_vars, post_vars)
           : Constr.t * string list * string list =
-        Z3_utils.mk_smtlib2_single_with_vars ~debug:true env sub_post in
-      (* TODO: Some sanity checking on sub_pre and sub_post here.  If you
-         just forget the word "assert" you silently get some kind of empty
-         constr. *)
+        Z3_utils.mk_smtlib2_single_with_vars env sub_post in
       let sub_post, env = increment_stack_ptr sub_post env in
+      (* TODO: Some sanity checking on sub_pre and sub_post would be nice
+         here.  If you just forget the word "assert" you silently get some
+         kind of empty constr. *)
 
-      (* collect (physical) inputs/outputs of sub *)
-      let sub_inputs : Var.t list = (vars_from_sub env sub |> Var.Set.to_list) in
-      let _sub_inputs =
-        List.filter sub_inputs ~f:(fun v -> Var.is_physical v) in
-      let _sub_outputs : Var.t list = sub_inputs in
-
-      (* collect (physical) inputs/outputs of sub.  We do this by constructing a
-         set of all potential inputs/outputs (all the regsiters and mem), then
+      (* Next, collect inputs/outputs of sub.  We do this by constructing a set
+         of all potential inputs/outputs (all the regsiters and mem), then
          filtering out everything not mentioned by the user-provided specs.
 
-         Question: is SP + GPRs really all the registers?
-       *)
+         Question: is SP + GPRs really all the registers?  *)
       let potential_ios : Bap.Std.Var.Set.t =
         Set.add (Set.add (Env.get_gprs env) (Env.get_sp env)) (Env.get_mem env)
       in
@@ -1329,12 +1322,6 @@ let user_func_spec
          Set.to_list (filter_out_unused (pre_vars @ post_vars) Fun.id))
       in
 
-      Format.printf "\n\nINPUTS: ";
-      List.iter sub_inputs ~f:(fun v -> Format.printf "%s;  " (Var.to_string v));
-      Format.printf "\nOUTPUTS: ";
-      List.iter sub_outputs ~f:(fun v -> Format.printf "%s;  " (Var.to_string v));
-      Format.printf "\n\nEND DEBUG\n\n: ";
-
       let vars = Set.add (Env.get_gprs env) (Env.get_mem env)
                  |> Var.Set.to_list in
       let regs = List.map vars ~f:(fun v -> let r,_ = Env.get_var env v in r) in
@@ -1344,7 +1331,6 @@ let user_func_spec
           | Some q -> q
           | None -> let q, _ = Env.mk_init_var env v in q) in
       let tid_name : string = Tid.create () |> Tid.to_string in
-(*      let tid_name : string = Tid.name tid in *)
       let sub_post, env = subst_fun_outputs ~tid_name:tid_name env sub
           sub_post ~inputs:sub_inputs ~outputs:sub_outputs in
       (* replace init-vars with vars inside sub_post *)
