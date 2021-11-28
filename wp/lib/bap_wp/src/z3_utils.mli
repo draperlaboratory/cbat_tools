@@ -46,6 +46,15 @@ val get_decls_and_symbols : Env.t -> ((Z3.FuncDecl.func_decl * Z3.Symbol.symbol)
     and postconditions for single binary analysis *)
 val mk_smtlib2_single : ?name:string option -> Env.t -> string -> Constr.t
 
+(** [mk_smtlib2_single_with-vars name env smtlib_str] takes in a string
+   representing a valid SMT-Lib-2 statement and returns a WP constraint tagged
+   with [name], as well as lists the "init" and non-"init" variables that appear
+   in the constraint.  The variables in the SMT-Lib statements need to appear in
+   the environment. The intended purpose of this function is generating
+   hypothesis and postconditions for single binary analysis *)
+val mk_smtlib2_single_with_vars : ?debug:bool -> ?name:string option -> Env.t -> string -> (Constr.t * string list * string list)
+
+
 (** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an
     [and] node if the number of operands is less than 2. This may improve sharing,
     but also improves compatibility of smtlib2 expressions with other solvers.  *)
