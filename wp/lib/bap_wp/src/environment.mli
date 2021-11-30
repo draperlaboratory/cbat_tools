@@ -264,6 +264,9 @@ val get_sp : t -> Bap.Std.Var.t
 (** Obtains the BAP variable representing a program's memory. *)
 val get_mem : t -> Bap.Std.Var.t
 
+(** Obtain the set of all registers and memories for the target. *)
+val get_all_target_vars : t -> Bap.Std.Var.Set.t
+
 (** Obtains a list of all the {!Constr.z3_expr}s that represents function call
     predicates that were generated during analysis. *)
 val get_call_preds : t -> ExprSet.t

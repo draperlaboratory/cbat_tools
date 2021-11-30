@@ -1304,12 +1304,8 @@ let user_func_spec
 
       (* Next, collect inputs/outputs of sub.  We do this by constructing a set
          of all potential inputs/outputs (all the registers and mem), then
-         filtering out everything not mentioned by the user-provided specs.
-
-         Question: is SP + GPRs really all the registers?  *)
-      let potential_ios : Bap.Std.Var.Set.t =
-        Set.add (Set.add (Env.get_gprs env) (Env.get_sp env)) (Env.get_mem env)
-      in
+         filtering out everything not mentioned by the user-provided specs. *)
+      let potential_ios : Bap.Std.Var.Set.t = Env.get_all_target_vars env in
       let filter_out_unused (used : string list) (adjust : string -> string) =
         Set.filter potential_ios
           ~f:(fun v ->
