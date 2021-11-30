@@ -132,27 +132,38 @@ let mk_smtlib2_compare ?(name = None) (env1 : Env.t) (env2 : Env.t)
   let ctx = Env.get_context env1 in
   mk_smtlib2 ~name ctx smtlib_str declsym
 
-let mk_smtlib2_single ?(name = None) (env : Env.t) (smt_post : string) : Constr.t =
+let mk_smtlib2_single_with_vars
+      ?(name = None) (env : Env.t) (smt_post : string)
+    : Constr.t * string list * string list =
   let var_map = Env.get_var_map env in
   let init_var_map = Env.get_init_var_map env in
-  let smt_post =
-    smt_post
-    |> tokenize
-    |> List.map ~f:(fun token ->
-        match get_z3_name var_map token Var.name with
-        | Some n -> n |> Expr.to_string
+  let tokens = tokenize smt_post in
+
+  (* Here we are replacing variables in the user's provided input with the
+     appropriate z3 variable name.  We also save these variables for user
+     by the caller. *)
+  let (tokens,pre_vars,post_vars) =
+    List.fold_right tokens ~init:([],[],[]) ~f:(fun t (ts,pre_v,post_v) ->
+        match get_z3_name var_map t Var.name with
+        | Some n -> (Expr.to_string n :: ts, pre_v, t :: post_v)
         | None ->
           begin
-            match get_z3_name init_var_map token (fun v -> "init_" ^ Var.name v) with
-            | Some n -> n |> Expr.to_string
-            | None -> token
+            match get_z3_name init_var_map t
+                    (fun v -> "init_" ^ Var.name v) with
+            | Some n -> (Expr.to_string n :: ts, t :: pre_v, post_v)
+            | None -> (t :: ts, pre_v, post_v)
           end)
-    |> build_str
   in
+
+  let smt_post = build_str tokens in
   info "New smt-lib string : %s\n" smt_post;
   let decl_syms = get_decls_and_symbols env in
   let ctx = Env.get_context env in
-  mk_smtlib2 ~name ctx smt_post decl_syms
+  (mk_smtlib2 ~name ctx smt_post decl_syms, pre_vars, post_vars)
+
+let mk_smtlib2_single ?(name = None) (env : Env.t) (smt_post : string)
+    : Constr.t =
+  let (c,_,_) = mk_smtlib2_single_with_vars ~name:name env smt_post in c
 
 
 (** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an

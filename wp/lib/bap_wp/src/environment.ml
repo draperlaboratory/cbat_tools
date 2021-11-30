@@ -368,6 +368,10 @@ let get_sp (env : t) : Var.t =
 let get_mem (env : t) : Var.t =
   Theory.Target.data (get_target env) |> Var.reify
 
+let get_all_target_vars (env : t) : Bap.Std.Var.Set.t =
+  Theory.Target.vars (get_target env) |>
+  Set.map var_comp ~f:Var.reify
+
 let fold_fun_tids (env : t) ~init:(init : 'a)
     ~f:(f : key:string -> data:Tid.t -> 'a -> 'a) : 'a =
   StringMap.fold env.fun_name_tid ~init:init ~f:f
