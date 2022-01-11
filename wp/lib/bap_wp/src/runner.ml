@@ -140,8 +140,13 @@ let exp_conds_orig (p : params) (env_mod : Env.t) (syms_orig : Symbol.t list)
     (syms_mod : Symbol.t list) : Env.exp_cond list =
   let ctx = Env.get_context env_mod in
   let offsets =
-    get_mem_offsets ctx p syms_orig syms_mod
-    |> Pre.mem_read_offsets env_mod
+    (* We shouldn't assume that memory is equivalent at an offset when the
+       init-mem flag is used since this flag checks the values in the rodata
+       section. *)
+    if not p.init_mem then
+      let offsets = get_mem_offsets ctx p syms_orig syms_mod in
+      [Pre.mem_read_offsets env_mod offsets]
+    else []
   in
   let null_derefs =
     if p.check_null_derefs then
@@ -153,7 +158,7 @@ let exp_conds_orig (p : params) (env_mod : Env.t) (syms_orig : Symbol.t list)
       [Pre.valid_load_assert; Pre.valid_store_assert]
     else []
   in
-  offsets :: null_derefs @ invalid_derefs
+  List.concat [offsets; null_derefs; invalid_derefs]
 
 (* Generate the exp_conds for the modified binary based on the flags passed in
    from the CLI. *)
@@ -179,7 +184,7 @@ let parse_user_func_spec (user_func_spec: string * string * string) : (Sub.t -> 
 
 (* Parse the list of specs provided by the user. *)
 let parse_user_func_specs (p : params)
-    :   (Sub.t -> Theory.target -> Env.fun_spec option) list
+  :   (Sub.t -> Theory.target -> Env.fun_spec option) list
       * (Sub.t -> Theory.target -> Env.fun_spec option) list =
   let shared_specs =
     List.map p.user_func_specs ~f:parse_user_func_spec

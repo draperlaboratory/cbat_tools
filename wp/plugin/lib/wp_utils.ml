@@ -44,11 +44,12 @@ let create_proj (state : Project.state option) (loader : string)
 let clear_mapper : Term.mapper = object
   inherit Term.mapper as super
   method! map_term cls t =
-    let new_dict =
-      Option.value_map (Term.get_attr t address)
-        ~default:Dict.empty
-        ~f:(Dict.set Dict.empty address)
+    let add_attr tag dict =
+      match Term.get_attr t tag with
+      | None -> dict
+      | Some attr -> Dict.set dict tag attr
     in
+    let new_dict = Dict.empty |> add_attr address |> add_attr Disasm.insn in
     let t' = Term.with_attrs t new_dict in
     super#map_term cls t'
 end

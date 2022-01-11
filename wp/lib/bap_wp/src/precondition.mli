@@ -68,7 +68,8 @@ val unop : Z3.context -> Bap.Std.unop -> Constr.z3_expr -> Constr.z3_expr
 val cast : Z3.context -> Bap.Std.cast -> int -> Constr.z3_expr -> Constr.z3_expr
 
 (** Compute a precondition for given call given a postcondition. *)
-val visit_call : Bap.Std.Call.t -> Constr.t -> Env.t -> Constr.t * Env.t
+val visit_call :
+  Bap.Std.Call.t -> Constr.t -> Env.t -> Bap.Std.Jmp.t -> Constr.t * Env.t
 
 (** Get {e every} variable from a subroutine. *)
 val vars_from_sub : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
