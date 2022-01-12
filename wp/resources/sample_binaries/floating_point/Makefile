@@ -1,17 +1,13 @@
-include ../optimization_flags.mk
+SAMPLE_DIRS = $(wildcard */)
+BUILD_DIRS = $(SAMPLE_DIRS:%=build-%)
+CLEAN_DIRS = $(SAMPLE_DIRS:%=clean-%)
 
-SRC_DIR = src
-BIN_DIR = bin
+.PHONY: all subdirs $(BUILD_DIRS)
+all: $(BUILD_DIRS)
+$(BUILD_DIRS):
+	$(MAKE) -C $(@:build-%=%)
 
-FLAGS += -O0 -Wpedantic -fno-stack-protector -z execstack
-
-all: $(BIN_DIR)/main_1 $(BIN_DIR)/main_2
-
-$(BIN_DIR):
-	mkdir -p $@
-
-$(BIN_DIR)/%: $(SRC_DIR)/%.c $(BIN_DIR)
-	gcc $(FLAGS) -Wall -g -o $@ $<
-
-clean:
-	rm -rf $(BIN_DIR)
+.PHONY: clean subdirs $(CLEAN_DIRS)
+clean: $(CLEAN_DIRS)
+$(CLEAN_DIRS):
+	$(MAKE) -C $(@:clean-%=%) clean
