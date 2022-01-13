@@ -313,8 +313,9 @@ let compare_subs_mem_init : comparator * comparator =
     post, original.env, modified.env
   in
   let hyps ~original ~modified ~rename_set:_ =
-    let pre, env1 = Pre.init_mem original.env original.mem in
-    let pre = Constr.mk_clause [] pre in
-    pre, env1, modified.env
+    let mem_orig, env1 = Pre.init_mem original.env original.mem in
+    let mem_mod, env2 = Pre.init_mem modified.env modified.mem in
+    let pre = Constr.mk_clause [] (mem_orig @ mem_mod) in
+    pre, env1, env2
   in
   postcond, hyps
