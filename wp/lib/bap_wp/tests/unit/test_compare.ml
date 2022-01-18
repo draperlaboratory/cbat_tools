@@ -678,7 +678,7 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   let env2 = Env.set_freshen env2 true in
   let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
+      ~exp_conds:[Pre.mem_read_offsets env2 Addr.Set.empty offset] in
   let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
@@ -719,7 +719,7 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
   let env2 = Env.set_freshen env2 true in
   let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
+      ~exp_conds:[Pre.mem_read_offsets env2 Addr.Set.empty offset] in
   let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
@@ -768,7 +768,7 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
   let env2 = Env.set_freshen env2 true in
   let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 offset] in
+      ~exp_conds:[Pre.mem_read_offsets env2 Addr.Set.empty offset] in
   let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in

@@ -147,10 +147,13 @@ let validate_compare_post_reg_vals (regs : string list) (files : string list)
     ~error:(Incompatible_flag err)
 
 let validate_mem_flags (mem_offset : bool) (rewrite_addrs : bool)
-    (files : string list) : (unit, error) result =
-  if mem_offset && rewrite_addrs then
-    let err = "--mem-offset and --rewrite-addresses cannot be used together. \
-               Please specify only one flag." in
+    (init_mem : bool) (files : string list) : (unit, error) result =
+  let multiple_options_chosen =
+    (List.count [mem_offset; rewrite_addrs; init_mem] ~f:(fun f -> f)) > 1
+  in
+  if multiple_options_chosen then
+    let err = "--mem-offset, --rewrite-addresses, and --init-mem cannot be \
+               used together. Please specify only one flag." in
     Error (Incompatible_flag err)
   else if mem_offset then
     validate_two_files mem_offset "mem-offset" files
@@ -164,7 +167,7 @@ let validate (f : t) (files : string list) : (unit, error) result =
   validate_compare_func_calls f.compare_func_calls files >>= fun () ->
   validate_check_invalid_derefs f.check_invalid_derefs files >>= fun () ->
   validate_compare_post_reg_vals f.compare_post_reg_values files >>= fun () ->
-  validate_mem_flags f.mem_offset f.rewrite_addresses files >>= fun () ->
+  validate_mem_flags f.mem_offset f.rewrite_addresses f.init_mem files >>= fun () ->
   validate_debug f.debug >>= fun () ->
   validate_show f.show >>= fun () ->
   Ok ()

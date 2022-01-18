@@ -59,12 +59,16 @@ let suite = [
     (Params.validate_compare_post_reg_vals ["x"] ["exe1"; "exe2"]);
 
   "One memory flag is set" >: test_validate_input ~valid:true
-    (Params.validate_mem_flags true false ["exe1"; "exe2"]);
+    (Params.validate_mem_flags true false false ["exe1"; "exe2"]);
   "Two memory flags are set" >: test_validate_input ~valid:false
-    (Params.validate_mem_flags true true ["exe1"; "exe2"]);
+    (Params.validate_mem_flags true true false ["exe1"; "exe2"]);
+  "Two memory flags are set" >: test_validate_input ~valid:false
+    (Params.validate_mem_flags true false true ["exe1"; "exe2"]);
+  "Three memory flags are set" >: test_validate_input ~valid:false
+    (Params.validate_mem_flags true true true ["exe1"; "exe2"]);
   "No memory flags iare set" >: test_validate_input ~valid:true
-    (Params.validate_mem_flags false false ["exe1"; "exe2"]);
+    (Params.validate_mem_flags false false false ["exe1"; "exe2"]);
   "One file for memory flag" >: test_validate_input ~valid:false
-    (Params.validate_mem_flags true false ["exe1"]);
+    (Params.validate_mem_flags true false false ["exe1"]);
 
 ]

@@ -1234,10 +1234,19 @@ let valid_store_assert : Env.exp_cond =
    Data(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
    Stack(x) => init_mem_orig[x] == init_mem_mod[x] *)
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
-    (offset : Constr.z3_expr -> Constr.z3_expr) : Constr.z3_expr list =
+    (init_addrs : Addr.Set.t) (offset : Constr.z3_expr -> Constr.z3_expr)
+  : Constr.z3_expr list =
   let ctx = Env.get_context env1 in
   let bap_mem1 = Env.get_mem env1 in
   let bap_mem2 = Env.get_mem env2 in
+  (* read_addr = init_addr1 \/ read_addr = init_addr2 \/ ... *)
+  let init_addrs read_addr =
+    Addr.Set.fold init_addrs ~init:[] ~f:(fun constr addr ->
+        let addr = word_to_z3 ctx addr in
+        let eq = Bool.mk_eq ctx read_addr addr in
+        eq :: constr) |>
+    Bool.mk_or ctx
+  in
   let visitor =
     begin
       object inherit [Constr.z3_expr list] Exp.visitor
@@ -1254,9 +1263,15 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
           let mem_eq_offset = compare_mem addr (offset addr) in
           let mem_eq = compare_mem addr addr in
           let constr =
-            Bool.mk_ite ctx (Env.in_stack env1 addr) mem_eq
-              (Bool.mk_ite ctx (Env.in_data_section env1 addr) mem_eq_offset
-                 mem_eq)
+            (* If the memory is initialized, make no assumptions.
+               If the memory is on the stack, the two values are equal.
+               If the memory is in the data section, the two values are equal
+               at an offset.
+               Otherwise, the memory is equal. *)
+            Bool.mk_ite ctx (init_addrs addr) (Bool.mk_true ctx)
+              (Bool.mk_ite ctx (Env.in_stack env1 addr) mem_eq
+                 (Bool.mk_ite ctx (Env.in_data_section env1 addr) mem_eq_offset
+                    mem_eq))
           in
           debug "Adding assumptions:\n%s\n%!"
             (Expr.to_string (Expr.simplify constr None));
@@ -1281,21 +1296,21 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
 
+let init_mem_values (mem : value memmap) : (addr * word) list =
+  mem |> Memmap.filter ~f:(fun v ->
+      match Value.get Image.section v with
+      | None -> false
+      | Some name -> String.equal name ".rodata") |>
+  Memmap.to_sequence |>
+  Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
+      Memory.foldi mem ~init:pairs
+        ~f:(fun addr content pairs ->
+            (addr, content) :: pairs))
 
 let init_mem (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
   let mem_var = Env.get_mem env in
   let z3_mem, env = Env.get_var env mem_var in
-  let bitv_pairs =
-    mem |> Memmap.filter ~f:(fun v ->
-        match Value.get Image.section v with
-        | None -> false
-        | Some name -> String.equal name ".rodata") |>
-    Memmap.to_sequence |>
-    Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
-        Memory.foldi mem ~init:pairs
-          ~f:(fun addr content pairs ->
-              (addr, content)::pairs))
-  in
+  let bitv_pairs = init_mem_values mem in
   let z3_ctxt = Env.get_context env in
   let mem_assoc (addr, word) =
     let addr = word_to_z3 z3_ctxt addr in
@@ -1382,11 +1397,11 @@ let user_func_spec
 
 (* The exp_cond to add to the environment in order to invoke the hooks regarding
    memory read offsets. *)
-let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
-  : Env.exp_cond =
+let mem_read_offsets (env2 : Env.t) (init_mem : Addr.Set.t)
+    (offset : Constr.z3_expr -> Constr.z3_expr) : Env.exp_cond =
   fun env1 exp ->
   let ctx = Env.get_context env1 in
-  let conds = collect_mem_read_expr env1 env2 exp offset in
+  let conds = collect_mem_read_expr env1 env2 exp init_mem offset in
   let name = "Assume memory equivalence at offset" in
   if List.is_empty conds then
     None
