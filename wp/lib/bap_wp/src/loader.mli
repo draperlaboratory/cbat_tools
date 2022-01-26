@@ -11,6 +11,14 @@
 (*                                                                         *)
 (***************************************************************************)
 
+(**
+
+   This module is used to compute and load intruction properties in order to
+   handle instructions with unknown semantics. It exposes the slots that contain
+   these properties.
+
+*)
+
 open Bap.Std
 open Bap_core_theory
 

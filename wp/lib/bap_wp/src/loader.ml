@@ -53,6 +53,8 @@ let regs_of_insn (target : Theory.Target.t)
         | Some r -> Var.Set.add regs r
     )
 
+(* Computes the registers used in an assembly instruction and stores it in the
+   knowledge base. *)
 let () =
   KB.promise Theory.Semantics.slot @@ fun label ->
   let* insn = label-->?Disasm_expert.Basic.Insn.slot in
@@ -60,6 +62,8 @@ let () =
   let regs = regs_of_insn target insn in
   KB.return @@ KB.Value.put registers Insn.empty regs
 
+(* Checks whether the BIL plugin will lift this instruction as intrinsic. This
+   slot depends on the behavior of the BIL plugin for creating intrinsic calls. *)
 let () =
   KB.promise Theory.Semantics.slot @@ fun label ->
   let* insn = label-->?Disasm_expert.Basic.Insn.slot in
