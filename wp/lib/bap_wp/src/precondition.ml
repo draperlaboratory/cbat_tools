@@ -384,7 +384,8 @@ let get_registers (term : 'a term) =
 let intrinsic_call (tid : Tid.t) (env : Env.t) (post : Constr.t) (jmp : Jmp.t) =
   let subs = Env.get_subs env in
   match Seq.find subs ~f:(fun s -> Tid.equal (Term.tid s) tid) with
-  | None -> post, env
+  | None -> failwith (Format.sprintf "Unable to handle intrinsic call to %s"
+                        (Tid.to_string tid))
   | Some dst ->
     let regs = Var.Set.to_list (get_registers jmp) in
     subst_fun_outputs env dst post ~inputs:regs ~outputs:regs

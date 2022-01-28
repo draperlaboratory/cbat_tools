@@ -63,7 +63,8 @@ let () =
   KB.return @@ KB.Value.put registers Insn.empty regs
 
 (* Checks whether the BIL plugin will lift this instruction as intrinsic. This
-   slot depends on the behavior of the BIL plugin for creating intrinsic calls. *)
+   slot depends on the behavior of the BIL plugin for creating intrinsic
+   calls. *)
 let () =
   KB.promise Theory.Semantics.slot @@ fun label ->
   let* insn = label-->?Disasm_expert.Basic.Insn.slot in
