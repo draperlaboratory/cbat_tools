@@ -96,10 +96,10 @@ val validate_compare_func_calls : bool -> string list -> (unit, error) result
 val validate_compare_post_reg_vals :
   string list -> string list -> (unit, error) result
 
-(** [validate_mem_flag mem_offset rewrite_addrs files] checks that a memory
-    comparison flag is only set when there are two files to compare, and that
-    only one flag is set at a time. Returns an error otherwise. *)
-val validate_mem_flags : bool -> bool -> string list -> (unit, error) result
+(** [validate_mem_flags flags files] checks that a memory comparison flag is
+    only set when there are two files to compare, and that only one flag is set
+    at a time. Returns an error otherwise. *)
+val validate_mem_flags : t -> string list -> (unit, error) result
 
 (** [validate_check_invalid_derefs flag files] checks that the flag is only set
     when there are two files to compare. Returns an error otherwise. *)

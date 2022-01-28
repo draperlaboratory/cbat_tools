@@ -38,6 +38,9 @@ let unit_tests = [
 
   "Equiv null check"               >: test_plugin "equiv_null_check" sat;
 
+  "Floating point insn: add SAT" >: test_plugin "floating_point/comparison/sat" sat;
+  "Floating point insn: add UNSAT" >: test_plugin "floating_point/comparison/unsat" unsat;
+
   "Func name map"                  >: test_plugin "func_name_map/toplevel_func" unsat;
   "Func name map: nested calls"    >: test_plugin "func_name_map/nested_calls" unsat;
   "Func name map: inline"          >: test_plugin "func_name_map/nested_calls" sat
@@ -147,11 +150,15 @@ let unit_tests = [
     unsat ~script:"run_wp_5.sh";
   "User defined sub specs comparative change 6" >: test_plugin "user_func_spec/sub_spec_6"
     sat ~script:"run_wp_6.sh";
-  
+
   (* Test single elf *)
 
   "Arm: Function spec"             >: test_plugin "arm/function_spec" sat;
   "Arm: Inline"                    >: test_plugin "arm/function_spec" unsat ~script:"run_wp_inline.sh";
+
+  "Floating point insn: read float UNSAT" >: test_plugin "floating_point/single" unsat;
+  "Floating point insn: read float SAT" >: test_plugin "floating_point/single" sat
+    ~script:"run_wp_no_init.sh";
 
   "Conditional call"               >: test_plugin "conditional_call" unsat;
 

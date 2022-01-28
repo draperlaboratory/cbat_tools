@@ -329,46 +329,6 @@ let lookup_precond (tid: Bap.Std.Tid.t) (env: Env.t) (post: Constr.t) =
     info "Precondition for return %s not found!" (Tid.to_string tid);
     post
 
-let lookup_sub_handler (tid: Bap.Std.Tid.t) (env: Env.t) (post: Constr.t) =
-  match Env.get_sub_handler env tid with
-  | Some (Summary compute_func) -> compute_func env post tid
-  | Some Inline -> !inline_func post env tid
-  | None -> post, env
-
-let visit_call (call: Bap.Std.Call.t) (post : Constr.t) (env : Env.t) : Constr.t * Env.t =
-  let target = Call.target call in
-  let return = Call.return call in
-  match target, return with
-  | Direct t_tid, Some (Indirect _) ->
-    warning "making direct call to %s with indirect return!\n%!"
-      (Tid.to_string t_tid);
-    post, env
-  | Indirect _, Some (Indirect _) ->
-    warning "making indirect call with indirect return!\n%!";
-    post, env
-  | Indirect t_exp, None ->
-    warning "Making an indirect call with expression %s with no return;
-    applying the default spec (do nothing)!\n%!" (Exp.to_string t_exp);
-    Env.get_indirect_handler env t_exp env post t_exp false
-  | Direct t_tid, None ->
-    debug "Call label %s with no return%!" (Label.to_string target);
-    lookup_sub_handler t_tid env post
-  | Direct t_tid, Some (Direct r_tid) ->
-    let ret_pre = lookup_precond r_tid env post in
-    lookup_sub_handler t_tid env ret_pre
-  | Indirect t_exp, Some (Direct r_tid) ->
-    warning "Making an indirect call with expression %s with return to tid %s;
-    incrementing the stack pointer!\n%!"
-      (Exp.to_string t_exp) (Tid.to_string r_tid);
-    let ret_pre = lookup_precond r_tid env post in
-    Env.get_indirect_handler env t_exp env ret_pre t_exp true
-
-
-let var_of_arg_t (arg : Arg.t) : Var.t =
-  let vars = arg |> Arg.rhs |> Exp.free_vars in
-  assert (Var.Set.length vars = 1);
-  Var.Set.choose_exn vars
-
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It substitutes the original z3_expr
    representing the output variable. *)
@@ -398,6 +358,82 @@ let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
   let env = List.fold subs_to ~init:env ~f:(fun env sub_to ->
       Env.add_call_pred env sub_to) in
   Constr.substitute post subs_from subs_to, env
+
+(* Checks if the jmp term is an intrinsic call generated from the BIL plugin. *)
+let is_intrinsic_call (jmp : Jmp.t) =
+  let open KB.Syntax in
+  match Term.get_attr jmp Disasm.insn with
+  | None -> false
+  | Some insn -> begin
+      match insn.$[Loader.intrinsic] with
+      | None -> false
+      | Some intrinsic -> intrinsic
+    end
+
+(* Gets the registers that were stored in the insn attribute as defined in
+   [Loader.registers]. *)
+let get_registers (term : 'a term) =
+  let open KB.Syntax in
+  match Term.get_attr term Disasm.insn with
+  | None -> Var.Set.empty
+  | Some insn -> insn.$[Loader.registers]
+
+(* Instructions with unknown semantics are lifted as intrinsic calls. The
+   target of these calls are not real subroutines, and we create a predicate
+   here rather than invoking function call handler. *)
+let intrinsic_call (tid : Tid.t) (env : Env.t) (post : Constr.t) (jmp : Jmp.t) =
+  let subs = Env.get_subs env in
+  match Seq.find subs ~f:(fun s -> Tid.equal (Term.tid s) tid) with
+  | None -> failwith (Format.sprintf "Unable to handle intrinsic call to %s"
+                        (Tid.to_string tid))
+  | Some dst ->
+    let regs = Var.Set.to_list (get_registers jmp) in
+    subst_fun_outputs env dst post ~inputs:regs ~outputs:regs
+
+let lookup_sub_handler (tid: Bap.Std.Tid.t) (env: Env.t) (post: Constr.t)
+    (jmp : Jmp.t) : Constr.t * Env.t =
+  if is_intrinsic_call jmp then
+    intrinsic_call tid env post jmp
+  else
+    match Env.get_sub_handler env tid with
+    | Some (Summary compute_func) -> compute_func env post tid
+    | Some Inline -> !inline_func post env tid
+    | None -> post, env
+
+let visit_call (call: Bap.Std.Call.t) (post : Constr.t) (env : Env.t)
+    (jmp : Jmp.t) : Constr.t * Env.t =
+  let target = Call.target call in
+  let return = Call.return call in
+  match target, return with
+  | Direct t_tid, Some (Indirect _) ->
+    warning "making direct call to %s with indirect return!\n%!"
+      (Tid.to_string t_tid);
+    post, env
+  | Indirect _, Some (Indirect _) ->
+    warning "making indirect call with indirect return!\n%!";
+    post, env
+  | Indirect t_exp, None ->
+    warning "Making an indirect call with expression %s with no return;
+    applying the default spec (do nothing)!\n%!" (Exp.to_string t_exp);
+    Env.get_indirect_handler env t_exp env post t_exp false
+  | Direct t_tid, None ->
+    debug "Call label %s with no return%!" (Label.to_string target);
+    lookup_sub_handler t_tid env post jmp
+  | Direct t_tid, Some (Direct r_tid) ->
+    let ret_pre = lookup_precond r_tid env post in
+    lookup_sub_handler t_tid env ret_pre jmp
+  | Indirect t_exp, Some (Direct r_tid) ->
+    warning "Making an indirect call with expression %s with return to tid %s;
+    incrementing the stack pointer!\n%!"
+      (Exp.to_string t_exp) (Tid.to_string r_tid);
+    let ret_pre = lookup_precond r_tid env post in
+    Env.get_indirect_handler env t_exp env ret_pre t_exp true
+
+
+let var_of_arg_t (arg : Arg.t) : Var.t =
+  let vars = arg |> Arg.rhs |> Exp.free_vars in
+  assert (Var.Set.length vars = 1);
+  Var.Set.choose_exn vars
 
 let is_amd64 tgt = Theory.Target.matches tgt "amd64"
 let is_i386 tgt = Theory.Target.matches tgt "i386"
@@ -826,7 +862,7 @@ let visit_jmp (env : Env.t) (post : Constr.t) (jmp : Jmp.t) : Constr.t * Env.t =
             warning "Making an indirect jump, using the default postcondition!\n%!";
             post, env
         end
-      | Call call -> visit_call call post env
+      | Call call -> visit_call call post env jmp
       (* TODO: do something here? *)
       | Ret l ->
         debug "Return to: %s%!" (Label.to_string l);
@@ -1199,10 +1235,19 @@ let valid_store_assert : Env.exp_cond =
    Data(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
    Stack(x) => init_mem_orig[x] == init_mem_mod[x] *)
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
-    (offset : Constr.z3_expr -> Constr.z3_expr) : Constr.z3_expr list =
+    (init_addrs : Addr.Set.t) (offset : Constr.z3_expr -> Constr.z3_expr)
+  : Constr.z3_expr list =
   let ctx = Env.get_context env1 in
   let bap_mem1 = Env.get_mem env1 in
   let bap_mem2 = Env.get_mem env2 in
+  (* read_addr = init_addr1 \/ read_addr = init_addr2 \/ ... *)
+  let init_addrs read_addr =
+    Addr.Set.fold init_addrs ~init:[] ~f:(fun constr addr ->
+        let addr = word_to_z3 ctx addr in
+        let eq = Bool.mk_eq ctx read_addr addr in
+        eq :: constr) |>
+    Bool.mk_or ctx
+  in
   let visitor =
     begin
       object inherit [Constr.z3_expr list] Exp.visitor
@@ -1219,9 +1264,15 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
           let mem_eq_offset = compare_mem addr (offset addr) in
           let mem_eq = compare_mem addr addr in
           let constr =
-            Bool.mk_ite ctx (Env.in_stack env1 addr) mem_eq
-              (Bool.mk_ite ctx (Env.in_data_section env1 addr) mem_eq_offset
-                 mem_eq)
+            (* If the memory is initialized, make no assumptions.
+               If the memory is on the stack, the two values are equal.
+               If the memory is in the data section, the two values are equal
+               at an offset.
+               Otherwise, the memory is equal. *)
+            Bool.mk_ite ctx (init_addrs addr) (Bool.mk_true ctx)
+              (Bool.mk_ite ctx (Env.in_stack env1 addr) mem_eq
+                 (Bool.mk_ite ctx (Env.in_data_section env1 addr) mem_eq_offset
+                    mem_eq))
           in
           debug "Adding assumptions:\n%s\n%!"
             (Expr.to_string (Expr.simplify constr None));
@@ -1246,21 +1297,21 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
 
+let init_mem_values (mem : value memmap) : (addr * word) list =
+  mem |> Memmap.filter ~f:(fun v ->
+      match Value.get Image.section v with
+      | None -> false
+      | Some name -> String.equal name ".rodata") |>
+  Memmap.to_sequence |>
+  Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
+      Memory.foldi mem ~init:pairs
+        ~f:(fun addr content pairs ->
+            (addr, content) :: pairs))
 
 let init_mem (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
   let mem_var = Env.get_mem env in
   let z3_mem, env = Env.get_var env mem_var in
-  let bitv_pairs =
-    mem |> Memmap.filter ~f:(fun v ->
-        match Value.get Image.section v with
-        | None -> false
-        | Some name -> String.equal name ".rodata") |>
-    Memmap.to_sequence |>
-    Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
-        Memory.foldi mem ~init:pairs
-          ~f:(fun addr content pairs ->
-            (addr, content)::pairs))
-  in
+  let bitv_pairs = init_mem_values mem in
   let z3_ctxt = Env.get_context env in
   let mem_assoc (addr, word) =
     let addr = word_to_z3 z3_ctxt addr in
@@ -1292,10 +1343,10 @@ let user_func_spec
     let spec env post _ = (
       (* turn strings into proper smtlib2 statements; incr stack_ptr *)
       let (sub_pre, pre_init_vars, pre_vars)
-          : Constr.t  * string list * string list =
+        : Constr.t  * string list * string list =
         Z3_utils.mk_smtlib2_single_with_vars env sub_pre in
       let (sub_post, post_init_vars, post_vars)
-          : Constr.t * string list * string list =
+        : Constr.t * string list * string list =
         Z3_utils.mk_smtlib2_single_with_vars env sub_post in
       let sub_post, env = increment_stack_ptr sub_post env in
       (* TODO: Some sanity checking on sub_pre and sub_post would be nice
@@ -1309,8 +1360,8 @@ let user_func_spec
       let filter_out_unused (used : string list) (adjust : string -> string) =
         Set.filter potential_ios
           ~f:(fun v ->
-            List.exists used
-              ~f:(fun s -> String.equal (adjust (Var.to_string v)) s))
+              List.exists used
+                ~f:(fun s -> String.equal (adjust (Var.to_string v)) s))
       in
       let (sub_inputs, sub_outputs : Var.t list * Var.t list) =
         (Set.to_list (filter_out_unused (pre_init_vars @ post_init_vars)
@@ -1347,11 +1398,11 @@ let user_func_spec
 
 (* The exp_cond to add to the environment in order to invoke the hooks regarding
    memory read offsets. *)
-let mem_read_offsets (env2 : Env.t) (offset : Constr.z3_expr -> Constr.z3_expr)
-  : Env.exp_cond =
+let mem_read_offsets (env2 : Env.t) (init_mem : Addr.Set.t)
+    (offset : Constr.z3_expr -> Constr.z3_expr) : Env.exp_cond =
   fun env1 exp ->
   let ctx = Env.get_context env1 in
-  let conds = collect_mem_read_expr env1 env2 exp offset in
+  let conds = collect_mem_read_expr env1 env2 exp init_mem offset in
   let name = "Assume memory equivalence at offset" in
   if List.is_empty conds then
     None

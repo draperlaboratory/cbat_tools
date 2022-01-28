@@ -20,6 +20,8 @@ module Params = Bap_wp.Run_parameters
 
 (* To run these tests: `make test` in wp directory *)
 
+let defaults : Params.t = Params.default ~func:"foo"
+
 let test_validate_input
     ?length:(length = Immediate)
     ~valid:(valid : bool)
@@ -59,12 +61,28 @@ let suite = [
     (Params.validate_compare_post_reg_vals ["x"] ["exe1"; "exe2"]);
 
   "One memory flag is set" >: test_validate_input ~valid:true
-    (Params.validate_mem_flags true false ["exe1"; "exe2"]);
+    (Params.validate_mem_flags
+       Params.{defaults with mem_offset = true}
+       ["exe1"; "exe2"]);
   "Two memory flags are set" >: test_validate_input ~valid:false
-    (Params.validate_mem_flags true true ["exe1"; "exe2"]);
-  "No memory flags iare set" >: test_validate_input ~valid:true
-    (Params.validate_mem_flags false false ["exe1"; "exe2"]);
+    (Params.validate_mem_flags
+       Params.{defaults with mem_offset = true; rewrite_addresses = true}
+       ["exe1"; "exe2"]);
+  "Two memory flags are set" >: test_validate_input ~valid:false
+    (Params.validate_mem_flags
+       Params.{defaults with mem_offset = true; init_mem = true}
+       ["exe1"; "exe2"]);
+  "Three memory flags are set" >: test_validate_input ~valid:false
+    (Params.validate_mem_flags
+       Params.{defaults with mem_offset = true; rewrite_addresses = true; init_mem = true}
+       ["exe1"; "exe2"]);
+  "No memory flags are set" >: test_validate_input ~valid:true
+    (Params.validate_mem_flags
+       defaults
+       ["exe1"; "exe2"]);
   "One file for memory flag" >: test_validate_input ~valid:false
-    (Params.validate_mem_flags true false ["exe1"]);
+    (Params.validate_mem_flags
+       Params.{defaults with mem_offset = true}
+       ["exe1"]);
 
 ]

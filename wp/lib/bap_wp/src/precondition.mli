@@ -68,7 +68,8 @@ val unop : Z3.context -> Bap.Std.unop -> Constr.z3_expr -> Constr.z3_expr
 val cast : Z3.context -> Bap.Std.cast -> int -> Constr.z3_expr -> Constr.z3_expr
 
 (** Compute a precondition for given call given a postcondition. *)
-val visit_call : Bap.Std.Call.t -> Constr.t -> Env.t -> Constr.t * Env.t
+val visit_call :
+  Bap.Std.Call.t -> Constr.t -> Env.t -> Bap.Std.Jmp.t -> Constr.t * Env.t
 
 (** Get {e every} variable from a subroutine. *)
 val vars_from_sub : Env.t -> Bap.Std.Sub.t -> Bap.Std.Var.Set.t
@@ -89,6 +90,11 @@ val set_of_reg_names : Env.t -> Bap.Std.Sub.t -> string list -> Bap.Std.Var.Set.
     the value of the variable at its initial state is less than its value at the
     current state. *)
 val init_vars : Bap.Std.Var.Set.t -> Env.t -> Constr.t list * Env.t
+
+(** [init_mem_values memmap] returns a list that contains the address and their
+    corresponding values that the memmap contains. *)
+val init_mem_values :
+  Bap.Std.value Bap.Std.memmap -> (Bap.Std.addr * Bap.Std.word) list
 
 (** Generates a list of constraints: [mem[0xloc] == 0xval] where the [mem] variable is taken from the environment, and the loc/val pairs are taken from the memmap. *)
 val init_mem : Env.t -> Bap.Std.value Bap.Std.memmap -> Constr.t list * Env.t
@@ -243,7 +249,9 @@ val valid_store_assert : Env.exp_cond
 (** This spec {e assumes} that the value of a memory read at address [a] in the
     original binary is equal to the memory read of the modified binary at address
     [a + d]. *)
-val mem_read_offsets : Env.t -> (Constr.z3_expr -> Constr.z3_expr) -> Env.exp_cond
+val mem_read_offsets :
+  Env.t -> Bap.Std.Addr.Set.t -> (Constr.z3_expr -> Constr.z3_expr) ->
+  Env.exp_cond
 
 (** Constant which determines the number of loop unrollings.
 
