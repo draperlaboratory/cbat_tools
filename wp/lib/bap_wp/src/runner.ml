@@ -136,7 +136,7 @@ let rewrite_addresses (p : params) (syms_orig : Symbol.t list)
 (* This contains the set of addresses that were initialized by the init-mem
    flag. *)
 let init_mem (init_mem : bool) (mem_orig : value memmap)
-    (mem_mod : value memmap) =
+    (mem_mod : value memmap) : Addr.Set.t =
   if init_mem then
     let mem_inited mem =
       let values = Pre.init_mem_values mem in

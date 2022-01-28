@@ -40,7 +40,10 @@ let create_proj (state : Project.state option) (loader : string)
     failwith (Printf.sprintf "Error loading project: %s\n%!" msg)
 
 (* Clears the attributes from the terms to remove unnecessary bloat and
-   slowdown. We rain the addresses for printing paths. *)
+   slowdown. We retain some important attributes:
+   - the addresses for printing paths
+   - the assembly instruction for handling instructions with unknown
+      semantics *)
 let clear_mapper : Term.mapper = object
   inherit Term.mapper as super
   method! map_term cls t =
