@@ -6,7 +6,6 @@
 run () {
   bap wp \
     --func=foo \
-    --show=bir \
     --init-mem \
     --postcond="(assert (= ((_ extract 127 0) YMM0) #x0000000000000000000000003fa00000))" \
     -- ./bin/main

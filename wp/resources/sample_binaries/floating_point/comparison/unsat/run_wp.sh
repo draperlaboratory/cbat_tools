@@ -6,7 +6,6 @@
 run () {
   bap wp \
     --func=foo \
-    --show=bir,precond-internal,refuted-goals \
     --init-mem \
     --compare-post-reg-values=YMM0 \
     --bil-enable-intrinsic=:unknown \
