@@ -487,7 +487,6 @@ let test_subroutine_4 (test_ctx : test_ctxt) : unit =
 let test_subroutine_5 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
-  let env = Pre.mk_env ~target:test_tgt ctx var_gen  in
   let blk1 = Blk.create () in
   let blk2 = Blk.create () in
   let blk3 = Blk.create () in
@@ -496,13 +495,17 @@ let test_subroutine_5 (test_ctx : test_ctxt) : unit =
   let z = Var.create "z" reg32_t in
   let e = Bil.((var x) + (i32 1)) in
   let e' = Bil.((var y) + (i32 1)) in
+  let call_tid = Tid.create () in
+  let call_body = mk_sub ~tid:call_tid ~name:"call_sub" [] in
   let blk1 = blk1
              |> mk_def x (Bil.var y)
-             |> mk_call (Label.direct (Term.tid blk2)) (Label.direct (Tid.create ()))
+             |> mk_call (Label.direct (Term.tid blk2)) (Label.direct call_tid)
   in
   let blk2 = blk2 |> mk_def x e |> mk_jmp blk3 in
   let blk3 = blk3 |> mk_def z (Bil.var x) in
   let sub = mk_sub [blk1; blk2; blk3] in
+  let env = Pre.mk_env ~target:test_tgt ctx var_gen
+      ~subs:(Seq.of_list [call_body; sub]) in
   let post = Bool.mk_eq ctx (mk_z3_var env z) (mk_z3_expr env e')
              |> Constr.mk_goal "z = y + 1"
              |> Constr.mk_constr
