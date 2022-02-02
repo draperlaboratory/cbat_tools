@@ -398,7 +398,8 @@ let lookup_sub_handler (tid: Bap.Std.Tid.t) (env: Env.t) (post: Constr.t)
     match Env.get_sub_handler env tid with
     | Some (Summary compute_func) -> compute_func env post tid
     | Some Inline -> !inline_func post env tid
-    | None -> post, env
+    | None -> failwith (Format.sprintf "Unable to find sub handler for %s"
+                          (Tid.to_string tid))
 
 let visit_call (call: Bap.Std.Call.t) (post : Constr.t) (env : Env.t)
     (jmp : Jmp.t) : Constr.t * Env.t =
