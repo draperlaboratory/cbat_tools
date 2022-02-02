@@ -133,22 +133,6 @@ let rewrite_addresses (p : params) (syms_orig : Symbol.t list)
   else
     sub
 
-(* This contains the set of addresses that were initialized by the init-mem
-   flag. *)
-let init_mem (init_mem : bool) (mem_orig : value memmap)
-    (mem_mod : value memmap) : Addr.Set.t =
-  if init_mem then
-    let mem_inited mem =
-      let values = Pre.init_mem_values mem in
-      List.fold values ~init:Addr.Set.empty ~f:(fun addrs (addr, _) ->
-          Addr.Set.add addrs addr)
-    in
-    let mem1 = mem_inited mem_orig in
-    let mem2 = mem_inited mem_mod in
-    Addr.Set.union mem1 mem2
-  else
-    Addr.Set.empty
-
 (* Generate the exp_conds for the original binary based on the flags passed in
    from the CLI. Generating the memory offsets requires the environment of
    the modified binary. *)
@@ -161,8 +145,8 @@ let exp_conds_orig (p : params) (env_mod : Env.t) (syms_orig : Symbol.t list)
        init-mem flag is used since this flag checks the values in the rodata
        section. *)
     let offsets = get_mem_offsets ctx p syms_orig syms_mod in
-    let mem_init = init_mem p.init_mem mem_orig mem_mod in
-    [Pre.mem_read_offsets env_mod mem_init offsets]
+    let init_mem = Pre.init_mem_range ctx p.init_mem mem_orig mem_mod in
+    [Pre.mem_read_offsets env_mod ~init_mem ~offsets]
   in
   let null_derefs =
     if p.check_null_derefs then

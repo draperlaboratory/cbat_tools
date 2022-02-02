@@ -1235,19 +1235,11 @@ let valid_store_assert : Env.exp_cond =
    Data(x)  => init_mem_orig[x] == init_mem_mod[x + d] and
    Stack(x) => init_mem_orig[x] == init_mem_mod[x] *)
 let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
-    (init_addrs : Addr.Set.t) (offset : Constr.z3_expr -> Constr.z3_expr)
-  : Constr.z3_expr list =
+    ~(init_mem : Constr.z3_expr -> Constr.z3_expr)
+    ~(offsets : Constr.z3_expr -> Constr.z3_expr) : Constr.z3_expr list =
   let ctx = Env.get_context env1 in
   let bap_mem1 = Env.get_mem env1 in
   let bap_mem2 = Env.get_mem env2 in
-  (* read_addr = init_addr1 \/ read_addr = init_addr2 \/ ... *)
-  let init_addrs read_addr =
-    Addr.Set.fold init_addrs ~init:[] ~f:(fun constr addr ->
-        let addr = word_to_z3 ctx addr in
-        let eq = Bool.mk_eq ctx read_addr addr in
-        eq :: constr) |>
-    Bool.mk_or ctx
-  in
   let visitor =
     begin
       object inherit [Constr.z3_expr list] Exp.visitor
@@ -1261,7 +1253,7 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
             let mem_mod = load_z3_mem ctx ~word_size ~mem:init_mem2 ~addr:addr2 endian in
             Bool.mk_eq ctx mem_orig mem_mod
           in
-          let mem_eq_offset = compare_mem addr (offset addr) in
+          let mem_eq_offset = compare_mem addr (offsets addr) in
           let mem_eq = compare_mem addr addr in
           let constr =
             (* If the memory is initialized, make no assumptions.
@@ -1269,7 +1261,7 @@ let collect_mem_read_expr (env1 : Env.t) (env2 : Env.t) (exp : Exp.t)
                If the memory is in the data section, the two values are equal
                at an offset.
                Otherwise, the memory is equal. *)
-            Bool.mk_ite ctx (init_addrs addr) (Bool.mk_true ctx)
+            Bool.mk_ite ctx (init_mem addr) (Bool.mk_true ctx)
               (Bool.mk_ite ctx (Env.in_stack env1 addr) mem_eq
                  (Bool.mk_ite ctx (Env.in_data_section env1 addr) mem_eq_offset
                     mem_eq))
@@ -1297,21 +1289,49 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
         debug "Initializing var: %s\n%!" (Constr.to_string comp);
         comp :: inits, env)
 
-let init_mem_values (mem : value memmap) : (addr * word) list =
+(* Filters out the memory map to only contain the section of memory that we
+   want to initialize. *)
+let init_mem_section (mem : value memmap) : (value memmap) =
   mem |> Memmap.filter ~f:(fun v ->
       match Value.get Image.section v with
       | None -> false
-      | Some name -> String.equal name ".rodata") |>
-  Memmap.to_sequence |>
-  Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
-      Memory.foldi mem ~init:pairs
-        ~f:(fun addr content pairs ->
-            (addr, content) :: pairs))
+      | Some name -> String.equal name ".rodata")
+
+let init_mem_range (ctx : Z3.context) (init_mem : bool)
+    (mem_orig : value memmap) (mem_mod : value memmap) (addr :  Constr.z3_expr)
+  : Constr.z3_expr =
+  if init_mem then
+    (* min_init_addr <= read_addr <= max_init_addr *)
+    let mem_inited mem =
+      let section = init_mem_section mem in
+      match Memmap.min_addr section, Memmap.max_addr section with
+      | Some min, Some max ->
+        let min = word_to_z3 ctx min in
+        let max = word_to_z3 ctx max in
+        Bool.mk_and ctx [BV.mk_ule ctx min addr; BV.mk_ule ctx addr max]
+      (* A None here means that no memory was initialized. *)
+      | Some _, None | None, Some _ | None, None -> Bool.mk_false ctx
+    in
+    let mem1 = mem_inited mem_orig in
+    let mem2 = mem_inited mem_mod in
+    (* The mem read is either in the original or modified binary's initialized
+       memory. *)
+    Bool.mk_or ctx [mem1; mem2]
+  else
+    (* The mem read does not take place in the initialized section. *)
+    Bool.mk_false ctx
 
 let init_mem (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
   let mem_var = Env.get_mem env in
   let z3_mem, env = Env.get_var env mem_var in
-  let bitv_pairs = init_mem_values mem in
+  let bitv_pairs =
+    init_mem_section mem |>
+    Memmap.to_sequence |>
+    Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
+        Memory.foldi mem ~init:pairs
+          ~f:(fun addr content pairs ->
+              (addr, content) :: pairs))
+  in
   let z3_ctxt = Env.get_context env in
   let mem_assoc (addr, word) =
     let addr = word_to_z3 z3_ctxt addr in
@@ -1398,11 +1418,12 @@ let user_func_spec
 
 (* The exp_cond to add to the environment in order to invoke the hooks regarding
    memory read offsets. *)
-let mem_read_offsets (env2 : Env.t) (init_mem : Addr.Set.t)
-    (offset : Constr.z3_expr -> Constr.z3_expr) : Env.exp_cond =
+let mem_read_offsets (env2 : Env.t)
+    ~(init_mem : Constr.z3_expr -> Constr.z3_expr)
+    ~(offsets : Constr.z3_expr -> Constr.z3_expr) : Env.exp_cond =
   fun env1 exp ->
   let ctx = Env.get_context env1 in
-  let conds = collect_mem_read_expr env1 env2 exp init_mem offset in
+  let conds = collect_mem_read_expr env1 env2 exp ~init_mem ~offsets in
   let name = "Assume memory equivalence at offset" in
   if List.is_empty conds then
     None
