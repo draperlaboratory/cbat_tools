@@ -667,7 +667,8 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   let sub2 = Bil.(
       [ rax := load ~mem:(var mem) ~addr:(i64 addr2) LittleEndian `r64; ]
     ) |> bil_to_sub in
-  let offset = fun addr ->
+  let init_mem = fun _ -> Bool.mk_false ctx in
+  let offsets = fun addr ->
     let width = addr |> Z3.Expr.get_sort |> Z3.BitVector.get_size in
     let offset = Z3.BitVector.mk_numeral ctx "1" width in
     Z3.BitVector.mk_add ctx addr offset
@@ -678,7 +679,7 @@ let test_memory_model_1 (test_ctx : test_ctxt) : unit =
   let env2 = Env.set_freshen env2 true in
   let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 Addr.Set.empty offset] in
+      ~exp_conds:[Pre.mem_read_offsets env2 ~init_mem ~offsets] in
   let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
@@ -708,7 +709,8 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
   let sub2 = Bil.(
       [ rax := load ~mem:(var mem) ~addr:(i64 addr2) LittleEndian `r64; ]
     ) |> bil_to_sub in
-  let offset = fun addr ->
+  let init_mem = fun _ -> Bool.mk_false ctx in
+  let offsets = fun addr ->
     let width = addr |> Z3.Expr.get_sort |> Z3.BitVector.get_size in
     let offset = Z3.BitVector.mk_numeral ctx "22" width in
     Z3.BitVector.mk_add ctx addr offset
@@ -719,7 +721,7 @@ let test_memory_model_2 (test_ctx : test_ctxt) : unit =
   let env2 = Env.set_freshen env2 true in
   let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 Addr.Set.empty offset] in
+      ~exp_conds:[Pre.mem_read_offsets env2 ~init_mem ~offsets] in
   let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
@@ -757,7 +759,8 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
         rax := load ~mem:(var mem) ~addr:(var rax) LittleEndian `r64;
       ]
     ) |> bil_to_sub in
-  let offset = fun addr ->
+  let init_mem = fun _ -> Bool.mk_false ctx in
+  let offsets = fun addr ->
     let width = addr |> Z3.Expr.get_sort |> Z3.BitVector.get_size in
     let offset = Z3.BitVector.mk_numeral ctx "1" width in
     Z3.BitVector.mk_add ctx addr offset
@@ -768,7 +771,7 @@ let test_memory_model_3 (test_ctx : test_ctxt) : unit =
   let env2 = Env.set_freshen env2 true in
   let _, env2 = Pre.init_vars pre_regs env2 in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen ~subs:(Seq.singleton sub1)
-      ~exp_conds:[Pre.mem_read_offsets env2 Addr.Set.empty offset] in
+      ~exp_conds:[Pre.mem_read_offsets env2 ~init_mem ~offsets] in
   let _, env1 = Pre.init_vars pre_regs env1 in
   let post1, hyps1 = Comp.compare_subs_sp in
   let post2, hyps2 = Comp.compare_subs_eq ~pre_regs ~post_regs in
