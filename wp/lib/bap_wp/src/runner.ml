@@ -195,6 +195,7 @@ let exp_conds_mod (p : params) : Env.exp_cond list =
 let parse_user_func_spec (user_func_spec: string * string * string) : (Sub.t -> Theory.target -> Env.fun_spec option) =
   match user_func_spec with
     (name,pre,post) ->
+    let name = Caml.String.trim name in
     info "Making spec from %s %s %s" name pre post;
     Pre.user_func_spec ~sub_name:name ~sub_pre:pre ~sub_post:post
 
