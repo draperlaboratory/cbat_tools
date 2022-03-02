@@ -3,12 +3,13 @@
 ![CBAT Logo](docs/cbat_logo.png)
 
 This repository contains tools built on top of
-[BAP](https://github.com/BinaryAnalysisPlatform/bap).  To get started, see the
+[BAP](https://github.com/BinaryAnalysisPlatform/bap). To get started, see the
 [CBAT documentation](https://draperlaboratory.github.io/cbat_tools/).
 
 ## Repository layout
 
-To get started, see the documentation link above.  If you're digging into the code, this repository contains three tools in different directories as follows:
+To get started, see the documentation link above.  If you're digging into the
+code, this repository contains three tools in different directories as follows:
 
 * [weakest-precondition](./wp) - An SMT-based weakest precondition (WP) analysis
   for BAP.  We use this both for single program analysis and for comparing the
@@ -33,6 +34,12 @@ To get started, see the documentation link above.  If you're digging into the co
   known not to compile with current versions of BAP.  We plan to revisit it in
   the future.
 
+The repository also contains:
+
+* [bap-notes](./bap-notes) - A set of notes and starter examples that are useful
+  when learning how to use [BAP](https://github.com/BinaryAnalysisPlatform/bap).
+* [bap_angr](./bap_angr) - Data related to the paper
+  "Using Binary Analysis Frameworks: The Case for BAP and angr."
 
 ## Disclaimer
 
