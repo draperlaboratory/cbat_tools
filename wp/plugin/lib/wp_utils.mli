@@ -25,7 +25,7 @@ open Bap.Std
 open Bap_core_theory
 
 (** The loader WP uses for lifting a binary, defaulting to LLVM. *)
-val loader : string
+val default_loader : string
 
 (** Obtains the program representation and the architecture of the binary at the
     given filepath using the BAP context and loader for lifting the binary. *)

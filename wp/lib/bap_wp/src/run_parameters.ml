@@ -61,6 +61,9 @@ type t = {
   user_func_specs_orig : (string * string * string) list;
   user_func_specs_mod : (string * string * string) list;
   fun_specs : string list;
+  ogre : string option;
+  ogre_orig : string option;
+  ogre_mod : string option;
   ext_solver_path : string option;
   init_mem : bool;
 }
@@ -162,7 +165,28 @@ let validate_mem_flags (f : t) (files : string list) : (unit, error) result =
   else
     Ok ()
 
-let validate (f : t) (files : string list) : (unit, error) result =
+let validate_ogre (f : t) =
+  let err = "--ogre can not be used in combination with --ogre-mod or \
+             --ogre-orig.  Please specify only the former or the latter \
+             two."
+  in
+  (* When using an ogre file as a loader, it needs a visible path to
+     distinguish it from a random loader name.  It's fine for the path
+     to be relative, though (e.g., ./file) *)
+  let validate_name ogre =
+    if Filename.is_implicit ogre then "./" ^ ogre else ogre
+  in
+  match (f.ogre,f.ogre_orig,f.ogre_mod) with
+  | (Some o,None,None) -> Ok {f with ogre = Some (validate_name o)}
+  | (None,Some o,None) -> Ok {f with ogre_orig = Some (validate_name o)}
+  | (None,None,Some o) -> Ok {f with ogre_mod = Some (validate_name o)}
+  | (None,Some o1,Some o2) ->
+     Ok {f with ogre_orig = Some (validate_name o1);
+                ogre_mod = Some (validate_name o2)}
+  | (None,None,None) -> Ok f
+  | _ -> Error (Incompatible_flag err)
+
+let validate (f : t) (files : string list) : (t, error) result =
   validate_func f.func >>= fun () ->
   validate_compare_func_calls f.compare_func_calls files >>= fun () ->
   validate_check_invalid_derefs f.check_invalid_derefs files >>= fun () ->
@@ -170,7 +194,8 @@ let validate (f : t) (files : string list) : (unit, error) result =
   validate_mem_flags f files >>= fun () ->
   validate_debug f.debug >>= fun () ->
   validate_show f.show >>= fun () ->
-  Ok ()
+  validate_ogre f >>= fun f ->
+  Ok f
 
 (* Parses the loop invariant and address from the user into the format accepted
    by the environment. *)
@@ -224,6 +249,9 @@ let default ~func:(func : string) : t =
     user_func_specs = [];
     user_func_specs_orig = [];
     user_func_specs_mod = [];
+    ogre = None;
+    ogre_orig = None;
+    ogre_mod = None;
     fun_specs = [];
     ext_solver_path = None;
     init_mem = false;

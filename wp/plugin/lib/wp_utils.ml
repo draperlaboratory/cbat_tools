@@ -21,7 +21,7 @@ include Self()
 
 module Cache = Wp_cache
 
-let loader = "llvm"
+let default_loader = "llvm"
 
 (* Runs the passes set to autorun by default. (abi and api). *)
 let autorun_passes (proj : Project.t) : Project.t =
