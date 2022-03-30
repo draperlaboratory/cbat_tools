@@ -23,18 +23,26 @@ module Cache = Wp_cache
 
 let default_loader = "llvm"
 
-(* Runs the passes set to autorun by default. (abi and api). *)
-let autorun_passes (proj : Project.t) : Project.t =
-  Project.passes ()
-  |> List.filter ~f:Project.Pass.autorun
-  |> List.fold ~init:proj ~f:(fun proj pass -> Project.Pass.run_exn pass proj)
+let find_passes () : Project.pass list =
+  (* Runs the passes set to autorun by default. (abi and api). *)
+  let autorun = List.filter ~f:Project.Pass.autorun (Project.passes ()) in
+  let with_no_return =
+    match Project.find_pass "with-no-return" with
+    | None -> warning "with-no-return pass is missing"; []
+    | Some pass -> [pass]
+  in
+  autorun @ with_no_return
+
+let run_passes (passes : Project.pass list) (proj : Project.t) : Project.t =
+  List.fold passes ~init:proj ~f:(fun proj pass ->
+      Project.Pass.run_exn pass proj)
 
 (* Creates a BAP project from an input file. *)
 let create_proj (state : Project.state option) (loader : string)
     (filename : string) : Project.t =
   let input = Project.Input.file ~loader ~filename in
   match Project.create ~package:filename ?state input with
-  | Ok proj -> autorun_passes proj
+  | Ok proj -> run_passes (find_passes ()) proj
   | Error e ->
     let msg = Error.to_string_hum e in
     failwith (Printf.sprintf "Error loading project: %s\n%!" msg)
