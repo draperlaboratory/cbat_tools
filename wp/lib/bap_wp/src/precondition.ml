@@ -1003,7 +1003,7 @@ let visit_sub (env : Env.t) (post : Constr.t) (sub : Sub.t) : Constr.t * Env.t =
         (post, env)
       )
     else
-      let cfg = sub |> Sub.to_cfg |> filter env ["exit"] in
+      let cfg = sub |> Sub.to_cfg |> filter env ["exit"; "err"] in
       let start = Term.first blk_t sub
                   |> Option.value_exn ?here:None ?error:None ?message:None
                   |> Graphs.Ir.Node.create in
