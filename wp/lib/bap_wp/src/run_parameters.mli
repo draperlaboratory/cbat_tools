@@ -63,6 +63,9 @@ type t = {
   user_func_specs_orig : (string * string * string) list;
   user_func_specs_mod : (string * string * string) list;
   fun_specs : string list;
+  ogre : string option;
+  ogre_orig : string option;
+  ogre_mod : string option;
   ext_solver_path : string option;
   init_mem : bool;
 }
@@ -70,7 +73,7 @@ type t = {
 (** [validate flags files] ensures the user inputted the appropriate flags for
     the inputted [files]. In the case the user has invalid flags, an error is
     returned. *)
-val validate : t -> string list -> (unit, error) result
+val validate : t -> string list -> (t, error) result
 
 (** [validate_func name] checks the user inputted a [name] for the function to
     analyze. Returns an error when [name] is empty. *)
@@ -104,6 +107,11 @@ val validate_mem_flags : t -> string list -> (unit, error) result
 (** [validate_check_invalid_derefs flag files] checks that the flag is only set
     when there are two files to compare. Returns an error otherwise. *)
 val validate_check_invalid_derefs : bool -> string list -> (unit, error) result
+
+(** [validate_ogre flags] checks that the user hasn't provided inconsistent
+    info about which ogre files to use, and updates them with explicit paths
+    if needed.  Returns an error otherwise. *)
+val validate_ogre : t -> (t, error) result
 
 (** [parse_loop_environment invariant target sub] parses the [invariant] which
      is an S-expression representing the address of a loop header and its

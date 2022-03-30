@@ -283,6 +283,24 @@ let fun_specs = Cmd.parameter Typ.(list string) "fun-specs"
            left-hand side of an assignment in the target function.
 
            `empty': Used for empty subroutines. Performs no actions.|}
+
+let ogre = Cmd.parameter Typ.(some string) "ogre"
+    ~doc:{|Path of an ogre file, which will be used instead of the default
+           BAP lifter.  This is useful for stripped binaries, or to lift only
+           a portion of a large binary.|}
+
+let ogre_orig = Cmd.parameter Typ.(some string) "ogre-orig"
+    ~doc:{|Path of an ogre file, which will be used instead of the default
+           BAP lifter for the original binary in comparative analysis.  This
+           is useful for stripped binaries, or to lift only a portion of a
+           large binary.|}
+
+let ogre_mod = Cmd.parameter Typ.(some string) "ogre-mod"
+    ~doc:{|Path of an ogre file, which will be used instead of the default
+           BAP lifter for the modified binary in comparative analysis.  This
+           is useful for stripped binaries, or to lift only a portion of a
+           large binary.|}
+
 let ext_solver_path = Cmd.parameter Typ.(some string) "ext-solver-path"
     ~doc:{|Path of external smt solver to call. Boolector recommended. |}
 
@@ -323,6 +341,9 @@ let grammar = Cmd.(
     $ user_func_specs_orig
     $ user_func_specs_mod
     $ fun_specs
+    $ ogre
+    $ ogre_orig
+    $ ogre_mod
     $ ext_solver_path
     $ files)
 
@@ -355,6 +376,9 @@ let callback
     (user_func_specs_orig : (string * string * string) list)
     (user_func_specs_mod : (string * string * string) list)
     (fun_specs : string list)
+    (ogre : string option)
+    (ogre_orig : string option)
+    (ogre_mod : string option)
     (ext_solver_path : string option)
     (files : string list)
     (ctxt : ctxt) =
@@ -386,11 +410,14 @@ let callback
       user_func_specs_orig = user_func_specs_orig;
       user_func_specs_mod = user_func_specs_mod;
       fun_specs = fun_specs;
+      ogre = ogre;
+      ogre_orig = ogre_orig;
+      ogre_mod = ogre_mod;
       ext_solver_path = ext_solver_path;
       init_mem = init_mem;
     })
   in
-  Parameters.validate params files >>= fun () ->
+  Parameters.validate params files >>= fun params ->
   Analysis.run params files ctxt >>= fun () ->
   Ok ()
 

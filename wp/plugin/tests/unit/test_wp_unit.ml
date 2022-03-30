@@ -151,6 +151,19 @@ let unit_tests = [
   "User defined sub specs comparative change 6" >: test_plugin "user_func_spec/sub_spec_6"
     sat ~script:"run_wp_6.sh";
 
+  "Ogre lifter 1" >: test_plugin "ogre_files"
+    unsat ~script:"run_wp1.sh";
+  "Ogre lifter 2" >: test_plugin "ogre_files"
+    unsat ~script:"run_wp2.sh";
+  "Ogre lifter 3" >: test_plugin "ogre_files"
+    unsat ~script:"run_wp3.sh";
+  "Ogre lifter 4" >: test_plugin "ogre_files"
+    sat ~script:"run_wp4.sh";
+  "Ogre lifter 5" >: test_plugin "ogre_files"
+    unsat ~script:"run_wp5.sh";
+  "Ogre lifter 6" >: test_plugin "ogre_files"
+    unsat ~script:"run_wp6.sh";
+
   (* Test single elf *)
 
   "Arm: Function spec"             >: test_plugin "arm/function_spec" sat;
