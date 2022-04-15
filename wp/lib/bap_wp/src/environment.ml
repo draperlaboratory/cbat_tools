@@ -76,7 +76,8 @@ type t = {
   init_vars : Constr.z3_expr EnvMap.t;
   call_preds : ExprSet.t;
   func_name_map : string StringMap.t;
-  smtlib_compat : bool
+  smtlib_compat : bool;
+  program_states : Constr.z3_expr EnvMap.t
 }
 
 and fun_spec_type =
@@ -196,6 +197,7 @@ let init_loop_handler
    - the option to use all input registers when generating function symbols at a call site
    - the range of addresses of the stack
    - the range of addresses of the data section
+   - a set of program states
    - a Z3 context
    - and a variable generator. *)
 let mk_env
@@ -241,7 +243,8 @@ let mk_env
     init_vars = EnvMap.empty;
     call_preds = ExprSet.empty;
     func_name_map = func_name_map;
-    smtlib_compat = smtlib_compat
+    smtlib_compat = smtlib_compat;
+    program_states = EnvMap.empty
   }
 
 let env_to_string (env : t) : string =
@@ -475,3 +478,23 @@ let freshen ?(name = Format.sprintf "fresh_%s") (constr : Constr.t)
   let env = List.fold subs_to ~init:env ~f:(fun env sub_to ->
       add_call_pred env sub_to) in
   Constr.substitute constr subs_from subs_to, env
+
+let mk_state (env : t) (name : string): Var.t =
+  env.target |> Theory.Target.code_addr_size |> Type.imm |>
+  Var.create name ~is_virtual:false ~fresh:false
+
+let init_program_states (env : t) : t =
+  let allocator_state = mk_state env "ALO" in
+  let program_states =
+    List.fold [allocator_state] ~init:env.program_states
+      ~f:(fun states key ->
+          let state = get_var env key |> fst in
+          EnvMap.set states ~key ~data:state)
+  in
+  { env with program_states = program_states }
+
+let get_program_states (env : t) : Constr.z3_expr EnvMap.t =
+  env.program_states
+
+let get_allocator_state (env : t) : Constr.z3_expr option =
+  EnvMap.find env.program_states (mk_state env "ALO")

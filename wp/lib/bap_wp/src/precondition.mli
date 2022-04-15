@@ -176,6 +176,10 @@ val spec_verifier_error : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
     It returns a precondition of [assumption => post]. *)
 val spec_verifier_assume : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
+(** This spec is used for modelling the return value of function calls that
+    allocate memory such as [malloc] or [calloc]. *)
+val spec_alloc : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
+
 (** This spec is used for functions of [__VERIFIER_nondet_type], which returns a
     nondeterministic value for the type. This spec chaoses the register that holds
     the output value from the function call. *)

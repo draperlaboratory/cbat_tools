@@ -55,6 +55,26 @@ let set_to_eqs (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t) : Constr.t list 
           in (eq::eqs, env1, env2)
       )
 
+let program_states_eq (env1 : Env.t) (env2 : Env.t)
+  : Constr.t list * Env.t * Env.t =
+  let ctx = Env.get_context env1 in
+  let states1 = Env.get_program_states env1 in
+  let states2 = Env.get_program_states env2 in
+  let eq =
+    Env.EnvMap.fold2 states1 states2 ~init:[] ~f:(fun ~key:_ ~data eqs ->
+        match data with
+        | `Left _ | `Right _ -> eqs
+        | `Both (s1, s2) ->
+          let eq =
+            Bool.mk_eq ctx s1 s2
+            |> Constr.mk_goal (Format.sprintf "%s = %s"
+                                 (Expr.to_string s1) (Expr.to_string s2))
+            |> Constr.mk_constr
+          in
+          eq :: eqs)
+  in
+  eq, env1, env2
+
 (* Adds the hypothesis: [var == init_var] for each variable in the set. *)
 let init_vars (env1 : Env.t) (env2 : Env.t) (vars : Var.Set.t)
   : Constr.t list * Env.t * Env.t =
@@ -176,7 +196,8 @@ let compare_subs_empty_post : comparator * comparator =
   in
   let hyps ~original:{ env = env1; _ } ~modified:{ env = env2; _ } ~rename_set =
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
-    Constr.mk_clause [] pre_eqs, env1, env2
+    let state_eqs, env1, env2 = program_states_eq env1 env2 in
+    Constr.mk_clause [] (pre_eqs @ state_eqs), env1, env2
   in
   postcond, hyps
 
@@ -189,7 +210,8 @@ let compare_subs_sp : comparator * comparator =
   let hyps ~original:{ env = env1; _ } ~modified:{ env = env2; _ } ~rename_set =
     let sp_range = Pre.set_sp_range env1 in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
-    Constr.mk_clause [] (sp_range :: pre_eqs), env1, env2
+    let state_eqs, env1, env2 = program_states_eq env1 env2 in
+    Constr.mk_clause [] (sp_range :: pre_eqs @ state_eqs), env1, env2
   in
   postcond, hyps
 
@@ -203,7 +225,8 @@ let compare_subs_smtlib
   let hyps ~original:{ env = env1; _ } ~modified:{ env = env2; _ } ~rename_set =
     let smtlib = Z3_utils.mk_smtlib2_compare env1 env2 smtlib_hyp in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
-    Constr.mk_clause [] (smtlib :: pre_eqs), env1, env2
+    let state_eqs, env1, env2 = program_states_eq env1 env2 in
+    Constr.mk_clause [] (smtlib :: pre_eqs @ state_eqs), env1, env2
   in
   postcond, hyps
 
@@ -217,7 +240,8 @@ let compare_subs_eq
   in
   let hyps ~original:{ env = env1; _ } ~modified:{ env = env2; _ } ~rename_set:_ =
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 pre_regs in
-    Constr.mk_clause [] pre_eqs, env1, env2
+    let state_eqs, env1, env2 = program_states_eq env1 env2 in
+    Constr.mk_clause [] (pre_eqs @ state_eqs), env1, env2
   in
   postcond, hyps
 
@@ -230,7 +254,8 @@ let compare_subs_constraints
   in
   let hyps ~original:{ env = env1; _ } ~modified:{ env = env2; _ } ~rename_set =
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
-    Constr.mk_clause [] (pre_conds :: pre_eqs), env1, env2
+    let state_eqs, env1, env2 = program_states_eq env1 env2 in
+    Constr.mk_clause [] (pre_conds :: pre_eqs @ state_eqs), env1, env2
   in
   postcond, hyps
 
@@ -283,7 +308,8 @@ let compare_subs_fun : comparator * comparator =
           )
     in
     let eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
-    Constr.mk_clause [] (eqs @ modified_not_called), env1, env2
+    let state_eqs, env1, env2 = program_states_eq env1 env2 in
+    Constr.mk_clause [] (eqs @ modified_not_called @ state_eqs), env1, env2
   in
   postcond, hyps
 
@@ -303,7 +329,8 @@ let compare_subs_mem_eq : comparator * comparator =
       |> Constr.mk_constr
     in
     let pre_eqs, env1, env2 = set_to_eqs env1 env2 rename_set in
-    Constr.mk_clause [] (mem_eq :: pre_eqs), env1, env2
+    let state_eqs, env1, env2 = program_states_eq env1 env2 in
+    Constr.mk_clause [] (mem_eq :: pre_eqs @ state_eqs), env1, env2
   in
   postcond, hyps
 

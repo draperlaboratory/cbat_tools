@@ -199,6 +199,7 @@ let fun_specs ~orig:(orig : bool) (p : params) (to_inline : Sub.t Seq.t)
   let default = [
     Pre.spec_verifier_assume;
     Pre.spec_verifier_nondet;
+    Pre.spec_alloc;
     Pre.spec_empty;
     Pre.spec_chaos_caller_saved
   ] in
@@ -377,6 +378,7 @@ let single
       ~stack_range
       ~loop_handlers:[loop_invariant]
   in
+  let env = Env.init_program_states env in
   let true_constr = Constr.trivial z3_ctx in
   let vars = Pre.get_vars env main_sub in
   let vars_pointer_reg = create_vars p.pointer_reg_list env in
@@ -467,6 +469,7 @@ let comparative
         ~func_name_map
     in
     let env2 = Env.set_freshen env2 true in
+    let env2 = Env.init_program_states env2 in
     let vars_sub = Pre.get_vars env2 main_sub2 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env2 in
     let _, env2 = Pre.init_vars (Var.Set.union vars_sub vars_pointer_reg) env2 in
@@ -485,6 +488,7 @@ let comparative
         ~exp_conds:exp_conds1
         ~stack_range
     in
+    let env1 = Env.init_program_states env1 in
     let vars_sub = Pre.get_vars env1 main_sub1 in
     let vars_pointer_reg = create_vars p.pointer_reg_list env1 in
     let _, env1 = Pre.init_vars (Var.Set.union vars_sub vars_pointer_reg) env1 in

@@ -341,6 +341,19 @@ val get_unroll_depth : t -> Bap.Std.Blk.t -> int option
     for [node]. *)
 val set_unroll_depth : t -> Bap.Std.Blk.t -> f:(int option -> int) -> t
 
+(** [init_program_states env] creates a mapping of BAP variables to Z3
+    expressions that represent different states of a program. Currently, the
+    only supported state is the allocator state. *)
+val init_program_states : t -> t
+
+(** [get_program_states env] obtains the a record that contains various
+    Z3 expressions that represent different program states. *)
+val get_program_states : t -> Constr.z3_expr EnvMap.t
+
+(** [get_allocator_state env] obtains a Z3 expression that represents the
+    state of the program as it allocates memory. *)
+val get_allocator_state : t -> Constr.z3_expr option
+
 (*-------- Z3 constant creation utilities ----------*)
 
 (** Create a constant Z3 expression of a type that corresponds to a bap type, where

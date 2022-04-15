@@ -332,28 +332,43 @@ let lookup_precond (tid: Bap.Std.Tid.t) (env: Env.t) (post: Constr.t) =
 (* Creates a Z3 function of the form func_ret_out_var(in_vars, ...) which represents
    an output variable to a function call. It substitutes the original z3_expr
    representing the output variable. *)
-let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
-    ~outputs:(outputs : Var.t list) (env : Env.t) (sub : Sub.t) (post : Constr.t)
+let subst_fun_outputs
+    ?(tid_name = "")
+    ?(input_states = [])
+    ?(output_states = [])
+    ~(inputs : Var.t list)
+    ~(outputs : Var.t list)
+    (env : Env.t)
+    (sub : Sub.t)
+    (post : Constr.t)
   : Constr.t * Env.t =
   debug "Chaosing outputs for %s%!" (Sub.name sub);
   let ctx = Env.get_context env in
   let sub_name = Env.map_sub_name env (Sub.name sub) in
-  let inputs = List.map inputs
-      ~f:(fun i ->
-          let input, _ = Env.get_var env i in
-          input)
+  let vars_to_z3 states vars =
+    let states = List.map states ~f:(fun s -> Expr.to_string s, s) in
+    let vars = List.map vars ~f:(fun var ->
+        let tid_name =
+          if (String.equal tid_name "") then "" else ("_" ^ tid_name) in
+        let name = Format.sprintf "%s%s_ret_%s"
+            sub_name (tid_name) (Var.to_string var) in
+        let z3_v, _ = Env.get_var env var in
+        name, z3_v)
+    in
+    states @ vars
   in
+  let inputs = vars_to_z3 input_states inputs |> List.unzip |> snd in
+  let outputs = vars_to_z3 output_states outputs in
   let input_sorts = List.map inputs ~f:Expr.get_sort in
   let outputs = List.map outputs
-      ~f:(fun o ->
-          let tid_name = if (String.equal tid_name "") then "" else ("_" ^ tid_name) in
-          let name = Format.sprintf "%s%s_ret_%s" sub_name (tid_name) (Var.to_string o) in
-          let z3_v, _ = Env.get_var env o in
+      ~f:(fun (name, z3_v) ->
           let func_decl = FuncDecl.mk_func_decl_s ctx name input_sorts (Expr.get_sort z3_v) in
           let application = FuncDecl.apply func_decl inputs in
-          debug "\t%s%!" (Expr.to_string application);
+          printf "%s -> \t%s\n%!"
+            (Expr.to_string z3_v) (Expr.to_string application);
           (z3_v, application))
   in
+  (* TODO: Add a way to update the state here. *)
   let subs_from, subs_to = List.unzip outputs in
   let env = List.fold subs_to ~init:env ~f:(fun env sub_to ->
       Env.add_call_pred env sub_to) in
@@ -607,13 +622,36 @@ let spec_verifier_assume (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option
   else
     None
 
+let spec_alloc (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
+  let is_alloc name = String.(equal name "malloc" || equal name "calloc") in
+  if is_alloc (Sub.name sub) then
+    Some {
+      spec_name = "spec_alloc";
+      spec = Summary
+          (fun env post tid ->
+             let post = set_fun_called post env tid in
+             let post, env = increment_stack_ptr post env in
+             let args = Term.enum arg_t sub in
+             let inputs, outputs = Seq.fold args ~init:([], [])
+                 ~f:(fun (ins, outs) arg ->
+                     let var = var_of_arg_t arg in
+                     match Arg.intent arg with
+                     | Some In -> var :: ins, outs
+                     | Some Out -> ins, var :: outs
+                     | Some Both -> var :: ins, var :: outs
+                     | None -> ins, outs)
+             in
+             let alo = Option.value_exn (Env.get_allocator_state env) in
+             let pre, env = subst_fun_outputs env sub post
+                 ~inputs ~outputs ~input_states:[alo] in
+             pre, env)
+    }
+  else
+    None
+
 let spec_verifier_nondet (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
-  let is_nondet name = String.(
-      (is_prefix name ~prefix:"__VERIFIER_nondet_")
-      || (equal name "calloc")
-      || (equal name "malloc"))
-  in
-  if is_nondet (Sub.name sub) then
+  let is_nondet = String.is_prefix (Sub.name sub) ~prefix:"__VERIFIER_nondet_" in
+  if is_nondet then
     Some {
       spec_name = "spec_verifier_nondet";
       spec = Summary
