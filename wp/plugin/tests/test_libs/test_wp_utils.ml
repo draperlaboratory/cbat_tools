@@ -77,6 +77,9 @@ let get_reg_from_line (line : string) (regs_list : StringSet.t) :
         | Some _ -> result
         | None -> try_reg line reg)
 
+let iter_stream (stream : char Stdlib.Seq.t) ~(f : char -> unit) : unit =
+  try Stdlib.Seq.iter f stream with End_of_file -> ()
+
 (* Look for a line containing SAT!, UNSAT!, or UNKNOWN! in
    plugin output and compare with expected countermodel and result *)
 let check_result (stream : char Stdlib.Seq.t) (expected_result : string)
@@ -86,8 +89,7 @@ let check_result (stream : char Stdlib.Seq.t) (expected_result : string)
   let buff = Buffer.create 16 in
   let results = StringMap.empty in
   let acc = ref results in
-  Stdlib.Seq.iter (fun c ->
-      match c with
+  iter_stream stream ~f:(function
       |'\n' ->
         let line = Buffer.contents buff in
         check_z3_result line expected_result ctxt;
@@ -97,21 +99,13 @@ let check_result (stream : char Stdlib.Seq.t) (expected_result : string)
           | Some (reg_key, hex_val) ->
             let additional_results =
               StringMap.add_exn !acc ~key:reg_key ~data:hex_val in
-            acc := additional_results; ()
+            acc := additional_results
           | None -> ()
-        end ;
+        end;
         Buffer.clear buff
-      | chr ->
-        Buffer.add_char buff chr)
-    stream;
-  match checker_wrapped with
-  | Some checker ->
-    begin match checker !acc with
-      | None -> ()
-      | Some err -> assert_failure err
-    end
-  | None -> ()
-
+      | chr -> Buffer.add_char buff chr);
+  Option.iter checker_wrapped ~f:(fun checker ->
+      checker !acc |> Option.iter ~f:assert_failure)
 
 (*  given expected register models this function returns a function
     that determines whether or not one of the expected countermodels
