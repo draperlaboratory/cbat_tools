@@ -3,21 +3,54 @@
 #       by the CI docker runners.
 image: "binaryanalysisplatform/bap:latest"
 
-# JOB: run the tests for WP.
-run_wp_tests:
+# Order of job-executions (prevents jobs from running in parallel):
+stages:
+  - build_bildb
+  - run_unit_tests
+  - run_integration_tests
 
-  tags:
-    - docker
-
-  script:
-    - make test -C wp
-    
 # JOB: build BilDB.
 build_bildb:
+  stage: build_bildb
 
   tags:
     - docker
 
   script:
     - make -C bildb
+
+# JOB: run unit tests for WP.
+run_unit_tests:
+  stage: run_unit_tests
+
+  tags:
+    - docker
+
+  script:
+    - make test -C wp
+    - bash -x bin/unit-tests/run-tests.bash --report-results
+
+# JOB: run integration tests for WP.
+run_integration_tests:
+  stage: run_integration_tests
+
+  tags:
+    - docker
+
+  script:
+  # Install APT dependencies.
+    - >-
+      sudo -E apt install -y
+      qemu gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi cmake
+
+
+  # Install other dependencies (non-sudo).
+    - bash -x bin/setup/install-dependencies.bash --report-results
+
+  # Source environment variables and install cbat tools.
+    - . bin/common-lib/env.bash
+    - make -C wp
+   
+    - make test -C wp
+    - bash -x bin/integration-tests/run-tests.bash --report-results
 
