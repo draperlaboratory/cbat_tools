@@ -79,14 +79,14 @@ let get_reg_from_line (line : string) (regs_list : StringSet.t) :
 
 (* Look for a line containing SAT!, UNSAT!, or UNKNOWN! in
    plugin output and compare with expected countermodel and result *)
-let check_result (stream : char Stream.t) (expected_result : string)
+let check_result (stream : char Stdlib.Seq.t) (expected_result : string)
     (regs_list : StringSet.t)
     (checker_wrapped: ((string StringMap.t) -> string option) option)
     (ctxt : test_ctxt) : unit =
   let buff = Buffer.create 16 in
   let results = StringMap.empty in
   let acc = ref results in
-  Stream.iter (fun c ->
+  Stdlib.Seq.iter (fun c ->
       match c with
       |'\n' ->
         let line = Buffer.contents buff in
