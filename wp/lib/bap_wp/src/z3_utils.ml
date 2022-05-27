@@ -262,12 +262,16 @@ let check_external
   let smt_preamble = "(set-logic QF_AUFBV) (set-option :produce-models true)" in
   let smt_postamble = "(check-sat) (get-model) (exit)" in
   (* Todo: Forward verbose flags to external solver? *)
-  let (solver_stdout, solver_stdin) = Caml_unix.open_process solver_path in
+  let tmp_file, chan = Stdlib.Filename.open_temp_file "wp" ".smt2" in
   (* Send query to solver *)
-  Out_channel.output_string solver_stdin smt_preamble;
-  Out_channel.output_string solver_stdin smt_string;
-  Out_channel.output_string solver_stdin smt_postamble;
-  Out_channel.flush solver_stdin;
+  Out_channel.output_string chan smt_preamble;
+  Out_channel.output_string chan smt_string;
+  Out_channel.output_string chan smt_postamble;
+  Out_channel.flush chan;
+  Out_channel.close chan;
+  let cmd = sprintf "%s %s" solver_path tmp_file in
+  let (solver_stdout, solver_stdin) = Caml_unix.open_process cmd in
+  printf "Created temp file %s\n%!" tmp_file;
   printf "Running external solver %s\n%!" solver_path;
 
   (* SexpLib unfortunately uses # as an comment delimitter.
