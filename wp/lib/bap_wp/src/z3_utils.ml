@@ -213,37 +213,47 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
       (* If variable is not in sym_names, z3 will crash on processing it.
          Z3 can fill in gaps in the model via it's own smt search.
          The main cost is slowdown. *)
-      if (List.mem sym_names varname ~equal:String.equal)
-      then
+      if List.mem sym_names varname ~equal:String.equal then
         let model_val = match args with
-          | Sexp.List [] ->  (* Constant case *)
+          | Sexp.List [] -> (* Constant case *)
             model_val
-          | Sexp.List _  ->  (* Function model *)
-            Sexp.List [Sexp.Atom "lambda" ; args; model_val] (* Sexp.Atom varname *)
-          | Sexp.Atom a -> failwith (sprintf "model_string: %s\n
-                  function asserts_of_model: Unexpected atom %s in external model\n"
-                                       model_string a)
-        in
-        Sexp.List [Sexp.Atom "assert" ;
-                   Sexp.List [Sexp.Atom "=" ; Sexp.Atom varname ; model_val]]
-      else
-        begin
-          warning "Warning: %s not instantiated in Z3 query\n" varname;
-          Sexp.List [Sexp.Atom "assert" ; Sexp.Atom "true"]
-        end
-    | bad_sexp -> failwith (sprintf "model_string: %s\n
-                     function asserts_of_model: Unexpected form %s in external smt model\n"
-                              model_string (Sexp.to_string bad_sexp))
-  in
+          | Sexp.List _  -> (* Function model *)
+            Sexp.List [
+              Sexp.Atom "lambda";
+              args;
+              model_val;
+            ] (* Sexp.Atom varname *)
+          | Sexp.Atom a ->
+            failwithf "model_string: %s\n\
+                       function asserts_of_model: \
+                       Unexpected atom %s in external model\n"
+              model_string a () in
+        Sexp.List [
+          Sexp.Atom "assert";
+          Sexp.List [
+            Sexp.Atom "=";
+            Sexp.Atom varname;
+            model_val;
+          ];
+        ]
+      else begin
+        warning "Warning: %s not instantiated in Z3 query\n" varname;
+        Sexp.List [Sexp.Atom "assert"; Sexp.Atom "true"]
+      end
+    | bad_sexp ->
+      failwithf "model_string: %s\n\
+                 function asserts_of_model: \
+                 Unexpected form %s in external smt model\n"
+        model_string (Sexp.to_string bad_sexp) () in
   let model_sexp = Sexp.of_string model_string in
   match model_sexp with
   | Sexp.List (Sexp.Atom "model" :: t) | Sexp.List t ->
     List.map ~f:process_decl t
-  | Atom a -> failwith
-                (sprintf
-                   "model_string: %s\n
-          function asserts_of_model: Unexpected outer atom %s in external smt model\n"
-                   model_string a)
+  | Atom a ->
+    failwithf "model_string: %s\n\
+               function asserts_of_model: \
+               Unexpected outer atom %s in external smt model\n"
+      model_string a ()
 
 (* We are still missing some funcdecls, particularly function return values *)
 (** [check_external] invokes an external smt solver as a process. It communicates to the
@@ -262,12 +272,16 @@ let check_external
   let smt_preamble = "(set-logic QF_AUFBV) (set-option :produce-models true)" in
   let smt_postamble = "(check-sat) (get-model) (exit)" in
   (* Todo: Forward verbose flags to external solver? *)
-  let (solver_stdout, solver_stdin) = Caml_unix.open_process solver_path in
+  let tmp_file, chan = Stdlib.Filename.open_temp_file "wp" ".smt2" in
   (* Send query to solver *)
-  Out_channel.output_string solver_stdin smt_preamble;
-  Out_channel.output_string solver_stdin smt_string;
-  Out_channel.output_string solver_stdin smt_postamble;
-  Out_channel.flush solver_stdin;
+  Out_channel.output_string chan smt_preamble;
+  Out_channel.output_string chan smt_string;
+  Out_channel.output_string chan smt_postamble;
+  Out_channel.flush chan;
+  Out_channel.close chan;
+  let cmd = sprintf "%s %s" solver_path tmp_file in
+  let solver_stdout, solver_stdin = Caml_unix.open_process cmd in
+  printf "Created temp file %s\n%!" tmp_file;
   printf "Running external solver %s\n%!" solver_path;
 
   (* SexpLib unfortunately uses # as an comment delimitter.
@@ -300,29 +314,29 @@ let check_external
     match res with
     | Z3.Solver.SATISFIABLE -> ()
     | Z3.Solver.UNSATISFIABLE ->
-      failwith (sprintf "External smt model returns unsat for Z3: \n
-                           Old_query: %s \n
-                           Model : %s \n
-                           Asserts: %s \n
-                           New query :%s \n"
-                  smt_string
-                  (String.concat ~sep:"\n" smt_asserts)
-                  (Z3.Solver.to_string solver)
-                  (model_string))
+      failwithf "External smt model returns unsat for Z3: \n  \
+                 Old_query: %s \n  \
+                 Model : %s \n  \
+                 Asserts: %s \n  \
+                 New query :%s \n"
+        smt_string
+        (String.concat ~sep:"\n" smt_asserts)
+        (Z3.Solver.to_string solver)
+        (model_string) ()
     | Z3.Solver.UNKNOWN -> failwith "External smt model returns unknown for Z3"
   in
-  if String.(result = "unsat") then (* Regexp it? *)
-    Z3.Solver.UNSATISFIABLE
-  else if String.(result = "sat") then
-    begin
-      let () = process_sat () in
+  let status =
+    if String.(result = "unsat") then (* Regexp it? *)
+      Z3.Solver.UNSATISFIABLE
+    else if String.(result = "sat") then begin
+      process_sat ();
       Z3.Solver.SATISFIABLE
-    end
-  else if String.(result = "unknown") then
-    Z3.Solver.UNKNOWN
-  else
-    begin
+    end else if String.(result = "unknown") then
+      Z3.Solver.UNKNOWN
+    else
       let unknown_output = In_channel.input_all solver_stdout in
-      failwith (sprintf "Unidentified external solver %s output : %s\n%s "
-                  solver_path result unknown_output)
-    end
+      failwithf "Unidentified external solver %s output : %s\n%s "
+        solver_path result unknown_output () in
+  In_channel.close solver_stdout;
+  Out_channel.close solver_stdin;
+  status
