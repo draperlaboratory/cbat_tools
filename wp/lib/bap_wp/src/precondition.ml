@@ -359,17 +359,6 @@ let subst_fun_outputs ?tid_name:(tid_name = "") ~inputs:(inputs : Var.t list)
       Env.add_call_pred env sub_to) in
   Constr.substitute post subs_from subs_to, env
 
-(* Checks if the jmp term is an intrinsic call generated from the BIL plugin. *)
-let is_intrinsic_call (jmp : Jmp.t) =
-  let open KB.Syntax in
-  match Term.get_attr jmp Disasm.insn with
-  | None -> false
-  | Some insn -> begin
-      match insn.$[Loader.intrinsic] with
-      | None -> false
-      | Some intrinsic -> intrinsic
-    end
-
 (* Gets the registers that were stored in the insn attribute as defined in
    [Loader.registers]. *)
 let get_registers (term : 'a term) =
@@ -381,21 +370,20 @@ let get_registers (term : 'a term) =
 (* Instructions with unknown semantics are lifted as intrinsic calls. The
    target of these calls are not real subroutines, and we create a predicate
    here rather than invoking function call handler. *)
-let intrinsic_call (tid : Tid.t) (env : Env.t) (post : Constr.t) (jmp : Jmp.t) =
-  let subs = Env.get_subs env in
-  match Seq.find subs ~f:(fun s -> Tid.equal (Term.tid s) tid) with
-  | None -> failwith (Format.sprintf "Unable to handle intrinsic call to %s"
-                        (Tid.to_string tid))
-  | Some dst ->
-    let regs = Var.Set.to_list (get_registers jmp) in
-    subst_fun_outputs env dst post ~inputs:regs ~outputs:regs
+let intrinsic_call (tid : Tid.t) (env : Env.t) (post : Constr.t)
+    (jmp : Jmp.t) : (Constr.t * Env.t) option =
+  let (let+) x f = Option.map x ~f in
+  let+ dst = Env.get_subs env |> Seq.find ~f:(fun s ->
+      Tid.equal (Term.tid s) tid &&
+      String.is_prefix (Sub.name s) ~prefix:"intrinsic:") in
+  let regs = Var.Set.to_list (get_registers jmp) in
+  subst_fun_outputs env dst post ~inputs:regs ~outputs:regs
 
 let lookup_sub_handler (tid: Bap.Std.Tid.t) (env: Env.t) (post: Constr.t)
     (jmp : Jmp.t) : Constr.t * Env.t =
-  if is_intrinsic_call jmp then
-    intrinsic_call tid env post jmp
-  else
-    match Env.get_sub_handler env tid with
+  match intrinsic_call tid env post jmp with
+  | Some handler -> handler
+  | None -> match Env.get_sub_handler env tid with
     | Some (Summary compute_func) -> compute_func env post tid
     | Some Inline -> !inline_func post env tid
     | None -> failwith (Format.sprintf "Unable to find sub handler for %s"
