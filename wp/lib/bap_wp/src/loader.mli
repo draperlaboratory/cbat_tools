@@ -25,7 +25,3 @@ open Bap_core_theory
 (** Slot containing the registers that are referenced in an assembly
     instruction. *)
 val registers : (Theory.Semantics.cls, Var.Set.t) KB.slot
-
-(** Slot that states whether an instruction is lifted as an intrinsic call or
-    not. *)
-val intrinsic : (Theory.Semantics.cls, bool option) KB.slot

@@ -24,13 +24,6 @@ let registers : (Theory.Semantics.cls, Var.Set.t) KB.slot =
     "referenced-registers" registers_domain
     ~persistent:(KB.Persistent.of_binable (module Var.Set))
 
-let intrinsic : (Theory.Semantics.cls, bool option) KB.slot =
-  KB.Class.property Theory.Semantics.cls
-    "is-intrinsic" KB.Domain.bool
-    ~persistent:(KB.Persistent.of_binable (module struct
-                   type t = bool option [@@deriving bin_io]
-                 end))
-
 let regs_of_insn (target : Theory.Target.t)
     (insn : ('a, 'b) Disasm_expert.Basic.Insn.t) : Var.Set.t =
   Disasm_expert.Basic.Insn.ops insn |>
@@ -61,18 +54,3 @@ let () =
   let* target = Theory.Label.target label in
   let regs = regs_of_insn target insn in
   KB.return @@ KB.Value.put registers Insn.empty regs
-
-(* Checks whether the BIL plugin will lift this instruction as intrinsic. This
-   slot depends on the behavior of the BIL plugin for creating intrinsic
-   calls. *)
-let () =
-  KB.promise Theory.Semantics.slot @@ fun label ->
-  let* insn = label-->?Disasm_expert.Basic.Insn.slot in
-  let* mem = label-->?Memory.slot in
-  let* arch = KB.require Arch.slot label in
-  let module Target = (val target_of_arch arch) in
-  let is_intrinsic = match Target.lift mem insn with
-    | Ok [] -> true
-    | _ -> false
-  in
-  KB.return @@ KB.Value.put intrinsic Insn.empty (Some is_intrinsic)
