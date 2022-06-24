@@ -1315,30 +1315,26 @@ let init_mem (env : Env.t) (mem : value memmap)
   let mem_var = Env.get_mem env in
   let z3_mem, env = Env.get_var env mem_var in
   let bitv_pairs =
-    init_mem_section mem |>
-    Memmap.to_sequence |>
+    init_mem_section mem |> Memmap.to_sequence |>
     Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
-        Memory.foldi mem ~init:pairs
-          ~f:(fun addr content pairs ->
-              (* If this address is known to contain executable code,
-                 then skip generating a constraint for it. Generally
-                 speaking, when we compare two different binaries we
-                 will assume that they have some difference in their
-                 code sections (i.e. different instructions), so if
-                 we want to prove some property of memory equivalence
-                 then not ignoring these addresses will burn us. *)
-              if Set.mem code_addrs addr then pairs
-              else (addr, content) :: pairs))
-  in
+        Memory.foldi mem ~init:pairs ~f:(fun addr content pairs ->
+            (* If this address is known to contain executable code,
+               then skip generating a constraint for it. Generally
+               speaking, when we compare two different binaries we
+               will assume that they have some difference in their
+               code sections (i.e. different instructions), so if
+               we want to prove some property of memory equivalence
+               then not ignoring these addresses will burn us. *)
+            if Set.mem code_addrs addr then pairs
+            else (addr, content) :: pairs)) in
   let z3_ctxt = Env.get_context env in
   let mem_assoc (addr, word) =
     let addr = word_to_z3 z3_ctxt addr in
     let word = word_to_z3 z3_ctxt word in
     (* z3_mem[addr] == word *)
-    Bool.mk_eq z3_ctxt (Z3Array.mk_select z3_ctxt z3_mem addr) word
-  in
+    Bool.mk_eq z3_ctxt (Z3Array.mk_select z3_ctxt z3_mem addr) word in
   let z3_assoc = List.map ~f:mem_assoc bitv_pairs in
-  let mk_cstr b = b |> Constr.mk_goal ".rodata_init" |> Constr.mk_constr in
+  let mk_cstr b = b |> Constr.mk_goal "read-only-init" |> Constr.mk_constr in
   info "Initializing values in %a\n%!" Var.pp mem_var;
   (List.map ~f:mk_cstr z3_assoc, env)
 
