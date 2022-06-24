@@ -27,7 +27,7 @@ module Params = Run_parameters
 (** The program data.
 
     - [program] is the program to be checked.
-    - [code_addrs] is a hash set of addresses that are known to point to
+    - [code_addrs] is the of addresses that are known to point to
       executable code (excludes inlined data in the code sections).
     - [target] is the target machine.
     - [filename] is the filename of the program.
