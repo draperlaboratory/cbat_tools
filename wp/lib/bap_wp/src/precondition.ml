@@ -1282,9 +1282,9 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
    want to initialize. *)
 let init_mem_section (mem : value memmap) : (value memmap) =
   mem |> Memmap.filter ~f:(fun v ->
-      match Value.get Image.section v with
+      match Value.get Image.segment v with
       | None -> false
-      | Some name -> String.equal name ".rodata")
+      | Some seg -> not @@ Image.Segment.is_writable seg)
 
 let init_mem_range (ctx : Z3.context) (init_mem : bool)
     (mem_orig : value memmap) (mem_mod : value memmap) (addr :  Constr.z3_expr)
@@ -1310,7 +1310,8 @@ let init_mem_range (ctx : Z3.context) (init_mem : bool)
     (* The mem read does not take place in the initialized section. *)
     Bool.mk_false ctx
 
-let init_mem (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
+let init_mem (env : Env.t) (mem : value memmap)
+    (code_addrs : Addr.Set.t) : Constr.t list * Env.t =
   let mem_var = Env.get_mem env in
   let z3_mem, env = Env.get_var env mem_var in
   let bitv_pairs =
@@ -1319,7 +1320,15 @@ let init_mem (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
     Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
         Memory.foldi mem ~init:pairs
           ~f:(fun addr content pairs ->
-              (addr, content) :: pairs))
+              (* If this address is known to contain executable code,
+                 then skip generating a constraint for it. Generally
+                 speaking, when we compare two different binaries we
+                 will assume that they have some difference in their
+                 code sections (i.e. different instructions), so if
+                 we want to prove some property of memory equivalence
+                 then not ignoring these addresses will burn us. *)
+              if Set.mem code_addrs addr then pairs
+              else (addr, content) :: pairs))
   in
   let z3_ctxt = Env.get_context env in
   let mem_assoc (addr, word) =

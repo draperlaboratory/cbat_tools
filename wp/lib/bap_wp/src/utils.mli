@@ -55,4 +55,8 @@ val match_inline : string option -> sub term seq -> sub term seq
     (fatal) errors.
     Returns empty memory if [init_mem = false].
  *)
-val init_mem : ?init_mem:bool -> Image.path -> value memmap
+val init_mem : ?ogre:string option -> ?init_mem:bool -> Image.path -> value memmap
+
+(** [collect_code_addrs state] returns the set of known instruction
+    addresses given the [state] of a [Project.t]. *)
+val collect_code_addrs : Project.state -> Addr.Set.t

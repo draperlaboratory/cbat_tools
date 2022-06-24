@@ -35,7 +35,7 @@ let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
 
   (* Unbundle the input file into its loaded program *)
   let mk_input (file,loader) =
-    let prog, tgt =
+    let prog, tgt, code_addrs =
       Utils.read_program
         bap_ctx
         ~loader:(Option.value loader ~default:Utils.default_loader)
@@ -43,6 +43,7 @@ let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
     in
     Runner.{
       program = prog;
+      code_addrs;
       target = tgt;
       filename = file;
     }

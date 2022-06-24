@@ -73,10 +73,12 @@ end
     the program in BIR after disassembly, and the architecture of the binary. *)
 module Program : sig
 
+  type t = Program.t * Theory.target * Addr.Set.t
+
   (** Loads a program and its architecture (if any) from the cache. *)
-  val load : digest -> (Program.t * Theory.target) option
+  val load : digest -> t option
 
   (** Saves a program and its architecture in the cache. *)
-  val save : digest -> Program.t -> Theory.target -> unit
+  val save : digest -> Program.t -> Theory.target -> Addr.Set.t -> unit
 
 end

@@ -28,6 +28,7 @@ type 'a code =
     prog : 'a term;
     env : Env.t;
     mem : value memmap;
+    code_addrs : Addr.Set.t;
   }
 
 
@@ -313,8 +314,10 @@ let compare_subs_mem_init : comparator * comparator =
     post, original.env, modified.env
   in
   let hyps ~original ~modified ~rename_set:_ =
-    let mem_orig, env1 = Pre.init_mem original.env original.mem in
-    let mem_mod, env2 = Pre.init_mem modified.env modified.mem in
+    let mem_orig, env1 =
+      Pre.init_mem original.env original.mem original.code_addrs in
+    let mem_mod, env2 =
+      Pre.init_mem modified.env modified.mem modified.code_addrs in
     let pre = Constr.mk_clause [] (mem_orig @ mem_mod) in
     pre, env1, env2
   in

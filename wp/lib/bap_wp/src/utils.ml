@@ -13,6 +13,7 @@
 
 open !Core_kernel
 open Bap.Std
+open Bap_core_theory
 
 (* FIXME: can we remove this include? *)
 include Self()
@@ -71,10 +72,51 @@ let match_inline (to_inline : string option) (subs : Sub.t Seq.t)
     in
     filter_subs
 
-let init_mem ?init_mem:(init_mem = true) filename =
+let init_mem ?(ogre = None) ?(init_mem = true) filename =
   if init_mem then
-    let res = Image.create ~backend:"llvm" filename in
+    let backend = Option.value ogre ~default:"llvm" in
+    let res = Image.create ~backend filename in
     let img, _errs = Or_error.ok_exn res in
     Image.memory img
   else
     Memmap.empty
+
+(* To reliably grab all known code addresses, we will need to fold over the
+   disassembly state using `Disasm.Driver.explore`. Since this is a Knowledge
+   computation, we need to create a dummy KB class to hold the result. *)
+module Code_addrs = struct
+
+  type cls
+
+  let package = "wp"
+  let name = "code-addrs-obj"
+
+  let cls : (cls, unit) KB.cls = KB.Class.declare ~package name ()
+
+  let code_addrs = KB.Class.property cls ~package "code-addrs" @@
+    KB.Domain.powerset (module Addr.Set.Elt) "code-addrs-domain"
+
+  let collect (state : Project.state) : Addr.Set.t =
+    let open KB.Let in
+    let computation =
+      let* obj = KB.Object.create cls in
+      let entries =
+        Set.to_sequence @@
+        Disasm.Subroutines.entries @@
+        Project.State.subroutines state in
+      let disasm = Project.State.disassembly state in
+      let block _ insns = KB.return @@ Disasm.Driver.list_insns insns in
+      let node n init = KB.List.fold n ~init ~f:(fun acc l ->
+          let+ addr = KB.collect Theory.Label.addr l in
+          Option.value_map addr ~default:acc ~f:(fun addr ->
+              Set.add acc @@ Addr.of_int64 @@ Bitvec.to_int64 addr)) in
+      let edge _ _ acc = KB.return acc in
+      let* addrs = Disasm.Driver.explore disasm
+          ~block ~node ~edge ~entries ~init:Addr.Set.empty in
+      let+ () = KB.provide code_addrs obj addrs in
+      obj in
+    Toplevel.eval code_addrs computation
+
+end
+
+let collect_code_addrs = Code_addrs.collect

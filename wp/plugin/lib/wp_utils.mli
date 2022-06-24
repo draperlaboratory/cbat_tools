@@ -29,5 +29,8 @@ val default_loader : string
 
 (** Obtains the program representation and the architecture of the binary at the
     given filepath using the BAP context and loader for lifting the binary. *)
-val read_program :
-  ctxt -> loader:string -> filepath:string -> Program.t * Theory.target
+val read_program
+  :  ctxt
+  -> loader:string
+  -> filepath:string
+  -> Program.t * Theory.target * Addr.Set.t

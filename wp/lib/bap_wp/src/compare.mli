@@ -44,6 +44,7 @@ type 'a code =
     prog : 'a term;
     env : Env.t;
     mem : value memmap;
+    code_addrs : Addr.Set.t;
   }
 
 (** The type of functions that generate a postcondition or hypothesis for

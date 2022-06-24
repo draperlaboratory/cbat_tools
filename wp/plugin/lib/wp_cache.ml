@@ -94,10 +94,12 @@ end
 
 module Program = struct
 
+  type t = Program.t * Theory.Target.t * Addr.Set.t [@@deriving bin_io]
+
   (* Creates a program cache. *)
-  let program_cache () : (Program.t * Theory.Target.t) Data.Cache.t =
+  let program_cache () : t Data.Cache.t =
     let module Prog = struct
-      type t = Program.t * Theory.Target.t [@@deriving bin_io]
+      type nonrec t = t [@@deriving bin_io]
     end in
     let of_bigstring = Binable.of_bigstring (module Prog) in
     let to_bigstring = Binable.to_bigstring (module Prog) in
@@ -106,13 +108,14 @@ module Program = struct
     Data.Cache.Service.request reader writer
 
   (* Loads a program and its architecture (if any) from the cache. *)
-  let load (digest : digest) : (Program.t * Theory.Target.t) option =
+  let load (digest : digest) : t option =
     let cache = program_cache () in
     Data.Cache.load cache digest
 
   (* Saves a program and its architecture in the cache. *)
-  let save (digest : digest) (program : Program.t) (tgt : Theory.Target.t) : unit =
+  let save (digest : digest) (program : Program.t) (tgt : Theory.Target.t)
+      (code_addrs : Addr.Set.t) : unit =
     let cache = program_cache () in
-    Data.Cache.save cache digest (program, tgt)
+    Data.Cache.save cache digest (program, tgt, code_addrs)
 
 end
