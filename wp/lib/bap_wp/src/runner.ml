@@ -349,7 +349,7 @@ let single
     (var_gen : Env.var_gen)
     (p : params)
     (prog : program term)
-    (code_addrs : Addr.Set.t)
+    (code_addrs : Utils.Code_addrs.t)
     (mem : value memmap)
     (target : Theory.target)
     (_file : string)
@@ -393,7 +393,7 @@ let single
   let init_mem_hyps, env =
     (* FIXME: check p.init_mem here *)
     if p.init_mem then
-      Pre.init_mem env mem code_addrs
+      Pre.init_mem env mem ~code_addrs
     else
       [], env
   in
@@ -428,12 +428,12 @@ let comparative
     (var_gen : Env.var_gen)
     (p : params)
     (prog1 : program term)
-    (code1 : Addr.Set.t)
+    (code1 : Utils.Code_addrs.t)
     (mem1 : value memmap)
     (target1 : Theory.target)
     (file1 : string)
     (prog2 : program term)
-    (code2 : Addr.Set.t)
+    (code2 : Utils.Code_addrs.t)
     (mem2 : value memmap)
     (target2 : Theory.target)
     (file2 : string)
@@ -563,7 +563,7 @@ type Bap_main.Extension.Error.t += Unsupported_file_count of string
 type input =
   {
     program : program term;
-    code_addrs : Addr.Set.t;
+    code_addrs : Utils.Code_addrs.t;
     target : Theory.target;
     filename : string;
   }

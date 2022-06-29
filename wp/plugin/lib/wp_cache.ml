@@ -94,7 +94,11 @@ end
 
 module Program = struct
 
-  type t = Program.t * Theory.Target.t * Addr.Set.t [@@deriving bin_io]
+  type t =
+    Program.t *
+    Theory.Target.t *
+    Bap_wp.Utils.Code_addrs.t
+  [@@deriving bin_io]
 
   (* Creates a program cache. *)
   let program_cache () : t Data.Cache.t =
@@ -114,7 +118,7 @@ module Program = struct
 
   (* Saves a program and its architecture in the cache. *)
   let save (digest : digest) (program : Program.t) (tgt : Theory.Target.t)
-      (code_addrs : Addr.Set.t) : unit =
+      (code_addrs : Bap_wp.Utils.Code_addrs.t) : unit =
     let cache = program_cache () in
     Data.Cache.save cache digest (program, tgt, code_addrs)
 

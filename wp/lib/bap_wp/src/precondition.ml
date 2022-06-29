@@ -1310,10 +1310,11 @@ let init_mem_range (ctx : Z3.context) (init_mem : bool)
     (* The mem read does not take place in the initialized section. *)
     Bool.mk_false ctx
 
-let init_mem (env : Env.t) (mem : value memmap)
-    (code_addrs : Addr.Set.t) : Constr.t list * Env.t =
+let init_mem ?(code_addrs : Utils.Code_addrs.t = Utils.Code_addrs.empty)
+    (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
   let mem_var = Env.get_mem env in
   let z3_mem, env = Env.get_var env mem_var in
+  let is_code = Utils.Code_addrs.contains code_addrs in
   let bitv_pairs =
     init_mem_section mem |> Memmap.to_sequence |>
     Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
@@ -1325,8 +1326,7 @@ let init_mem (env : Env.t) (mem : value memmap)
                code sections (i.e. different instructions), so if
                we want to prove some property of memory equivalence
                then not ignoring these addresses will burn us. *)
-            if Set.mem code_addrs addr then pairs
-            else (addr, content) :: pairs)) in
+            if is_code addr then pairs else (addr, content) :: pairs)) in
   let z3_ctxt = Env.get_context env in
   let mem_assoc (addr, word) =
     let addr = word_to_z3 z3_ctxt addr in
@@ -1336,7 +1336,7 @@ let init_mem (env : Env.t) (mem : value memmap)
   let z3_assoc = List.map ~f:mem_assoc bitv_pairs in
   let mk_cstr b = b |> Constr.mk_goal "read-only-init" |> Constr.mk_constr in
   info "Initializing values in %a\n%!" Var.pp mem_var;
-  (List.map ~f:mk_cstr z3_assoc, env)
+  List.map ~f:mk_cstr z3_assoc, env
 
 
 (* Builds a spec of the form (sub_pre /\ (sub_post => post) where post

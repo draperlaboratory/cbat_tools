@@ -88,7 +88,7 @@ let env_code env = Compare.{
     env;
     prog = mk_sub [];
     mem = Memmap.empty;
-    code_addrs = Addr.Set.empty;
+    code_addrs = Utils.Code_addrs.empty;
   }
 
 let print_z3_model

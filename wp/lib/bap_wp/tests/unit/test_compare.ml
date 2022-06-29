@@ -45,14 +45,14 @@ let code_of_blk blk env = Comp.{
     env;
     prog = blk;
     mem = Memmap.empty;
-    code_addrs = Addr.Set.empty;
+    code_addrs = Utils.Code_addrs.empty;
   }
 
 let code_of_sub sub env = Comp.{
     env;
     prog = sub;
     mem = Memmap.empty;
-    code_addrs = Addr.Set.empty;
+    code_addrs = Utils.Code_addrs.empty;
   }
 
 let test_block_pair_1 (test_ctx : test_ctxt) : unit =

@@ -57,6 +57,15 @@ val match_inline : string option -> sub term seq -> sub term seq
  *)
 val init_mem : ?ogre:string option -> ?init_mem:bool -> Image.path -> value memmap
 
-(** [collect_code_addrs state] returns the set of known instruction
-    addresses given the [state] of a [Project.t]. *)
-val collect_code_addrs : Project.state -> Addr.Set.t
+module Code_addrs : sig
+  type t [@@deriving bin_io]
+
+  (** The empty set. *)
+  val empty : t
+  
+  (** [collect proj] returns the set of known code addresses in [proj]. *)
+  val collect : project -> t
+
+  (** [containts t addr] returns [true] if [addr] is a code address in [t]. *)
+  val contains : t -> addr -> bool
+end

@@ -86,6 +86,23 @@ let init_mem ?(ogre = None) ?(init_mem = true) filename =
    computation, we need to create a dummy KB class to hold the result. *)
 module Code_addrs = struct
 
+  module Tree = Interval_tree.Make_binable(struct
+      type t = addr * addr [@@deriving sexp, bin_io]
+      type point = addr [@@deriving sexp, bin_io]
+
+      let compare_point : point -> point -> int = Addr.compare
+
+      let compare ((x1, y1) : t) ((x2, y2) : t) : int =
+        match compare_point x1 x2 with
+        | 0 -> compare_point y1 y2
+        | n -> n
+
+      let lower : t -> point = fst
+      let upper : t -> point = snd
+    end)
+
+  type t = unit Tree.t [@@deriving bin_io]
+
   type cls
 
   let package = "wp"
@@ -93,30 +110,53 @@ module Code_addrs = struct
 
   let cls : (cls, unit) KB.cls = KB.Class.declare ~package name ()
 
-  let code_addrs = KB.Class.property cls ~package "code-addrs" @@
-    KB.Domain.powerset (module Addr.Set.Elt) "code-addrs-domain"
+  let domain : t option KB.domain = 
+    KB.Domain.optional ~equal:(fun _ _ -> false) "code-addrs-domain"
 
-  let collect (state : Project.state) : Addr.Set.t =
-    let open KB.Let in
-    let computation =
+  let slot : (cls, t option) KB.slot =
+    KB.Class.property cls ~package "code-addrs" domain
+
+  let empty : t = Tree.empty
+
+  let collect (proj : project) : t =
+    let open KB.Syntax in
+    let t = Toplevel.eval slot @@
       let* obj = KB.Object.create cls in
+      let tgt = Project.target proj in
+      let width = Theory.Target.code_addr_size tgt in
+      let addr_of_bitvec bv =
+        Addr.of_int64 ~width @@ Bitvec.to_int64 bv in
+      let state = Project.state proj in
       let entries =
         Set.to_sequence @@
         Disasm.Subroutines.entries @@
         Project.State.subroutines state in
       let disasm = Project.State.disassembly state in
       let block _ insns = KB.return @@ Disasm.Driver.list_insns insns in
-      let node n init = KB.List.fold n ~init ~f:(fun acc l ->
-          let+ addr = KB.collect Theory.Label.addr l in
-          Option.value_map addr ~default:acc ~f:(fun addr ->
-              Set.add acc @@ Addr.of_int64 @@ Bitvec.to_int64 addr)) in
+      let node n acc = match List.hd n, List.last n with
+        | Some start, Some end_ ->
+          let* lower = start-->?Theory.Label.addr in
+          let lower = addr_of_bitvec lower in
+          let+ upper =
+            let* addr = end_-->?Theory.Label.addr in
+            let addr = addr_of_bitvec addr in
+            let+ sem = end_-->Theory.Semantics.slot in
+            (* Important to not get the end address, but instead the max
+               address of the instruction, since our upper bound is
+               inclusive. *)
+            let len = match sem.$[Theory.Semantics.code] with
+              | Some code -> String.length code - 1
+              | None -> 0 in
+            Addr.(addr + of_int len ~width) in
+          Tree.add acc (lower, upper) ()
+        | _ -> KB.return acc in
       let edge _ _ acc = KB.return acc in
       let* addrs = Disasm.Driver.explore disasm
-          ~block ~node ~edge ~entries ~init:Addr.Set.empty in
-      let+ () = KB.provide code_addrs obj addrs in
+          ~block ~node ~edge ~entries ~init:Tree.empty in
+      let+ () = KB.provide slot obj @@ Some addrs in
       obj in
-    Toplevel.eval code_addrs computation
+    Option.value_exn t
+
+  let contains : t -> addr -> bool = Tree.contains
 
 end
-
-let collect_code_addrs = Code_addrs.collect
