@@ -31,4 +31,5 @@ val read_program
   :  ctxt
   -> loader:string
   -> filepath:string
+  -> collect_code_addrs:bool
   -> Wp_cache.Program.t

@@ -66,7 +66,7 @@ end
 
 (* Reads in the program_t and its architecture from a file. *)
 let read_program (ctxt : ctxt) ~(loader : string)
-    ~(filepath : string) : Cache.Program.t =
+    ~(filepath : string) ~(collect_code_addrs : bool) : Cache.Program.t =
   let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
   let program_digest = Cache.Digests.program mk_digest in
   match Cache.Program.load program_digest with
@@ -79,7 +79,10 @@ let read_program (ctxt : ctxt) ~(loader : string)
     info "Saving program %s (%a) to cache.%!"
       filepath Data.Cache.Digest.pp program_digest;
     let project = create_proj None loader filepath in
-    let code_addrs = project |> Bap_wp.Utils.Code_addrs.collect in
+    let code_addrs =
+      if collect_code_addrs then
+        project |> Bap_wp.Utils.Code_addrs.collect
+      else Bap_wp.Utils.Code_addrs.empty in
     let prog = project |> Project.program |> clear_mapper#run in
     let tgt = Project.target project in
     let () = Cache.Program.save program_digest prog tgt code_addrs in

@@ -40,6 +40,7 @@ let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
         bap_ctx
         ~loader:(Option.value loader ~default:Utils.default_loader)
         ~filepath:file
+        ~collect_code_addrs:p.Params.init_mem
     in
     Runner.{
       program = prog;
