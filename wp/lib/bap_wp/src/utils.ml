@@ -145,8 +145,10 @@ module Code_addrs = struct
                address of the instruction, since our upper bound is
                inclusive. *)
             let len = match sem.$[Theory.Semantics.code] with
-              | Some code -> String.length code - 1
-              | None -> 0 in
+              | None -> 0
+              | Some code -> match String.length code with
+                | 0 -> 0
+                | n -> n - 1 in
             Addr.(addr + of_int len ~width) in
           Tree.add acc (lower, upper) ()
         | _ -> KB.return acc in
