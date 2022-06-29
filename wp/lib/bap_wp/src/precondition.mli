@@ -109,9 +109,9 @@ val init_mem_range
     are ignored when generating the constraints.
 *)
 val init_mem
-  :  ?code_addrs:Utils.Code_addrs.t
-  -> Env.t
+  :  Env.t
   -> Bap.Std.value Bap.Std.memmap
+  -> Utils.Code_addrs.t
   -> Constr.t list * Env.t
 
 (** Create a Z3 expression that denotes a load in memory [mem] at address [addr]

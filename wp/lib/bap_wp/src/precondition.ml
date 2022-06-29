@@ -1310,8 +1310,8 @@ let init_mem_range (ctx : Z3.context) (init_mem : bool)
     (* The mem read does not take place in the initialized section. *)
     Bool.mk_false ctx
 
-let init_mem ?(code_addrs : Utils.Code_addrs.t = Utils.Code_addrs.empty)
-    (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
+let init_mem (env : Env.t) (mem : value memmap)
+    (code_addrs : Utils.Code_addrs.t) : Constr.t list * Env.t =
   let mem_var = Env.get_mem env in
   let z3_mem, env = Env.get_var env mem_var in
   let is_code = Utils.Code_addrs.contains code_addrs in

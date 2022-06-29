@@ -393,7 +393,7 @@ let single
   let init_mem_hyps, env =
     (* FIXME: check p.init_mem here *)
     if p.init_mem then
-      Pre.init_mem env mem ~code_addrs
+      Pre.init_mem env mem code_addrs
     else
       [], env
   in
