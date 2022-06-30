@@ -55,4 +55,17 @@ val match_inline : string option -> sub term seq -> sub term seq
     (fatal) errors.
     Returns empty memory if [init_mem = false].
  *)
-val init_mem : ?init_mem:bool -> Image.path -> value memmap
+val init_mem : ?ogre:string option -> ?init_mem:bool -> Image.path -> value memmap
+
+module Code_addrs : sig
+  type t [@@deriving bin_io]
+
+  (** The empty set. *)
+  val empty : t
+  
+  (** [collect proj] returns the set of known code addresses in [proj]. *)
+  val collect : project -> t
+
+  (** [containts t addr] returns [true] if [addr] is a code address in [t]. *)
+  val contains : t -> addr -> bool
+end

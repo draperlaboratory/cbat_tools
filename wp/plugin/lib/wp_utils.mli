@@ -21,13 +21,15 @@
 *)
 
 open Bap_main
-open Bap.Std
-open Bap_core_theory
 
 (** The loader WP uses for lifting a binary, defaulting to LLVM. *)
 val default_loader : string
 
 (** Obtains the program representation and the architecture of the binary at the
     given filepath using the BAP context and loader for lifting the binary. *)
-val read_program :
-  ctxt -> loader:string -> filepath:string -> Program.t * Theory.target
+val read_program
+  :  ctxt
+  -> loader:string
+  -> filepath:string
+  -> collect_code_addrs:bool
+  -> Wp_cache.Program.t

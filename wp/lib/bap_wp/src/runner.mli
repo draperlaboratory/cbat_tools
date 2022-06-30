@@ -24,9 +24,18 @@ open Bap_core_theory
 
 module Params = Run_parameters
 
+(** The program data.
+
+    - [program] is the program to be checked.
+    - [code_addrs] is the set of addresses that are known to point to
+      executable code (excludes inlined data in the code sections).
+    - [target] is the target machine.
+    - [filename] is the filename of the program.
+*)
 type input =
   {
     program : program term;
+    code_addrs : Utils.Code_addrs.t;
     target : Theory.target;
     filename : string;
   }

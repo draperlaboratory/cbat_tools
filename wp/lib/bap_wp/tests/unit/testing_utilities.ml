@@ -84,10 +84,12 @@ let no_model (s1 : Solver.status) (s2 : Solver.status) : bool =
   | Solver.UNSATISFIABLE, _ -> true
   | _, _ -> false
 
-let env_code env =
-  let empty_sub = mk_sub [] in
-  let empty_mem = Memmap.empty in
-  Compare.{env = env; prog = empty_sub; mem = empty_mem}
+let env_code env = Compare.{
+    env;
+    prog = mk_sub [];
+    mem = Memmap.empty;
+    code_addrs = Utils.Code_addrs.empty;
+  }
 
 let print_z3_model
     ~orig:(env1 : Env.t) ~modif:(env2 : Env.t)

@@ -102,8 +102,17 @@ val init_mem_range
   -> Constr.z3_expr
   -> Constr.z3_expr
 
-(** Generates a list of constraints: [mem[0xloc] == 0xval] where the [mem] variable is taken from the environment, and the loc/val pairs are taken from the memmap. *)
-val init_mem : Env.t -> Bap.Std.value Bap.Std.memmap -> Constr.t list * Env.t
+(** Generates a list of constraints: [mem[0xloc] == 0xval] where the [mem] variable
+    is taken from the environment, and the loc/val pairs are taken from the memmap.
+
+    An optional set of known code addresses is provided. The addresses in this set
+    are ignored when generating the constraints.
+*)
+val init_mem
+  :  Env.t
+  -> Bap.Std.value Bap.Std.memmap
+  -> Utils.Code_addrs.t
+  -> Constr.t list * Env.t
 
 (** Create a Z3 expression that denotes a load in memory [mem] at address [addr]
     with a word size of [word_size] bits and endianness [endian]. *)

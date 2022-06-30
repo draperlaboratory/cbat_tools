@@ -41,9 +41,19 @@ let assert_z3_compare (test_ctx : test_ctxt) (body1 : string) (body2 : string)
         print_z3_model solver exp real pre ~orig:env1 ~modif:env2)
     expected result
 
-let code_of_blk blk env = Comp.{env = env; prog = blk; mem = Memmap.empty}
+let code_of_blk blk env = Comp.{
+    env;
+    prog = blk;
+    mem = Memmap.empty;
+    code_addrs = Utils.Code_addrs.empty;
+  }
 
-let code_of_sub sub env = Comp.{env = env; prog = sub; mem = Memmap.empty}
+let code_of_sub sub env = Comp.{
+    env;
+    prog = sub;
+    mem = Memmap.empty;
+    code_addrs = Utils.Code_addrs.empty;
+  }
 
 let test_block_pair_1 (test_ctx : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in

@@ -33,7 +33,11 @@ module Digests : sig
 
   (** Returns a function that makes digests. *)
   val get_generator :
-    ctxt -> filepath:string -> loader:string -> (namespace:string -> digest)
+    ctxt ->
+    filepath:string ->
+    loader:string ->
+    collect_code_addrs:bool ->
+    (namespace:string -> digest)
 
   (** Creates a digest for the knowledge cache. *)
   val knowledge : (namespace:string -> digest) -> digest
@@ -73,10 +77,20 @@ end
     the program in BIR after disassembly, and the architecture of the binary. *)
 module Program : sig
 
+  type t =
+    Program.t *
+    Theory.target *
+    Bap_wp.Utils.Code_addrs.t
+
   (** Loads a program and its architecture (if any) from the cache. *)
-  val load : digest -> (Program.t * Theory.target) option
+  val load : digest -> t option
 
   (** Saves a program and its architecture in the cache. *)
-  val save : digest -> Program.t -> Theory.target -> unit
+  val save
+    :  digest
+    -> Program.t
+    -> Theory.target
+    -> Bap_wp.Utils.Code_addrs.t
+    -> unit
 
 end

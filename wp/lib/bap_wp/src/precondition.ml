@@ -1282,9 +1282,9 @@ let init_vars (vars : Var.Set.t) (env : Env.t) : Constr.t list * Env.t =
    want to initialize. *)
 let init_mem_section (mem : value memmap) : (value memmap) =
   mem |> Memmap.filter ~f:(fun v ->
-      match Value.get Image.section v with
+      match Value.get Image.segment v with
       | None -> false
-      | Some name -> String.equal name ".rodata")
+      | Some seg -> not @@ Image.Segment.is_writable seg)
 
 let init_mem_range (ctx : Z3.context) (init_mem : bool)
     (mem_orig : value memmap) (mem_mod : value memmap) (addr :  Constr.z3_expr)
@@ -1310,28 +1310,33 @@ let init_mem_range (ctx : Z3.context) (init_mem : bool)
     (* The mem read does not take place in the initialized section. *)
     Bool.mk_false ctx
 
-let init_mem (env : Env.t) (mem : value memmap) : Constr.t list * Env.t =
+let init_mem (env : Env.t) (mem : value memmap)
+    (code_addrs : Utils.Code_addrs.t) : Constr.t list * Env.t =
   let mem_var = Env.get_mem env in
   let z3_mem, env = Env.get_var env mem_var in
+  let is_code = Utils.Code_addrs.contains code_addrs in
   let bitv_pairs =
-    init_mem_section mem |>
-    Memmap.to_sequence |>
+    init_mem_section mem |> Memmap.to_sequence |>
     Seq.fold ~init:[] ~f:(fun pairs (mem, _) ->
-        Memory.foldi mem ~init:pairs
-          ~f:(fun addr content pairs ->
-              (addr, content) :: pairs))
-  in
+        Memory.foldi mem ~init:pairs ~f:(fun addr content pairs ->
+            (* If this address is known to contain executable code,
+               then skip generating a constraint for it. Generally
+               speaking, when we compare two different binaries we
+               will assume that they have some difference in their
+               code sections (i.e. different instructions), so if
+               we want to prove some property of memory equivalence
+               then not ignoring these addresses will burn us. *)
+            if is_code addr then pairs else (addr, content) :: pairs)) in
   let z3_ctxt = Env.get_context env in
   let mem_assoc (addr, word) =
     let addr = word_to_z3 z3_ctxt addr in
     let word = word_to_z3 z3_ctxt word in
     (* z3_mem[addr] == word *)
-    Bool.mk_eq z3_ctxt (Z3Array.mk_select z3_ctxt z3_mem addr) word
-  in
+    Bool.mk_eq z3_ctxt (Z3Array.mk_select z3_ctxt z3_mem addr) word in
   let z3_assoc = List.map ~f:mem_assoc bitv_pairs in
-  let mk_cstr b = b |> Constr.mk_goal ".rodata_init" |> Constr.mk_constr in
+  let mk_cstr b = b |> Constr.mk_goal "read-only-init" |> Constr.mk_constr in
   info "Initializing values in %a\n%!" Var.pp mem_var;
-  (List.map ~f:mk_cstr z3_assoc, env)
+  List.map ~f:mk_cstr z3_assoc, env
 
 
 (* Builds a spec of the form (sub_pre /\ (sub_post => post) where post

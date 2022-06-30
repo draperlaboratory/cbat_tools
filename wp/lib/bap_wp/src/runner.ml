@@ -349,6 +349,7 @@ let single
     (var_gen : Env.var_gen)
     (p : params)
     (prog : program term)
+    (code_addrs : Utils.Code_addrs.t)
     (mem : value memmap)
     (target : Theory.target)
     (_file : string)
@@ -392,7 +393,7 @@ let single
   let init_mem_hyps, env =
     (* FIXME: check p.init_mem here *)
     if p.init_mem then
-      Pre.init_mem env mem
+      Pre.init_mem env mem code_addrs
     else
       [], env
   in
@@ -411,7 +412,15 @@ let single
   let pre = Constr.mk_clause hyps [pre] in
   if List.mem p.show "bir" ~equal:String.equal then
     Printf.printf "\nSub:\n%s\n%!" (Sub.to_string main_sub);
-  Single { pre = pre; orig = Comp.{ env=env; prog=main_sub; mem = mem} }
+  Single {
+    pre;
+    orig = Comp.{
+        env;
+        prog = main_sub;
+        mem;
+        code_addrs;
+      }
+  }
 
 (* Runs a comparative analysis. *)
 let comparative
@@ -419,10 +428,12 @@ let comparative
     (var_gen : Env.var_gen)
     (p : params)
     (prog1 : program term)
+    (code1 : Utils.Code_addrs.t)
     (mem1 : value memmap)
     (target1 : Theory.target)
     (file1 : string)
     (prog2 : program term)
+    (code2 : Utils.Code_addrs.t)
     (mem2 : value memmap)
     (target2 : Theory.target)
     (file2 : string)
@@ -480,8 +491,8 @@ let comparative
     (*(Bap.Std.Var.Set.union vars_sub vars_pointer_reg |> Bap.Std.Var.Set.union sp) env1 in*)
     env1, vars_pointer_reg
   in
-  let code1 = Comp.{ prog = main_sub1; env = env1; mem = mem1 } in
-  let code2 = Comp.{ prog = main_sub2; env = env2; mem = mem2 } in
+  let code1 = Comp.{prog = main_sub1; env = env1; mem = mem1; code_addrs = code1} in
+  let code2 = Comp.{prog = main_sub2; env = env2; mem = mem2; code_addrs = code2} in
   let posts, hyps =
     comparators_of_flags ~orig:code1 ~modif:code2 p
       (pointer_vars_1 |> Bap.Std.Var.Set.to_list)
@@ -552,10 +563,10 @@ type Bap_main.Extension.Error.t += Unsupported_file_count of string
 type input =
   {
     program : program term;
+    code_addrs : Utils.Code_addrs.t;
     target : Theory.target;
     filename : string;
   }
-
 
 (* Entrypoint for the WP analysis. *)
 let run
@@ -570,19 +581,32 @@ let run
   (* Determine whether to perform a single or comparative analysis. *)
   match files with
   | [input] ->
-    let {program = prog ; target = tgt; filename = file} = input in
-    let mem = Utils.init_mem ~init_mem:p.init_mem file in
-    single z3_ctx var_gen p prog mem tgt file
+    let {program = prog; code_addrs; target = tgt; filename = file} = input in
+    let mem = Utils.init_mem ~ogre:p.ogre ~init_mem:p.init_mem file in
+    single z3_ctx var_gen p prog code_addrs mem tgt file
     |> check_pre p z3_ctx
   | [input1; input2] ->
-    let { program = prog1; target = tgt1; filename = file1} = input1 in
-    let { program = prog2; target = tgt2; filename = file2} = input2 in
-    let mem1 = Utils.init_mem ~init_mem:p.init_mem file1 in
-    let mem2 = Utils.init_mem ~init_mem:p.init_mem file2 in
+    let {
+      program = prog1;
+      code_addrs = code1;
+      target = tgt1;
+      filename = file1
+    } = input1 in
+    let {
+      program = prog2;
+      code_addrs = code2;
+      target = tgt2;
+      filename = file2
+    } = input2 in
+    let ogre1, ogre2 = match p.ogre with
+      | Some _ -> p.ogre, p.ogre
+      | None -> p.ogre_orig, p.ogre_mod in
+    let mem1 = Utils.init_mem ~ogre:ogre1 ~init_mem:p.init_mem file1 in
+    let mem2 = Utils.init_mem ~ogre:ogre2 ~init_mem:p.init_mem file2 in
     comparative
       z3_ctx var_gen p
-      prog1 mem1 tgt1 file1
-      prog2 mem2 tgt2 file2
+      prog1 code1 mem1 tgt1 file1
+      prog2 code2 mem2 tgt2 file2
     |> check_pre p z3_ctx
   | _ ->
     let err =
