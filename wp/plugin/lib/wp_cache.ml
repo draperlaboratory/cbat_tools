@@ -23,8 +23,13 @@ module Digests = struct
 
   (* Returns a function that makes digests. *)
   let get_generator (ctx : ctxt) ~(filepath : string) ~(loader : string)
-    : namespace:string -> digest =
-    let inputs = [Conf.digest ctx; Caml.Digest.file filepath; loader] in
+      ~(collect_code_addrs : bool) : namespace:string -> digest =
+    let inputs = [
+      Conf.digest ctx;
+      Caml.Digest.file filepath;
+      loader;
+      Bool.to_string collect_code_addrs;
+    ] in
     let subject = String.concat inputs in
     fun ~namespace ->
       let d = Data.Cache.Digest.create ~namespace in

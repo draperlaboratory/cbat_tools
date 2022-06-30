@@ -33,7 +33,11 @@ module Digests : sig
 
   (** Returns a function that makes digests. *)
   val get_generator :
-    ctxt -> filepath:string -> loader:string -> (namespace:string -> digest)
+    ctxt ->
+    filepath:string ->
+    loader:string ->
+    collect_code_addrs:bool ->
+    (namespace:string -> digest)
 
   (** Creates a digest for the knowledge cache. *)
   val knowledge : (namespace:string -> digest) -> digest

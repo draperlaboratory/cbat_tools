@@ -67,7 +67,8 @@ end
 (* Reads in the program_t and its architecture from a file. *)
 let read_program (ctxt : ctxt) ~(loader : string)
     ~(filepath : string) ~(collect_code_addrs : bool) : Cache.Program.t =
-  let mk_digest = Cache.Digests.get_generator ctxt ~filepath ~loader in
+  let mk_digest = Cache.Digests.get_generator ctxt
+      ~filepath ~loader ~collect_code_addrs in
   let program_digest = Cache.Digests.program mk_digest in
   match Cache.Program.load program_digest with
   | Some prog ->
