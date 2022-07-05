@@ -1,4 +1,4 @@
-open !Core_kernel
+open !Core
 open OUnit2
 open Bap_wp
 open Output

@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open !Core_kernel
+open !Core
 open Bap.Std
 open Bap_core_theory
 
@@ -254,7 +254,7 @@ let env_to_string (env : t) : string =
   Format.asprintf "Vars: %a\nSubs: %a\nCalls: %a\nPreconds: %a%!"
     (map_seq_printer Var.to_string Expr.to_string) var_list
     (map_seq_printer Tid.to_string (fun s -> s.spec_name)) sub_list
-    (map_seq_printer Tid.to_string ident) call_list
+    (map_seq_printer Tid.to_string Fn.id) call_list
     (map_seq_printer Tid.to_string Constr.to_string) precond_list
 
 let set_freshen (env : t) (freshen : bool) = { env with freshen = freshen }

@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open !Core_kernel
+open !Core
 open Bap.Std
 open OUnit2
 open Bap_wp
