@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests a loop without an invariant to check. Without the invariant, WP
 # wouldn't be able to determine that x is 5 at the end of the function.
 

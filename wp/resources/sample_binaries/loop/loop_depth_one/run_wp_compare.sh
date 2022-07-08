@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # test that an unrolled loop does not effect results in the comparative case
 
 # Should return UNSAT

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Tests having different locations for the data section and same values on the
 # stack. The binaries are the same except for the location of val in the data
 # section.

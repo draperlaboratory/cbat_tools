@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # test that an unrolled loop does not effect resulting values
 
 # Should return SAT with RDI=5

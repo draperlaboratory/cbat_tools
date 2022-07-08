@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests that removing a switch case can result in a fall through to
 # another case that is not intended. After removing the case to LOG_STATUS,
 # the NAV case will fall through to DEPLOY, calling deploy_payload().

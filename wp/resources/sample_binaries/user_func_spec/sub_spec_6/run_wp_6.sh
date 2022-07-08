@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return SAT.
 
 # Here we're checking the exact results of both main functions, but we're using

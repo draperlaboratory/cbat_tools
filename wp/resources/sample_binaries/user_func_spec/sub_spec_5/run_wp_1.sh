@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return SAT: we provide a spec only for g, which means f can still return 0x67 and we can trip the assert
 
 run () {

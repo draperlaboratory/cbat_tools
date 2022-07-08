@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test contains multiple calls to calloc. At each call, if the result was
 # NULL, the program jumps to the label that frees the memory region.
 # If the program does not jump to any of the gotos, there is an assert that

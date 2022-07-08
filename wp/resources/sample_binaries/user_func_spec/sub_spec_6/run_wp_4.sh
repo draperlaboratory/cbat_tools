@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return SAT.
 
 # This is run_wp_2 but with an off-by-one error in the mod g spec, to show we

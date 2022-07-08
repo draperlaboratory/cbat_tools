@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test checks that we are correctly initialzing the memory in our
 # constraint model using the .rodata input when passing the --init-mem
 # flag: the information that the constant string "Hello, world" should

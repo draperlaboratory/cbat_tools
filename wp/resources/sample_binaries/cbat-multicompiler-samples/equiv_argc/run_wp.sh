@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test compares equiv_argc that has been compiled with different compilers.
 
 # Should return UNSAT

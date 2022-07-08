@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test compares csmith.c compiled with different compilers.
 
 # This test inlines all function calls rather than using function summaries.

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests that a comparison of the same ARM binary.
 
 # Should return UNSAT.

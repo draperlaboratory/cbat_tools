@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test compiles the same C file with and without stack protection.
 
 # Should return SAT

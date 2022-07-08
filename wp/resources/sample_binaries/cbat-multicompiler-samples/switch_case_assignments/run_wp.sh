@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test compares our switch_case_assignment example that has been
 # compiled with multiple compilers
 

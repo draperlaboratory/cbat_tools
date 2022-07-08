@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # The modified version of this test adds a check to argc and returns a
 # different value if argc = 2.
 

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests a conditional function call to __assert_fail. It is impossible to
 # reach __assert_fail in this case.
 

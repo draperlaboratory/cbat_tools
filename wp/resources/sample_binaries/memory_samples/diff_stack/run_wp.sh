@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test accumulates the values on the stack into RAX. THe two binaries have
 # different values on the stack, giving different outputs.
 

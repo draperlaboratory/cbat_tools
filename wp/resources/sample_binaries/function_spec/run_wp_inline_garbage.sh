@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test contains a call to foo which returns 3. In main, in the case that
 # foo returns 5, we assert_fail. This should be impossible.
 

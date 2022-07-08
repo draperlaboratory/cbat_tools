@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests WP's ability to unroll a simple loop.
 
 # Should return UNSAT.

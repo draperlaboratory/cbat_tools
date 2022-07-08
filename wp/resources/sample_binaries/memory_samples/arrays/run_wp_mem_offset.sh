@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A test where the function foo_get indexes the array foo with length 10. The
 # address of foo is different between the two binaries.
 

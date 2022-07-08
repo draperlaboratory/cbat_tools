@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This example contains a function call to foo.
 
 # This tests that WP can inline all functions. With foo inlined, WP should find

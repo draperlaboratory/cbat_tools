@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests a loop without an invariant to check.
 
 # Should return SAT.

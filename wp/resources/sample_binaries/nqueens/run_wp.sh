@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A program which trips an assert when the bit encoding
 # of the nqueens problem is solved for n=$1.
 

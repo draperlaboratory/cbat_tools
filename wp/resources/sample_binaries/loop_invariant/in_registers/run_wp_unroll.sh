@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests WP's ability to unroll a simple loop 5 times. It should be
 # able to tell that x is being incremented.
 

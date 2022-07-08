@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests that we can properly model memory for ARM binaries.
 
 # A test where the function foo_get indexes the array foo with length 10. The

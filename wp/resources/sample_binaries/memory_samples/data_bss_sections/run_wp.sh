@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test compares two binaries that have the same data section, but different
 # BSS section.
 

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A simple example that contains a dereferences a NULL value.
 
 # In this case, the check-null-deref flag is set. This adds a hook to every

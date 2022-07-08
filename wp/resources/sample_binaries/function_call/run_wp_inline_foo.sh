@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This example contains a function call to foo.
 
 # This tests that WP can inline the function foo based off the regex. With foo

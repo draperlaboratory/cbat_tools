@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Stubs the lines of assembly that retrowrite adds to the beginning of each
 # label. At the end of the subroutine, the registers between both binaries
 # should be equal.

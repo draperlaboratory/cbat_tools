@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test checks that the init-mem flag is able to read the floating point
 # number into YMM0.
 

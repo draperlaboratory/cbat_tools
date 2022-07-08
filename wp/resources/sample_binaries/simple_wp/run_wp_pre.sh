@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A simple example that assert_fails when argc = 3.
 
 # Tests a user defined precondition that argc/RDI = 2. In this case, it is

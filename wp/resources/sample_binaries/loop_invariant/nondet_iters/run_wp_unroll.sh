@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests a loop without an invariant to check. WP can't determine how many
 # times x is incremented, since the we iterate over the loop an arbitrary
 # number of times.

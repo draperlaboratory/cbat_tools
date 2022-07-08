@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test contains calls to our helper function that just calls
 # __VERIFIER_nondet_long. If string2 is NULL, the program will jump to the label
 # that frees the memory region. If the program does not jump to any of the gotos,

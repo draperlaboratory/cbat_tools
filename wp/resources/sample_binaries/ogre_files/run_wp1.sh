@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Checks return value of f1 in unstripped main_1.
 # Uses ogre file to lift only relevant function.
 #

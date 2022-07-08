@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This binary tests CBAT's ability to unroll loops. In this test, there is a for
 # loop that increments a counter, and if that counter has a specific value at
 # the end of the loop, we hit an assert(0).

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return UNSAT.
 
 # In orig, `g` is called with 6 as an argument, while in mod it is called with

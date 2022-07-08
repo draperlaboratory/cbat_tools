@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests the single binary case of the --wp-pointer-reg-list flag. In this
 # case, we ensure that the program cannot take input that points to an
 # uninitialized region on the stack. With the flag, this is not possible.

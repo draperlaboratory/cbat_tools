@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # nested loop test two levels deep
 # both loops are preserved based on cfg.  Expected value of RAX (j) should be 3
 # RAX (j) ends as 2 and not 3.

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A binary that returns the value of a global variable.
 
 # This tests matching a symbol in the original binary with that of the modified

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Checks that return value of f1 is identical if we lift the same
 # binary twice.  Uses the same ogre file for both.
 #

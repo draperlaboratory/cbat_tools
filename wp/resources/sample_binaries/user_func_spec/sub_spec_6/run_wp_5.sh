@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return UNSAT.
 
 # This is similar to run_wp_1, except we verify the exact return values of both
