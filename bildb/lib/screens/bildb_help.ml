@@ -1,6 +1,6 @@
 (** Implements {!Help}. *)
 
-open Core_kernel
+open Core
 open Bap_primus.Std
 
 module Ui = Bildb_ui

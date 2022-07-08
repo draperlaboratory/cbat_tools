@@ -3,7 +3,7 @@ S ./tests/**
 S ./lib/**
 
 PKG bap
-PKG core_kernel
+PKG core
 PKG z3
 PKG ounit2
 PKG bap_wp

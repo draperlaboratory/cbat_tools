@@ -1,6 +1,6 @@
 (** Implements {!Init}. *)
 
-open Core_kernel
+open Core
 open Bap.Std
 
 module State = Bildb_state

@@ -7,19 +7,18 @@ A weakest-precondition analysis library for use with BAP.
 """
 maintainer: "Draper Laboratory"
 authors: [
-  "Cody Roux <croux@draper.com>"
   "Chloe Fortuna <cfortuna@draper.com>"
-  "Chris Casinghino <ccasinghino@draper.com>"
   "JT Paasch <jpaasch@draper.com>"
   "Philip Zucker <pzucker@draper.com>"
+  "Benjamin Mourad" <bmourad@draper.com>"
 ]
 license: "MIT"
 homepage: "https://github.com/draperlaboratory/cbat_tools"
 bug-reports: "https://github.com/draperlaboratory/cbat_tools"
 dev-repo: "git+https://github.com/draperlaboratory/cbat_tools"
 depends: [
-  "bap" {>= "2.1.0"}
-  "core_kernel" {>= "v0.14.0"}
+  "bap" {>= "2.4.0"}
+  "core" {>= "v0.15.0"}
   "z3" {>= "4.8.9"}
   "ounit2" {>= "2.2.3"}
   "re" {>= "1.9.0"}

@@ -13,7 +13,7 @@
     It parses that file, and builds a {!Data.State.t} record, to
     hold this information, which it returns. *)
 
-open Core_kernel
+open Core
 
 module State = Bildb_state
 

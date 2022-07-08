@@ -1,6 +1,6 @@
 (** Implements {!State}. *)
 
-open Core_kernel
+open Core
 open Bap.Std
 open Bap_primus.Std
 

@@ -1,6 +1,15 @@
-FROM binaryanalysisplatform/bap:latest
+FROM ocaml/opam:ubuntu-20.04-ocaml-4.14
 
-RUN sudo -E apt install -y zip
+RUN sudo -E apt update; \
+    sudo -E apt install -qq -yy \
+    zip binutils-multiarch clang debianutils libgmp-dev \
+    libncurses5-dev libzip-dev llvm-10-dev pkg-config zlib1g-dev
+
+RUN opam repo add opam https://opam.ocaml.org/; \
+    opam install core; \
+    opam repo add bap-testing \
+    git+https://github.com/BinaryAnalysisPlatform/opam-repository#testing; \
+    opam depext --install -y bap
 
 RUN git clone https://github.com/BinaryAnalysisPlatform/bap-toolkit.git
 

@@ -1,6 +1,6 @@
 (** Implements {!Ui}. *)
 
-open Core_kernel
+open Core
 open Bap_primus.Std
 
 module Tty = Bildb_tty
