@@ -3,49 +3,29 @@
 #       by the CI docker runners.
 image: "ocaml/opam:ubuntu-20.04-ocaml-4.14"
 
-stages:
-  - setup
-  - builds
-
-# JOB: install bap, etc.
-setup:
-
-  stage: setup
+main:
 
   tags:
     - docker
 
   script:
+    - # Installing APT dependencies
     - sudo -E apt update
     - sudo -E apt install -qq -yy
-      zip python2.7 binutils-multiarch clang debianutils libgmp-dev
+      zip binutils-multiarch clang debianutils libgmp-dev
       libncurses5-dev libzip-dev llvm-10-dev pkg-config zlib1g-dev
+
+    - # Add the remote OPAM repository and install OPAM packages
     - opam repo add opam https://opam.ocaml.org/
-    - opam install -y core z3.4.8.14
+    - opam install -y core z3
+
+    - # Install BAP
     - opam repo add bap-testing
       git+https://github.com/BinaryAnalysisPlatform/opam-repository#testing
     - opam depext --install -y bap
 
-# JOB: run the tests for WP.
-run_wp_tests:
-
-  stage: builds
-  needs: ["setup"]
-
-  tags:
-    - docker
-
-  script:
-    - make test -C wp
-    
-# JOB: build BilDB.
-build_bildb:
-
-  stage: builds
-  needs: ["setup"]
-
-  tags:
-    - docker
-
-  script:
+    - # Build BilDB
     - make -C bildb
+
+    - # Run WP tests
+    - make test -C wp

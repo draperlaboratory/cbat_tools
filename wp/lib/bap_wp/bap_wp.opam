@@ -19,7 +19,7 @@ dev-repo: "git+https://github.com/draperlaboratory/cbat_tools"
 depends: [
   "bap" {>= "2.4.0"}
   "core" {>= "v0.15.0"}
-  "z3" {>= "4.8.9"}
+  "z3" {>= "4.8.14"}
   "ounit2" {>= "2.2.3"}
   "re" {>= "1.9.0"}
 ]
