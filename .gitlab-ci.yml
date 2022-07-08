@@ -25,11 +25,13 @@ setup:
     - opam repo add bap-testing
       git+https://github.com/BinaryAnalysisPlatform/opam-repository#testing
     - opam depext --install -y bap
+    - which z3
 
 # JOB: run the tests for WP.
 run_wp_tests:
 
   stage: builds
+  needs: ["setup"]
 
   tags:
     - docker
@@ -41,6 +43,7 @@ run_wp_tests:
 build_bildb:
 
   stage: builds
+  needs: ["setup"]
 
   tags:
     - docker

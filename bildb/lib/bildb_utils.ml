@@ -1,6 +1,6 @@
 (** Implements {!Utils}. *)
 
-open Core_kernel
+open Core
 open Bap.Std
 
 module Ui = Bildb_ui
@@ -24,7 +24,7 @@ let tabulate (data : string list) (width : int) : string list =
     ) in
   let item_width = widest + Ui.col_padding in
   let cols = width / item_width in
-  let chunks = List.chunks_of data cols in
+  let chunks = List.chunks_of data ~length:cols in
   List.map chunks ~f:(fun chunk ->
     String.concat (List.map chunk ~f:(fun s -> pad s item_width)))
 
