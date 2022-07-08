@@ -6,7 +6,7 @@ RUN sudo -E apt update; \
     libncurses5-dev libzip-dev llvm-10-dev pkg-config zlib1g-dev
 
 RUN opam repo add opam https://opam.ocaml.org/; \
-    opam install core; \
+    opam install core z3; \
     opam repo add bap-testing \
     git+https://github.com/BinaryAnalysisPlatform/opam-repository#testing; \
     opam depext --install -y bap
