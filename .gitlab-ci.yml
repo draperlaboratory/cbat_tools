@@ -9,23 +9,24 @@ main:
     - docker
 
   script:
-    - # Installing APT dependencies
+
+    # Installing APT dependencies
     - sudo -E apt update
     - sudo -E apt install -qq -yy
       zip binutils-multiarch clang debianutils libgmp-dev
       libncurses5-dev libzip-dev llvm-10-dev pkg-config zlib1g-dev
-
-    - # Add the remote OPAM repository and install OPAM packages
+ 
+    # Add the remote OPAM repository and install OPAM packages
     - opam repo add opam https://opam.ocaml.org/
     - opam install -y core z3
-
-    - # Install BAP
+ 
+    # Install BAP
     - opam repo add bap-testing
       git+https://github.com/BinaryAnalysisPlatform/opam-repository#testing
     - opam depext --install -y bap
-
-    - # Build BilDB
+ 
+    # Build BilDB
     - make -C bildb
-
-    - # Run WP tests
+ 
+    # Run WP tests
     - make test -C wp
