@@ -162,7 +162,7 @@ bap objdump /path/to/exe --show-insn=bin | od -h
 
 ## Using `bap mc`
 
-To see how BAP disassembles a particular stream of bytes, use the `bap mp` command. For instance:
+To see how BAP disassembles a particular stream of bytes, use the `bap mc` command. For instance:
 
 ```
 bap mc --show-insn=asm -- 48 83 ec 08
