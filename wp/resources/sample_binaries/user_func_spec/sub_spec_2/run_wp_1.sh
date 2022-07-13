@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return SAT: Since when RAX is 0x67, RDI will then trigger the assert(0)
 
 run () {

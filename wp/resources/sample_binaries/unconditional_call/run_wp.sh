@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A very simple example that tests a function call to __assert_fail.
 
 # Should return SAT.

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test contains a function with two nested calls to foo then bar.
 
 # Here, we are inlining all function calls, allowing us to inspect both foo and

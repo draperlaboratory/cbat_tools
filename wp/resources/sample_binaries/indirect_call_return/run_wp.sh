@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests that an indirect call with a return has its stack pointer incremented
 # as part of our indirect call spec.
 

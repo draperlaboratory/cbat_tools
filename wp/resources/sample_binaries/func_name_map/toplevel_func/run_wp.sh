@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests mapping function names from the original binary to their names in
 # the modified binary. In this example, function names are prepended with test_
 # in the modified binary.

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -uo pipefail
 
 # Default output location

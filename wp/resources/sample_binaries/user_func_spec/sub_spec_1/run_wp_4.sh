@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return SAT, since (true /\ (true => false)) is false, which is SAT
 # Note: This example would have returned UNSAT if the --user-func-specs flag
 # weren't used. So we turn an UNSAT into SAT with the --user-func-specs flag.

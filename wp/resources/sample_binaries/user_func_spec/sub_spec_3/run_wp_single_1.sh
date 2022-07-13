@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This example returns SAT when no --user-func-specs flag is included.
 # This example returns UNSAT when the following --user-func-specs flag is added.
 

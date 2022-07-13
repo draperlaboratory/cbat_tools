@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests that the absence wp-pointer-reg-list flag works as expected.
 # Specifically, differing return value should be found between programs because
 # in main_1, num_1 cannot be greater than 12. In main_2, num1 can point to local

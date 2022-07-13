@@ -1,3 +1,5 @@
+#!/bin/sh
+
 run () {
   bap wp \
       --func=main \

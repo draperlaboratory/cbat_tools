@@ -1,6 +1,6 @@
 (** Implements {!Tty}. *)
 
-open Core_kernel
+open Core
 
 type style =
   | Plain

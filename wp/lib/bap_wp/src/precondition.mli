@@ -320,7 +320,7 @@ val mk_env
   -> ?use_fun_input_regs:bool
   -> ?stack_range:Env.mem_range
   -> ?data_section_range:Env.mem_range
-  -> ?func_name_map:string Core_kernel.String.Map.t
+  -> ?func_name_map:string Core.String.Map.t
   -> ?smtlib_compat:bool
   -> target:Theory.target
   -> Z3.context

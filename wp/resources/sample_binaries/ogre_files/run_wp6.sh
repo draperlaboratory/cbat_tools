@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Checks to see if f1 in main_2 returns 1 more than f1 in main_1.  It should.
 # We use unstripped main_1 and stripped main_2 and only provide ogre for
 # the latter.

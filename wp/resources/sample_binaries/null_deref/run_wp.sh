@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A simple example that contains a dereferences a NULL value.
 
 # In this case, the verification condition that checks if memory dereferences

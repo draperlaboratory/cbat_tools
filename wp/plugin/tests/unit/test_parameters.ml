@@ -13,7 +13,7 @@
 
 open OUnit2
 open OUnitTest
-open !Core_kernel
+open !Core
 open Bap_main
 
 module Params = Bap_wp.Run_parameters

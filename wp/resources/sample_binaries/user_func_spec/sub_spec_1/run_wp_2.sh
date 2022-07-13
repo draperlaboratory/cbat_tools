@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return SAT, since (true /\ (true => false)) is false, which is SAT
 
 run () {

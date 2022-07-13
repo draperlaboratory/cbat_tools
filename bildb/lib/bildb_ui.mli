@@ -12,7 +12,7 @@
     To create events, use the constructors in the {!Event} module.
     To render events, use the {!Make.render} function. *)
 
-open Core_kernel
+open Core
 open Bap_primus.Std
 
 module Tty = Bildb_tty

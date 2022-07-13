@@ -1,6 +1,6 @@
 (** The main entry point into the plugin. *)
 
-open Core_kernel
+open Core
 open Bap.Std
 open Bap_primus.Std
 include Self ()

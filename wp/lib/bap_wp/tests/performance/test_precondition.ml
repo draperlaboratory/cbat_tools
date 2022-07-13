@@ -11,7 +11,7 @@
 (*                                                                         *)
 (***************************************************************************)
 
-open !Core_kernel
+open !Core
 open Bap.Std
 open OUnit2
 open Bap_wp
@@ -57,9 +57,9 @@ let time_z3_result (test_ctx : test_ctxt) (z3_ctx : Z3.context) (body : Sub.t)
     (post : Constr.t) (pre : Constr.t) (expected : Solver.status) (threshold : float)
   : float =
   let solver = Solver.mk_simple_solver z3_ctx in
-  let start_time = Sys.time () in
+  let start_time = Stdlib.Sys.time () in
   let result = Pre.check solver z3_ctx pre in
-  let end_time = Sys.time () in
+  let end_time = Stdlib.Sys.time () in
   assert_equal ~ctxt:test_ctx
     ~printer:Solver.string_of_status
     ~pp_diff:(fun ff (exp, real) ->

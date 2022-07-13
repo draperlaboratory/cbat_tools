@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This compares a binary that contains a memory read at RDI with another binary
 # that contains a memory read at RDI + 1.
 

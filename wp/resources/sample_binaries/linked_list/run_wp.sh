@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # An example with a linked list that attempts to write a 1 into a NULL pointer.
 
 # In this case, the verification condition that checks if memory dereferences

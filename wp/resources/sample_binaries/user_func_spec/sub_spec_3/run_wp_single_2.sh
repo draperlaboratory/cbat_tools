@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return SAT since RAX would need to be 0x61 instead of 0x67 to be UNSAT
 
 run () {

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # The modified binary adds a null check after the call to malloc. In the case
 # that malloc returns NULL, the modified binary will hit an assert_fail.
 

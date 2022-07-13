@@ -1,3 +1,5 @@
+#!/bin/sh
+
 rand_build () 
 { 
     local seed=${1}

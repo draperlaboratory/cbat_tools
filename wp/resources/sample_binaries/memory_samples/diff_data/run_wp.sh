@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Tests having a different value in the data section (at the same addresses)
 # and the same values on the stack.
 

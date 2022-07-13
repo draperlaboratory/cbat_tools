@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Tests a simple loop invariant checker.
 
 # Should return UNSAT.

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A simple test where the output of a function is a pointer that contains
 # different values. WP is able to catch that the output varies between the
 # two binaries. In this case, main_1 returns a 5 and main_2 returns a 6.

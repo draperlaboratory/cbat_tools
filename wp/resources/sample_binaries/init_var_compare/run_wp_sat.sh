@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A test that gives RAX the value of RDI + 1. The two binaries differ in the
 # order of the increment and move instructions, but have the same output.
 

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This example returns the first argument to main.
 
 # This tests a user defined postcondition. In this case, the postcondition of

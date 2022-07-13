@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test does not call the init-mem flag. WP would not know the value stored
 # into YMM0.
 

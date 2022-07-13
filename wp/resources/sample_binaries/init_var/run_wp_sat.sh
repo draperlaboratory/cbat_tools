@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A simple test that adds 1 to the input.
 
 # Runs WP on the function foo with a postcondition that states that the foo's

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests a function that checks if two integers are of the same sign. The
 # original binary uses a series of if/then statements to determine this, while
 # the second binary determines this with an exclusive or operator. Both should

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests a loop without an invariant to check. Without the invariant, WP
 # wouldn't be able to determine that x is incremented z times.
 

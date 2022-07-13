@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Check to see if the two versions of f1 return the same value.  They don't.
 # uses two different ogre files to find the two f1s in the two stripped
 # binaries.

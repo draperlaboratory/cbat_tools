@@ -22,7 +22,7 @@
 
 *)
 
-open !Core_kernel
+open !Core
 open Bap.Std
 
 let mk_assert_fail () : Sub.t * Exp.t =

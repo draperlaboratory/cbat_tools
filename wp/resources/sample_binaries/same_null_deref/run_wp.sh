@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This example demonstrates how CBAT can catch null dereferences when comparing
 # binaries. If both binaries are identical and both dereference null, wp should
 # return UNSAT because there are no new paths in the modified binary that would

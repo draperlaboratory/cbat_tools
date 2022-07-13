@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test contains multiple calls to calloc in nested if statements.
 # After all the calls to calloc, there is an assert that none of the results
 # were NULL. This tests that the nested ifs ensure the values of all the

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This binary returns a pointer that was passed in as an argument. This test
 # compares the binary with itself.
 

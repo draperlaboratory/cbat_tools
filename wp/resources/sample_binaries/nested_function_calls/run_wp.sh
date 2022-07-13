@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This test contains a function with two nested calls to foo then bar.
 
 # Without inlining, we only summarize the first call (foo), and do not inspect

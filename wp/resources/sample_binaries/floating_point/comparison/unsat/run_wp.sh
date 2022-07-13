@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # A test that compares two binaries that perform an addition operation on the
 # same two floating point numbers.
 

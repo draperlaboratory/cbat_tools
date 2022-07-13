@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return UNSAT: we can trip neither assert because both f and g have postcondition RAX=61
 
 run () {

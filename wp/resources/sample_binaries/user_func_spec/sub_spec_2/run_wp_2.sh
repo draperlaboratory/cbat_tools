@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return UNSAT: since when RAX is not 0x67, we can't trigger assert(0)
 
 run () {

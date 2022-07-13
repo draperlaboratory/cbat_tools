@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # Should return SAT, since (false /\ (RAX = 4 => RAX = 4)) is always false
 
 run () {

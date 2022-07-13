@@ -29,7 +29,7 @@ module EnvMap = Bap.Std.Var.Map
 
 module Constr = Constraint
 
-module ExprSet : Core_kernel.Set.S with type Elt.t = Constr.z3_expr
+module ExprSet : Core.Set.S with type Elt.t = Constr.z3_expr
 
 module Unroll_depth = Bap.Std.Blk.Map
 
@@ -139,7 +139,7 @@ val mk_env
   -> use_fun_input_regs:bool
   -> stack_range:mem_range
   -> data_section_range:mem_range
-  -> func_name_map:string Core_kernel.String.Map.t
+  -> func_name_map:string Core.String.Map.t
   -> smtlib_compat:bool
   -> Z3.context
   -> var_gen

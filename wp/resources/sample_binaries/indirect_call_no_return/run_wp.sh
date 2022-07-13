@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This tests that an indirect call with no return does not have
 # its stack pointer incremented as part of our indirect call spec.
 

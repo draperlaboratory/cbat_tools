@@ -1,6 +1,6 @@
 (** Implements {!Locations}. *)
 
-open Core_kernel
+open Core
 open Bap.Std
 open Bap_primus.Std
 
@@ -24,7 +24,7 @@ module Make (Machine : Primus.Machine.S) = struct
 
   (* Get [num_words] number of consecutive addresses, starting at [addr]. *)
   let addresses_from ?addr_size:(addr_size=64) ?num_words:(num_words=1)
-      (addr : Addr.t) : Word.t Core_kernel.List.t =
+      (addr : Addr.t) : Word.t Core.List.t =
     List.init num_words ~f:(fun i ->
       let offset = Word.of_int ~width:addr_size i in
       Word.(+) addr offset)
@@ -32,7 +32,7 @@ module Make (Machine : Primus.Machine.S) = struct
   (* Read the specified number of words stored in memory, starting at
      the specified address. *)
   let read_loc ?addr_size:(addr_size=64) ?num_words:(num_words=1)
-      (addr : Addr.t) : ((Word.t * Word.t) Core_kernel.List.t) Machine.t =
+      (addr : Addr.t) : ((Word.t * Word.t) Core.List.t) Machine.t =
     let acc = Machine.return [] in
     let addresses = addresses_from addr ~addr_size ~num_words in
     List.fold addresses ~init:acc ~f:(fun acc addr ->
@@ -44,7 +44,7 @@ module Make (Machine : Primus.Machine.S) = struct
   (* Return all addresses that aren't mapped/allocated, starting from
      the given [addr] and proceeding [num_words] bytes. *) 
   let unmapped ?addr_size:(addr_size=64) ?num_words:(num_words=1)
-      (addr : Addr.t) : (Word.t Core_kernel.List.t) Machine.t =
+      (addr : Addr.t) : (Word.t Core.List.t) Machine.t =
     let acc = Machine.return [] in
     let addresses = addresses_from addr ~addr_size ~num_words in
     List.fold addresses ~init:acc ~f:(fun acc addr' ->

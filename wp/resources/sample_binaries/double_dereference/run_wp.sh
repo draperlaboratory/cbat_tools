@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # This binary returns a double dereference to argv. This test
 # compares the binary with itself.
 
