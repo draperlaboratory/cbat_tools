@@ -176,7 +176,7 @@ int foo(int x) {
 00000458: return...         <-- Return to the caller
 </pre>
 
-<p>The numbers at the start of each line are unique identifiers, one for each line. The instructions come after those numbers, to the right.
+<p>The numbers at the start of each line are unique identifiers, one for each line. The instructions come after those numbers, to the right. Instruction identifiers in this tutorial may differ from the ones you see when running CBAT interactively. That's okay; different versions or runs of CBAT can produce different numberings. 
 
 <p>You can see here that the value <code>7</code> is placed in the register <code>RAX</code>, and then the function returns. This is how the function returns </code>7</code>. Return values are always placed in <code>RAX</code>. 
 
@@ -301,7 +301,7 @@ int main(int argc, char** argv) {
 000004aa: call #52 with noreturn  <--- exit cleanly
 </pre>
 
-<p>At the first instruction printed here (numbered <code>00000481</code>), you can see that the machine is going to jump to instruction <code>0000047b</code> when <code>#5</code> is true (i.e., <code>1</code>).
+<p>At the first instruction printed here (numbered <code>00000481</code>), you can see that the machine is going to jump to instruction <code>0000047b</code> when the value of a virtual variable called <code>#5</code> is true (i.e., <code>1</code>). You can think of a virtual variable as a temporary variable at an unspecified location.
 
 <p>So if we suppose that <code>#5</code> is <code>1</code>, we can see what happens next, by following the machine down to the instruction at <code>000047b</code>. There, we can see that the program  exits cleanly.
 
@@ -678,7 +678,7 @@ Model:
 
 <p>Here, we can see that <code class="wp">wp</code> did indeed find a way to trip the assert, and it provided an example of how to do it.
 
-<p>Look at the registers listed under <code>Model</code>. Remember that the first argument to a function is always stored in <code>RDI</code>, and here <code class="wp">wp</code> tells us that if we set that to <code>0x4281</code>, then our function <code>check</code> will trip the assert.
+<p>Look at the registers listed under <code>Model</code>. Remember that the first argument to a function is always stored in <code>RDI</code>, and here <code class="wp">wp</code> tells us that if we set that to <code>0x4281</code>, then our function <code>check</code> will trip the assert. (There's more than one correct solution; your CBAT installation might find a different solution.)
 
 <p>What is <code>0x4281</code>? In binary, it is:
 
@@ -939,7 +939,7 @@ UNSAT!
 
 <pre>
 /* Different types of signals */
-typedef enum {STATUS, NAV, LOG, DEPLOY} signal_t;
+typedef enum {SURFACE, NAV, LOG, DEPLOY} signal_t;
 </pre>
 
 <p>There are handlers for each one:
@@ -1076,7 +1076,7 @@ int process_signal(signal_t signal) {
 
 <p>We can ask <code class="wp">wp</code> to analyze both versions of the <code>process_signal</code> function, and check that they call the same functions. Then <code class="wp">wp</code> will find out if there is any way that the original and patched versions differ with respect to function calls.
 
-<p>e can ask <code class="wp">wp</code> to compare both binaries and find out if both versions of the <code>process_signal</code> functions differ, with respect to the function calls they make. Here is the command:
+<p>We can ask <code class="wp">wp</code> to compare both binaries and find out if both versions of the <code>process_signal</code> functions differ, with respect to the function calls they make. Here is the command:
 
 <pre>
     $ bap wp \
@@ -1395,7 +1395,7 @@ Refuted goals:
   Z3 Expression: = #x00000000000000fe #x0000000000000007
 </pre>
 
-<p>Here, <code class="wp">wp</code> tells us that it can falsify our assertion, and it provides an example of how to do it. Notice the <code>RDI</code> register. If it is set to <code>0x400000</code>, then our <code>main</code> function will put something other than <code>7</code> in <code>RAX</code>.
+<p>Here, <code class="wp">wp</code> tells us that it can falsify our assertion, and it provides an example of how to do it. Notice the <code>RDI</code> register. If it is set to <code>0x400000</code>, then our <code>main</code> function will put something other than <code>7</code> in <code>RAX</code>. (Your CBAT installation might produce a different example.)
 
 <p>Of course, that makes sense, since we can see in the C code that if the number of arguments is <code>10</code> or more, it'll return <code>254</code>, and <code>0x400000</code> is certainly bigger than <code>10</code>. 
 
