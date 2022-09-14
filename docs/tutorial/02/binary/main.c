@@ -10,7 +10,7 @@
  *
  * The solution must be encoded as a 16-bit integer, indexed like this:
  *
- *     0b[0][1][2][3][4][5][6][7][8][9][10][11][12][13][14][16]
+ *     0b[0][1][2][3][4][5][6][7][8][9][10][11][12][13][14][15]
  *
  * Each bit represents a position on a 4x4 board, going from the top to
  * the bottom, left to right. 
