@@ -179,7 +179,8 @@ val spec_verifier_assume : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 (** This spec is used for functions of [__VERIFIER_nondet_type], which returns a
     nondeterministic value for the type. This spec chaoses the register that holds
     the output value from the function call. *)
-val spec_verifier_nondet : Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
+val spec_verifier_nondet :
+  string list -> Bap.Std.Sub.t -> Theory.target -> Env.fun_spec option
 
 (** This spec is used for empty subroutines that have no blocks. This spec is a
     nop, returning the postcondition as the precondition. *)

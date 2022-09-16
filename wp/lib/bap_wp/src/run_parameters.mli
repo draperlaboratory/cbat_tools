@@ -68,6 +68,7 @@ type t = {
   ogre_mod : string option;
   ext_solver_path : string option;
   init_mem : bool;
+  no_chaos : string list
 }
 
 (** [validate flags files] ensures the user inputted the appropriate flags for
