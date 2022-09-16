@@ -1,6 +1,7 @@
-# This test contains a single call to malloc. This tests the alloc spec that
-# given the same allocator state and argument to malloc, malloc will return
-# the same result.
+#!/bin/sh
+
+# This test contains a single call to malloc. This tests turns off the chaos
+# function spec and treats the malloc function as any other function.
 
 # Should return UNSAT
 
@@ -10,6 +11,7 @@ run () {
     --show=bir,paths \
     --compare-post-reg-values=RAX \
     --inline=sub_* \
+    --no-chaos=malloc \
     -- ./bin/main_1.o ./bin/main_2.o
 }
 
