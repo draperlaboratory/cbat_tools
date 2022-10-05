@@ -37,6 +37,24 @@
   docker run -it cbat bash
 </pre>
 
+<p>To mount a local directory (e.g., your home directory) at `/external` inside the container:
+
+<pre>
+  docker run -it -v ${HOME}:/external cbat bash
+</pre>
+
+<p>If your machine has only a few cores, set the `OPAM_JOBS` to a low number (like `2` or `3`):
+
+<pre>
+  docker build --build-arg OPAM_JOBS=3 --tag cbat .
+</pre>
+
+<p>If you are building behind a proxy, provide `http_proxy` and `https_proxy` values:
+
+<pre>
+  docker build --build-arg http_proxy=http://myproxy.com:1234 --build-arg https_proxy=http://myproxy.com:1234 --tag cbat .
+</pre>
+
 </section>
 
 <section>
@@ -49,7 +67,7 @@
 <p>Before installing, make sure you have the appropriate dependencies installed. First, there is OCaml:
 
 <ul>
-  <li>ocaml &ge; 4.08.0 &amp; &lt; 4.11.0</li>
+  <li>ocaml &ge; 4.14.0</li>
 </ul>
 
 <p>The recommended way to install Ocaml is with OPAM. Instructions on downloading OPAM, and using OPAM to download Ocaml can be found <a href="https://ocaml.org/docs/install.html#OPAM">here</a>.
@@ -87,16 +105,16 @@
 <p>Then, there are the following OCaml packages:
 
 <ul>
-  <li>core_kernel 0.14.0</li>
+  <li>core 0.15</li>
   <li>ounit2 2.2.3</li>
   <li>re 1.9.0</li>
-  <li>dune 2.7.1</li>
+  <li>dune &ge; 2.7.1</li>
 </ul>
 
 <p>All of these can be installed with:
 
 <pre>
-  opam install core_kernel ounit2 re dune
+  opam install core ounit2 re dune
 </pre>
 
 Optionally, you may install Boolector 3.2.1 from <a href="https://github.com/boolector/boolector">here</a> to use with the <code>--ext-solver-path</code> option. For some queries, Boolector may be more performant than the standard Z3.
