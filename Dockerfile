@@ -2,7 +2,9 @@ FROM ocaml/opam:ubuntu-20.04-ocaml-4.14
 
 ARG OPAM_JOBS=0
 
-RUN if [ "${OPAM_JOBS}" -ne "0" ]; then \
+RUN if [ "${OPAM_JOBS}" -eq "0" ]; then \
+      sed -i 's/jobs: [[:digit:]]\+/jobs: '$(nproc)'/' /home/opam/.opam/config; \
+    else \
       sed -i 's/jobs: [[:digit:]]\+/jobs: '${OPAM_JOBS}'/' /home/opam/.opam/config; \
     fi
 
