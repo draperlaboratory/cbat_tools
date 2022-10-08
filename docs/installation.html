@@ -43,13 +43,13 @@
   docker run -it -v ${HOME}:/external cbat bash
 </pre>
 
-<p>If your machine has only a few cores, set the `OPAM_JOBS` to a low number (like `2` or `3`):
+<p>By default, the build use `nproc` jobs. If you want to limit it to a specific number, provide an `OPAM_JOBS` number as a build argument:
 
 <pre>
   docker build --build-arg OPAM_JOBS=3 --tag cbat .
 </pre>
 
-<p>If you are building behind a proxy, provide `http_proxy` and `https_proxy` values:
+<p>If you are building behind a proxy, provide `http_proxy` and `https_proxy` values as build arguments:
 
 <pre>
   docker build --build-arg http_proxy=http://myproxy.com:1234 --build-arg https_proxy=http://myproxy.com:1234 --tag cbat .
@@ -97,7 +97,7 @@
 <p>Next, there is the alpha release of BAP:
 
 <ul>
-  <li>bap 2.2.0-alpha</li>
+  <li>bap 2.6.0-alpha</li>
 </ul>
 
 <p>Instructions on downloading BAP from the testing repository can be found <a href="https://github.com/BinaryAnalysisPlatform/bap#installation">here</a>.
