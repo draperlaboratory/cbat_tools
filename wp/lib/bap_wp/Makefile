@@ -48,7 +48,6 @@ build: $(BUILD)
 .PHONY: install
 install: $(BUILD)
 	dune install
-	opam install .
 
 .PHONY: reinstall
 reinstall:
