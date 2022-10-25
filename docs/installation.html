@@ -37,19 +37,19 @@
   docker run -it cbat bash
 </pre>
 
-<p>To mount a local directory (e.g., your home directory) at `/external` inside the container:
+<p>To mount a local directory (e.g., your home directory) at <code>/external</code> inside the container:
 
 <pre>
-  docker run -it -v ${HOME}:/external cbat bash
+  docker run -it -v ${HOME}:/external -w /external cbat bash
 </pre>
 
-<p>By default, the build use `nproc` jobs. If you want to limit it to a specific number, provide an `OPAM_JOBS` number as a build argument:
+<p>By default, the build use <code>nproc</code> jobs. If you want to limit it to a specific number, provide an <code>OPAM_JOBS</code> number as a build argument:
 
 <pre>
   docker build --build-arg OPAM_JOBS=3 --tag cbat .
 </pre>
 
-<p>If you are building behind a proxy, provide `http_proxy` and `https_proxy` values as build arguments:
+<p>If you are building behind a proxy, provide <code>http_proxy</code> and <code>https_proxy</code> values as build arguments:
 
 <pre>
   docker build --build-arg http_proxy=http://myproxy.com:1234 --build-arg https_proxy=http://myproxy.com:1234 --tag cbat .
@@ -151,19 +151,19 @@ Optionally, you may install Boolector 3.2.1 from <a href="https://github.com/boo
   export OUNIT_CI=true
 </pre>
 
-<p>To build the API documentation, install `odoc`:
+<p>To build the API documentation, install <code>odoc</code>:
 
 <pre>
   opam install odoc
 </pre>
 
-<p>Then run `make doc`:
+<p>Then build the docs:
 
 <pre>
   make doc
 </pre>
 
-<p>The documentation can then be viewed locally at `lib/bap_wp/_build/default/_doc/_html/index.html`.
+<p>The documentation can then be viewed locally at <code>lib/bap_wp/_build/default/_doc/_html/index.html</code>.
 
 </section>
 

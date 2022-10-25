@@ -43,6 +43,7 @@ pre {
   border: 1px solid hsla(228, 0%, 75%, 1.0);
   padding: 0.5rem;
   color: white;
+  overflow-x: auto;
 }
 
 code {
