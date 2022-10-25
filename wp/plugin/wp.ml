@@ -312,6 +312,13 @@ let loop_invariant = Cmd.parameter Typ.string "loop-invariant"
            written in BAP's bitvector string format. Only supported for a single
            binary analysis.|}
 
+let no_chaos = Cmd.parameter Typ.(list string) "no-chaos"
+    ~doc:{|By default, nondeterministic functions and functions that allocate
+           memory will use the Chaos function spec that freshens the output
+           variable, "chaosing" its value as a result. Setting this flag will
+           turn off this feature and treat the specified list as other
+           functions that will use other function specs.|}
+
 let grammar = Cmd.(
     args
     $ func
@@ -345,6 +352,7 @@ let grammar = Cmd.(
     $ ogre_orig
     $ ogre_mod
     $ ext_solver_path
+    $ no_chaos
     $ files)
 
 (* The callback run when the command is invoked from the command line. *)
@@ -380,6 +388,7 @@ let callback
     (ogre_orig : string option)
     (ogre_mod : string option)
     (ext_solver_path : string option)
+    (no_chaos : string list)
     (files : string list)
     (ctxt : ctxt) =
   let open Parameters.Err.Syntax in
@@ -415,6 +424,7 @@ let callback
       ogre_mod = ogre_mod;
       ext_solver_path = ext_solver_path;
       init_mem = init_mem;
+      no_chaos = no_chaos
     })
   in
   Parameters.validate params files >>= fun params ->

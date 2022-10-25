@@ -66,6 +66,7 @@ type t = {
   ogre_mod : string option;
   ext_solver_path : string option;
   init_mem : bool;
+  no_chaos : string list
 }
 
 type loop_invariant = {
@@ -255,4 +256,5 @@ let default ~func:(func : string) : t =
     fun_specs = [];
     ext_solver_path = None;
     init_mem = false;
+    no_chaos = []
   }

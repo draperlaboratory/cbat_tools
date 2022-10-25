@@ -607,13 +607,16 @@ let spec_verifier_assume (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option
   else
     None
 
-let spec_verifier_nondet (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
+let spec_verifier_nondet (no_chaos : string list) (sub : Sub.t)
+    (_ : Theory.target) : Env.fun_spec option =
   let is_nondet name = String.(
       (is_prefix name ~prefix:"__VERIFIER_nondet_")
       || (equal name "calloc")
       || (equal name "malloc"))
   in
-  if is_nondet (Sub.name sub) then
+  let no_chaos name = List.exists no_chaos ~f:(fun nc -> String.equal name nc) in
+  let sub_name = Sub.name sub in
+  if (is_nondet sub_name) && (not @@ no_chaos sub_name) then
     Some {
       spec_name = "spec_verifier_nondet";
       spec = Summary

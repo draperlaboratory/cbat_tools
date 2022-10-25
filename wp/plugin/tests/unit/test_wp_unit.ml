@@ -51,6 +51,11 @@ let unit_tests = [
   "Init var compare: SAT"          >: test_plugin "init_var_compare" sat
     ~script:"run_wp_sat.sh";
 
+  "Malloc simple compare: SAT"     >: test_plugin "malloc/compare_simple" sat
+    ~script:"run_wp_sat.sh";
+  "Malloc simple compare: UNSAT"   >: test_plugin "malloc/compare_simple" unsat
+    ~script:"run_wp_unsat.sh";
+
   "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat;
   "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat
     ~script:"run_wp_mem_offset.sh";
