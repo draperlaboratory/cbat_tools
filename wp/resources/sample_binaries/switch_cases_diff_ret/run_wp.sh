@@ -16,6 +16,7 @@ run () {
     --func=process_message \
     --compare-post-reg-values=RAX \
     --compare-func-calls \
+    --show=diagnostics \
     -- ./bin/main_1 ./bin/main_2
 }
 

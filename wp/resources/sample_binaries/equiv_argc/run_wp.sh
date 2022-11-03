@@ -10,6 +10,7 @@ run () {
   bap wp \
     --func=main \
     --compare-post-reg-values=RAX \
+    --show=diagnostics \
     -- ./bin/main_1 ./bin/main_2
 }
 

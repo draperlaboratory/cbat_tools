@@ -4,6 +4,7 @@ S ./lib/**
 
 PKG bap
 PKG core
+PKG core_unix
 PKG z3
 PKG ounit2
 PKG bap_wp
