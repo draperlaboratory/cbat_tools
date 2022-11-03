@@ -546,13 +546,15 @@ let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
   in
   output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env;
   output_to_bildb ~filename:p.bildb_output solver result env;
-  let () = match cp with
-    | Single cp ->
-      Output.print_result solver result cp.pre ~orig:cp.orig
-        ~modif:cp.orig ~show:p.show;
-    | Comparative cp ->
-      Output.print_result solver result cp.pre ~orig:cp.orig
-        ~modif:cp.modif ~show:p.show;
+  let () =
+    if Utils.print_diagnostics p.show then
+      match cp with
+      | Single cp ->
+        Output.print_result solver result cp.pre ~orig:cp.orig
+          ~modif:cp.orig ~show:p.show;
+      | Comparative cp ->
+        Output.print_result solver result cp.pre ~orig:cp.orig
+          ~modif:cp.modif ~show:p.show;
   in
   Ok result
 

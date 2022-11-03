@@ -162,3 +162,6 @@ module Code_addrs = struct
   let contains : t -> addr -> bool = Tree.contains
 
 end
+
+let print_diagnostics (show : string list) : bool =
+  List.mem show "diagnostics" ~equal:String.equal

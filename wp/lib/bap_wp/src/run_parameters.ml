@@ -113,7 +113,8 @@ let validate_show (show : string list) : (unit, error) result =
     "paths";
     "precond-internal";
     "precond-smtlib";
-    "colorful"
+    "colorful";
+    "diagnostics"
   ] in
   match find_unsupported_option show supported with
   | Some s ->
