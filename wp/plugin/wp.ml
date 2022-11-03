@@ -195,7 +195,10 @@ let show = Cmd.parameter Typ.(list string) "show"
            `colorful': precond-internal can have color to highlight key words,
            making the output easier to read. Warning: Coloring will change
            the syntax, so don't use this flag if you wish to pass the printed
-           output as an input elsewhere.|}
+           output as an input elsewhere.
+
+           `diagnostics': Prints out debugging information about runtime to
+           stderr.|}
 
 let stack_base = Cmd.parameter Typ.(some int) "stack-base"
     ~doc:{|Sets the location of the stack frame for the function under

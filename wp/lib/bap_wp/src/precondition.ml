@@ -1430,13 +1430,14 @@ let mem_read_offsets (env2 : Env.t)
 let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
     ?(fmt = Format.err_formatter) (solver : Solver.solver)
     (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
-  Format.fprintf fmt "Evaluating precondition.\n%!";
-
+  if Utils.print_diagnostics print_constr then
+    Format.fprintf fmt "Evaluating precondition.\n%!";
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
     let colorful = List.mem print_constr "colorful" ~equal:String.equal in
     Printf.printf "Internal : %s \n %!" (Constr.to_string ~colorful:colorful pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
-  Format.fprintf fmt "Checking precondition with Z3.\n%!";
+  if Utils.print_diagnostics print_constr then
+    Format.fprintf fmt "Checking precondition with Z3.\n%!";
   let is_correct =
     if refute then
       Bool.mk_implies ctx pre' (Bool.mk_false ctx)
