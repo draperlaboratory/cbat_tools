@@ -432,9 +432,9 @@ let callback
   in
   Parameters.validate params files >>= fun params ->
   Analysis.run params files ctxt >>= function
-  | Z3.Solver.UNSATISFIABLE -> exit 0
-  | Z3.Solver.SATISFIABLE -> exit 1
-  | Z3.Solver.UNKNOWN -> exit 2
+  | Z3.Solver.UNSATISFIABLE -> Ok ()
+  | Z3.Solver.SATISFIABLE -> Error (Extension.Error.Exit_requested 1)
+  | Z3.Solver.UNKNOWN -> Error (Extension.Error.Exit_requested 2)
 
 let () =
   Cmd.declare name grammar callback ~doc
