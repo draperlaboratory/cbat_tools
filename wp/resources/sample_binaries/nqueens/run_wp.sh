@@ -11,6 +11,7 @@ run_net () {
     --trip-asserts \
     --num-unroll=0 \
     --inline="sub*" \
+    --show=diagnostics \
     -- bin/main_$1
 }
 

@@ -6,7 +6,7 @@
 # Should return UNSAT
 
 run () {
-  if type boolector
+  if type boolector > /dev/null 2>&1
   then
   bap wp \
     --func=rightmost_index_32 \

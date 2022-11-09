@@ -1450,7 +1450,7 @@ let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
   match ext_solver with
   | None -> Z3.Solver.check solver []
   | Some (solver_path, declsyms) ->
-    Z3_utils.check_external solver solver_path ctx declsyms
+    Z3_utils.check_external solver solver_path ctx declsyms ~print_constr ~fmt
 
 let exclude ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
     (ctx : Z3.context) ~var:(var : Constr.z3_expr) ~pre:(pre : Constr.t)

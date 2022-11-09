@@ -264,6 +264,8 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
     interpretation machinery. Tested with Boolector, results with other solvers may vary.*)
 
 let check_external
+    ?(print_constr = [])
+    ?(fmt = Format.err_formatter)
     (solver : Z3.Solver.solver)
     (solver_path : string)
     (ctx : Z3.context)
@@ -281,9 +283,10 @@ let check_external
   Out_channel.close chan;
   let cmd = sprintf "%s %s" solver_path tmp_file in
   let solver_stdout, solver_stdin = Caml_unix.open_process cmd in
-  printf "Created temp file %s\n%!" tmp_file;
-  printf "Running external solver %s\n%!" solver_path;
-
+  if Utils.print_diagnostics print_constr then begin
+    Format.fprintf fmt "Created temp file %s\n%!" tmp_file;
+    Format.fprintf fmt "Running external solver %s\n%!" solver_path
+  end;
   (* SexpLib unfortunately uses # as an comment delimitter.
      We replace it with a special token and revert this after parsing. *)
   let pound_token = "MYSPECIALPOUND682" in
