@@ -354,7 +354,7 @@ else:
 <p>Here we ask <code class="wp">wp</code> to try to trip an assert inside the <code>main</code> function of the program at <code>01/binary/main</code>. When we run this command, the relevant output comes at the end, which looks like this:
 
 <pre>
-SAT!
+Property falsified. Counterexample found.
 
 Model:
   ZF  |->  0x0
@@ -377,7 +377,7 @@ Model:
   mem_mod = mem_orig
 </pre>
 
-<p>The first thing it says is <code>SAT!</code>, which means that CBAT was able to find a way to trip the assert.
+<p>The first thing it says is <code>Property falsified. Counterexample found.</code>, which means that CBAT was able to find a way to trip the assert.
 
 <p>Next, it says <code>Model</code>, after which it lists some information. There, you can see a bunch of registers on the left, and a bunch of values on the right (and a mention of memory at the bottom, which we can ignore for now).
 
@@ -653,7 +653,7 @@ solution = 1000 0010 0100 0001 (or 0x4281 in hex)
 <p>After a moment, <code class="wp">wp</code> returns a result. At the end of the output, you should see something like this:
 
 <pre>
-SAT!
+Property falsified. Counterexample found.
 
 Model:
   ZF  |->  0x0
@@ -746,7 +746,7 @@ int main() {
 <p>If you run this, you'll see output that looks something like this:
 
 <pre>
-SAT!
+Property falsified. Counterexample found.
 
 Model:
   ZF  |->  0x0
@@ -770,7 +770,7 @@ Model:
   malloc_ret_RAX016 |->  0x0000000000000000
 </pre>
 
-<p>First, it says <code>SAT!</code>, indicating that it did in fact find a way to trigger the null dereference. Second, it gives us a <code>Model</code>, which shows us how to do it. Notice in particular the very last line: 
+<p>First, it says <code>Property falsified. Counterexample found.</code>, indicating that it did in fact find a way to trigger the null dereference. Second, it gives us a <code>Model</code>, which shows us how to do it. Notice in particular the very last line: 
 
 <pre>
 malloc_ret_RAX016 |->  0x0000000000000000
@@ -812,10 +812,10 @@ int main() {
 Evaluating precondition.
 Checking precondition with Z3.
 
-UNSAT!
+No counterexample found.
 </pre>
 
-<p>This time, <code class="wp">wp</code> says <code>UNSAT</code>, which is the opposite of <code>SAT</code>. In other words, <code class="wp">wp</code> has found that there are no null dereferences in <code>main</code>. And that is correct. There is indeed no possible way to dereference a null pointer in this version of the program, which <code class="wp">wp</code> confirms.
+<p>This time, <code class="wp">wp</code> says <code>No counterexample found.</code>. In other words, <code class="wp">wp</code> has found that there are no null dereferences in <code>main</code>. And that is correct. There is indeed no possible way to dereference a null pointer in this version of the program, which <code class="wp">wp</code> confirms.
 
 </section>
 
@@ -907,7 +907,7 @@ bool same_signs(int x, int y) {
 Evaluating precondition.
 Checking precondition with Z3.
 
-UNSAT!
+No counterexample found.
 </pre>
 
 <p>What this means is that <code class="wp">wp</code> was not able to find a way to make these two function produce different outputs. And remember, <code class="wp">wp</code> does a logical check, so this is telling us that (up to our simplifying assumptions) it is logically impossible for these two functions to produce different outputs. 
@@ -1091,7 +1091,7 @@ int process_signal(signal_t signal) {
 <p>The output looks something like this:
 
 <pre>
-SAT!
+Property falsified. Counterexample found.
 
 Model:
     ZF  |->  0x0
@@ -1114,7 +1114,7 @@ Model:
     mem_mod = mem_orig
 </pre>
 
-<p>This says <code>SAT</code>, which means <code class="wp">wp</code> did indeed find a way to make the older and patched versions of these functions make different function calls. 
+<p>This says <code>Property falsified. Counterexample found</code>, which means <code class="wp">wp</code> did indeed find a way to make the older and patched versions of these functions make different function calls. 
 
 <p>Note the <code>Model</code>, which tells us that this violation occurs when <code>RDI</code> is set to <code>0x01</code>. So if the value <code>0x01</code> is stored in <code>RDI</code> when these functions start, then the second version of the function will call fewer functions than the first version. 
 
@@ -1158,7 +1158,7 @@ typedef enum {SURFACE, NAV, DEPLOY} signal_t;      <-- items indexed 0, 1, 2
 <p>Then <code class="wp">wp</code> prints output that looks something like this:
 
 <pre>
-SAT!
+Property falsified. Counterexample found.
 
 Model:
     ZF  |->  0x0
@@ -1274,7 +1274,8 @@ RAX
 <p>When <code class="wp">wp</code> runs this, it will try to falsify this property. That is, it will explore all logical possibilities (up to our simplifying assumptions), and find a way to make our <code>main</code> function put something other than <code>7</code> in <code>RAX</code>.
 
 <ul>
-  <li>If <code class="wp">wp</code> can find a way to falsify our property, it will return <code>SAT</code> and provide an example of how to make <code>main</code> produce a value other than <code>7</code>.</li>
+  <li>If <code class="wp">wp</code> can find a way to falsify our property, it will return <code>Property falsified.
+      Counterexample found</code> and provide an example of how to make <code>main</code> produce a value other than <code>7</code>.</li>
   <li>If it cannot falsify our property, it will return <code>UNSAT</code>, and that means the property holds. It means that <code>RAX</code> does indeed always contain the 64-bit number 7 at the end of our <code>main</code> function's execution.</li>
 </ul>
 
@@ -1284,7 +1285,7 @@ RAX
 Evaluating precondition.
 Checking precondition with Z3.
 
-UNSAT!
+No counterexample found.
 </pre>
 
 <p>So, in this case, <code class="wp">wp</code> could not find a way to falsify this property, and hence the property holds. And indeed, that makes sense, because as we can see from the code, our function always returns the number <code>7</code>.
@@ -1308,7 +1309,7 @@ UNSAT!
 <p>This time, <code class="wp">wp</code> outputs something that looks like this:
 
 <pre>
-SAT!
+Property falsified. Counterexample found.
 
 Model:
   RSP |->  0x000000003f800081
@@ -1330,7 +1331,7 @@ Refuted goals:
   Z3 Expression: = #x0000000000000007 #x0000000000000003
 </pre>
 
-<p>This time, <code class="wp">wp</code> comes back with <code>SAT</code>, meaning that it could find a way to falsify our assertion, and it shows us how to do it. In the <code>model</code>, most of the values are zero, which makes sense. Since our <code>main</code> function always returns <code>7</code>, the registers can start with pretty much any values (or no values), and <code>main</code> will not produce <code>3</code> in <code>RAX</code>. 
+<p>This time, <code class="wp">wp</code> comes back with <code>Property falsified. Counterexample found</code>, meaning that it could find a way to falsify our assertion, and it shows us how to do it. In the <code>model</code>, most of the values are zero, which makes sense. Since our <code>main</code> function always returns <code>7</code>, the registers can start with pretty much any values (or no values), and <code>main</code> will not produce <code>3</code> in <code>RAX</code>. 
 
 </section>
 
@@ -1367,7 +1368,7 @@ int main(int argc, char **argv) {
 <p>When you run that, you'll see that <code class="wp">wp</code> produces output that looks something like this:
 
 <pre>
-SAT!
+Property falsified. Counterexample found.
 
 Model:
   ZF  |->  0x0
@@ -1426,7 +1427,7 @@ Refuted goals:
 Evaluating precondition.
 Checking precondition with Z3.
 
-UNSAT!
+No counterexample found.
 </pre>
 
 <p>In other words, <code class="wp">wp</code> was not able to find a way to falsify our assertions, and hence our assertions hold.
@@ -1512,7 +1513,7 @@ RAX_mod
 Evaluating precondition.
 Checking precondition with Z3.
 
-UNSAT!
+No counterexample found.
 </pre>
 
 <p>In other words, <code class="wp">wp</code> could not find a way to falsify our assertion. Hence, the property we've asserted here holds. <code>RAX</code> in the original and the modified program will indeed always be equal.
