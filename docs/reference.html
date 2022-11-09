@@ -44,9 +44,9 @@ These options apply in most circumstances to adjust CBAT's behavior or output.
 
 <li><code>--num-unroll=&lt;num&gt;</code> &mdash; Specifies the number of times to unroll each loop. WP will unroll each loop 5 times by default.</code></li>
 
-<li><code>--gdb-output=&lt;filename.gdb&gt;</code> &mdash; When WP results in SAT, outputs a <code>gdb</code> script to file <code>filename.gdb</code>. From within <code>gdb</code>, run <code>source filename.gdb</code> to set a breakpoint at the function given by <code>--func</code> and fill the appropriate registers with the values found in the countermodel. In the case WP returns UNSAT or UNKNOWN, no script will be outputted.</li>
+<li><code>--gdb-output=&lt;filename.gdb&gt;</code> &mdash; When WP finds a countermodel, outputs a <code>gdb</code> script to file <code>filename.gdb</code>. From within <code>gdb</code>, run <code>source filename.gdb</code> to set a breakpoint at the function given by <code>--func</code> and fill the appropriate registers with the values found in the countermodel. In the case WP cannot falsify the property or returns UNKNOWN, no script will be outputted.</li>
 
-<li><code>--bildb-output=&lt;filename.yml&gt;</code> &mdash; When WP results in SAT, outputs a BILDB initialization script to file <code>filename.yml</code>. This YAML file sets the registers and memory to the values found in the countermodel, allowing BILDB to follow the same execution trace. In the case the analysis returns UNSAT or UNKNOWN, no script will be outputted.</li>
+<li><code>--bildb-output=&lt;filename.yml&gt;</code> &mdash; When WP finds a countermodel, outputs a BILDB initialization script to file <code>filename.yml</code>. This YAML file sets the registers and memory to the values found in the countermodel, allowing BILDB to follow the same execution trace. In the case the analysis cannot falsify the property or returns UNKNOWN, no script will be outputted.</li>
 
 <li><code>--use-fun-input-regs</code> &mdash; At a function call site, uses all possible input registers as arguments to a function symbol generated for an output register. If this flag is not present, no registers will be used.</li>
 
@@ -59,7 +59,7 @@ These options apply in most circumstances to adjust CBAT's behavior or output.
 <li><code>--show=[bir|refuted-goals|paths|precond-internal|precond-smtlib]</code> &mdash; A list of details to print out from the analysis. Multiple options can be specified as a comma-separated list. For example: <code>--show=bir,refuted-goals</code>. The options are:
   <ul>
     <li><code>bir</code>: The code of the binary/binaries in BAP Intermediate Representation.</li>
-    <li><code>refuted-goals</code>: In the case WP results in SAT, a list of goals refuted in the model that contains their tagged names, their concrete values, and their Z3 representation.</li>
+    <li><code>refuted-goals</code>: In the case WP finds a countermodel, a list of goals refuted in the model that contains their tagged names, their concrete values, and their Z3 representation.</li>
     <li><code>paths</code>: The execution path of the binary that results in a refuted goal. The path contains information about the jumps taken, their addresses, and the values of the registers at each jump. This option automatically prints out the refuted goals.</li>
     <li><code>precond-smtlib</code>: The precondition printed out in Z3's SMT-LIB2 format.</li>
     <li><code>precond-internal</code>: The precondition printed out in WP's internal format for the <code>Constr.t</code> type.</li>
