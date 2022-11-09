@@ -10,6 +10,7 @@ run() {
     --num-unroll=3 \
     --postcond="(assert (not (= RAX #x0000000000000005)))" \
     --no-byteweight \
+    --show=diagnostics \
     -- ./bin/main_1
 }
 

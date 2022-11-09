@@ -171,12 +171,12 @@ let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
     ~orig:(Comp.{env=env1; prog=sub1; _}) ~modif:(Comp.{env=env2; prog=sub2; _})
   : unit =
   match status with
-  | Solver.UNSATISFIABLE -> Format.fprintf fmt "%s%!" "\nUNSAT!\n"
-  | Solver.UNKNOWN -> Format.fprintf fmt "%s%!" "\nUNKNOWN!\n"
+  | Solver.UNSATISFIABLE -> Format.fprintf fmt "%s%!" "\nNo counterexample found.\n"
+  | Solver.UNKNOWN -> Format.fprintf fmt "%s%!" "\nZ3 timed out.\n"
   | Solver.SATISFIABLE ->
     let ctx = Env.get_context env1 in
     let model = Constr.get_model_exn solver in
-    Format.fprintf fmt "%s%!" "\nSAT!\n";
+    Format.fprintf fmt "%s%!" "\nProperty falsified. Counterexample found.\n";
     Format.fprintf fmt "\nModel:\n%s\n%!" (format_model model env1 env2);
     let print_refuted_goals = List.mem show "refuted-goals" ~equal:String.equal in
     let print_path = List.mem show "paths" ~equal:String.equal in

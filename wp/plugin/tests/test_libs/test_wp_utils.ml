@@ -30,24 +30,11 @@ let timeout_msg = "Test times out!"
 
 let fail_msg = "Test currently fails!"
 
-let sat = "SAT!"
+let sat = 1
 
-let unsat = "UNSAT!"
+let unsat = 0
 
-let unknown = "UNKNOWN!"
-
-(* given a line of cbat output, checks
-   that if the line specifies the result (sat or unsat),
-   matches what is expected *)
-let check_z3_result (line : string) (expected : string) (ctxt : test_ctxt) : unit =
-  if List.exists [sat; unsat; unknown] ~f:(String.equal line) then
-    assert_equal
-      ~ctxt
-      ~printer:String.to_string
-      ~cmp:String.equal
-      expected line
-  else
-    ()
+let unknown = 2
 
 (* given a line of cbat output and a register,
    checks if that line contains the countermodel that includes reg *)
@@ -80,19 +67,18 @@ let get_reg_from_line (line : string) (regs_list : StringSet.t) :
 let iter_stream (stream : char Stdlib.Seq.t) ~(f : char -> unit) : unit =
   try Stdlib.Seq.iter f stream with End_of_file -> ()
 
-(* Look for a line containing SAT!, UNSAT!, or UNKNOWN! in
-   plugin output and compare with expected countermodel and result *)
-let check_result (stream : char Stdlib.Seq.t) (expected_result : string)
+(* Look for a line containing specific outputs and compare with expected
+   countermodel and result *)
+let check_result (stream : char Stdlib.Seq.t)
     (regs_list : StringSet.t)
     (checker_wrapped: ((string StringMap.t) -> string option) option)
-    (ctxt : test_ctxt) : unit =
+  : unit =
   let buff = Buffer.create 16 in
   let results = StringMap.empty in
   let acc = ref results in
   iter_stream stream ~f:(function
       |'\n' ->
         let line = Buffer.contents buff in
-        check_z3_result line expected_result ctxt;
         (* if the line has part of the model on it, put in map
            otherwise do nothing since the line is irrelevant *)
         begin match get_reg_from_line line regs_list with
@@ -295,13 +281,15 @@ let test_plugin
     ?reg_list:(reg_list = StringSet.empty)
     ?checker:(checker = None)
     (elf_dir : string)
-    (expected_result : string)
+    (expected_exit_code : int)
   : test =
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let script = Format.sprintf "./%s" script in
+  let process_status = UnixLabels.WEXITED expected_exit_code in
   let test ctxt =
     assert_command script args
-      ~foutput:(fun res -> check_result res expected_result reg_list checker ctxt)
+      ~exit_code:process_status
+      ~foutput:(fun res -> check_result res reg_list checker)
       ~backtrace:true
       ~chdir:target
       ~ctxt:ctxt

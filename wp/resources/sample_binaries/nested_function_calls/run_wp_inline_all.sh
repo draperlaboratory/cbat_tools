@@ -10,7 +10,7 @@
 run () {
   bap wp \
     --func=main \
-    --show=precond-internal \
+    --show=precond-internal,diagnostics \
     --inline=.* \
     --trip-asserts \
     -- ./bin/main

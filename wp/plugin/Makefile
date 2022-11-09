@@ -7,11 +7,11 @@ VERIFIER_LOCAL := api/c/cbat.h
 VERIFIER_INSTALL_PATH := $(API_PATH)/c/cbat.h
 
 PKGS := 'z3,bap_wp,re,str'
-TAG := 'warn(A-48-44)'
+TAG := 'warn(A-48-44-70)'
 Is := 'lib'
 
-TEST_PKGS := 'bap,z3,bap_wp,ounit2,re,str'
-TEST_TAG := 'warn(A-48-44),debug,thread'
+TEST_PKGS := 'bap,z3,bap_wp,ounit2,re,str,core_unix'
+TEST_TAG := 'warn(A-48-44-70),debug,thread'
 TEST_Is := 'lib,tests/test_libs'
 
 TEST_Is_UNIT := $(TEST_Is)',tests/unit'

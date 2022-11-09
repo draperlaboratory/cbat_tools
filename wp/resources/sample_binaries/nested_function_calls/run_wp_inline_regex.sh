@@ -12,6 +12,7 @@ run () {
     --func=main \
     --inline="foo|bar" \
     --trip-asserts \
+    --show=diagnostics \
     -- ./bin/main
 }
 
