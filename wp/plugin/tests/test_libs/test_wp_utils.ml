@@ -283,7 +283,11 @@ let test_plugin
     (elf_dir : string)
     (expected_exit_code : int)
   : test =
-  (* Format.printf "%s" @@ Caml.Sys.getcwd (); *)
+  let env = Core_unix.environment () |> Array.filter ~f:(fun s ->
+      (* If we're running the tests from dune then we should not propagate
+         the DUNE_DIR_LOCATIONS environment var. The reason is that this
+         will cause BAP to attempt to load the plugin twice, which fails. *)
+      not @@ String.is_prefix s ~prefix:"DUNE_DIR_LOCATIONS=") in
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let script = Format.sprintf "./%s" script in
   let process_status = UnixLabels.WEXITED expected_exit_code in
@@ -293,7 +297,7 @@ let test_plugin
       ~foutput:(fun res -> check_result res reg_list checker)
       ~backtrace:true
       ~chdir:target
-      ~ctxt:ctxt
+      ~ctxt ~env
   in
   test_case ~length test
 
