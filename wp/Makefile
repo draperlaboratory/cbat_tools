@@ -18,10 +18,10 @@ all: install
 
 .PHONY: clean
 clean:
-	@printf $(FMT_STR) "CLEANING LIB"
-	$(MAKE) -C $(LIB) clean
 	@printf $(FMT_STR) "CLEANING PLUGIN"
 	$(MAKE) -C $(PLUGIN) clean
+	@printf $(FMT_STR) "CLEANING LIB"
+	$(MAKE) -C $(LIB) clean
 
 #####################################################
 # BUILD
