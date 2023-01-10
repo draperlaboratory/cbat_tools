@@ -46,7 +46,7 @@ build.plugin: build.lib install.lib
 #####################################################
 
 .PHONY: install
-install: uninstall.plugin install.plugin
+install: install.plugin
 
 .PHONY: uninstall
 uninstall: uninstall.lib uninstall.plugin

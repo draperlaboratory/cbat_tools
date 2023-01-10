@@ -438,3 +438,9 @@ let callback
 
 let () =
   Cmd.declare name grammar callback ~doc
+
+let () =
+  let doc =
+    "Computes the weakest precondition of a \
+     subroutine given a postcondition." in
+  Extension.declare ~doc @@ fun _ -> Ok ()

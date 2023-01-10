@@ -24,7 +24,7 @@ module IntSet = Set.Make(Int)
 
 (* To run these tests: `make test` or `make test.integration` in wp directory *)
 
-let bin_dir = "../resources/sample_binaries"
+let bin_dir = "../../../../../resources/sample_binaries"
 
 let timeout_msg = "Test times out!"
 
@@ -283,6 +283,7 @@ let test_plugin
     (elf_dir : string)
     (expected_exit_code : int)
   : test =
+  (* Format.printf "%s" @@ Caml.Sys.getcwd (); *)
   let target = Format.sprintf "%s/%s" bin_dir elf_dir in
   let script = Format.sprintf "./%s" script in
   let process_status = UnixLabels.WEXITED expected_exit_code in

@@ -35,7 +35,7 @@ clean.local:
 #####################################################
 
 $(BUILD): $(SRC_FILES)
-	dune build -p $(PROJECT)
+	dune build -p $(PROJECT) @install
 	touch $(BUILD)
 
 .PHONY: build

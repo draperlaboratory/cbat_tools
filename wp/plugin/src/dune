@@ -1,0 +1,11 @@
+(library
+ (name wp_plugin)
+ (public_name wp.plugin)
+ (libraries z3 bap_wp re str)
+ (preprocess (pps ppx_bin_prot)))
+
+(plugin
+ (name wp)
+ (package wp)
+ (libraries wp.plugin)
+ (site (bap-common plugins)))
