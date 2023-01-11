@@ -49,7 +49,9 @@ build.plugin: build.lib install.lib
 install: install.plugin
 
 .PHONY: uninstall
-uninstall: uninstall.lib uninstall.plugin
+uninstall:
+	$(MAKE) uninstall.plugin
+	$(MAKE) uninstall.lib
 
 .PHONY: uninstall.lib
 uninstall.lib:
