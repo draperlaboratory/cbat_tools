@@ -65,8 +65,8 @@ test: test.unit
 
 .PHONY: test.unit
 test.unit: install
-	dune runtest tests/unit
+	dune runtest --force tests/unit
 
 .PHONY: test.integration
 test.integration: install
-	dune runtest tests/integration
+	dune runtest --force tests/integration

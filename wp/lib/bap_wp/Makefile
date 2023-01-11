@@ -71,11 +71,11 @@ test: test.unit test.performance
 
 .PHONY: test.unit
 test.unit:
-	dune runtest tests/unit
+	dune runtest --force tests/unit
 
 .PHONY: test.performance
 test.performance:
-	dune runtest tests/performance
+	dune runtest --force tests/performance
 
 #####################################################
 # DOCS
