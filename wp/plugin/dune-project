@@ -1,3 +1,27 @@
 (lang dune 3.6)
 (using dune_site 0.1)
 (name wp)
+(license MIT)
+(version 0.1)
+(source (github draperlaboratory/cbat_tools))
+
+(authors "Draper Laboratory")
+
+(maintainers
+ "Chloe Fortuna <cfortuna@draper.com"
+ "JT Paasch <jtpaasch@draper.com>"
+ "Philip Zucker <pzucker@draper.com>"
+ "Benjamin Mourad <bmourad@draper.com>")
+
+(generate_opam_files true)
+
+(package
+ (name wp)
+ (synopsis "A weakest-precondition analysis plugin")
+ (description "A weakest-precondition analysis plugin for use with BAP.")
+ (depends
+  (bap (>= 2.6.0))
+  (core (>= v0.15))
+  (z3 (>= 4.8.14))
+  (ounit2 (>= 2.2.3))
+  (re (>= 1.9.0))))
