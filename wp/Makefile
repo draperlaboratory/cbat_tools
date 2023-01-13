@@ -73,7 +73,7 @@ install.plugin: install.lib
 
 # lib must be installed BEFORE building plugin
 .PHONY: install.lib
-install.lib:
+install.lib: uninstall.plugin
 	@printf $(FMT_STR) "INSTALLING LIB"
 	$(MAKE) -C $(LIB) install
 
