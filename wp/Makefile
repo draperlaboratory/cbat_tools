@@ -18,10 +18,10 @@ all: install
 
 .PHONY: clean
 clean:
-	@printf $(FMT_STR) "CLEANING LIB"
-	$(MAKE) -C $(LIB) clean
 	@printf $(FMT_STR) "CLEANING PLUGIN"
 	$(MAKE) -C $(PLUGIN) clean
+	@printf $(FMT_STR) "CLEANING LIB"
+	$(MAKE) -C $(LIB) clean
 
 #####################################################
 # BUILD
@@ -46,10 +46,12 @@ build.plugin: build.lib install.lib
 #####################################################
 
 .PHONY: install
-install: uninstall.plugin install.plugin
+install: install.plugin
 
 .PHONY: uninstall
-uninstall: uninstall.lib uninstall.plugin
+uninstall:
+	$(MAKE) uninstall.plugin
+	$(MAKE) uninstall.lib
 
 .PHONY: uninstall.lib
 uninstall.lib:
@@ -71,7 +73,7 @@ install.plugin: install.lib
 
 # lib must be installed BEFORE building plugin
 .PHONY: install.lib
-install.lib:
+install.lib: uninstall.plugin
 	@printf $(FMT_STR) "INSTALLING LIB"
 	$(MAKE) -C $(LIB) install
 

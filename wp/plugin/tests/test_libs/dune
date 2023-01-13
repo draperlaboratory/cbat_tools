@@ -1,0 +1,4 @@
+(library
+ (name test_lib)
+ (public_name wp.test)
+ (libraries z3 ounit2 bap_wp re str core_unix))
