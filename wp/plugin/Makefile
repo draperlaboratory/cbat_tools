@@ -2,7 +2,7 @@ PASS_NAME := wp
 SHELL := /bin/bash
 
 SAMPLE_BIN_DIR := ../resources/sample_binaries
-API_PATH := $(shell bap --api-list-paths)
+API_PATH := $(shell bap config sysdatadir)/api
 VERIFIER_LOCAL := api/c/cbat.h
 VERIFIER_INSTALL_PATH := $(API_PATH)/c/cbat.h
 
@@ -76,7 +76,7 @@ uninstall.verifier:
 
 .PHONY: uninstall
 uninstall: uninstall.verifier
-	bapbundle remove $(PASS_NAME).plugin
+	-bapbundle remove $(PASS_NAME).plugin
 
 .PHONY: reinstall
 reinstall: uninstall reinstall
