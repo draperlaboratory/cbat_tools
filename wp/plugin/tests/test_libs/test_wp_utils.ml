@@ -24,7 +24,7 @@ module IntSet = Set.Make(Int)
 
 (* To run these tests: `make test` or `make test.integration` in wp directory *)
 
-let bin_dir = "../resources/sample_binaries"
+let bin_dir = "../../../../../resources/sample_binaries"
 
 let timeout_msg = "Test times out!"
 

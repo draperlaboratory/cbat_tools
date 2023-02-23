@@ -1,5 +1,5 @@
 (library
    (name bap_wp)
    (public_name bap_wp)
-   (libraries bap bap-x86-cpu bap-arm z3 ounit2 re str)
+   (libraries bap bap-x86-cpu bap-arm z3 ounit2 re str findlib.dynload threads)
    (preprocess (pps ppx_sexp_conv ppx_bin_prot)))

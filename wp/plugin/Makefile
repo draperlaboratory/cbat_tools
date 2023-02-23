@@ -2,7 +2,7 @@ PASS_NAME := wp
 SHELL := /bin/bash
 
 SAMPLE_BIN_DIR := ../resources/sample_binaries
-API_PATH := $(shell bap --api-list-paths)
+API_PATH := $(shell bap config sysdatadir)/api
 VERIFIER_LOCAL := api/c/cbat.h
 VERIFIER_INSTALL_PATH := $(API_PATH)/c/cbat.h
 
@@ -76,7 +76,7 @@ uninstall.verifier:
 
 .PHONY: uninstall
 uninstall: uninstall.verifier
-	bapbundle remove $(PASS_NAME).plugin
+	-bapbundle remove $(PASS_NAME).plugin
 
 .PHONY: reinstall
 reinstall: uninstall reinstall
@@ -88,24 +88,19 @@ reinstall: uninstall reinstall
 
 test.build:
 	$(MAKE) -C $(SAMPLE_BIN_DIR)
+	$(MAKE) -C tests build
 
 test.clean:
 	$(MAKE) -C $(SAMPLE_BIN_DIR) clean
+	$(MAKE) -C tests clean
 
 .PHONY: test
 test: test.unit
 
 .PHONY: test.unit
 test.unit: install
-	ocamlbuild -r -use-ocamlfind \
-		-pkgs $(TEST_PKGS) \
-		-tag $(TEST_TAG) -Is $(TEST_Is_UNIT) test.native
-	./test.native
+	$(MAKE) -C tests test.unit
 
 .PHONY: test.integration
 test.integration: install
-	ocamlbuild -r -use-ocamlfind \
-		-pkgs $(TEST_PKGS) \
-		-tag $(TEST_TAG) \
-		-tag $(TEST_TAG) -Is $(TEST_Is_INTEGRATION) test.native
-	./test.native
+	$(MAKE) -C tests test.integration
