@@ -1,0 +1,14 @@
+(tests
+ (names test)
+ (libraries
+   bap
+   ounit2
+   z3
+   findlib.dynload
+   threads
+   re
+   str
+   core_unix
+   wp-plugin-tests)
+ (flags -w -5A-48-44-70)
+ (ocamlopt_flags -O3))

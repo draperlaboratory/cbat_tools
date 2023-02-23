@@ -88,24 +88,19 @@ reinstall: uninstall reinstall
 
 test.build:
 	$(MAKE) -C $(SAMPLE_BIN_DIR)
+	$(MAKE) -C tests build
 
 test.clean:
 	$(MAKE) -C $(SAMPLE_BIN_DIR) clean
+	$(MAKE) -C tests clean
 
 .PHONY: test
 test: test.unit
 
 .PHONY: test.unit
 test.unit: install
-	ocamlbuild -r -use-ocamlfind \
-		-pkgs $(TEST_PKGS) \
-		-tag $(TEST_TAG) -Is $(TEST_Is_UNIT) test.native
-	./test.native
+	$(MAKE) -C tests test.unit
 
 .PHONY: test.integration
 test.integration: install
-	ocamlbuild -r -use-ocamlfind \
-		-pkgs $(TEST_PKGS) \
-		-tag $(TEST_TAG) \
-		-tag $(TEST_TAG) -Is $(TEST_Is_INTEGRATION) test.native
-	./test.native
+	$(MAKE) -C tests test.integration

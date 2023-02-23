@@ -1,0 +1,14 @@
+(library
+ (name wp_plugin_tests)
+ (public_name wp-plugin-tests)
+ (flags -w -A-44-70)
+ (libraries
+   bap
+   z3
+   bap_wp
+   ounit2
+   re
+   str
+   core_unix
+   findlib.dynload
+   threads))

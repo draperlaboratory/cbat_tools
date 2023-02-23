@@ -1,5 +1,5 @@
 open OUnitTest
-open Test_wp_utils
+open Wp_plugin_tests.Test_wp_utils
 
 let unit_tests = [
 
