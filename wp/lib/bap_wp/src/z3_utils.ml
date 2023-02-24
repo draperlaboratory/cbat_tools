@@ -183,6 +183,16 @@ let mk_and (ctx : Z3.context) (xs : Constr.z3_expr list) : Constr.z3_expr =
   | [x] -> x
   | _   -> Bool.mk_and ctx xs
 
+(** [process_lambda varname model_val ks vs] turns a lambda form of representing
+    the memory into a sequence of stores to an array that is initialized with a
+    default value. It expects that the body of the lambda is a chain of [ite]
+    expressions mapping addresses to values.
+
+    [varname] is the single argument to the lambda.
+    [model_val] is the body of the lambda.
+    [ks] is the sort of the keys for the array.
+    [vs] is the sort of the values for the array.
+*)
 let process_lambda
     (varname : string)
     (model_val : Sexp.t)
