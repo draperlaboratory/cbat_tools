@@ -28,11 +28,7 @@ module FInterp = Model.FuncInterp
 module Env = Environment
 module Constr = Constraint
 module Comp = Compare
-module Quant = Z3.Quantifier
-module BV = Z3.BitVector
 module Sym = Z3.Symbol
-module AST = Z3.AST
-
 module VarMap = Var.Map
 
 type mem_model = {
@@ -61,9 +57,9 @@ let extract_array (e : Constr.z3_expr) : mem_model =
   let rec aux
       (partial_map : (Constr.z3_expr * Constr.z3_expr) list)
       (e : Constr.z3_expr) : mem_model =
-    let bail ?(default = e) ?(model = partial_map) s =
-      warning "Unexpected case destructing Z3 %s: %s" s @@ Expr.to_string e;
-      {default; model} in
+    let bail () =
+      warning "Unexpected case destructing Z3 array: %s" @@ Expr.to_string e;
+      {default = e; model = partial_map} in
     if Z3Array.is_array e then
       let numargs = Expr.get_num_args e in
       let args = Expr.get_args e in
@@ -78,62 +74,8 @@ let extract_array (e : Constr.z3_expr) : mem_model =
       | "const" when numargs = 1 ->
         let key = List.nth_exn args 0 in
         {default = key; model = List.rev partial_map}
-      | _ -> bail "array"
-    else if AST.is_quantifier @@ Expr.ast_of_expr e then
-      let q = Quant.quantifier_of_expr e in
-      if Quant.get_num_bound q = 1 then
-        let rec extract_lambda
-            (partial_map : (Constr.z3_expr * Constr.z3_expr) list)
-            (e : Constr.z3_expr) : mem_model =
-          let bail = bail ~default:e ~model:partial_map in
-          let numargs = Expr.get_num_args e in
-          let args = Expr.get_args e in
-          let f_decl = Expr.get_func_decl e in
-          let f_name = Fun.get_name f_decl |> Sym.to_string in
-          match f_name with
-          | "if" when numargs = 3 ->
-            let cond = List.nth_exn args 0 in
-            let yes = List.nth_exn args 1 in
-            let no = List.nth_exn args 2 in
-            let cond_numargs = Expr.get_num_args cond in
-            let cond_args = Expr.get_args cond in
-            let cond_decl = Expr.get_func_decl cond in
-            let eq args =
-              let lhs = List.nth_exn args 0 in
-              let rhs = List.nth_exn args 1 in
-              if AST.is_var @@ Expr.ast_of_expr lhs
-              && Quant.get_index lhs = 0
-              && BV.is_bv_numeral rhs
-              then Some rhs else None in
-            begin match Fun.get_decl_kind cond_decl with
-              | OP_EQ when cond_numargs = 2 ->
-                begin match eq cond_args with
-                  | Some key when BV.is_bv_numeral yes ->
-                    extract_lambda ((key, yes) :: partial_map) no
-                  | _ -> bail "eq"
-                end
-              | OP_OR ->
-                Monad.Option.List.map cond_args ~f:(fun x ->
-                    let numargs = Expr.get_num_args x in
-                    let args = Expr.get_args x in
-                    try
-                      let f_decl = Expr.get_func_decl x in
-                      match Fun.get_decl_kind f_decl with
-                      | OP_EQ when numargs = 2 -> eq args
-                      | _ -> None
-                    with _ -> None) |> begin function
-                  | Some keys when BV.is_bv_numeral yes ->
-                    let m = List.map keys ~f:(fun k -> k, yes) in
-                    extract_lambda (m @ partial_map) no
-                  | _ -> bail "or"
-                end
-              | _ -> bail "if"
-            end
-          | "bv" -> {default = e; model = List.rev partial_map}
-          | _ -> bail "lambda" in
-        extract_lambda partial_map @@ Quant.get_body q
-      else bail "quantifier"
-    else bail "expr" in
+      | _ -> bail ()
+    else bail () in
   let mem = aux [] e in {
     mem with model = List.sort mem.model ~compare:(fun (addr1, _) (addr2, _) ->
       String.compare (Expr.to_string addr1) (Expr.to_string addr2))
