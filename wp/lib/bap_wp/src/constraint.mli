@@ -43,9 +43,12 @@ type t
 (** A goal is simply a Z3 (boolean) expression tagged with a name. *)
 type goal
 
-(** A path tracks an execution path by mapping [jmp]s of branches to a
-    boolean, which marks whether the path was taken or not. *)
-type path = bool Bap.Std.Jmp.Map.t
+(** The branches that may be taken out of a conditional jump. *)
+type branches = Only of bool | Both
+
+(** A path tracks an execution path by mapping [jmp]s to [branches],
+    where [branches] marks which branches were taken out of the [jmp]. *)
+type path = branches Bap.Std.Jmp.Map.t
 
 (** A goal that has been refuted by the Z3 model during WP analysis. Contains
     the path taken in the binary to reach the goal, as well as a map of register
@@ -79,6 +82,9 @@ val format_refuted_goal
 
 (** Obtains the goal data type from a refuted goal. *)
 val goal_of_refuted_goal : refuted_goal -> goal
+
+(** Obtains the path data type from a refuted goal. *)
+val path_of_refuted_goal : refuted_goal -> path
 
 (** Obtains a goal's tagged name. *)
 val get_goal_name : goal -> string

@@ -166,10 +166,10 @@ let get_mem (m : Z3.Model.model) (env : Env.t) : mem_model =
   let mem, _ = Env.get_var env (Env.get_mem env) in
   extract_array (Constr.eval_model_exn m mem)
 
-let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
-    (status : Solver.status) (goals: Constr.t) ~show:(show : string list)
-    ~orig:(Comp.{env=env1; prog=sub1; _}) ~modif:(Comp.{env=env2; prog=sub2; _})
-  : unit =
+let print_result ?fmt:(fmt = Format.err_formatter) ?(dump_cfgs : string option = None)
+      (solver : Solver.solver) (status : Solver.status) (goals: Constr.t)
+      ~show:(show : string list) ~orig:(Comp.{env=env1; prog=sub1; _})
+      ~modif:(Comp.{env=env2; prog=sub2; _}) : unit =
   match status with
   | Solver.UNSATISFIABLE -> Format.fprintf fmt "%s%!" "\nUNSAT!\n"
   | Solver.UNKNOWN -> Format.fprintf fmt "%s%!" "\nUNKNOWN!\n"
@@ -180,20 +180,28 @@ let print_result ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
     Format.fprintf fmt "\nModel:\n%s\n%!" (format_model model env1 env2);
     let print_refuted_goals = List.mem show "refuted-goals" ~equal:String.equal in
     let print_path = List.mem show "paths" ~equal:String.equal in
-    (* If 'paths' is specified, we assume we are also printing the refuted goals. *)
-    if print_refuted_goals || print_path then begin
+    (* Only compute the refuted goals when we print them or write CFGs *)
+    if print_refuted_goals || print_path || Option.is_some dump_cfgs then
       let var_map1 = Env.get_var_map env1 in
       let var_map2 = Env.get_var_map env2 in
       let mem1, _ = Env.get_var env1 (Env.get_mem env1) in
       let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
       let refuted_goals =
         Constr.get_refuted_goals goals solver ctx ~filter_out:[mem1; mem2] in
-      Format.fprintf fmt "%s%!" "\nRefuted goals:\n";
-      Seq.iter refuted_goals ~f:(fun goal ->
-          Format.fprintf fmt "%s\n%!"
-            (Constr.format_refuted_goal goal model ~orig:(var_map1, sub1)
-               ~modif:(var_map2, sub2) ~print_path))
-    end
+      begin
+        (* If 'paths' is specified, we assume we are also printing the refuted goals. *)
+        if print_refuted_goals || print_path then
+          begin 
+            Format.fprintf fmt "%s%!" "\nRefuted goals:\n";
+            Seq.iter refuted_goals ~f:(fun goal ->
+                Format.fprintf fmt "%s\n%!"
+                  (Constr.format_refuted_goal goal model ~orig:(var_map1, sub1)
+                     ~modif:(var_map2, sub2) ~print_path))
+          end;
+        Option.iter dump_cfgs ~f:(fun fname -> 
+            Cfg_path.pp_cfg_path_fst_refuted_goal refuted_goals
+              sub1 sub2 (fname ^ "_orig.dot") (fname ^ "_mod.dot"))
+      end
 
 
 let reg_map (env : Env.t) =

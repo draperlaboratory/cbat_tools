@@ -1555,9 +1555,9 @@ let test_jmp_spec_reach_1 (test_ctx : test_ctxt) : unit =
   in
   let jmp_spec =
     Jmp.Map.empty
-    |> Jmp.Map.set ~key:(find_jump sub cond_x) ~data:true
-    |> Jmp.Map.set ~key:(find_jump sub cond_y) ~data:true
-    |> Jmp.Map.set ~key:(find_jump sub cond_z) ~data:false
+    |> Jmp.Map.set ~key:(find_jump sub cond_x) ~data:(Constr.Only true)
+    |> Jmp.Map.set ~key:(find_jump sub cond_y) ~data:(Constr.Only true)
+    |> Jmp.Map.set ~key:(find_jump sub cond_z) ~data:(Constr.Only false)
     |> Pre.jmp_spec_reach
   in
   let env = Pre.mk_env ~target:test_tgt ctx var_gen  ~jmp_spec ~subs:(Seq.singleton sub) in
@@ -1599,9 +1599,9 @@ let test_jmp_spec_reach_2 (test_ctx : test_ctxt) : unit =
   in
   let jmp_spec =
     Jmp.Map.empty
-    |> Jmp.Map.set ~key:(find_jump sub cond_x) ~data:true
-    |> Jmp.Map.set ~key:(find_jump sub cond_y) ~data:true
-    |> Jmp.Map.set ~key:(find_jump sub cond_unsat) ~data:true
+    |> Jmp.Map.set ~key:(find_jump sub cond_x) ~data:(Constr.Only true)
+    |> Jmp.Map.set ~key:(find_jump sub cond_y) ~data:(Constr.Only true)
+    |> Jmp.Map.set ~key:(find_jump sub cond_unsat) ~data:(Constr.Only true)
     |> Pre.jmp_spec_reach
   in
   let env = Pre.mk_env ~target:test_tgt ctx var_gen  ~jmp_spec ~subs:(Seq.singleton sub) in

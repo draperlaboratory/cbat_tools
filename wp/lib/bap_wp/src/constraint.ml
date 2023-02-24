@@ -15,13 +15,22 @@ open !Core
 open Bap.Std
 
 module Expr = Z3.Expr
+module B = Base.Bool
 module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Model = Z3.Model
 module Solver = Z3.Solver
 type z3_expr = Expr.expr
 
-type path = bool Jmp.Map.t
+type branches = Only of bool | Both
+
+type path = branches Jmp.Map.t
+
+let update_path (p : path) (jmp : Jmp.t) (branch : bool) : path =
+  Jmp.Map.update p jmp ~f:(function
+      | Some Both -> Both
+      | Some (Only branch' as o) -> if B.equal branch branch' then o else Both
+      | None -> Only branch)
 
 (* A map containing pairs of a register and its value at specific jumps in the program. *)
 type reg_map = (z3_expr * z3_expr) list Jmp.Map.t
@@ -115,7 +124,11 @@ let format_path
             jmp
             |> Jmp.to_string
             |> String.substr_replace_first ~pattern:"\n" ~with_:"" in
-          let taken_str = if taken then "(taken)" else "(not taken)" in
+          let taken_str = (match taken with
+                           | Only true -> "(taken)"
+                           | Only false -> "(not taken)"
+                           | Both -> "(taken AND not taken)")
+          in
           begin
             match Term.get_attr jmp address with
             | None ->
@@ -174,6 +187,10 @@ let format_refuted_goal
 
 let goal_of_refuted_goal (rg : refuted_goal) : goal =
   rg.goal
+
+(* SML: added because rg.path not accessible outside the module otherwise *)
+let path_of_refuted_goal (rg : refuted_goal) : path =
+  rg.path
 
 let mk_goal (name : string) (value : z3_expr) : goal =
   { goal_name = name; goal_val = value }
@@ -447,17 +464,20 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
       else
         failwith (Format.sprintf "get_refuted_goals: Unable to resolve %s" g.goal_name)
     | ITE (jmp, cond, c1, c2) ->
+       Printf.printf "***JUMP: %s***\n" (Jmp.to_string jmp); Out_channel.flush stdout;
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
       let current_registers = update_current_regs
           model olds news jmp current_registers filter_out in
       if Z3.Boolean.is_true cond_res
       then
-        let current_path = Jmp.Map.set current_path ~key:jmp ~data:true in
+        let () = print_endline "true\n"; Out_channel.flush stdout in 
+        let current_path = update_path current_path jmp true in
         worker c1 current_path current_registers olds news
       else if Z3.Boolean.is_false cond_res
       then
-        let current_path = Jmp.Map.set current_path ~key:jmp ~data:false in
+        let () = print_endline "false\n"; Out_channel.flush stdout in
+        let current_path = update_path current_path jmp false in
         worker c2 current_path current_registers olds news
       else
         failwith (Format.sprintf "get_refuted_goals: Unable to resolve branch \
@@ -487,6 +507,7 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
         |> List.unzip   in 
       worker e current_path current_registers o' n' (* (olds @ o) (news @ n') *)
   in
+  print_endline @@ to_string constr; Out_channel.flush stdout;
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
 
 

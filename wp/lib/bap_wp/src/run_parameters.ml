@@ -56,6 +56,7 @@ type t = {
   stack_base : int option;
   stack_size : int option;
   show : string list;
+  dump_cfgs : string option;
   func_name_map : (string * string) list;
   user_func_specs : (string * string * string) list;
   user_func_specs_orig : (string * string * string) list;
@@ -245,6 +246,7 @@ let default ~func:(func : string) : t =
     stack_base = None;
     stack_size = None;
     show = [];
+    dump_cfgs = None;
     func_name_map = [];
     user_func_specs = [];
     user_func_specs_orig = [];

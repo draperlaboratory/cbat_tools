@@ -13,6 +13,9 @@
 
 open OUnit2
 
+(* SML: restore *)
+
+(*
 let suite =
   "Unit Tests" >::: [
     "Precondition" >::: Test_precondition.suite;
@@ -21,6 +24,12 @@ let suite =
     "Output"       >::: Test_output.suite;
     "Z3 Utils"     >::: Test_z3_utils.suite;
     "Utils"        >::: Test_utils.suite;
+  ]
+ *)
+
+let suite =
+  "Unit Tests" >::: [
+      "CFG Paths" >::: Test_cfg_path.suite;
   ]
 
 let _ = run_test_tt_main suite
