@@ -1,3 +1,16 @@
+(***************************************************************************)
+(*                                                                         *)
+(*  Copyright (C) 2018/2019 The Charles Stark Draper Laboratory, Inc.      *)
+(*                                                                         *)
+(*  This file is provided under the license found in the LICENSE file in   *)
+(*  the top-level directory of this project.                               *)
+(*                                                                         *)
+(*  This work is funded in part by ONR/NAWC Contract N6833518C0107.  Its   *)
+(*  content does not necessarily reflect the position or policy of the US  *)
+(*  Government and no official endorsement should be inferred.             *)
+(*                                                                         *)
+(***************************************************************************)
+
 open !Core
 open Bap.Std
 open Graphlib.Std
@@ -8,7 +21,6 @@ module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Model = Z3.Model
 module Solver = Z3.Solver
-type z3_expr = Expr.expr
 
 module Node = Graphs.Ir.Node
 module Edge = Graphs.Ir.Edge
@@ -24,20 +36,8 @@ let jmps_of_blk (b : Blk.t) : Jmp.t seq =
 let jmps_of_sub (s : Sub.t) : Jmp.t seq =
   Term.enum blk_t s |> Seq.map ~f:jmps_of_blk |> Seq.concat
 
-let jmps_of_node (n : Node.t) : Jmp.t seq =
-  n |> Node.label |> jmps_of_blk
-
 let filter_path (p : Constr.path) (jmps : Jmp.t seq) : Constr.path =
   Jmp.Map.filter_keys p ~f:(fun k -> Seq.mem jmps k ~equal:Jmp.equal)
-
-let print_path (p : Constr.path) : unit =
-  Jmp.Map.iteri p ~f:(fun ~key:k ~data:_ ->
-      Printf.printf "%s, |-> ???\n" (Jmp.to_string k);
-      match Jmp.kind k with
-      | Call _ -> print_endline "call"
-      | Goto _ -> print_endline "goto"
-      | Ret _ -> print_endline "ret"
-      | Int _ -> print_endline "int")
 
 let pick_edges (e1 : Edge.t) (e2 : Edge.t) (path : Constr.path) : Edge.t list =
   let find e = Jmp.Map.find path (Edge.jmp e) in
@@ -92,17 +92,15 @@ let write_highlighted_cfg (sub : Sub.t) ~(highlight : EdgeSet.t) ~(filename : st
 
 let pp_cfg_path_fst_refuted_goal
       (rgs : Constr.refuted_goal seq)
-      (sub1 : Sub.t)
-      (sub2 : Sub.t)
-      (outfile1 : string)
-      (outfile2 : string) : unit =
+      ~(f : Sub.t) ~(g : Sub.t)
+      ~(f_out : string) ~(g_out : string) : unit =
   match Seq.hd rgs with
   | None -> print_endline "no refuted goals"
   | Some rg ->
      let path_combined = Constr.path_of_refuted_goal rg in
-     let path_orig = filter_path path_combined (jmps_of_sub sub1) in
-     let path_mod  = filter_path path_combined (jmps_of_sub sub2) in
-     let es_orig = get_taken_edges sub1 path_orig in
-     let es_mod  = get_taken_edges sub2 path_mod  in
-     write_highlighted_cfg sub1 ~highlight:es_orig ~filename:outfile1;
-     write_highlighted_cfg sub2 ~highlight:es_mod  ~filename:outfile2
+     let path_orig = filter_path path_combined (jmps_of_sub f) in
+     let path_mod  = filter_path path_combined (jmps_of_sub g) in
+     let es_orig = get_taken_edges f path_orig in
+     let es_mod  = get_taken_edges g path_mod  in
+     write_highlighted_cfg f ~highlight:es_orig ~filename:f_out;
+     write_highlighted_cfg g ~highlight:es_mod  ~filename:g_out

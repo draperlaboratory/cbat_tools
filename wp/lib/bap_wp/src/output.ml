@@ -200,7 +200,7 @@ let print_result ?fmt:(fmt = Format.err_formatter) ?(dump_cfgs : string option =
           end;
         Option.iter dump_cfgs ~f:(fun fname -> 
             Cfg_path.pp_cfg_path_fst_refuted_goal refuted_goals
-              sub1 sub2 (fname ^ "_orig.dot") (fname ^ "_mod.dot"))
+              ~f:sub1 ~g:sub2 ~f_out:(fname ^ "_orig.dot") ~g_out:(fname ^ "_mod.dot"))
       end
 
 
