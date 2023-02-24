@@ -1,6 +1,5 @@
 open !Core
 open Bap.Std
-open Graphlib.Std
 open OUnit2
 open Testing_utilities
 open Bap_wp
@@ -15,29 +14,49 @@ module BV = Z3.BitVector
 module Out = Output
 module CP = Cfg_path
 
-(* utility functions from test_compare.ml *)
-
-let assert_z3_compare (test_ctx : test_ctxt) (body1 : string) (body2 : string)
-    (pre : Constr.t) (expected : Z3.Solver.status) ~orig:(env1 : Env.t)
-    ~modif:(env2 : Env.t) : unit =
-  let z3_ctx = Env.get_context env1 in
-  let solver = Z3.Solver.mk_simple_solver z3_ctx in
-  let result = Pre.check solver z3_ctx pre in
-  assert_equal ~ctxt:test_ctx
-    ~printer:Z3.Solver.string_of_status
-    ~pp_diff:(fun ff (exp, real) ->
-        Format.fprintf ff "\n\nComparing:\n%s\nand\n\n%s\nCompare_prop:\n%a\n\n%!"
-          body1 body2 (Constr.pp ()) pre;
-        print_z3_model solver exp real pre ~orig:env1 ~modif:env2)
-    expected result
-
 let code_of_sub sub env = Comp.{
     env;
     prog = sub;
     mem = Memmap.empty;
     code_addrs = Utils.Code_addrs.empty; }
 
-let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
+(* 
+sub #1:
+
+0000008f:
+00000097: when x < 1 goto %00000090
+00000098: goto %00000091
+
+00000090:
+0000009b: y := 1
+0000009c: goto %00000092
+
+00000091:
+0000009f: y := 2
+000000a0: goto %00000092
+
+00000092:
+000000a3: y := x
+000000a4: z := y
+
+sub #2:
+
+0000004f:
+00000055: when x < 1 goto %00000050
+00000056: goto %00000051
+
+00000050:
+00000059: y := 1
+0000005a: goto %00000052
+
+00000051:
+0000005d: y := 2
+0000005e: goto %00000052
+
+00000052:
+00000061: z := y
+*)
+let test_sub_pair_1 (_ : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
@@ -95,14 +114,48 @@ let test_sub_pair_1 (test_ctx : test_ctxt) : unit =
   | Solver.UNSATISFIABLE -> failwith "err"
   | Solver.UNKNOWN -> failwith "unk"
   | Solver.SATISFIABLE ->
-     (* taken from output.ml *)
      let mem1, _ = Env.get_var env1 (Env.get_mem env1) in
      let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
      let refuted_goals =
        Constr.get_refuted_goals compare_prop solver z3_ctx ~filter_out:[mem1; mem2] in
-     pp_cfg_path_fst_refuted_goal refuted_goals sub1 sub2 "sub_1a.dot" "sub_1b.dot"
+     pp_cfg_path_fst_refuted_goal
+       refuted_goals ~f:sub1 ~g:sub2 ~f_out:"sub_1a.dot" ~g_out:"sub_1b.dot"
 
-let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
+(* 
+sub #1:
+
+0000006c:
+00000074: x := 2
+00000075: when x < 1 goto %0000006e
+00000076: goto %00000070
+
+0000006e:
+00000079: y := 1
+0000007a: goto %00000072
+
+00000070:
+0000007d: y := 2
+0000007e: goto %00000072
+
+00000072:
+
+sub #2:
+
+0000007d:
+00000087: when x < 1 goto %0000007f
+00000088: goto %00000081
+
+0000007f:
+0000008b: y := 1
+0000008c: goto %00000083
+
+00000081:
+0000008f: y := 2
+00000090: goto %00000083
+
+00000083:
+*)
+let test_sub_pair_2 (_ : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
@@ -148,10 +201,44 @@ let test_sub_pair_2 (test_ctx : test_ctxt) : unit =
      let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
      let refuted_goals =
        Constr.get_refuted_goals compare_prop solver z3_ctx ~filter_out:[mem1; mem2] in
-     pp_cfg_path_fst_refuted_goal refuted_goals sub1 sub2 "sub_2a.dot" "sub_2b.dot"
+     pp_cfg_path_fst_refuted_goal refuted_goals
+       ~f:sub1 ~g:sub2 ~f_out:"sub_2a.dot" ~g_out:"sub_2b.dot"
 
-(* test with a loop *)
-let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
+(* 
+sub #1:
+
+00000083:
+0000008b: x := 1
+0000008c: goto %00000085
+
+00000085:
+0000008f: when x = 3 goto %00000089
+00000090: goto %00000087
+
+00000087:
+00000093: x := x + 1
+00000094: goto %00000085
+
+00000089:
+
+
+sub #2:
+
+00000055:
+0000005e: x := 1
+0000005f: goto %00000057
+
+00000057:
+00000062: when x = 8 goto %0000005b
+00000063: goto %00000059
+
+00000059:
+00000066: x := x + 1
+00000067: goto %00000057
+
+0000005b:
+*)
+let test_sub_pair_3 (_ : test_ctxt) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
@@ -181,6 +268,8 @@ let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
   let sub1 = mk_sub [blk1;  blk2;  blk3;  blk4] in
   let sub2 = mk_sub [blk1'; blk2'; blk3'; blk4'] in
 
+  let () = print_endline @@ Sub.to_string sub2 in
+
   let pre_regs = Var.Set.singleton x in
   let post_regs = Var.Set.singleton x in
   let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
@@ -198,7 +287,8 @@ let test_sub_pair_3 (test_ctx : test_ctxt) : unit =
      let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
      let refuted_goals =
        Constr.get_refuted_goals compare_prop solver z3_ctx ~filter_out:[mem1; mem2] in
-     pp_cfg_path_fst_refuted_goal refuted_goals sub1 sub2 "sub_3a.dot" "sub_3b.dot"
+     pp_cfg_path_fst_refuted_goal refuted_goals
+       ~f:sub1 ~g:sub2 ~f_out:"sub_3a.dot" ~g_out:"sub_3b.dot"
 
 let suite = [
     "Remove needed assignments" >:: test_sub_pair_1;
