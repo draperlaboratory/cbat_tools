@@ -255,12 +255,12 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
             failwithf "model_string: %s\n\
                        function asserts_of_model: \
                        Unexpected list %s in external model\n"
-              model_string (Sexp.to_string l) ()
+              (add_pound model_string) (Sexp.to_string l) ()
           | Sexp.Atom a ->
             failwithf "model_string: %s\n\
                        function asserts_of_model: \
                        Unexpected atom %s in external model\n"
-              model_string a () in
+              (add_pound model_string) a () in
         Sexp.List [
           Sexp.Atom "assert";
           Sexp.List [
@@ -277,7 +277,7 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
       failwithf "model_string: %s\n\
                  function asserts_of_model: \
                  Unexpected form %s in external smt model\n"
-        model_string (Sexp.to_string bad_sexp) () in
+        (add_pound model_string) (Sexp.to_string bad_sexp) () in
   let model_sexp = Sexp.of_string model_string in
   match model_sexp with
   | Sexp.List (Sexp.Atom "model" :: t) | Sexp.List t ->
@@ -286,7 +286,7 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
     failwithf "model_string: %s\n\
                function asserts_of_model: \
                Unexpected outer atom %s in external smt model\n"
-      model_string a ()
+      (add_pound model_string) a ()
 
 (* We are still missing some funcdecls, particularly function return values *)
 (** [check_external] invokes an external smt solver as a process. It communicates to the
