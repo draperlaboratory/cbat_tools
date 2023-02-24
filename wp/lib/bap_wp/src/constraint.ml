@@ -188,7 +188,6 @@ let format_refuted_goal
 let goal_of_refuted_goal (rg : refuted_goal) : goal =
   rg.goal
 
-(* SML: added because rg.path not accessible outside the module otherwise *)
 let path_of_refuted_goal (rg : refuted_goal) : path =
   rg.path
 
@@ -464,19 +463,16 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
       else
         failwith (Format.sprintf "get_refuted_goals: Unable to resolve %s" g.goal_name)
     | ITE (jmp, cond, c1, c2) ->
-       Printf.printf "***JUMP: %s***\n" (Jmp.to_string jmp); Out_channel.flush stdout;
       let cond_val = Expr.substitute cond olds news in
       let cond_res = eval_model_exn model cond_val in
       let current_registers = update_current_regs
           model olds news jmp current_registers filter_out in
       if Z3.Boolean.is_true cond_res
       then
-        let () = print_endline "true\n"; Out_channel.flush stdout in 
         let current_path = update_path current_path jmp true in
         worker c1 current_path current_registers olds news
       else if Z3.Boolean.is_false cond_res
       then
-        let () = print_endline "false\n"; Out_channel.flush stdout in
         let current_path = update_path current_path jmp false in
         worker c2 current_path current_registers olds news
       else
@@ -507,7 +503,6 @@ let get_refuted_goals ?filter_out:(filter_out = []) (constr : t)
         |> List.unzip   in 
       worker e current_path current_registers o' n' (* (olds @ o) (news @ n') *)
   in
-  print_endline @@ to_string constr; Out_channel.flush stdout;
   worker constr Jmp.Map.empty Jmp.Map.empty [] []
 
 
