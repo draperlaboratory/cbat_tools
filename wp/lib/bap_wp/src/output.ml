@@ -28,23 +28,33 @@ module FInterp = Model.FuncInterp
 module Env = Environment
 module Constr = Constraint
 module Comp = Compare
+module Quant = Z3.Quantifier
+module BV = Z3.BitVector
+module Sym = Z3.Symbol
+module AST = Z3.AST
 
 module VarMap = Var.Map
 
-type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
+type mem_model = {
+  default : Constr.z3_expr;
+  model : (Constr.z3_expr * Constr.z3_expr) list
+}
+
+let equal_mem_model (m1 : mem_model) (m2 : mem_model) : bool =
+  let eqe (k1, v1) (k2, v2) = Expr.equal k1 k2 && Expr.equal v1 v2 in
+  let eqd = Expr.equal m1.default m2.default in
+  let eqm = List.equal eqe m1.model m2.model in
+  eqd && eqm
 
 let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
-  mem_model.model
-  |> List.sort ~compare:(fun (addr1, _) (addr2, _) ->
-      String.compare (Expr.to_string addr1) (Expr.to_string addr2))
-  |> List.iter ~f:(fun (key, data) ->
+  mem_model.model |> List.iter ~f:(fun (key, data) ->
       Format.fprintf fmt "\t\t%s |-> %s ;\n"
         (Expr.to_string key) (Constr.expr_to_hex data));
-  if (Z3.Expr.is_numeral mem_model.default)
+  if (Expr.is_numeral mem_model.default)
   then Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
   else Format.fprintf fmt "\t\t%s]\n" (Expr.to_string mem_model.default)
 
-(* Takes a z3 expression that is either a seqeunce of stores or a lambda term
+(* Takes a z3 expression that is either a sequence of stores or a lambda term
    and converts it into a mem_model, which consists of a key/value association
    list and a default value *)
 let extract_array (e : Constr.z3_expr) : mem_model =
@@ -52,13 +62,13 @@ let extract_array (e : Constr.z3_expr) : mem_model =
       (partial_map : (Constr.z3_expr * Constr.z3_expr) list)
       (e : Constr.z3_expr) : mem_model =
     let bail ?(default = e) ?(model = partial_map) s =
-      warning "Unexpected case destructing Z3 %s: %s" s @@ Z3.Expr.to_string e;
+      warning "Unexpected case destructing Z3 %s: %s" s @@ Expr.to_string e;
       {default; model} in
-    if Z3.Z3Array.is_array e then
-      let numargs = Z3.Expr.get_num_args e in
-      let args = Z3.Expr.get_args e in
-      let f_decl = Z3.Expr.get_func_decl e in
-      let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
+    if Z3Array.is_array e then
+      let numargs = Expr.get_num_args e in
+      let args = Expr.get_args e in
+      let f_decl = Expr.get_func_decl e in
+      let f_name = Fun.get_name f_decl |> Sym.to_string in
       match f_name with
       | "store" when numargs = 3 ->
         let next_arr = List.nth_exn args 0 in
@@ -69,50 +79,50 @@ let extract_array (e : Constr.z3_expr) : mem_model =
         let key = List.nth_exn args 0 in
         {default = key; model = List.rev partial_map}
       | _ -> bail "array"
-    else if Z3.AST.is_quantifier @@ Z3.Expr.ast_of_expr e then
-      let q = Z3.Quantifier.quantifier_of_expr e in
-      let numbound = Z3.Quantifier.get_num_bound q in
-      if numbound = 1 then
+    else if AST.is_quantifier @@ Expr.ast_of_expr e then
+      let q = Quant.quantifier_of_expr e in
+      if Quant.get_num_bound q = 1 then
         let rec extract_lambda
             (partial_map : (Constr.z3_expr * Constr.z3_expr) list)
             (e : Constr.z3_expr) : mem_model =
           let bail = bail ~default:e ~model:partial_map in
-          let numargs = Z3.Expr.get_num_args e in
-          let args = Z3.Expr.get_args e in
-          let f_decl = Z3.Expr.get_func_decl e in
-          let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
+          let numargs = Expr.get_num_args e in
+          let args = Expr.get_args e in
+          let f_decl = Expr.get_func_decl e in
+          let f_name = Fun.get_name f_decl |> Sym.to_string in
           match f_name with
           | "if" when numargs = 3 ->
             let cond = List.nth_exn args 0 in
             let yes = List.nth_exn args 1 in
             let no = List.nth_exn args 2 in
-            let cond_numargs = Z3.Expr.get_num_args cond in
-            let cond_args = Z3.Expr.get_args cond in
-            let cond_decl = Z3.Expr.get_func_decl cond in
+            let cond_numargs = Expr.get_num_args cond in
+            let cond_args = Expr.get_args cond in
+            let cond_decl = Expr.get_func_decl cond in
             let eq args =
               let lhs = List.nth_exn args 0 in
               let rhs = List.nth_exn args 1 in
-              if Z3.AST.is_var @@ Z3.Expr.ast_of_expr lhs
-              && Z3.Quantifier.get_index lhs = 0
-              && Z3.BitVector.is_bv_numeral rhs
+              if AST.is_var @@ Expr.ast_of_expr lhs
+              && Quant.get_index lhs = 0
+              && BV.is_bv_numeral rhs
               then Some rhs else None in
-            begin match Z3.FuncDecl.get_decl_kind cond_decl with
+            begin match Fun.get_decl_kind cond_decl with
               | OP_EQ when cond_numargs = 2 ->
                 begin match eq cond_args with
-                  | Some key when Z3.BitVector.is_bv_numeral yes ->
+                  | Some key when BV.is_bv_numeral yes ->
                     extract_lambda ((key, yes) :: partial_map) no
                   | _ -> bail "eq"
                 end
-              | OP_OR -> Monad.Option.List.map cond_args ~f:(fun x ->
-                  let numargs = Z3.Expr.get_num_args x in
-                  let args = Z3.Expr.get_args x in
-                  try
-                    let f_decl = Z3.Expr.get_func_decl x in
-                    match Z3.FuncDecl.get_decl_kind f_decl with
-                    | OP_EQ when numargs = 2 -> eq args
-                    | _ -> None
-                  with _ -> None) |> begin function
-                  | Some keys when Z3.BitVector.is_bv_numeral yes ->
+              | OP_OR ->
+                Monad.Option.List.map cond_args ~f:(fun x ->
+                    let numargs = Expr.get_num_args x in
+                    let args = Expr.get_args x in
+                    try
+                      let f_decl = Expr.get_func_decl x in
+                      match Fun.get_decl_kind f_decl with
+                      | OP_EQ when numargs = 2 -> eq args
+                      | _ -> None
+                    with _ -> None) |> begin function
+                  | Some keys when BV.is_bv_numeral yes ->
                     let m = List.map keys ~f:(fun k -> k, yes) in
                     extract_lambda (m @ partial_map) no
                   | _ -> bail "or"
@@ -121,10 +131,13 @@ let extract_array (e : Constr.z3_expr) : mem_model =
             end
           | "bv" -> {default = e; model = List.rev partial_map}
           | _ -> bail "lambda" in
-        extract_lambda partial_map @@ Z3.Quantifier.get_body q
+        extract_lambda partial_map @@ Quant.get_body q
       else bail "quantifier"
     else bail "expr" in
-  aux [] e
+  let mem = aux [] e in {
+    mem with model = List.sort mem.model ~compare:(fun (addr1, _) (addr2, _) ->
+      String.compare (Expr.to_string addr1) (Expr.to_string addr2))
+  }
 
 let print_registers (fmt : Format.formatter) (model : Model.model)
     (reg_map : Constr.z3_expr Var.Map.t) : unit =
@@ -149,17 +162,16 @@ let print_memory (fmt : Format.formatter) (model : Model.model)
       let mem_mod, _ = Env.get_var env2 key in
       let val_orig = Constr.eval_model_exn model mem_orig in
       let val_mod = Constr.eval_model_exn model mem_mod in
+      let ex_orig = extract_array val_orig in
+      let ex_mod = extract_array val_mod in
       Format.fprintf fmt "\t%s_orig |-> [\n" key_str;
-      format_mem_model fmt (extract_array val_orig);
+      format_mem_model fmt ex_orig;
       (* Memory does not have to be equivalent between both binaries, and in the
          case where they differ, show both orig and mod memories. *)
-      if not (Expr.equal val_orig val_mod) then
-        begin
-          Format.fprintf fmt "\t%s_mod |-> [\n" key_str;
-          format_mem_model fmt (extract_array val_mod)
-        end
-      else Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str
-    )
+      if not @@ equal_mem_model ex_orig ex_mod then begin
+        Format.fprintf fmt "\t%s_mod |-> [\n" key_str;
+        format_mem_model fmt ex_mod
+      end else Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str)
 
 (* These are the constants and function call predicates that were generated
    during the analysis. *)
