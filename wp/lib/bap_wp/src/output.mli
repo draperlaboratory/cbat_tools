@@ -11,26 +11,24 @@
 (*                                                                         *)
 (***************************************************************************)
 
-(**
-
-   This module exports types and utilities to process and report results found
-   using the WP plugin.
-
-   The report contains information about the result of the WP analysis, and in
-   the case the result is [SAT], prints out the model that contains the input
-   register and memory values that result in the program refuting a goal, the path
-   taken to the refuted goal, and the register values at each jump in the path.
-
+(** This module exports types and utilities to process and report results
+    found using the WP plugin.
+    
+    The report contains information about the result of the WP analysis, and in
+    the case the result is [SAT], prints out the model that contains the input
+    register and memory values that result in the program refuting a goal, the
+    path taken to the refuted goal, and the register values at each jump in the
+    path.
 *)
 
 module Env = Environment
 
 module Constr = Constraint
 
-(** Prints out the result from check, and if the result is [SAT], generate a model that
-    represents the registers and memory values that lead to a specific program state,
-    a list of goals that have been refuted, and if specified, the paths that lead to
-    the refuted goals. *)
+(** Prints out the result from check, and if the result is [SAT], generate a
+    model that represents the registers and memory values that lead to a
+    specific program state, a list of goals that have been refuted, and if
+    specified, the paths that lead to the refuted goals. *)
 val print_result
   : ?fmt:Format.formatter
   -> Z3.Solver.solver
@@ -41,20 +39,41 @@ val print_result
   -> modif:(Bap.Std.sub Compare.code)
   -> unit
 
-(** Prints to file a gdb script that will fill the appropriate registers with the countermodel *)
+(** Prints to file a gdb script that will fill the appropriate registers with
+    the countermodel *)
 val output_gdb :
-  Z3.Solver.solver -> Z3.Solver.status -> Env.t -> func:string -> filename:string -> unit
+  Z3.Solver.solver ->
+  Z3.Solver.status ->
+  Env.t ->
+  func:string ->
+  filename:string ->
+  unit
 
 (** [output_bildb solver status env file] prints to a YAML file that will fill
     the appropriate registers with the values found in the countermodel in the
-    case the analysis returns SAT. This is used to initialize the BilDB plugin.*)
+    case the analysis returns SAT. This is used to initialize the BilDB
+    plugin. *)
 val output_bildb :
-  Z3.Solver.solver -> Z3.Solver.status -> Env.t -> string -> unit
+  Z3.Solver.solver ->
+  Z3.Solver.status ->
+  Env.t ->
+  string ->
+  unit
 
-(** [mem_model] The default value stores the final else branch of a memory model. The model holds an association list of addresses and
-    values held at those adresses. *)
-type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
+(** [mem_model] The default value stores the final else branch of a memory
+    model. The model holds an association list of addresses and values held
+    at those adresses. *)
+type mem_model = {
+  default : Constr.z3_expr;
+  model : (Constr.z3_expr * Constr.z3_expr) list
+}
 
-(** [extract_array] takes a z3 expression that is a sequence of stores and converts it into
-    a mem_model, which consists of a key/value association list and a default value *)
+(** [equal_mem_model m1 m2] returns [true] if [m1] and [m2] can be
+    shown to be equivalent. *)
+val equal_mem_model : mem_model -> mem_model -> bool
+
+(** [extract_array] takes a z3 expression that is a sequence of stores
+    and converts it into a mem_model, which consists of a key/value
+    association list and a default value. The list is guaranteed to be
+    sorted in ascending order of keys. *)
 val extract_array : Constr.z3_expr -> mem_model

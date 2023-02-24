@@ -27,6 +27,16 @@ module Solver = Z3.Solver
 module Env = Environment
 module Constr = Constraint
 
+(* SexpLib unfortunately uses # as an comment delimitter.
+   We replace it with a special token and revert this after parsing. *)
+let pound_token : string = "MYSPECIALPOUND682"
+
+let remove_pound (s : string) : string =
+  String.substr_replace_all s ~pattern:"#" ~with_:pound_token
+
+let add_pound (s : string) : string =
+  String.substr_replace_all s ~pattern:pound_token ~with_:"#"
+
 let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) list) =
   let ctx = Env.get_context env in
   let var_to_decl ~key:_ ~data:z3_var decls =
@@ -41,8 +51,6 @@ let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) 
   let init_var_map = Env.get_init_var_map env in
   let var_decls = Env.EnvMap.fold var_map ~init:[] ~f:var_to_decl in
   Env.EnvMap.fold init_var_map ~init:var_decls ~f:var_to_decl
-
-
 
 (** [mk_smtlib2] parses a smtlib2 string in the context that has a mapping of func_decl
     to symbols and returns a constraint [Constr.t] corresponding to the smtlib2 string.
@@ -169,12 +177,45 @@ let mk_smtlib2_single ?(name = None) (env : Env.t) (smt_post : string)
 (** [mk_and] is a slightly optimized version of [Bool.mk_and] that does not produce an
     [and] node if the number of operands is less than 2. This may improve sharing,
     but also improves compatibility of smtlib2 expressions with other solvers  *)
-let mk_and ( ctx : Z3.context ) (xs : Constr.z3_expr list) : Constr.z3_expr =
+let mk_and (ctx : Z3.context) (xs : Constr.z3_expr list) : Constr.z3_expr =
   match xs with
   | []  -> Bool.mk_true ctx
   | [x] -> x
   | _   -> Bool.mk_and ctx xs
 
+(** [process_lambda varname model_val ks vs] turns a lambda form of representing
+    the memory into a sequence of stores to an array that is initialized with a
+    default value. It expects that the body of the lambda is a chain of [ite]
+    expressions mapping addresses to values.
+
+    [varname] is the single argument to the lambda.
+    [model_val] is the body of the lambda.
+    [ks] is the sort of the keys for the array.
+    [vs] is the sort of the values for the array.
+*)
+let process_lambda
+    (varname : string)
+    (model_val : Sexp.t)
+    (ks : Sexp.t)
+    (vs : Sexp.t) : Sexp.t =
+  let rec aux acc = function
+    | Sexp.List [
+        Atom "ite";
+        List [Atom "="; Atom x; Atom _ as k];
+        Atom _ as v;
+        rest
+      ] when String.(x = varname) ->
+      aux ((k, v) :: acc) rest
+    | Atom _ as d -> acc, d
+    | x ->
+      failwithf "Unexpected form %s when processing lambda"
+        (Sexp.to_string x |> add_pound) () in
+  let m, default = aux [] model_val in
+  List.fold m ~f:(fun acc (k, v) -> List [Atom "store"; acc; k; v])
+    ~init:(Sexp.List [
+        List [Atom "as"; Atom "const"; List [Atom "Array"; ks; vs]];
+        default
+      ])
 
 (** [asserts_of_model] takes a string of an smtlib2 model returned by an external solver and 
     processes it into an equivalent list of assert strings.
@@ -199,17 +240,18 @@ let mk_and ( ctx : Z3.context ) (xs : Constr.z3_expr list) : Constr.z3_expr =
       (assert (= strlen_ret_RAX #b0000000000000000000000000000000000100100110000000000000000000000)) ;
       (assert (= RSP0 #b0000000000000000000000000000000000111111110000000000000000000101)) ;
       (assert (= RBX0 #b0010111100101110111111110010111100101101111111111111111111111111)) ;
-      (assert (= mem0 (lambda (
-      (mem0_x0 (_ BitVec 64)))
-        (ite (= mem0_x0 #b0000000000000000000000000000000000000000000111111111111111111111) #b00101111
-        (ite (= mem0_x0 #b0000000000000000000000000000000000111111110000000000000000000101) #b11111111
-        (ite (= mem0_x0 #b0000000000000000000000000000000000111111110000000000000000000110) #b11111111
-          #b00000000))))))))))))))))))))
+      (assert (= mem0
+        (store
+          (store
+            (store ((as const (Array (_ BitVec 64) (_ BitVec 8))) #b00000000)
+              #b0000000000000000000000000000000000111111110000000000000000000110 #b11111111)
+            #b0000000000000000000000000000000000111111110000000000000000000101 #b11111111)
+        #b0000000000000000000000000000000000000000000111111111111111111111 #b00101111)))
     ] *)
 
 let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t list =
   let process_decl l = match l with
-    | Sexp.List [Sexp.Atom "define-fun" ; Sexp.Atom varname; args ; _ ; model_val ] ->
+    | Sexp.List [Sexp.Atom "define-fun"; Sexp.Atom varname; args; sort; model_val] ->
       (* If variable is not in sym_names, z3 will crash on processing it.
          Z3 can fill in gaps in the model via it's own smt search.
          The main cost is slowdown. *)
@@ -217,17 +259,18 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
         let model_val = match args with
           | Sexp.List [] -> (* Constant case *)
             model_val
-          | Sexp.List _  -> (* Function model *)
-            Sexp.List [
-              Sexp.Atom "lambda";
-              args;
-              model_val;
-            ] (* Sexp.Atom varname *)
+          | Sexp.List [List [Atom x; s]] -> (* Function model *)
+            process_lambda x model_val s sort
+          | Sexp.List _ as l ->
+            failwithf "model_string: %s\n\
+                       function asserts_of_model: \
+                       Unexpected list %s in external model\n"
+              (add_pound model_string) (Sexp.to_string l) ()
           | Sexp.Atom a ->
             failwithf "model_string: %s\n\
                        function asserts_of_model: \
                        Unexpected atom %s in external model\n"
-              model_string a () in
+              (add_pound model_string) a () in
         Sexp.List [
           Sexp.Atom "assert";
           Sexp.List [
@@ -244,7 +287,7 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
       failwithf "model_string: %s\n\
                  function asserts_of_model: \
                  Unexpected form %s in external smt model\n"
-        model_string (Sexp.to_string bad_sexp) () in
+        (add_pound model_string) (Sexp.to_string bad_sexp) () in
   let model_sexp = Sexp.of_string model_string in
   match model_sexp with
   | Sexp.List (Sexp.Atom "model" :: t) | Sexp.List t ->
@@ -253,7 +296,7 @@ let asserts_of_model (model_string : string) (sym_names : string list) : Sexp.t 
     failwithf "model_string: %s\n\
                function asserts_of_model: \
                Unexpected outer atom %s in external smt model\n"
-      model_string a ()
+      (add_pound model_string) a ()
 
 (* We are still missing some funcdecls, particularly function return values *)
 (** [check_external] invokes an external smt solver as a process. It communicates to the
@@ -287,12 +330,6 @@ let check_external
     Format.fprintf fmt "Created temp file %s\n%!" tmp_file;
     Format.fprintf fmt "Running external solver %s\n%!" solver_path
   end;
-  (* SexpLib unfortunately uses # as an comment delimitter.
-     We replace it with a special token and revert this after parsing. *)
-  let pound_token = "MYSPECIALPOUND682" in
-  let remove_pound s = String.substr_replace_all s ~pattern:"#" ~with_:pound_token in
-  let add_pound s = String.substr_replace_all s ~pattern:pound_token ~with_:"#" in
-
   let result = In_channel.input_line_exn solver_stdout in
   (* Parse external model into SExp, convert into smtlib asserts,
      assert to Z3, verify that it is a model *)
