@@ -76,7 +76,7 @@ uninstall.verifier:
 
 .PHONY: uninstall
 uninstall: uninstall.verifier
-	bapbundle remove $(PASS_NAME).plugin
+	-bapbundle remove $(PASS_NAME).plugin
 
 .PHONY: reinstall
 reinstall: uninstall reinstall
