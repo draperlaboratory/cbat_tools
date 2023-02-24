@@ -14,7 +14,6 @@
 open !Core
 open Bap.Std
 open Bap_core_theory
-open Monads.Std
 
 include Self()
 
@@ -38,9 +37,8 @@ type mem_model = {
 
 let equal_mem_model (m1 : mem_model) (m2 : mem_model) : bool =
   let eqe (k1, v1) (k2, v2) = Expr.equal k1 k2 && Expr.equal v1 v2 in
-  let eqd = Expr.equal m1.default m2.default in
-  let eqm = List.equal eqe m1.model m2.model in
-  eqd && eqm
+  Expr.equal m1.default m2.default &&
+  List.equal eqe m1.model m2.model
 
 let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
   mem_model.model |> List.iter ~f:(fun (key, data) ->
