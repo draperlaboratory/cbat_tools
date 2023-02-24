@@ -48,7 +48,6 @@ build: $(BUILD)
 .PHONY: install
 install: $(BUILD)
 	dune install
-# opam install .
 
 .PHONY: reinstall
 reinstall:
@@ -60,7 +59,6 @@ uninstall:
 # eq is needed otherwise errors if not installed
 ifeq ($(IS_INSTALLED),1)
 	dune uninstall
-# opam remove .
 endif
 
 #####################################################
@@ -72,11 +70,11 @@ test: test.unit test.performance
 
 .PHONY: test.unit
 test.unit:
-	dune runtest tests/unit --profile release
+	dune runtest tests/unit
 
 .PHONY: test.performance
 test.performance:
-	dune runtest tests/performance --profile release
+	dune runtest tests/performance
 
 #####################################################
 # DOCS
