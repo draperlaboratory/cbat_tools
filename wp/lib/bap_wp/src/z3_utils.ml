@@ -27,6 +27,16 @@ module Solver = Z3.Solver
 module Env = Environment
 module Constr = Constraint
 
+(* SexpLib unfortunately uses # as an comment delimitter.
+   We replace it with a special token and revert this after parsing. *)
+let pound_token : string = "MYSPECIALPOUND682"
+
+let remove_pound (s : string) : string =
+  String.substr_replace_all s ~pattern:"#" ~with_:pound_token
+
+let add_pound (s : string) : string =
+  String.substr_replace_all s ~pattern:pound_token ~with_:"#"
+
 let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) list) =
   let ctx = Env.get_context env in
   let var_to_decl ~key:_ ~data:z3_var decls =
@@ -41,8 +51,6 @@ let get_decls_and_symbols (env : Env.t) : ((FuncDecl.func_decl * Symbol.symbol) 
   let init_var_map = Env.get_init_var_map env in
   let var_decls = Env.EnvMap.fold var_map ~init:[] ~f:var_to_decl in
   Env.EnvMap.fold init_var_map ~init:var_decls ~f:var_to_decl
-
-
 
 (** [mk_smtlib2] parses a smtlib2 string in the context that has a mapping of func_decl
     to symbols and returns a constraint [Constr.t] corresponding to the smtlib2 string.
@@ -191,7 +199,7 @@ let process_lambda
     | Atom _ as d -> acc, d
     | x ->
       failwithf "Unexpected form %s when processing lambda"
-        (Sexp.to_string x) () in
+        (Sexp.to_string x |> add_pound) () in
   let m, default = aux [] model_val in
   List.fold m ~f:(fun acc (k, v) -> List [Atom "store"; acc; k; v])
     ~init:(Sexp.List [
@@ -312,12 +320,6 @@ let check_external
     Format.fprintf fmt "Created temp file %s\n%!" tmp_file;
     Format.fprintf fmt "Running external solver %s\n%!" solver_path
   end;
-  (* SexpLib unfortunately uses # as an comment delimitter.
-     We replace it with a special token and revert this after parsing. *)
-  let pound_token = "MYSPECIALPOUND682" in
-  let remove_pound s = String.substr_replace_all s ~pattern:"#" ~with_:pound_token in
-  let add_pound s = String.substr_replace_all s ~pattern:pound_token ~with_:"#" in
-
   let result = In_channel.input_line_exn solver_stdout in
   (* Parse external model into SExp, convert into smtlib asserts,
      assert to Z3, verify that it is a model *)
