@@ -14,6 +14,7 @@
 open !Core
 open Bap.Std
 open Bap_core_theory
+open Monads.Std
 
 include Self()
 
@@ -43,39 +44,87 @@ let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
   then Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
   else Format.fprintf fmt "\t\t%s]\n" (Expr.to_string mem_model.default)
 
-(** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
-    a mem_model, which consists of a key/value association list and a default value *)
-
+(* Takes a z3 expression that is either a seqeunce of stores or a lambda term
+   and converts it into a mem_model, which consists of a key/value association
+   list and a default value *)
 let extract_array (e : Constr.z3_expr) : mem_model =
-  let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
-    if (Z3.Z3Array.is_array e) then begin
+  let rec aux
+      (partial_map : (Constr.z3_expr * Constr.z3_expr) list)
+      (e : Constr.z3_expr) : mem_model =
+    let bail ?(default = e) ?(model = partial_map) s =
+      warning "Unexpected case destructing Z3 %s: %s" s @@ Z3.Expr.to_string e;
+      {default; model} in
+    if Z3.Z3Array.is_array e then
       let numargs = Z3.Expr.get_num_args e in
       let args = Z3.Expr.get_args e in
       let f_decl = Z3.Expr.get_func_decl e in
       let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
-      if Int.(numargs = 3) && String.(f_name = "store") then begin
+      match f_name with
+      | "store" when numargs = 3 ->
         let next_arr = List.nth_exn args 0 in
         let key = List.nth_exn args 1 in
         let value = List.nth_exn args 2 in
-        extract_array' ((key , value) :: partial_map) next_arr
-      end
-      else if Int.(numargs = 1) && String.(f_name = "const") then begin
+        aux ((key, value) :: partial_map) next_arr
+      | "const" when numargs = 1 ->
         let key = List.nth_exn args 0 in
-        { default = key; model = List.rev partial_map }
-      end
-      else begin
-        warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
-        { default = e ; model = partial_map }
-      end
-    end
-    else
-      begin
-        (* FIXME: Presumably a lambda term *)
-        warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
-        { default = e; model = partial_map }
-      end
-  in
-  extract_array' [] e
+        {default = key; model = List.rev partial_map}
+      | _ -> bail "array"
+    else if Z3.AST.is_quantifier @@ Z3.Expr.ast_of_expr e then
+      let q = Z3.Quantifier.quantifier_of_expr e in
+      let numbound = Z3.Quantifier.get_num_bound q in
+      if numbound = 1 then
+        let rec extract_lambda
+            (partial_map : (Constr.z3_expr * Constr.z3_expr) list)
+            (e : Constr.z3_expr) : mem_model =
+          let bail = bail ~default:e ~model:partial_map in
+          let numargs = Z3.Expr.get_num_args e in
+          let args = Z3.Expr.get_args e in
+          let f_decl = Z3.Expr.get_func_decl e in
+          let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
+          match f_name with
+          | "if" when numargs = 3 ->
+            let cond = List.nth_exn args 0 in
+            let yes = List.nth_exn args 1 in
+            let no = List.nth_exn args 2 in
+            let cond_numargs = Z3.Expr.get_num_args cond in
+            let cond_args = Z3.Expr.get_args cond in
+            let cond_decl = Z3.Expr.get_func_decl cond in
+            let eq args =
+              let lhs = List.nth_exn args 0 in
+              let rhs = List.nth_exn args 1 in
+              if Z3.AST.is_var @@ Z3.Expr.ast_of_expr lhs
+              && Z3.Quantifier.get_index lhs = 0
+              && Z3.BitVector.is_bv_numeral rhs
+              then Some rhs else None in
+            begin match Z3.FuncDecl.get_decl_kind cond_decl with
+              | OP_EQ when cond_numargs = 2 ->
+                begin match eq cond_args with
+                  | Some key when Z3.BitVector.is_bv_numeral yes ->
+                    extract_lambda ((key, yes) :: partial_map) no
+                  | _ -> bail "eq"
+                end
+              | OP_OR -> Monad.Option.List.map cond_args ~f:(fun x ->
+                  let numargs = Z3.Expr.get_num_args x in
+                  let args = Z3.Expr.get_args x in
+                  try
+                    let f_decl = Z3.Expr.get_func_decl x in
+                    match Z3.FuncDecl.get_decl_kind f_decl with
+                    | OP_EQ when numargs = 2 -> eq args
+                    | _ -> None
+                  with _ -> None) |> begin function
+                  | Some keys when Z3.BitVector.is_bv_numeral yes ->
+                    let m = List.map keys ~f:(fun k -> k, yes) in
+                    extract_lambda (m @ partial_map) no
+                  | _ -> bail "or"
+                end
+              | _ -> bail "if"
+            end
+          | "bv" -> {default = e; model = List.rev partial_map}
+          | _ -> bail "lambda" in
+        extract_lambda partial_map @@ Z3.Quantifier.get_body q
+      else bail "quantifier"
+    else bail "expr" in
+  aux [] e
 
 let print_registers (fmt : Format.formatter) (model : Model.model)
     (reg_map : Constr.z3_expr Var.Map.t) : unit =
