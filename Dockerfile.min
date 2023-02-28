@@ -1,0 +1,37 @@
+FROM ubuntu:20.04
+# Multi-stage docker build
+# Copying over only needed compiled objects from development docker to get CBAT to run
+# https://docs.docker.com/build/building/multi-stage/
+
+WORKDIR /root/
+# Bap cli binary
+COPY --from=cbat:latest /home/opam/.opam/4.14/bin/bap /home/opam/.opam/4.14/bin/bap 
+ENV PATH="$PATH:/home/opam/.opam/4.14/bin"
+
+# Plugins 
+COPY --from=cbat:latest /home/opam/.opam/4.14/lib/bap/*.plugin /home/opam/.opam/4.14/lib/bap/
+# Removing some unneeded larger plugins mostly related to primus
+RUN rm /home/opam/.opam/4.14/lib/bap/primus* \
+    /home/opam/.opam/4.14/lib/bap/beagle.plugin \
+    /home/opam/.opam/4.14/lib/bap/run.plugin \
+    /home/opam/.opam/4.14/lib/bap/constant_tracker.plugin
+# Do we need this? /home/opam/.opam/4.14/lib/bap/frontc_parser.plugin \
+
+COPY --from=cbat:latest /home/opam/.opam/4.14/lib/bap/primus_lisp.plugin /home/opam/.opam/4.14/lib/bap/
+
+# Some primus semantics
+COPY --from=cbat:latest /home/opam/.opam/4.14/share/bap/primus/  /home/opam/.opam/4.14/share/bap/primus/
+
+# Get Z3 library
+COPY --from=cbat:latest /home/opam/.opam/4.14/lib/stublibs/libz3.so /home/opam/.opam/4.14/lib/stublibs/libz3.so
+
+# Objdump and Objdump dependencies
+COPY --from=cbat:latest /usr/bin/objdump /usr/bin/objdump
+COPY --from=cbat:latest /lib/x86_64-linux-gnu/libopcodes-2.34-multiarch.so /lib/x86_64-linux-gnu/libopcodes-2.34-multiarch.so
+COPY --from=cbat:latest /lib/x86_64-linux-gnu/libbfd-2.34-multiarch.so /lib/x86_64-linux-gnu/libbfd-2.34-multiarch.so
+COPY --from=cbat:latest /lib/x86_64-linux-gnu/libctf-multiarch.so.0 /lib/x86_64-linux-gnu/libctf-multiarch.so.0
+
+# Removing unneeded bytecode .cma from plugins 
+COPY --from=cbat:latest  /usr/bin/zip  /usr/bin/zip
+RUN  for file in /home/opam/.opam/4.14/lib/bap/*.plugin; do zip --delete $file "*.cma"; done
+RUN rm /usr/bin/zip

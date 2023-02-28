@@ -5,6 +5,7 @@
 
 Installation
 ```
+docker pull philzook58/cbat_min
 python3 -m pip install -e .
 ```
 
