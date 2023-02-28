@@ -57,3 +57,9 @@ def test3():
     # postcond = rax == init_rdi + 3
 
     assert run_code(code, postcond)[0] == z3.unsat
+
+
+# I dunno. Something weird is going on with pytest and IO.
+test1()
+test2()
+test3()

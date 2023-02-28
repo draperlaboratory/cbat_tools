@@ -11,9 +11,11 @@ def run_wp(filename, filename2=None,  func="main", invariants=[], precond=None, 
     if postcond != None:
         cmd.append("--postcond")
         cmd.append("(assert " + postcond.sexpr() + ")")
+    # TODO: Fill out invariants
 
     # forward kwargs. Typo unfriendly
-    flags = ["check-invalid-derefs", "check-null-derefs"]  # and so on
+    # TODO: fill out other allowed flags
+    flags = ["check-invalid-derefs", "check-null-derefs"]
     assert all(k in flags for k in kwargs.keys())
     cmd += [f"--{k}" for k,
             v in kwargs.items() if v == True and k in flags]
@@ -28,13 +30,9 @@ def run_wp(filename, filename2=None,  func="main", invariants=[], precond=None, 
             flags += ["-v", f"{filename2}:{filename2}"]
         cmd = ["docker", "run"] + flags + [docker_image] + cmd
     res = subprocess.run(cmd, check=False, capture_output=True)
-    print(res.args)
-    print(res.stdout.decode())
-    stdout = res.stdout.decode()
     smtlib = stdout.split("Z3 :")[1]
     s = z3.Solver()
     s.from_string(smtlib)
-    print(s)
     res = s.check()
     if res == z3.unsat:
         return (z3.unsat, f"Property {postcond} proved")
