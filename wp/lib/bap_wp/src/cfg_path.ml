@@ -78,6 +78,15 @@ let get_taken_edges (sub : Sub.t) (path : Constr.path) : EdgeSet.t =
   in
   walk [get_start_node sub] NodeSet.empty EdgeSet.empty
 
+let taken_edges_of_refuted_goal (rg : Constr.refuted_goal) (sub1 : Sub.t) (sub2 : Sub.t) :
+      EdgeSet.t * EdgeSet.t =
+  let path_combined = Constr.path_of_refuted_goal rg in
+  let taken_edges_of_sub (s : Sub.t) : EdgeSet.t =
+    let p = filter_path path_combined (jmps_of_sub s) in
+    get_taken_edges s p
+  in
+  (taken_edges_of_sub sub1, taken_edges_of_sub sub2)
+
 let left_justify : string -> string =
   String.concat_map ~f:(fun c -> if Char.equal c '\n' then "\\l" else Char.to_string c)
 

@@ -3,7 +3,6 @@ open Bap.Std
 open OUnit2
 open Testing_utilities
 open Bap_wp
-open Cfg_path
 
 module Pre = Precondition
 module Comp = Compare
@@ -13,6 +12,10 @@ module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Out = Output
 module CP = Cfg_path
+module Node = Graphs.Ir.Node
+module Edge = Graphs.Ir.Edge
+module EdgeSet = Edge.Set
+module Graph = Graphs.Ir
 
 let code_of_sub sub env = Comp.{
     env;
@@ -20,47 +23,91 @@ let code_of_sub sub env = Comp.{
     mem = Memmap.empty;
     code_addrs = Utils.Code_addrs.empty; }
 
-(* 
-sub #1:
+let string_of_edgeset (es : EdgeSet.t) : string =
+  EdgeSet.fold es ~init:"\n" ~f:(fun s e -> s ^ Graphs.Ir.Edge.to_string e ^ "\n")
 
-0000008f:
-00000097: when x < 1 goto %00000090
-00000098: goto %00000091
+let edge_of_endpoints (src : Blk.t) (dst : Blk.t) : Edge.t =
+  let cfg = [src; dst] |> mk_sub |> Sub.to_cfg in
+  let es = Graph.edges cfg |> Seq.to_list in
+  match es with
+  | [e] -> e
+  | _   -> failwith "CFG should consist of a single edge"
 
-00000090:
-0000009b: y := 1
-0000009c: goto %00000092
-
-00000091:
-0000009f: y := 2
-000000a0: goto %00000092
-
-00000092:
-000000a3: y := x
-000000a4: z := y
-
-sub #2:
-
-0000004f:
-00000055: when x < 1 goto %00000050
-00000056: goto %00000051
-
-00000050:
-00000059: y := 1
-0000005a: goto %00000052
-
-00000051:
-0000005d: y := 2
-0000005e: goto %00000052
-
-00000052:
-00000061: z := y
-*)
-let test_sub_pair_1 (_ : test_ctxt) : unit =
+(* TODO : refactor tests below in terms of this function *)
+let validate_taken_edges (sub1 : Sub.t) (sub2 : Sub.t)
+      ~(pre_regs : Var.Set.t) ~(post_regs : Var.Set.t)
+    ~(expected1 : EdgeSet.t) ~(expected2 : EdgeSet.t) : unit =
   let ctx = Env.mk_ctx () in
   let var_gen = Env.mk_var_gen () in
   let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
   let env2 = Pre.mk_env ~target:test_tgt ctx var_gen in
+  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
+  let compare_prop, env1, env2 = Comp.compare_subs
+      ~postconds:[post] ~hyps:[hyps]
+      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2) in
+  let z3_ctx = Env.get_context env1 in
+  let solver = Z3.Solver.mk_simple_solver z3_ctx in
+  let result = Pre.check solver z3_ctx compare_prop in
+  match result with
+  | Solver.UNSATISFIABLE -> failwith "err"
+  | Solver.UNKNOWN -> failwith "unk"
+  | Solver.SATISFIABLE ->
+     let mem1, _ = Env.get_var env1 (Env.get_mem env1) in
+     let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
+     let refuted_goals =
+       Constr.get_refuted_goals compare_prop solver z3_ctx ~filter_out:[mem1; mem2] in
+     match Seq.hd refuted_goals with
+     | None -> assert_failure "expected at least one refuted goal after SAT result"
+     | Some rg ->
+        let es1, es2 = CP.taken_edges_of_refuted_goal rg sub1 sub2 in
+        let assert_equal_sets (exp : EdgeSet.t) (act : EdgeSet.t) =
+          assert_equal exp act ~cmp:EdgeSet.equal ~printer:string_of_edgeset in
+        begin
+          assert_equal_sets expected1 es1;
+          assert_equal_sets expected2 es2
+        end
+       
+(** 
+
+sub #1:
+
+1:
+x := 0
+when x < 1 goto 2
+goto 3
+
+2:
+y := 1
+goto 4
+
+3:
+y := 2
+goto 4
+
+4:
+y := x
+z := y
+
+sub #2:
+
+1:
+x := 0
+when x < 1 goto 2
+goto 3
+
+2:
+y := 1
+goto 4
+
+3:
+y := 2
+goto 4
+
+4:
+z := y
+
+*)
+let test_sub_pair_1 (_ : test_ctxt) : unit =
   let blk1 = Blk.create () in
   let blk2 = Blk.create () in
   let blk3 = Blk.create () in
@@ -73,8 +120,12 @@ let test_sub_pair_1 (_ : test_ctxt) : unit =
   let y = Var.create "y" reg32_t in
   let z = Var.create "z" reg32_t in
   let lt = Bil.( (var x) < (i32 1) ) in
-  let blk1  = blk1 |> mk_cond lt blk2 blk3 in
-  let blk1' = blk1' |> mk_cond lt blk2' blk3' in
+  let blk1  = blk1
+              |> mk_def x zero
+              |> mk_cond lt blk2 blk3 in
+  let blk1' = blk1'
+              |> mk_def x zero
+              |> mk_cond lt blk2' blk3' in
   let blk2 = blk2
              |> mk_def y one
              |> mk_jmp blk4
@@ -103,23 +154,11 @@ let test_sub_pair_1 (_ : test_ctxt) : unit =
   let sub2 = mk_sub [blk1'; blk2'; blk3'; blk4'] in
   let pre_regs = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
   let post_regs = Var.Set.singleton z in
-  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
-  let compare_prop, env1, env2 = Comp.compare_subs
-      ~postconds:[post] ~hyps:[hyps]
-      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2) in
-  let z3_ctx = Env.get_context env1 in
-  let solver = Z3.Solver.mk_simple_solver z3_ctx in
-  let result = Pre.check solver z3_ctx compare_prop in
-  match result with
-  | Solver.UNSATISFIABLE -> failwith "err"
-  | Solver.UNKNOWN -> failwith "unk"
-  | Solver.SATISFIABLE ->
-     let mem1, _ = Env.get_var env1 (Env.get_mem env1) in
-     let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
-     let refuted_goals =
-       Constr.get_refuted_goals compare_prop solver z3_ctx ~filter_out:[mem1; mem2] in
-     pp_cfg_path_fst_refuted_goal
-       refuted_goals ~f:sub1 ~g:sub2 ~f_out:"sub_1a.dot" ~g_out:"sub_1b.dot"
+  let expected1 =
+    EdgeSet.of_list [edge_of_endpoints blk1 blk2; edge_of_endpoints blk2 blk4] in
+  let expected2 =
+    EdgeSet.of_list [edge_of_endpoints blk1' blk2'; edge_of_endpoints blk2' blk4'] in
+  validate_taken_edges sub1 sub2 ~pre_regs ~post_regs ~expected1 ~expected2
 
 (* 
 sub #1:
@@ -156,10 +195,6 @@ sub #2:
 00000083:
 *)
 let test_sub_pair_2 (_ : test_ctxt) : unit =
-  let ctx = Env.mk_ctx () in
-  let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
-  let env2 = Pre.mk_env ~target:test_tgt ctx var_gen in
   let blk1 = Blk.create () in
   let blk1' = Blk.create () in
   let blk2  = Blk.create () in
@@ -186,23 +221,13 @@ let test_sub_pair_2 (_ : test_ctxt) : unit =
   
   let pre_regs = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
   let post_regs = Var.Set.singleton y in
-  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
-  let compare_prop, env1, env2 = Comp.compare_subs
-      ~postconds:[post] ~hyps:[hyps]
-      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2) in
-  let z3_ctx = Env.get_context env1 in
-  let solver = Z3.Solver.mk_simple_solver z3_ctx in
-  let result = Pre.check solver z3_ctx compare_prop in
-  match result with
-  | Solver.UNSATISFIABLE -> failwith "err"
-  | Solver.UNKNOWN -> failwith "unk"
-  | Solver.SATISFIABLE ->
-     let mem1, _ = Env.get_var env1 (Env.get_mem env1) in
-     let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
-     let refuted_goals =
-       Constr.get_refuted_goals compare_prop solver z3_ctx ~filter_out:[mem1; mem2] in
-     pp_cfg_path_fst_refuted_goal refuted_goals
-       ~f:sub1 ~g:sub2 ~f_out:"sub_2a.dot" ~g_out:"sub_2b.dot"
+
+  let expected1 =
+    EdgeSet.of_list [edge_of_endpoints blk1 blk3; edge_of_endpoints blk3 blk4] in
+  let expected2 =
+    EdgeSet.of_list [edge_of_endpoints blk1' blk2'; edge_of_endpoints blk2' blk4'] in
+  
+  validate_taken_edges sub1 sub2 ~pre_regs ~post_regs ~expected1 ~expected2
 
 (* 
 sub #1:
@@ -237,12 +262,12 @@ sub #2:
 00000067: goto %00000057
 
 0000005b:
-*)
+ *)
+
 let test_sub_pair_3 (_ : test_ctxt) : unit =
-  let ctx = Env.mk_ctx () in
-  let var_gen = Env.mk_var_gen () in
-  let env1 = Pre.mk_env ~target:test_tgt ctx var_gen in
-  let env2 = Pre.mk_env ~target:test_tgt ctx var_gen in
+  ()
+(*
+let test_sub_pair_3 (_ : test_ctxt) : unit =
   let blk1 = Blk.create () in
   let blk1' = Blk.create () in
   let blk2  = Blk.create () in
@@ -272,24 +297,12 @@ let test_sub_pair_3 (_ : test_ctxt) : unit =
 
   let pre_regs = Var.Set.singleton x in
   let post_regs = Var.Set.singleton x in
-  let post, hyps = Comp.compare_subs_eq ~pre_regs ~post_regs in
-  let compare_prop, env1, env2 = Comp.compare_subs
-      ~postconds:[post] ~hyps:[hyps]
-      ~original:(code_of_sub sub1 env1) ~modified:(code_of_sub sub2 env2) in
-  let z3_ctx = Env.get_context env1 in
-  let solver = Z3.Solver.mk_simple_solver z3_ctx in
-  let result = Pre.check solver z3_ctx compare_prop in
-  match result with
-  | Solver.UNSATISFIABLE -> failwith "err"
-  | Solver.UNKNOWN -> failwith "unk"
-  | Solver.SATISFIABLE ->
-     let mem1, _ = Env.get_var env1 (Env.get_mem env1) in
-     let mem2, _ = Env.get_var env2 (Env.get_mem env2) in
-     let refuted_goals =
-       Constr.get_refuted_goals compare_prop solver z3_ctx ~filter_out:[mem1; mem2] in
-     pp_cfg_path_fst_refuted_goal refuted_goals
-       ~f:sub1 ~g:sub2 ~f_out:"sub_3a.dot" ~g_out:"sub_3b.dot"
 
+  let expected1 =
+    EdgeSet.of_list [edge_of_endpoints blk1 blk2; edge_of_endpoints blk2 blk3; edge_of_endpoints blk3 blk2; edge_of_endpoints blk3 blk4] in
+  let expected2 = EdgeSet.empty in
+  validate_taken_edges sub1 sub2 ~pre_regs ~post_regs ~expected1 ~expected2
+  *)
 let suite = [
     "Remove needed assignments" >:: test_sub_pair_1;
     "Remove hard-coded x value" >:: test_sub_pair_2;

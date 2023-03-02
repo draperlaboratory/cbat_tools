@@ -22,6 +22,13 @@
 *)
 open Bap.Std
 
+(* TODO : add documentation to this .mli signature *)
+val taken_edges_of_refuted_goal :
+  Constraint.refuted_goal
+  -> Sub.t
+  -> Sub.t
+  -> Graphs.Ir.Edge.Set.t * Graphs.Ir.Edge.Set.t
+
 (** Write CFGs for two functions in which execution paths induced by a
     CBAT-generated countermodel are highlighted. 
 
