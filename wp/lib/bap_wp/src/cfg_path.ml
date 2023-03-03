@@ -47,7 +47,6 @@ let pick_edges (e1 : Edge.t) (e2 : Edge.t) (path : Constr.path) : Edge.t list =
     | None, Some bs -> bs, e2, e1
     | _, _ -> failwith "expected one guarded and one fallthrough edge"
   in
-  let open Constr in
   match branches_taken with
   | Both -> [true_edge; false_edge]
   | Only b -> if b then [true_edge] else [false_edge]

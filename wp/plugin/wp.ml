@@ -344,7 +344,6 @@ let grammar = Cmd.(
     $ rewrite_addresses
     $ debug
     $ show
-    $ dump_cfgs
     $ stack_base
     $ stack_size
     $ func_name_map
