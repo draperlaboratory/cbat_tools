@@ -31,7 +31,6 @@ module Constr = Constraint
     specified, the paths that lead to the refuted goals. *)
 val print_result
   : ?fmt:Format.formatter
-  -> ?dump_cfgs:(string option)
   -> Z3.Solver.solver
   -> Z3.Solver.status
   -> Constr.t
