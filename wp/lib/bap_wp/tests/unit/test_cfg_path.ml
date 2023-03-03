@@ -26,14 +26,13 @@ let code_of_sub sub env = Comp.{
 let string_of_edgeset (es : EdgeSet.t) : string =
   EdgeSet.fold es ~init:"\n" ~f:(fun s e -> s ^ Graphs.Ir.Edge.to_string e ^ "\n")
 
-let edge_of_endpoints (src : Blk.t) (dst : Blk.t) : Edge.t =
+let edges_of_endpoints (src : Blk.t) (dst : Blk.t) : Edge.t list =
   let cfg = [src; dst] |> mk_sub |> Sub.to_cfg in
   let es = Graph.edges cfg |> Seq.to_list in
   match es with
-  | [e] -> e
-  | _   -> failwith "CFG should consist of a single edge"
+  | [_] | [_;_] -> es
+  | _ -> failwith ("CFG should consist of either one or two edges, but it had " ^ string_of_int (List.length es))
 
-(* TODO : refactor tests below in terms of this function *)
 let validate_taken_edges (sub1 : Sub.t) (sub2 : Sub.t)
       ~(pre_regs : Var.Set.t) ~(post_regs : Var.Set.t)
     ~(expected1 : EdgeSet.t) ~(expected2 : EdgeSet.t) : unit =
@@ -155,9 +154,9 @@ let test_sub_pair_1 (_ : test_ctxt) : unit =
   let pre_regs = Var.Set.union (Var.Set.singleton x) (Var.Set.singleton y) in
   let post_regs = Var.Set.singleton z in
   let expected1 =
-    EdgeSet.of_list [edge_of_endpoints blk1 blk2; edge_of_endpoints blk2 blk4] in
+    EdgeSet.of_list @@ List.concat [edges_of_endpoints blk1 blk2; edges_of_endpoints blk2 blk4] in
   let expected2 =
-    EdgeSet.of_list [edge_of_endpoints blk1' blk2'; edge_of_endpoints blk2' blk4'] in
+    EdgeSet.of_list @@ List.concat [edges_of_endpoints blk1' blk2'; edges_of_endpoints blk2' blk4'] in
   validate_taken_edges sub1 sub2 ~pre_regs ~post_regs ~expected1 ~expected2
 
 (* 
@@ -223,9 +222,9 @@ let test_sub_pair_2 (_ : test_ctxt) : unit =
   let post_regs = Var.Set.singleton y in
 
   let expected1 =
-    EdgeSet.of_list [edge_of_endpoints blk1 blk3; edge_of_endpoints blk3 blk4] in
+    EdgeSet.of_list @@ List.concat [edges_of_endpoints blk1 blk3; edges_of_endpoints blk3 blk4] in
   let expected2 =
-    EdgeSet.of_list [edge_of_endpoints blk1' blk2'; edge_of_endpoints blk2' blk4'] in
+    EdgeSet.of_list @@ List.concat [edges_of_endpoints blk1' blk2'; edges_of_endpoints blk2' blk4'] in
   
   validate_taken_edges sub1 sub2 ~pre_regs ~post_regs ~expected1 ~expected2
 
@@ -263,12 +262,8 @@ sub #2:
 
 0000005b:
  *)
-
 let test_sub_pair_3 (_ : test_ctxt) : unit =
-  ()
-(*
-let test_sub_pair_3 (_ : test_ctxt) : unit =
-  let blk1 = Blk.create () in
+  let blk1  = Blk.create () in
   let blk1' = Blk.create () in
   let blk2  = Blk.create () in
   let blk2' = Blk.create () in
@@ -283,26 +278,25 @@ let test_sub_pair_3 (_ : test_ctxt) : unit =
   
   let blk1  = blk1  |> mk_def x one |> mk_jmp blk2  in
   let blk1' = blk1' |> mk_def x one |> mk_jmp blk2' in
-
+  
   let blk2  = blk2  |> mk_cond eq1 blk4 blk3   in
   let blk2' = blk2' |> mk_cond eq2 blk4' blk3' in
   
   let blk3  = blk3  |> mk_def x inc |> mk_jmp blk2  in
   let blk3' = blk3' |> mk_def x inc |> mk_jmp blk2' in
-
+  
   let sub1 = mk_sub [blk1;  blk2;  blk3;  blk4] in
   let sub2 = mk_sub [blk1'; blk2'; blk3'; blk4'] in
-
-  let () = print_endline @@ Sub.to_string sub2 in
-
+  
   let pre_regs = Var.Set.singleton x in
   let post_regs = Var.Set.singleton x in
-
+  
   let expected1 =
-    EdgeSet.of_list [edge_of_endpoints blk1 blk2; edge_of_endpoints blk2 blk3; edge_of_endpoints blk3 blk2; edge_of_endpoints blk3 blk4] in
-  let expected2 = EdgeSet.empty in
+    EdgeSet.of_list @@ List.concat [edges_of_endpoints blk1 blk2; edges_of_endpoints blk2 blk3; edges_of_endpoints blk2 blk4] in
+  let expected2 =
+    EdgeSet.of_list @@ List.concat [edges_of_endpoints blk1' blk2'; edges_of_endpoints blk2' blk3'; edges_of_endpoints blk2' blk4'] in
   validate_taken_edges sub1 sub2 ~pre_regs ~post_regs ~expected1 ~expected2
-  *)
+
 let suite = [
     "Remove needed assignments" >:: test_sub_pair_1;
     "Remove hard-coded x value" >:: test_sub_pair_2;
