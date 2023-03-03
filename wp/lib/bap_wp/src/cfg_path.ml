@@ -105,10 +105,6 @@ let pp_cfg_path_fst_refuted_goal
   match Seq.hd rgs with
   | None -> print_endline "no refuted goals"
   | Some rg ->
-     let path_combined = Constr.path_of_refuted_goal rg in
-     let path_orig = filter_path path_combined (jmps_of_sub f) in
-     let path_mod  = filter_path path_combined (jmps_of_sub g) in
-     let es_orig = get_taken_edges f path_orig in
-     let es_mod  = get_taken_edges g path_mod  in
-     write_highlighted_cfg f ~highlight:es_orig ~filename:f_out;
-     write_highlighted_cfg g ~highlight:es_mod  ~filename:g_out
+     let es1, es2 = taken_edges_of_refuted_goal rg f g in
+     write_highlighted_cfg f ~highlight:es1 ~filename:f_out;
+     write_highlighted_cfg g ~highlight:es2 ~filename:g_out

@@ -380,7 +380,6 @@ let callback
     (rewrite_addresses : bool)
     (debug : string list)
     (show : string list)
-    (dump_cfgs : string option)
     (stack_base : int option)
     (stack_size : int option)
     (func_name_map : (string * string) list)
@@ -416,7 +415,6 @@ let callback
       rewrite_addresses = rewrite_addresses;
       debug = debug;
       show = show;
-      dump_cfgs = dump_cfgs;
       stack_base = stack_base;
       stack_size = stack_size;
       func_name_map = func_name_map;
