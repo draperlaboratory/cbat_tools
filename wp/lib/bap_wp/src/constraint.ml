@@ -20,6 +20,7 @@ module Bool = Z3.Boolean
 module BV = Z3.BitVector
 module Model = Z3.Model
 module Solver = Z3.Solver
+
 type z3_expr = Expr.expr
 
 type branches = Only of bool | Both

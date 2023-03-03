@@ -7,19 +7,21 @@
 # Should return SAT
 
 run () {
-  if type boolector
+  if type boolector > /dev/null 2>&1
   then
     bap wp \
       --func=sudoku_solver \
       --check-null-derefs \
       --no-byteweight \
       --ext-solver=boolector \
+      --show=diagnostics \
       -- ./bin/main
   else
     bap wp \
     --func=sudoku_solver \
     --check-null-derefs \
     --no-byteweight \
+    --show=diagnostics \
     -- ./bin/main
   fi
 

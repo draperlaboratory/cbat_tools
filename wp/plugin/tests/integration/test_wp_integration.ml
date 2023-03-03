@@ -1,5 +1,5 @@
 open OUnitTest
-open Test_wp_utils
+open Wp_plugin_tests.Test_wp_utils
 
 let integration_tests = List.append [
 
@@ -31,7 +31,7 @@ let integration_tests = List.append [
           ~checker:(Some (check_list models))));
 
     "Hash function"                  >: (
-      let registers =  get_register_args 5 `x86_64 in
+      let registers =  get_register_args 5 X86_target.amd64 in
       test_plugin "hash_function" sat
         ~reg_list:(registers |> StringSet.of_list)
         ~checker:(Some (check_bad_hash_function registers)));

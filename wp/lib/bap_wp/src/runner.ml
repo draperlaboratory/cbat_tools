@@ -28,11 +28,12 @@ module Params = Run_parameters
     the set with the BAP custom command line. *)
 type params = Params.t
 
-let spec_of_name (name : string) : Sub.t -> Theory.target -> Env.fun_spec option =
+let spec_of_name (no_chaos : string list) (name : string)
+  : Sub.t -> Theory.target -> Env.fun_spec option =
   match name with
   | "verifier-error" -> Pre.spec_verifier_error
   | "verifier-assume" -> Pre.spec_verifier_assume
-  | "verifier-nondet" -> Pre.spec_verifier_nondet
+  | "verifier-nondet" -> Pre.spec_verifier_nondet no_chaos
   | "afl-maybe-log" -> Pre.spec_afl_maybe_log
   | "arg-terms" -> Pre.spec_arg_terms
   | "chaos-caller-saved" -> Pre.spec_chaos_caller_saved
@@ -198,7 +199,7 @@ let fun_specs ~orig:(orig : bool) (p : params) (to_inline : Sub.t Seq.t)
   : (Sub.t -> Theory.target -> Env.fun_spec option) list =
   let default = [
     Pre.spec_verifier_assume;
-    Pre.spec_verifier_nondet;
+    Pre.spec_verifier_nondet p.no_chaos;
     Pre.spec_empty;
     Pre.spec_chaos_caller_saved
   ] in
@@ -211,7 +212,7 @@ let fun_specs ~orig:(orig : bool) (p : params) (to_inline : Sub.t Seq.t)
     if List.is_empty p.fun_specs then
       default
     else
-      List.map p.fun_specs ~f:spec_of_name
+      List.map p.fun_specs ~f:(spec_of_name p.no_chaos)
   in
   user_func_spec @ trip_asserts @ inline @ specs
 
@@ -545,13 +546,15 @@ let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
   in
   output_to_gdb ~filename:p.gdb_output ~func:p.func solver result env;
   output_to_bildb ~filename:p.bildb_output solver result env;
-  let () = match cp with
-    | Single cp ->
-      Output.print_result solver result cp.pre ~orig:cp.orig
-        ~modif:cp.orig ~show:p.show ~dump_cfgs:p.dump_cfgs
-    | Comparative cp ->
-      Output.print_result solver result cp.pre ~orig:cp.orig
-        ~modif:cp.modif ~show:p.show ~dump_cfgs:p.dump_cfgs
+  let () =
+    if Utils.print_diagnostics p.show then
+      match cp with
+      | Single cp ->
+        Output.print_result solver result cp.pre ~orig:cp.orig
+          ~modif:cp.orig ~show:p.show
+      | Comparative cp ->
+        Output.print_result solver result cp.pre ~orig:cp.orig
+          ~modif:cp.modif ~show:p.show
   in
   Ok result
 

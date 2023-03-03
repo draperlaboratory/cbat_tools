@@ -607,13 +607,16 @@ let spec_verifier_assume (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option
   else
     None
 
-let spec_verifier_nondet (sub : Sub.t) (_ : Theory.target) : Env.fun_spec option =
+let spec_verifier_nondet (no_chaos : string list) (sub : Sub.t)
+    (_ : Theory.target) : Env.fun_spec option =
   let is_nondet name = String.(
       (is_prefix name ~prefix:"__VERIFIER_nondet_")
       || (equal name "calloc")
       || (equal name "malloc"))
   in
-  if is_nondet (Sub.name sub) then
+  let no_chaos name = List.exists no_chaos ~f:(fun nc -> String.equal name nc) in
+  let sub_name = Sub.name sub in
+  if (is_nondet sub_name) && (not @@ no_chaos sub_name) then
     Some {
       spec_name = "spec_verifier_nondet";
       spec = Summary
@@ -1429,13 +1432,14 @@ let mem_read_offsets (env2 : Env.t)
 let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
     ?(fmt = Format.err_formatter) (solver : Solver.solver)
     (ctx : Z3.context) (pre : Constr.t)  : Solver.status =
-  Format.fprintf fmt "Evaluating precondition.\n%!";
-
+  if Utils.print_diagnostics print_constr then
+    Format.fprintf fmt "Evaluating precondition.\n%!";
   if (List.mem print_constr "precond-internal" ~equal:(String.equal)) then (
     let colorful = List.mem print_constr "colorful" ~equal:String.equal in
     Printf.printf "Internal : %s \n %!" (Constr.to_string ~colorful:colorful pre) ) ;
   let pre' = Constr.eval ~debug:debug pre ctx in
-  Format.fprintf fmt "Checking precondition with Z3.\n%!";
+  if Utils.print_diagnostics print_constr then
+    Format.fprintf fmt "Checking precondition with Z3.\n%!";
   let is_correct =
     if refute then
       Bool.mk_implies ctx pre' (Bool.mk_false ctx)
@@ -1448,7 +1452,7 @@ let check ?(refute = true) ?(print_constr = []) ?(debug = false) ?ext_solver
   match ext_solver with
   | None -> Z3.Solver.check solver []
   | Some (solver_path, declsyms) ->
-    Z3_utils.check_external solver solver_path ctx declsyms
+    Z3_utils.check_external solver solver_path ctx declsyms ~print_constr ~fmt
 
 let exclude ?fmt:(fmt = Format.err_formatter) (solver : Solver.solver)
     (ctx : Z3.context) ~var:(var : Constr.z3_expr) ~pre:(pre : Constr.t)

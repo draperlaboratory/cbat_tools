@@ -195,15 +195,10 @@ let show = Cmd.parameter Typ.(list string) "show"
            `colorful': precond-internal can have color to highlight key words,
            making the output easier to read. Warning: Coloring will change
            the syntax, so don't use this flag if you wish to pass the printed
-          output as an input elsewhere.|}
+           output as an input elsewhere.
 
-let dump_cfgs = Cmd.parameter Typ.(some string) "dump-cfgs"
-    ~doc:{|If a countermodel is found, write control flow graphs for the functions
-           under analysis to files in Graphviz's DOT format. For example, 
-           `--dump-cfgs=foo` writes CFGs for the original and modified versions of
-           a function to `foo_orig.dot` and `foo_mod.dot`, respectively. The CFGs can 
-           then be viewed with any DOT viewer. In the CFGs, the execution paths that 
-           the countermodel induces appear in bold.|}
+           `diagnostics': Prints out debugging information about runtime to
+           stderr.|}
 
 let stack_base = Cmd.parameter Typ.(some int) "stack-base"
     ~doc:{|Sets the location of the stack frame for the function under
@@ -320,6 +315,13 @@ let loop_invariant = Cmd.parameter Typ.string "loop-invariant"
            written in BAP's bitvector string format. Only supported for a single
            binary analysis.|}
 
+let no_chaos = Cmd.parameter Typ.(list string) "no-chaos"
+    ~doc:{|By default, nondeterministic functions and functions that allocate
+           memory will use the Chaos function spec that freshens the output
+           variable, "chaosing" its value as a result. Setting this flag will
+           turn off this feature and treat the specified list as other
+           functions that will use other function specs.|}
+
 let grammar = Cmd.(
     args
     $ func
@@ -354,6 +356,7 @@ let grammar = Cmd.(
     $ ogre_orig
     $ ogre_mod
     $ ext_solver_path
+    $ no_chaos
     $ files)
 
 (* The callback run when the command is invoked from the command line. *)
@@ -390,6 +393,7 @@ let callback
     (ogre_orig : string option)
     (ogre_mod : string option)
     (ext_solver_path : string option)
+    (no_chaos : string list)
     (files : string list)
     (ctxt : ctxt) =
   let open Parameters.Err.Syntax in
@@ -426,11 +430,14 @@ let callback
       ogre_mod = ogre_mod;
       ext_solver_path = ext_solver_path;
       init_mem = init_mem;
+      no_chaos = no_chaos
     })
   in
   Parameters.validate params files >>= fun params ->
-  Analysis.run params files ctxt >>= fun () ->
-  Ok ()
+  Analysis.run params files ctxt >>= function
+  | Z3.Solver.UNSATISFIABLE -> Ok ()
+  | Z3.Solver.SATISFIABLE -> Error (Extension.Error.Exit_requested 1)
+  | Z3.Solver.UNKNOWN -> Error (Extension.Error.Exit_requested 2)
 
 let () =
   Cmd.declare name grammar callback ~doc

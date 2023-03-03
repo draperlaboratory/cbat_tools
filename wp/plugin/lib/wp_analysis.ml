@@ -20,7 +20,7 @@ module Utils = Wp_utils
 
 (* Entrypoint for the WP analysis. *)
 let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
-  : (unit, error) result =
+  : (Z3.Solver.status, error) result =
 
   let files_and_ogres : (string * string option) list =
     let open Params in
@@ -51,4 +51,4 @@ let run (p : Params.t) (files : string list) (bap_ctx : ctxt)
   in
 
   let input_list = List.map files_and_ogres ~f:mk_input in
-  Runner.run p input_list |> Result.map ~f:(fun _ -> ())
+  Runner.run p input_list

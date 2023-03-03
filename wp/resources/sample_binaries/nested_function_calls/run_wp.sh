@@ -11,6 +11,7 @@ run () {
   bap wp \
     --func=main \
     --trip-asserts \
+    --show=diagnostics \
     -- ./bin/main
 }
 

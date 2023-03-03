@@ -25,7 +25,7 @@ bapbundle -help
 Note: to avoid undefined behavior, always tell `bapbuild` to use `ocamlfind` and the `findlib.dynload` library, e.g.:
 
 ```
-bapbuild -use-ocamlfind -package findlibe.dynload ...
+bapbuild -use-ocamlfind -package findlib.dynload ...
 ```
 
 

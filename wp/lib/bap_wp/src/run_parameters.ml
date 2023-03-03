@@ -67,6 +67,7 @@ type t = {
   ogre_mod : string option;
   ext_solver_path : string option;
   init_mem : bool;
+  no_chaos : string list
 }
 
 type loop_invariant = {
@@ -113,7 +114,8 @@ let validate_show (show : string list) : (unit, error) result =
     "paths";
     "precond-internal";
     "precond-smtlib";
-    "colorful"
+    "colorful";
+    "diagnostics"
   ] in
   match find_unsupported_option show supported with
   | Some s ->
@@ -257,4 +259,5 @@ let default ~func:(func : string) : t =
     fun_specs = [];
     ext_solver_path = None;
     init_mem = false;
+    no_chaos = []
   }

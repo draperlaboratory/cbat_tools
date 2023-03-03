@@ -120,7 +120,7 @@ function run() {
     --no-byteweight \
     --function={} \
     --num-unroll=0 \
-    --show=bir,paths \
+    --show=bir,paths,diagnostics \
     --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
     --rewrite-addresses \
     --check-invalid-derefs \
@@ -129,14 +129,28 @@ function run() {
 
 # Prints out the number of each result from the run.
 function show_results() {
-  sats=$(grep -l '^SAT!$' $RESULTS/* | wc -l)
-  unsats=$(grep -l '^UNSAT!$' $RESULTS/* | wc -l)
-  unknowns=$(grep -L '^SAT!$\|^UNSAT!$' $RESULTS/* | wc -l)
-  total=$(ls $RESULTS/ | wc -l)
+  exit_codes=($(cat $LOGS/invalid-derefs.txt | tail -n +2 | awk '{print $7}'))
+  unsats=0
+  sats=0
+  unknowns=0
+  timeouts=0
+  total=${#exit_codes[@]}
+  for result in ${exit_codes[@]}; do
+    if [ $result -eq 0 ]; then
+      ((unsats++))
+    elif [ $result -eq 1 ]; then
+      ((sats++))
+    elif [ $result -eq 2 ]; then
+      ((unknowns++))
+    else
+      ((timeouts++))
+    fi
+  done
   echo "----------------"
   echo "SATs: $sats"
   echo "UNSATs: $unsats"
   echo "UNKNOWNs: $unknowns"
+  echo "TIMEOUTs: $timeouts"
   echo "TOTAL: $total"
   echo "----------------"
 }

@@ -1,5 +1,5 @@
 open OUnitTest
-open Test_wp_utils
+open Wp_plugin_tests.Test_wp_utils
 
 let unit_tests = [
 
@@ -50,6 +50,11 @@ let unit_tests = [
   "Init var compare: UNSAT"        >: test_plugin "init_var_compare" unsat;
   "Init var compare: SAT"          >: test_plugin "init_var_compare" sat
     ~script:"run_wp_sat.sh";
+
+  "Malloc simple compare: SAT"     >: test_plugin "malloc/compare_simple" sat
+    ~script:"run_wp_sat.sh";
+  "Malloc simple compare: UNSAT"   >: test_plugin "malloc/compare_simple" unsat
+    ~script:"run_wp_unsat.sh";
 
   "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat;
   "Arrays in data section"         >: test_plugin "memory_samples/arrays" sat

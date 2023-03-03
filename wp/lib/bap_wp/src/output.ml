@@ -27,55 +27,57 @@ module FInterp = Model.FuncInterp
 module Env = Environment
 module Constr = Constraint
 module Comp = Compare
-
+module Sym = Z3.Symbol
 module VarMap = Var.Map
 
-type mem_model = {default : Constr.z3_expr ; model : (Constr.z3_expr * Constr.z3_expr) list}
+type mem_model = {
+  default : Constr.z3_expr;
+  model : (Constr.z3_expr * Constr.z3_expr) list
+}
+
+let equal_mem_model (m1 : mem_model) (m2 : mem_model) : bool =
+  let eqe (k1, v1) (k2, v2) = Expr.equal k1 k2 && Expr.equal v1 v2 in
+  Expr.equal m1.default m2.default &&
+  List.equal eqe m1.model m2.model
 
 let format_mem_model (fmt : Format.formatter) (mem_model : mem_model) : unit =
-  mem_model.model
-  |> List.sort ~compare:(fun (addr1, _) (addr2, _) ->
-      String.compare (Expr.to_string addr1) (Expr.to_string addr2))
-  |> List.iter ~f:(fun (key, data) ->
+  mem_model.model |> List.iter ~f:(fun (key, data) ->
       Format.fprintf fmt "\t\t%s |-> %s ;\n"
         (Expr.to_string key) (Constr.expr_to_hex data));
-  if (Z3.Expr.is_numeral mem_model.default)
+  if (Expr.is_numeral mem_model.default)
   then Format.fprintf fmt "\t\telse |-> %s]\n" (Constr.expr_to_hex mem_model.default)
   else Format.fprintf fmt "\t\t%s]\n" (Expr.to_string mem_model.default)
 
-(** [extract_array] takes a z3 expression that is a seqeunce of store and converts it into
-    a mem_model, which consists of a key/value association list and a default value *)
-
+(* Takes a z3 expression that is either a sequence of stores or a lambda term
+   and converts it into a mem_model, which consists of a key/value association
+   list and a default value *)
 let extract_array (e : Constr.z3_expr) : mem_model =
-  let rec extract_array' (partial_map : (Constr.z3_expr * Constr.z3_expr) list) (e : Constr.z3_expr) : mem_model =
-    if (Z3.Z3Array.is_array e) then begin
-      let numargs = Z3.Expr.get_num_args e in
-      let args = Z3.Expr.get_args e in
-      let f_decl = Z3.Expr.get_func_decl e in
-      let f_name = Z3.FuncDecl.get_name f_decl |> Z3.Symbol.to_string in
-      if Int.(numargs = 3) && String.(f_name = "store") then begin
+  let rec aux
+      (partial_map : (Constr.z3_expr * Constr.z3_expr) list)
+      (e : Constr.z3_expr) : mem_model =
+    let bail () =
+      warning "Unexpected case destructing Z3 array: %s" @@ Expr.to_string e;
+      {default = e; model = partial_map} in
+    if Z3Array.is_array e then
+      let numargs = Expr.get_num_args e in
+      let args = Expr.get_args e in
+      let f_decl = Expr.get_func_decl e in
+      let f_name = Fun.get_name f_decl |> Sym.to_string in
+      match f_name with
+      | "store" when numargs = 3 ->
         let next_arr = List.nth_exn args 0 in
         let key = List.nth_exn args 1 in
         let value = List.nth_exn args 2 in
-        extract_array' ((key , value) :: partial_map) next_arr
-      end
-      else if Int.(numargs = 1) && String.(f_name = "const") then begin
+        aux ((key, value) :: partial_map) next_arr
+      | "const" when numargs = 1 ->
         let key = List.nth_exn args 0 in
-        { default = key; model = List.rev partial_map }
-      end
-      else begin
-        warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
-        { default = e ; model = partial_map }
-      end
-    end
-    else
-      begin
-        (* FIXME: Presumably a lambda term *)
-        warning "Unexpected case destructing Z3 array: %s" (Z3.Expr.to_string e);
-        { default = e; model = partial_map }
-      end
-  in
-  extract_array' [] e
+        {default = key; model = List.rev partial_map}
+      | _ -> bail ()
+    else bail () in
+  let mem = aux [] e in {
+    mem with model = List.sort mem.model ~compare:(fun (addr1, _) (addr2, _) ->
+      String.compare (Expr.to_string addr1) (Expr.to_string addr2))
+  }
 
 let print_registers (fmt : Format.formatter) (model : Model.model)
     (reg_map : Constr.z3_expr Var.Map.t) : unit =
@@ -100,17 +102,16 @@ let print_memory (fmt : Format.formatter) (model : Model.model)
       let mem_mod, _ = Env.get_var env2 key in
       let val_orig = Constr.eval_model_exn model mem_orig in
       let val_mod = Constr.eval_model_exn model mem_mod in
+      let ex_orig = extract_array val_orig in
+      let ex_mod = extract_array val_mod in
       Format.fprintf fmt "\t%s_orig |-> [\n" key_str;
-      format_mem_model fmt (extract_array val_orig);
+      format_mem_model fmt ex_orig;
       (* Memory does not have to be equivalent between both binaries, and in the
          case where they differ, show both orig and mod memories. *)
-      if not (Expr.equal val_orig val_mod) then
-        begin
-          Format.fprintf fmt "\t%s_mod |-> [\n" key_str;
-          format_mem_model fmt (extract_array val_mod)
-        end
-      else Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str
-    )
+      if not @@ equal_mem_model ex_orig ex_mod then begin
+        Format.fprintf fmt "\t%s_mod |-> [\n" key_str;
+        format_mem_model fmt ex_mod
+      end else Format.fprintf fmt "\t%s_mod = %s_orig" key_str key_str)
 
 (* These are the constants and function call predicates that were generated
    during the analysis. *)
@@ -171,12 +172,12 @@ let print_result ?fmt:(fmt = Format.err_formatter) ?(dump_cfgs : string option =
       ~show:(show : string list) ~orig:(Comp.{env=env1; prog=sub1; _})
       ~modif:(Comp.{env=env2; prog=sub2; _}) : unit =
   match status with
-  | Solver.UNSATISFIABLE -> Format.fprintf fmt "%s%!" "\nUNSAT!\n"
-  | Solver.UNKNOWN -> Format.fprintf fmt "%s%!" "\nUNKNOWN!\n"
+  | Solver.UNSATISFIABLE -> Format.fprintf fmt "%s%!" "\nNo counterexample found.\n"
+  | Solver.UNKNOWN -> Format.fprintf fmt "%s%!" "\nZ3 timed out.\n"
   | Solver.SATISFIABLE ->
     let ctx = Env.get_context env1 in
     let model = Constr.get_model_exn solver in
-    Format.fprintf fmt "%s%!" "\nSAT!\n";
+    Format.fprintf fmt "%s%!" "\nProperty falsified. Counterexample found.\n";
     Format.fprintf fmt "\nModel:\n%s\n%!" (format_model model env1 env2);
     let print_refuted_goals = List.mem show "refuted-goals" ~equal:String.equal in
     let print_path = List.mem show "paths" ~equal:String.equal in

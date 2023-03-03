@@ -62,10 +62,13 @@ module Code_addrs : sig
 
   (** The empty set. *)
   val empty : t
-  
+
   (** [collect proj] returns the set of known code addresses in [proj]. *)
   val collect : project -> t
 
   (** [containts t addr] returns [true] if [addr] is a code address in [t]. *)
   val contains : t -> addr -> bool
 end
+
+(** [print_diagnostics show] checks if the 'diagnostics' flag is in [show]. *)
+val print_diagnostics : string list -> bool

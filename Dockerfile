@@ -1,5 +1,14 @@
 FROM ocaml/opam:ubuntu-20.04-ocaml-4.14
 
+ARG OPAM_JOBS=0
+ARG BRANCH=master
+
+RUN if [ "${OPAM_JOBS}" -eq "0" ]; then \
+      sed -i 's/jobs: [[:digit:]]\+/jobs: '$(nproc)'/' /home/opam/.opam/config; \
+    else \
+      sed -i 's/jobs: [[:digit:]]\+/jobs: '${OPAM_JOBS}'/' /home/opam/.opam/config; \
+    fi
+
 RUN sudo -E apt update; \
     sudo -E apt install -qq -yy \
     zip binutils-multiarch clang debianutils libgmp-dev \
@@ -17,7 +26,7 @@ RUN cd bap-toolkit; \
     opam config exec -- make; \
     opam config exec -- make install
 
-RUN git clone https://github.com/draperlaboratory/cbat_tools.git
+RUN git clone --branch "${BRANCH}" https://github.com/draperlaboratory/cbat_tools.git
 
 RUN cd cbat_tools/wp; \
     opam config exec -- make
