@@ -22,7 +22,9 @@
 *)
 open Bap.Std
 
-(* TODO : add documentation to this .mli signature *)
+(** Given two subroutines and a refuted goal produced by comparatively
+    analyzing them, compute a pair of sets containing the subroutines' 
+    CFG edges that are exercised by the WP-produced countermodel. *)
 val taken_edges_of_refuted_goal :
   Constraint.refuted_goal
   -> Sub.t

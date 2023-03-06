@@ -72,8 +72,7 @@ let get_taken_edges (sub : Sub.t) (path : Constr.path) : EdgeSet.t =
             let taken_edges = pick_edges e1 e2 path in
             let taken_dests = List.map taken_edges ~f:Edge.dst in
             walk (taken_dests @ worklist') seen' (add_edges acc taken_edges)
-         | _ -> failwith (Printf.sprintf
-                            "unexpected number of edges: %d" (List.length out_edges))
+         | _ -> failwithf "unexpected number of edges: %d" (List.length out_edges) ()
   in
   walk [get_start_node sub] NodeSet.empty EdgeSet.empty
 
