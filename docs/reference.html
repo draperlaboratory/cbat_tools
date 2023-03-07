@@ -60,7 +60,7 @@ These options apply in most circumstances to adjust CBAT's behavior or output.
   <ul>
     <li><code>bir</code>: The code of the binary/binaries in BAP Intermediate Representation.</li>
     <li><code>refuted-goals</code>: In the case WP results in SAT, a list of goals refuted in the model that contains their tagged names, their concrete values, and their Z3 representation.</li>
-    <li><code>paths</code>: The execution path of the binary that results in a refuted goal. The path contains information about the jumps taken, their addresses, and the values of the registers at each jump. This option automatically prints out the refuted goals.</li>
+    <li><code>paths</code>: The execution path of the binary that results in a refuted goal. The path contains information about the jumps taken, their addresses, and the values of the registers at each jump. This option automatically prints out the refuted goals. It also writes files that contain control-flow graphs (CFGs) for the functions being analyzed. In each CFG, the execution path that results in a refuted goal is highlighted. The files are called <code>&ltf&gt_orig.dot</code> and <code>&ltf&gt_mod.dot</code>, where <code>&ltf&gt</code> is the name of the function being analyzed. CFGs are written in Graphviz DOT syntax so that they can be rendered with any DOT viewing tool.</li>
     <li><code>precond-smtlib</code>: The precondition printed out in Z3's SMT-LIB2 format.</li>
     <li><code>precond-internal</code>: The precondition printed out in WP's internal format for the <code>Constr.t</code> type.</li>
   </ul>
