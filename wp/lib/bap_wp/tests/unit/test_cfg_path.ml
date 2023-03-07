@@ -63,48 +63,28 @@ let validate_taken_edges (sub1 : Sub.t) (sub2 : Sub.t)
           assert_equal exp act ~cmp:EdgeSet.equal ~printer:string_of_edgeset in
         begin
           assert_equal_sets expected1 es1;
-          assert_equal_sets expected2 es2
+          assert_equal_sets expected2 es2;
         end
        
 (** 
+sub #1:                sub #2:
 
-sub #1:
+1:                     1:
+x := 0                 x := 0
+when x < 1 goto 2      when x < 1 goto 2
+goto 3                 goto 3
 
-1:
-x := 0
-when x < 1 goto 2
-goto 3
+2:                     2:
+y := 1                 y := 1
+goto 4                 goto 4
 
-2:
-y := 1
-goto 4
+3:                     3:
+y := 2                 y := 2
+goto 4                 goto 4
 
-3:
-y := 2
-goto 4
-
-4:
-y := x
-z := y
-
-sub #2:
-
-1:
-x := 0
-when x < 1 goto 2
-goto 3
-
-2:
-y := 1
-goto 4
-
-3:
-y := 2
-goto 4
-
-4:
-z := y
-
+4:                     4:
+y := x                 // no assignment to y
+z := y                 z := y
 *)
 let test_sub_pair_1 (_ : test_ctxt) : unit =
   let blk1 = Blk.create () in
@@ -159,39 +139,23 @@ let test_sub_pair_1 (_ : test_ctxt) : unit =
     EdgeSet.of_list @@ List.concat [edges_of_endpoints blk1' blk2'; edges_of_endpoints blk2' blk4'] in
   validate_taken_edges sub1 sub2 ~pre_regs ~post_regs ~expected1 ~expected2
 
-(* 
-sub #1:
+(** 
+sub #1:              sub #2:
 
-0000006c:
-00000074: x := 2
-00000075: when x < 1 goto %0000006e
-00000076: goto %00000070
+1.                   1. 
+x := 2               // x is unconstrained
+when x < 1 goto 2    when x < 1 go to 2
+goto 3               goto 3
 
-0000006e:
-00000079: y := 1
-0000007a: goto %00000072
+2.                   2.
+y := 1               y := 1
+goto 4               goto 4
 
-00000070:
-0000007d: y := 2
-0000007e: goto %00000072
+3.                   3.
+y := 2               y := 2
+goto 4               goto 4
 
-00000072:
-
-sub #2:
-
-0000007d:
-00000087: when x < 1 goto %0000007f
-00000088: goto %00000081
-
-0000007f:
-0000008b: y := 1
-0000008c: goto %00000083
-
-00000081:
-0000008f: y := 2
-00000090: goto %00000083
-
-00000083:
+4.                   4.
 *)
 let test_sub_pair_2 (_ : test_ctxt) : unit =
   let blk1 = Blk.create () in
@@ -228,40 +192,23 @@ let test_sub_pair_2 (_ : test_ctxt) : unit =
   
   validate_taken_edges sub1 sub2 ~pre_regs ~post_regs ~expected1 ~expected2
 
-(* 
-sub #1:
+(** 
+sub #1:               sub #2:
 
-00000083:
-0000008b: x := 1
-0000008c: goto %00000085
+1.                    1.
+x := 1                x := 1
+goto 2                goto 2
 
-00000085:
-0000008f: when x = 3 goto %00000089
-00000090: goto %00000087
+2.                    2. 
+when x = 3 goto 4     when x = 4 goto 4 // different loop bound
+goto 3                goto 3
 
-00000087:
-00000093: x := x + 1
-00000094: goto %00000085
+3.                    3.
+x := x + 1            x := x + 1
+goto 2                goto 2
 
-00000089:
-
-
-sub #2:
-
-00000055:
-0000005e: x := 1
-0000005f: goto %00000057
-
-00000057:
-00000062: when x = 8 goto %0000005b
-00000063: goto %00000059
-
-00000059:
-00000066: x := x + 1
-00000067: goto %00000057
-
-0000005b:
- *)
+4.                    4. 
+*)
 let test_sub_pair_3 (_ : test_ctxt) : unit =
   let blk1  = Blk.create () in
   let blk1' = Blk.create () in
@@ -273,7 +220,7 @@ let test_sub_pair_3 (_ : test_ctxt) : unit =
   let blk4' = Blk.create () in
   let x = Var.create "x" reg32_t in
   let eq1 = Bil.( (var x) = (i32 3) ) in
-  let eq2 = Bil.( (var x) = (i32 8) ) in
+  let eq2 = Bil.( (var x) = (i32 4) ) in
   let inc = Bil.( (var x) + (i32 1) ) in
   
   let blk1  = blk1  |> mk_def x one |> mk_jmp blk2  in
