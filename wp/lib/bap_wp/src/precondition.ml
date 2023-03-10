@@ -1047,7 +1047,7 @@ let collect_non_null_stores (env : Env.t) (exp : Exp.t) : Constr.z3_expr list =
   in
   visitor#visit_exp exp []
 
-let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
+let jmp_spec_reach (m : Constr.branches Jmp.Map.t) : Env.jmp_spec =
   let is_goto jmp = match Jmp.kind jmp with Goto _ -> true | _ -> false in
   Jmp.Map.fold m ~init:jmp_spec_default
     ~f:(fun ~key ~data spec ->
@@ -1077,16 +1077,18 @@ let jmp_spec_reach (m : bool Jmp.Map.t) : Env.jmp_spec =
                       (Expr.to_string cond_val) (hooks_to_string hooks);
                     let cond_size = BV.get_size (Expr.get_sort cond_val) in
                     let false_cond = Bool.mk_eq ctx cond_val (z3_expr_zero ctx cond_size) in
-                    let constr = if data then
-                        [Bool.mk_not ctx false_cond
-                         |> Constr.mk_goal (Expr.to_string cond_val)
-                         |> Constr.mk_constr;
-                         l_pre]
-                      else
-                        [false_cond
-                         |> Constr.mk_goal (Expr.to_string false_cond)
-                         |> Constr.mk_constr;
-                         post]
+                    let constr =
+                      (match data with
+                       | Both | Only true ->
+                          [Bool.mk_not ctx false_cond
+                           |> Constr.mk_goal (Expr.to_string cond_val)
+                           |> Constr.mk_constr;
+                           l_pre]
+                       | Only false ->
+                          [false_cond
+                           |> Constr.mk_goal (Expr.to_string false_cond)
+                           |> Constr.mk_constr;
+                           post])
                     in
                     let assume = hooks.assume_before @ hooks.assume_after in
                     let vcs = hooks.verify_before @ hooks.verify_after in

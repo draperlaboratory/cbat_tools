@@ -59,7 +59,6 @@ uninstall:
 # eq is needed otherwise errors if not installed
 ifeq ($(IS_INSTALLED),1)
 	dune uninstall
-	opam remove .
 endif
 
 #####################################################

@@ -551,10 +551,10 @@ let check_pre (p : params) (ctx : Z3.context) (cp : combined_pre)
       match cp with
       | Single cp ->
         Output.print_result solver result cp.pre ~orig:cp.orig
-          ~modif:cp.orig ~show:p.show;
+          ~modif:cp.orig ~show:p.show
       | Comparative cp ->
         Output.print_result solver result cp.pre ~orig:cp.orig
-          ~modif:cp.modif ~show:p.show;
+          ~modif:cp.modif ~show:p.show
   in
   Ok result
 

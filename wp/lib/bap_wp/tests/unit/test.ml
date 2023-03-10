@@ -19,6 +19,7 @@ let suite =
     "Compare"      >::: Test_compare.suite;
     "Constraint"   >::: Test_constraint.suite;
     "Output"       >::: Test_output.suite;
+    "CFG Paths"    >::: Test_cfg_path.suite;
     "Z3 Utils"     >::: Test_z3_utils.suite;
     "Utils"        >::: Test_utils.suite;
   ]
