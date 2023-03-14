@@ -1,4 +1,5 @@
 from cbat import run_wp
+from cbat.helpers import PropertyBuilder, MemView
 import z3
 import tempfile
 import subprocess
@@ -59,7 +60,28 @@ def test3():
     assert run_code(code, postcond)[0] == z3.unsat
 
 
+def test4():
+    print("running test4")
+    pb = PropertyBuilder(binary="resources/test4.o",
+                         headers="int foo(int x, char y);")
+    x, y = pb.fun_args("foo")
+    init_x, init_y = pb.init_fun_args("foo")
+    retval = pb.ret_val("foo")
+    # This is using bitvector semantic. Not C int semantics. Sigh. Since I'm pretending, this is confusing.
+    postcond = retval == init_x + 3
+    precond = None
+    (res, model) = run_wp("resources/test4.o", func="foo",
+                          precond=precond, postcond=postcond, docker_image=None)
+    assert res == z3.unsat
+
+    postcond = retval == init_x + 4
+    (res, model) = run_wp("resources/test4.o", func="foo",
+                          precond=precond, postcond=postcond, docker_image=None)
+    assert res == z3.sat
+
+
 # I dunno. Something weird is going on with pytest and IO.
+test4()
 test1()
 test2()
 test3()

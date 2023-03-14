@@ -25,12 +25,13 @@ def run_wp(filename, filename2=None,  func="main", invariants=[], precond=None, 
         cmd.append(filename2)
 
     if docker_image != None:
-        flags = ["-it", "-v", f"{filename}:{filename}"]
+        flags = ["-v", f"{filename}:{filename}"]
         if filename2 != None:
             flags += ["-v", f"{filename2}:{filename2}"]
         cmd = ["docker", "run"] + flags + [docker_image] + cmd
     res = subprocess.run(cmd, check=False, capture_output=True)
-    smtlib = stdout.split("Z3 :")[1]
+    print(res.stderr)
+    smtlib = res.stdout.decode().split("Z3 :")[1]
     s = z3.Solver()
     s.from_string(smtlib)
     res = s.check()
