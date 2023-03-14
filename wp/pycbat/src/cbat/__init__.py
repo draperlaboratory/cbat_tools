@@ -32,8 +32,10 @@ def run_wp(filename, filename2=None,  func="main", invariants=[], precond=None, 
     res = subprocess.run(cmd, check=False, capture_output=True)
     print(res.stderr)
     smtlib = res.stdout.decode().split("Z3 :")[1]
+    print(smtlib)
     s = z3.Solver()
     s.from_string(smtlib)
+    print(s)
     res = s.check()
     if res == z3.unsat:
         return (z3.unsat, f"Property {postcond} proved")

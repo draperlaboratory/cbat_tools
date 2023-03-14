@@ -3,7 +3,7 @@ from cbat.helpers import PropertyBuilder, MemView
 import z3
 import tempfile
 import subprocess
-
+import angr
 rax = z3.BitVec("RAX", 64)
 init_rax = z3.BitVec("init_RAX", 64)
 init_rdi = z3.BitVec("init_RDI", 64)
@@ -80,7 +80,42 @@ def test4():
     assert res == z3.sat
 
 
+def test5():
+    header = '''
+      typedef struct mystruct
+      {
+          int f1;
+          char f2;
+      } mystruct;
+
+      int foo(mystruct *x, char y);
+      '''
+    pb = PropertyBuilder(binary="resources/test5.o", headers=header)
+    x, y = pb.fun_args("foo")
+    init_x, init_y = pb.init_fun_args("foo")
+    retval = pb.ret_val("foo")
+    x_init = MemView(pb.init_mem, init_x, angr.types.parse_type(
+        "mystruct").with_arch(pb.proj.arch))
+    postcond = retval == x_init["f1"].z3() + 3
+    (res, model) = run_wp("resources/test5.o", func="foo",
+                          postcond=postcond, docker_image=None)
+    retval = z3.Extract(31, 0, z3.BitVec("RAX0", 64))
+    init_x = z3.BitVec("init_RDI0", 64)
+    init_mem = z3.Array("init_mem0",
+                        z3.BitVecSort(64), z3.BitVecSort(8))
+    x_init = MemView(init_mem, init_x, angr.types.parse_type(
+        "mystruct").with_arch(pb.proj.arch))
+    postcond = retval == x_init["f1"].z3() + 3
+    # print(postcond)
+    # print(model)
+    # print(model.eval(postcond))
+    # print(model.eval(x_init["f1"].z3()))
+    #print(model.eval(x_init["f1"].z3() + 3))
+    assert res == z3.unsat
+
+
 # I dunno. Something weird is going on with pytest and IO.
+test5()
 test4()
 test1()
 test2()

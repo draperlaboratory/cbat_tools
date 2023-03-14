@@ -3,10 +3,11 @@ import angr
 
 
 class MemView():
-    def __init__(self, mem: z3.ArrayRef, addr: z3.BitVecRef, typ: angr.sim_type.SimType):
+    def __init__(self, mem: z3.ArrayRef, addr: z3.BitVecRef, typ: angr.sim_type.SimType, le=True):
         self.mem = mem
         self.addr = addr
         self.typ = typ
+        self.le = True
 
     def deref(self):
         addr = self.z3()
@@ -14,7 +15,10 @@ class MemView():
 
     def z3(self):
         # check endian
-        return z3.Concat([self.mem[self.addr + n] for n in range(self.typ.size // 8)])
+        bytes = range(self.typ.size // 8)
+        if self.le:
+            bytes = reversed(bytes)
+        return z3.Concat([self.mem[self.addr + n] for n in bytes])
 
     def __getitem__(self, field):
         addr = self.addr + self.typ.offsets[field]
