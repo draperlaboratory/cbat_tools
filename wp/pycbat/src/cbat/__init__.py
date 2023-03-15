@@ -2,7 +2,7 @@ import subprocess
 import z3
 
 
-def run_wp(filename, filename2=None,  func="main", invariants=[], precond=None, postcond=None, docker_image="philzook58/cbat_min", **kwargs):
+def run_wp(filename, filename2=None,  func="main", invariants=[], debug=False, precond=None, postcond=None, docker_image="philzook58/cbat_min", **kwargs):
     cmd = ["bap", "wp", "--no-cache",
            "--show", "precond-smtlib", "--func", func]
     if precond != None:
@@ -30,15 +30,16 @@ def run_wp(filename, filename2=None,  func="main", invariants=[], precond=None, 
             flags += ["-v", f"{filename2}:{filename2}"]
         cmd = ["docker", "run"] + flags + [docker_image] + cmd
     res = subprocess.run(cmd, check=False, capture_output=True)
-    print(res.stderr)
+    if debug:
+        print(res.stderr)
     smtlib = res.stdout.decode().split("Z3 :")[1]
-    print(smtlib)
     s = z3.Solver()
     s.from_string(smtlib)
-    print(s)
+    if debug:
+        print(s)
     res = s.check()
     if res == z3.unsat:
-        return (z3.unsat, f"Property {postcond} proved")
+        return (z3.unsat, s)
     elif res == z3.sat:
         # raise?
-        return (z3.sat, s.model())
+        return (z3.sat, s)

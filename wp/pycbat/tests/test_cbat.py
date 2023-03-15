@@ -1,5 +1,5 @@
 from cbat import run_wp
-from cbat.helpers import PropertyBuilder, MemView
+from cbat.helpers import PropertyBuilder
 import z3
 import tempfile
 import subprocess
@@ -61,7 +61,6 @@ def test3():
 
 
 def test4():
-    print("running test4")
     pb = PropertyBuilder(binary="resources/test4.o",
                          headers="int foo(int x, char y);")
     x, y = pb.fun_args("foo")
@@ -94,18 +93,16 @@ def test5():
     x, y = pb.fun_args("foo")
     init_x, init_y = pb.init_fun_args("foo")
     retval = pb.ret_val("foo")
-    x_init = MemView(pb.init_mem, init_x, angr.types.parse_type(
-        "mystruct").with_arch(pb.proj.arch))
-    postcond = retval == x_init["f1"].z3() + 3
+    postcond = retval.value == init_x.deref()["f1"].value + 3
     (res, model) = run_wp("resources/test5.o", func="foo",
                           postcond=postcond, docker_image=None)
-    retval = z3.Extract(31, 0, z3.BitVec("RAX0", 64))
-    init_x = z3.BitVec("init_RDI0", 64)
-    init_mem = z3.Array("init_mem0",
-                        z3.BitVecSort(64), z3.BitVecSort(8))
-    x_init = MemView(init_mem, init_x, angr.types.parse_type(
-        "mystruct").with_arch(pb.proj.arch))
-    postcond = retval == x_init["f1"].z3() + 3
+    # debugging
+    #retval = z3.Extract(31, 0, z3.BitVec("RAX0", 64))
+    #init_mem0 = pb.init_mem0
+    #init_x0, init_y0 = pb.init_fun_args("foo", prefix="init_", suffix="0")
+    # x_init = MemView(init_mem0, init_x0, angr.types.parse_type(
+    #    "mystruct").with_arch(pb.proj.arch))
+    #postcond = retval == x_init0["f1"].z3() + 3
     # print(postcond)
     # print(model)
     # print(model.eval(postcond))

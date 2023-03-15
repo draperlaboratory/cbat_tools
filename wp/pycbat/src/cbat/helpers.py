@@ -2,30 +2,45 @@ import z3
 import angr
 
 
-class MemView():
-    def __init__(self, mem: z3.ArrayRef, addr: z3.BitVecRef, typ: angr.sim_type.SimType, le=True):
+class TypedView():
+    def __init__(self, value: z3.BitVecRef, typ: angr.sim_type.SimType, le=True, mem=None):
         self.mem = mem
-        self.addr = addr
+        self.value = value
         self.typ = typ
         self.le = True
 
     def deref(self):
-        addr = self.z3()
-        return MemView(self.mem, addr, self.typ.pts_to)
-
-    def z3(self):
-        # check endian
+        assert self.mem != None
         bytes = range(self.typ.size // 8)
         if self.le:
             bytes = reversed(bytes)
-        return z3.Concat([self.mem[self.addr + n] for n in bytes])
+        value = z3.Concat([self.mem[self.value + n] for n in bytes])
+        return TypedView(value, self.typ.pts_to, le=self.le, mem=self.mem)
 
     def __getitem__(self, field):
-        addr = self.addr + self.typ.offsets[field]
-        return MemView(self.mem, addr, self.typ.fields[field])
+        start = self.typ.offsets[field]
+        end = start + self.typ.fields[field].size
+        value = z3.Extract(end-1, start, self.value)
+        return TypedView(value, self.typ.fields[field], mem=self.mem, le=self.le)
+
+    def __add__(self, b):
+        if isinstance(b, int):
+            return TypedView(self.value + b, self.typ, mem=self.mem, le=self.le)
+        elif isinstance(b, TypedView):
+            assert b.typ == self.typ and self.mem == b.mem and self.le == b.le
+            return TypedView(self.value + b.value, self.typ, mem=self.mem, le=self.le)
+        assert False, "Unexpected addition type"
+
+    def __eq__(self, b):
+        assert self.typ == b.typ
+        return self.value == b.value
 
     def __repr__(self):
-        return f"({repr(self.typ)}){repr(self.mem)}[{repr(self.addr)}]"
+        return f"({repr(self.typ)}){repr(self.value)}"
+
+
+def make_mem(name):
+    return z3.Array(name, z3.BitVecSort(64), z3.BitVecSort(8))
 
 
 class PropertyBuilder():
@@ -35,10 +50,10 @@ class PropertyBuilder():
         if headers != None:
             self.load_headers(headers)
 
-        def make_mem(name):
-            return z3.Array(name, z3.BitVecSort(64), z3.BitVecSort(8))
         self.mem = make_mem("mem")
         self.init_mem = make_mem("init_mem")
+        self.mem0 = make_mem("mem0")
+        self.init_mem0 = make_mem("init_mem0")
 
     def load_binary(self, filename):
         self.proj = angr.Project(filename, load_debug_info=True)
@@ -49,12 +64,18 @@ class PropertyBuilder():
         angr.types.register_types(types)
         self.defns = defns
 
+    def cast(self, value, typ, prefix="", suffix=""):
+        mem = make_mem(prefix+"mem"+suffix)
+        le = self.proj.arch.memory_endness == 'Iend_LE'
+        value = z3.Extract(typ.size - 1, 0, value)
+        return TypedView(value, typ, le=le, mem=mem)
+
     def fun_args(self, func, prefix="", suffix=""):
         funsig = self.defns[func]
         funsig = funsig.with_arch(self.proj.arch)
         # stack args not supported yet
         assert len(funsig.args) <= len(self.cc.ARG_REGS)
-        return [z3.Extract(arg.size - 1, 0, z3.BitVec(prefix + reg.upper() + suffix, 64)) for arg, reg in zip(funsig.args, self.cc.ARG_REGS)]
+        return [self.cast(z3.BitVec(prefix + reg.upper() + suffix, 64), typ, prefix=prefix, suffix=suffix) for typ, reg in zip(funsig.args, self.cc.ARG_REGS)]
 
     def init_fun_args(self, func):
         return self.fun_args(func, prefix="init_")
@@ -63,4 +84,4 @@ class PropertyBuilder():
         funsig = self.defns[func]
         funsig = funsig.with_arch(self.proj.arch)
         reg = self.cc.RETURN_VAL.reg_name
-        return z3.Extract(funsig.returnty.size - 1, 0, z3.BitVec(reg.upper(), 64))
+        return self.cast(z3.BitVec(reg.upper(), 64), funsig.returnty)
