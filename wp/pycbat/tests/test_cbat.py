@@ -61,11 +61,11 @@ def test3():
 
 
 def test4():
-    pb = PropertyBuilder(binary="resources/test4.o",
+    pb = PropertyBuilder(binary="resources/test4.o", func="foo",
                          headers="int foo(int x, char y);")
-    x, y = pb.fun_args("foo")
-    init_x, init_y = pb.init_fun_args("foo")
-    retval = pb.ret_val("foo")
+    x, y = pb.fun_args()
+    init_x, init_y = pb.init_fun_args()
+    retval = pb.ret_val()
     # This is using bitvector semantic. Not C int semantics. Sigh. Since I'm pretending, this is confusing.
     postcond = retval == init_x + 3
     precond = None
@@ -89,10 +89,11 @@ def test5():
 
       int foo(mystruct *x, char y);
       '''
-    pb = PropertyBuilder(binary="resources/test5.o", headers=header)
-    x, y = pb.fun_args("foo")
-    init_x, init_y = pb.init_fun_args("foo")
-    retval = pb.ret_val("foo")
+    pb = PropertyBuilder(binary="resources/test5.o",
+                         func="foo", headers=header)
+    x, y = pb.fun_args()
+    init_x, init_y = pb.init_fun_args()
+    retval = pb.ret_val()
     postcond = retval.value == init_x.deref()["f1"].value + 3
     (res, model) = run_wp("resources/test5.o", func="foo",
                           postcond=postcond, docker_image=None)
@@ -111,7 +112,19 @@ def test5():
     assert res == z3.unsat
 
 
+def test_compare():
+    header = "int foo(int x);"
+    pb = PropertyBuilder(binary="resources/test6_1.o",
+                         binary2="resources/test6_2.o", func="foo", headers=header)
+    retorig = pb.ret_val_orig()
+    retmod = pb.ret_val_mod()
+    pb.add_post(retmod.value == retorig.value + 1)
+    (res, s) = pb.run_wp()
+    assert res == z3.unsat
+
+
 # I dunno. Something weird is going on with pytest and IO.
+test_compare()
 test5()
 test4()
 test1()

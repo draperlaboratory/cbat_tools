@@ -2,7 +2,7 @@ import subprocess
 import z3
 
 
-def run_wp(filename, filename2=None,  func="main", invariants=[], debug=False, precond=None, postcond=None, docker_image="philzook58/cbat_min", **kwargs):
+def run_wp(filename, filename2=None,  func="main", invariants=[], debug=False, precond=None, postcond=None, docker_image=None, **kwargs):
     cmd = ["bap", "wp", "--no-cache",
            "--show", "precond-smtlib", "--func", func]
     if precond != None:
@@ -16,7 +16,7 @@ def run_wp(filename, filename2=None,  func="main", invariants=[], debug=False, p
     # forward kwargs. Typo unfriendly
     # TODO: fill out other allowed flags
     flags = ["check-invalid-derefs", "check-null-derefs"]
-    assert all(k in flags for k in kwargs.keys())
+    assert all(k in flags for k in kwargs.keys()), kwargs
     cmd += [f"--{k}" for k,
             v in kwargs.items() if v == True and k in flags]
 
@@ -32,7 +32,12 @@ def run_wp(filename, filename2=None,  func="main", invariants=[], debug=False, p
     res = subprocess.run(cmd, check=False, capture_output=True)
     if debug:
         print(res.stderr)
-    smtlib = res.stdout.decode().split("Z3 :")[1]
+    smt = res.stdout.decode().split("Z3 :")
+    if len(smt) != 2:
+        print("SMT formula extraction failed", smt)
+        print(res.stderr)
+        assert False
+    smtlib = smt[1]
     s = z3.Solver()
     s.from_string(smtlib)
     if debug:
