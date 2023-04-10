@@ -114,5 +114,5 @@ class PropertyBuilder():
     def add_post(self, post):
         self.posts.append(post)
 
-    def run_wp(self):
-        return run_wp(self.binary, func=self.func, filename2=self.binary2, postcond=z3.And(self.posts))
+    def run_wp(self, **kwargs):
+        return run_wp(self.binary, func=self.func, filename2=self.binary2, postcond=z3.And(self.posts), **kwargs)

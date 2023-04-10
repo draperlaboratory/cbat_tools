@@ -2,7 +2,8 @@ import subprocess
 import z3
 
 
-def run_wp(filename, filename2=None,  func="main", invariants=[], debug=False, precond=None, postcond=None, docker_image=None, **kwargs):
+def run_wp(filename, filename2=None,  func="main", invariants=[], debug=False, precond=None, postcond=None, docker_image=None, inline=None, **kwargs):
+    '''Simple wrapper around cbat cli. For more information about the options, see `bap wp --help`'''
     cmd = ["bap", "wp", "--no-cache",
            "--show", "precond-smtlib", "--func", func]
     if precond != None:
@@ -11,6 +12,9 @@ def run_wp(filename, filename2=None,  func="main", invariants=[], debug=False, p
     if postcond != None:
         cmd.append("--postcond")
         cmd.append("(assert " + postcond.sexpr() + ")")
+    if inline != None:
+        cmd.append("--inline")
+        cmd.append(inline)
     # TODO: Fill out invariants
 
     # forward kwargs. Typo unfriendly
