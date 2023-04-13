@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cbat"
+version = "0.0.1"
+authors = [
+  { name="Philip Zucker", email="pzucker@draper.com" },
+]
+description = "Comparative Binary Analysis Tool"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/draperlaboratory/cbat_tools"
