@@ -11,6 +11,10 @@ JOBS=1
 # Default timeout in seconds
 TIMEOUT=1000
 
+# By default, don't print any diagnostics
+DIAGNOSTICS=false
+RESULTS="/dev/null"
+
 BINARIES=()
 
 # Prints out the help/usage message.
@@ -26,11 +30,12 @@ function print_help() {
   printf '\t%-3s%s\n' " " "the original binary, checks if that same address is"
   printf '\t%-3s%s\n' " " "at a valid location in the modified binary."
   printf '\nUsage:\n%s ' "$(basename $0)"
-  printf '%s\n' "[-j|--jobs] [-t|--timeout] [-o|--output] -- <original> <modified>"
+  printf '%s\n' "[-j|--jobs] [-t|--timeout] [-o|--output] [-d|--diagnostics] -- <original> <modified>"
   printf '\t%s\n' "- jobs: How many jobs to run in parallel (default: 1)"
   printf '\t%s\n' "- timeout: Timeout for each job (default: 1000s)"
   printf '\t%s\n' "- output: Location of logs and results of each subroutine"
   printf '\t%-10s%s\n' " " "(default: output-<date>)"
+  printf '\t%s\n' "- diagnostics: If set, stores the diagnostics of each WP run."
 }
 
 # Parse CLI for overriding default options.
@@ -50,6 +55,10 @@ function parse_command_line() {
       -o | --output)
         OUTPUT="$2"
         shift
+        shift
+        ;;
+      -d | --diagnostics)
+        DIAGNOSTICS=true
         shift
         ;;
       -h | --help)
@@ -86,18 +95,21 @@ function check_binaries() {
   fi
 }
 
+# Checks if the user wants to output diagnostics
+function check_diagnostics() {
+  if $DIAGNOSTICS; then
+    RESULTS_DIR=$OUTPUT/diagnostics
+    RESULTS="$RESULTS_DIR/{}"
+    mkdir $RESULTS_DIR
+  fi
+}
+
 # Generate a list of all subroutines in the original binary
 # (except those of the form sub_* and %abcd1234).
 function get_all_subs() {
   bap -dsymbols --no-byteweight ${BINARIES[0]} \
     | sed -r 's/\s*$//g; /^sub_[0-9a-f]+$/d; /^\%[0-9a-f]+$/d;' \
     > $NAMES
-}
-
-# Looks at the results from the previous run and creates a list of subroutines
-# that resulted in SAT or UNKNOWN.
-function get_sats_and_unknowns() {
-  grep -L '^UNSAT!$' $RESULTS/* | xargs -L 1 basename
 }
 
 # Run WP on the first subroutine of the binaries to prime the cache. Note there
@@ -124,7 +136,7 @@ function run() {
     --compare-post-reg-values=R12,R13,R14,R15,RBX,RSP,RBP,RAX \
     --rewrite-addresses \
     --check-invalid-derefs \
-    ${BINARIES[0]} ${BINARIES[1]} > $RESULTS/{} 2>&1"
+    ${BINARIES[0]} ${BINARIES[1]} > $RESULTS 2>&1"
 }
 
 # Prints out the number of each result from the run.
@@ -165,10 +177,11 @@ check_binaries
 
 NAMES=$OUTPUT/names.txt
 LOGS=$OUTPUT/logs
-RESULTS=$OUTPUT/results
 STATS=$OUTPUT/stats.txt
 
-mkdir -p $OUTPUT $LOGS $RESULTS
+mkdir -p $OUTPUT $LOGS
+
+check_diagnostics
 
 echo "Comparing '${BINARIES[0]}' and '${BINARIES[1]}'." | tee -a $STATS
 
